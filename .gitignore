@@ -15,3 +15,7 @@ Snap.*
 # maven
 /*/target/
 /target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
