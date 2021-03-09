@@ -1,4 +1,4 @@
-/*/bin/
+bin/
 *~
 *.rej
 *.bak
@@ -7,10 +7,10 @@ javacore.*
 heapdump.*
 core.*
 Snap.*
-/*/bin-resources/
-/*/binext/
-/*/binprocessors/
-/*/antbin/
+bin-resources/
+binext/
+binprocessors/
+antbin/
 
 # maven
 /*/target/
@@ -19,3 +19,6 @@ Snap.*
 # IntelliJ IDEA
 .idea/
 *.iml
+
+# Symlink to ../org.eclipse.jdt.compiler.apt/src
+org.eclipse.jdt.core/apt
