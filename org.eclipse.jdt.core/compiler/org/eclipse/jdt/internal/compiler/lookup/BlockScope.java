@@ -1,3 +1,4 @@
+//AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -890,7 +891,11 @@ public Object[] getEmulationPath(ReferenceBinding targetEnclosingType, boolean o
 	}
 	if (sourceType.isAnonymousType()) {
 		ReferenceBinding enclosingType = sourceType.enclosingType();
-		if (enclosingType.isNestedType()) {
+		if (enclosingType.isNestedType()
+				// AspectJ start - 343042
+				&& (enclosingType instanceof NestedTypeBinding)
+				// AspectJ end
+				) {
 			NestedTypeBinding nestedEnclosingType = (NestedTypeBinding) enclosingType;
 			SyntheticArgumentBinding enclosingArgument = nestedEnclosingType.getSyntheticArgument(nestedEnclosingType.enclosingType(), onlyExactMatch, currentMethodScope.isConstructorCall);
 			if (enclosingArgument != null) {

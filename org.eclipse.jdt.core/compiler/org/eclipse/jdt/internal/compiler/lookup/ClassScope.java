@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -121,6 +122,13 @@ public class ClassScope extends Scope {
 				}
 			}
 		}
+		// AspectJ Extension - pr171042 - use the same memberFinder for anonymous inner types so that
+		// any ITDs inherited from the superType can be used to satisfy methods inherited from other
+		// routes
+		if (supertype instanceof SourceTypeBinding) {
+			referenceContext.binding.memberFinder = ((SourceTypeBinding) supertype).memberFinder;
+		}
+		// End AspectJ Extension
 		connectMemberTypes();
 		buildFieldsAndMethods();
 		anonymousType.faultInTypesForFieldsAndMethods();
@@ -190,6 +198,11 @@ public class ClassScope extends Scope {
 	}
 
 	void buildFieldsAndMethods() {
+		
+		// AspectJ Extension
+		postParse();
+		// End AspectJ Extension
+		
 		buildFields();
 		buildMethods();
 
@@ -205,6 +218,17 @@ public class ClassScope extends Scope {
 			 ((SourceTypeBinding) memberTypes[i]).scope.buildFieldsAndMethods();
 	}
 
+	// AspectJ Extension
+	private void postParse() {
+		TypeDeclaration typeDec = referenceContext;
+		AbstractMethodDeclaration[] methods = typeDec.methods;
+		if (methods == null) return;
+		for (int i=0, len=methods.length; i < len; i++) {
+			methods[i].postParse(typeDec);
+		}
+	}
+	// End AspectJ Extension
+	
 	private LocalTypeBinding buildLocalType(SourceTypeBinding enclosingType, PackageBinding packageBinding) {
 
 		this.referenceContext.scope = this;
@@ -314,7 +338,8 @@ public class ClassScope extends Scope {
 				}
 
 				ClassScope memberScope = new ClassScope(this, memberContext);
-				memberTypeBindings[count++] = memberScope.buildType(sourceType, sourceType.fPackage, accessRestriction);
+				// Aspectj change - pass in extra parameter
+				memberTypeBindings[count++] = memberScope.buildType(sourceType, sourceType.fPackage, accessRestriction,memberContext.alternativeName());
 			}
 			if (count != length)
 				System.arraycopy(memberTypeBindings, 0, memberTypeBindings = new ReferenceBinding[count], 0, count);
@@ -407,8 +432,16 @@ public class ClassScope extends Scope {
 			((SyntheticMethodBinding)methodBindings[1]).markNonNull(environment);
 		}
 	}
-
+	// AspectJ start - replace original method with one simply passing null to new variant
 	SourceTypeBinding buildType(SourceTypeBinding enclosingType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
+		return buildType(enclosingType,packageBinding,accessRestriction,null);
+	}
+	// AspectJ end
+		
+	// AspectJ change - extra parameter alternativeName
+	SourceTypeBinding buildType(SourceTypeBinding enclosingType, PackageBinding packageBinding, AccessRestriction accessRestriction,char[] alternativeName) {
+
+//	SourceTypeBinding buildType(SourceTypeBinding enclosingType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
 		// provide the typeDeclaration with needed scopes
 		this.referenceContext.scope = this;
 		this.referenceContext.staticInitializerScope = new MethodScope(this, this.referenceContext, true);
@@ -419,11 +452,32 @@ public class ClassScope extends Scope {
 			this.referenceContext.binding = new SourceTypeBinding(className, packageBinding, this);
 		} else {
 			char[][] className = CharOperation.deepCopy(enclosingType.compoundName);
+			// AspectJ start - based on alternative name (for itd inners, do something different here:
+			/* was {
 			className[className.length - 1] =
 				CharOperation.concat(className[className.length - 1], this.referenceContext.name, '$');
-			if (packageBinding.hasType0Any(className[className.length - 1])) {
+			*/// now:
+			if (alternativeName == null) {
+				className[className.length - 1] = CharOperation.concat(className[className.length - 1], this.referenceContext.name, '$');
+			} else {
+				if (CharOperation.contains('.', alternativeName)) {
+					className = CharOperation.splitOn('.', alternativeName);
+					className[className.length - 1] = CharOperation.concat(className[className.length - 1], this.referenceContext.name, '$');
+				} else {
+					className[className.length - 1] = CharOperation.concat(alternativeName, this.referenceContext.name, '$');
+				}
+			}
+			// AspectJ end
+
+			ReferenceBinding existingType = packageBinding.getType0(className[className.length - 1]);
+			if (existingType != null) {
+				if (existingType instanceof UnresolvedReferenceBinding) {
+					// its possible that a BinaryType referenced the member type before its enclosing source type was built
+					// so just replace the unresolved type with a new member type
+				} else {
 				// report the error against the parent - its still safe to answer the member type
 				this.parent.problemReporter().duplicateNestedType(this.referenceContext);
+			}
 			}
 			this.referenceContext.binding = new MemberTypeBinding(className, this, enclosingType);
 		}
@@ -1269,6 +1323,8 @@ public class ClassScope extends Scope {
 		// Reinstate the code deleted by the fix for https://bugs.eclipse.org/bugs/show_bug.cgi?id=205235
 		// For details, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=294057.
 		if ((superType.tagBits & TagBits.BeginHierarchyCheck) == 0 && superType instanceof SourceTypeBinding)
+			// AspectJ Extension, we hacked the hierarchy of BinaryTypeBinding and here we pay the price
+			if (! (superType instanceof BinaryTypeBinding)) 
 			// ensure if this is a source superclass that it has already been checked
 			((SourceTypeBinding) superType).scope.connectTypeHierarchyWithoutMembers();
 
@@ -1472,4 +1528,15 @@ public class ClassScope extends Scope {
 							+ this.referenceContext.binding.toString();
 		return "--- Class Scope ---\n\n Binding not initialized" ; //$NON-NLS-1$
 	}
+	
+	// AspectJ Extension - hooks for subclasses to override
+	public int addDepth() {
+		return 1;
+    }
+    
+	@Override
+	public SourceTypeBinding invocationType() {
+		return referenceContext.binding;
+	}
+	//	End AspectJ Extension
 }

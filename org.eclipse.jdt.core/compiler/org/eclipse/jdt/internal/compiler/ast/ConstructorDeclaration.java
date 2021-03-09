@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -373,7 +374,7 @@ public void generateSyntheticFieldInitializationsIfNecessary(MethodScope methodS
 private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 	classFile.generateMethodInfoHeader(this.binding);
 	int methodAttributeOffset = classFile.contentsOffset;
-	int attributeNumber = classFile.generateMethodInfoAttributes(this.binding);
+	int attributeNumber = generateInfoAttributes(classFile); // AspectJ Extension - moved code to helper, was 'classFile.generateMethodInfoAttribute(this.binding)'
 	if ((!this.binding.isNative()) && (!this.binding.isAbstract())) {
 
 		TypeDeclaration declaringType = classScope.referenceContext;
@@ -523,6 +524,10 @@ public boolean isRecursive(ArrayList visited) {
 		((ConstructorDeclaration)this.scope.referenceType().declarationOf(this.constructorCall.binding.original()));
 	if (targetConstructor == null) return false; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=358762
 	if (this == targetConstructor) return true; // direct case
+
+	// AspectJ Extension
+	if (targetConstructor == null) return false; // aj fun
+	// End AspectJ Extension
 
 	if (visited == null) { // lazy allocation
 		visited = new ArrayList(1);

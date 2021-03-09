@@ -47,16 +47,34 @@ public class HookedJavaFileObject extends
 		}
 		@Override
 		public Writer append(char c) throws IOException {
+			// AspectJ Extension
+			/* old {
 			return _w.append(c);
+			} new */
+			_w.append(c);
+			return this;
+			// End AspectJ Extension
 		}
 		@Override
 		public Writer append(CharSequence csq, int start, int end)
 				throws IOException {
+			// AspectJ Extension
+			/* old {
 			return _w.append(csq, start, end);
+			} new */
+			_w.append(csq, start, end);
+			return this;
+			// End AspectJ Extension
 		}
 		@Override
 		public Writer append(CharSequence csq) throws IOException {
+			// AspectJ Extension
+			/* old {
 			return _w.append(csq);
+			} new */
+			_w.append(csq);
+			return this;
+			// End AspectJ Extension
 		}
 		// This is the only interesting method - it has to notify the
 		// dispatch manager of the new file.

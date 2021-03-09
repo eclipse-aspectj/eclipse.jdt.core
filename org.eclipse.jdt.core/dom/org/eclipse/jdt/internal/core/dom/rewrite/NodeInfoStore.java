@@ -143,7 +143,8 @@ public final class NodeInfoStore {
 		// base class
 	}
 
-	protected static final class CopyPlaceholderData extends PlaceholderData {
+	// AspectJ extension - raised visibility to public 
+	public /*protected*/ static final class CopyPlaceholderData extends PlaceholderData {
 		public CopySourceInfo copySource;
 		@Override
 		public String toString() {
@@ -151,7 +152,8 @@ public final class NodeInfoStore {
 		}
 	}
 
-	protected static final class StringPlaceholderData extends PlaceholderData {
+    // AspectJ extension - raised visibility to public 
+	public /*protected*/ static final class StringPlaceholderData extends PlaceholderData {
 		public String code;
 		@Override
 		public String toString() {

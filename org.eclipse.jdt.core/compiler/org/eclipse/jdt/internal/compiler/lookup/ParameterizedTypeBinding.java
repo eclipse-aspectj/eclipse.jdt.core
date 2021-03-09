@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2005, 2020 IBM Corporation and others.
  *
@@ -67,7 +68,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeConstants.BoundCheckStatus;
  */
 public class ParameterizedTypeBinding extends ReferenceBinding implements Substitution {
 
-	protected ReferenceBinding type; // must ensure the type is resolved
+	public ReferenceBinding type; // must ensure the type is resolved  // AspectJ Extension - raised to public
 	public TypeBinding[] arguments;
 	public LookupEnvironment environment;
 	public char[] genericTypeSignature;
@@ -717,8 +718,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	 /**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding#getExactMethod(char[], TypeBinding[],CompilationUnitScope)
 	 */
-	@Override
-	public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes, CompilationUnitScope refScope) {
+	public MethodBinding getExactMethodBase(char[] selector, TypeBinding[] argumentTypes, CompilationUnitScope refScope) { 	 // AspectJ Extension - suffix Base added to method name	
 		// sender from refScope calls recordTypeReference(this)
 		int argCount = argumentTypes.length;
 		boolean foundNothing = true;
@@ -797,8 +797,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding#getMethods(char[])
 	 */
-	@Override
-	public MethodBinding[] getMethods(char[] selector) {
+	public MethodBinding[] getMethodsBase(char[] selector) { // AspectJ Extension - added method name suffix 'Base'
 		if (this.methods != null) {
 			long range;
 			if ((range = ReferenceBinding.binarySearch(selector, this.methods)) >= 0) {
@@ -1752,4 +1751,54 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 				this.tagBits |= argument.updateTagBits();
 		return super.updateTagBits();
 	}
+	// AspectJ extension - delegate to the source type (the generic type) as it has a memberFinder for resolving ITDs
+		@Override
+		public FieldBinding getField(char[] fieldName, boolean resolve, InvocationSite site, Scope scope) {
+			FieldBinding fb = null;
+	        fb = super.getField(fieldName, resolve, site, scope); // Check this parameterized type
+			if (fb==null) {
+				fb = this.type.getField(fieldName,resolve,site,scope); // Not found? then check the generic type, this may discover ITDs
+				if (fb!=null) return new ParameterizedFieldBinding(this,fb);
+			}
+			return fb;
+	    }
+	    
+		// Also renamed getExactMethod() in the original PTB class to getExactMethodBase
+		@Override
+		public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes, CompilationUnitScope refScope) {
+		  MethodBinding mb = null;
+		  mb = getExactMethodBase(selector,argumentTypes,refScope);
+	// pr296040
+//		  if (mb==null) {
+//			  mb = type.getExactMethod(selector,argumentTypes,refScope);
+//			  if (mb != null) return new ParameterizedMethodBinding(this,mb);
+//		  }
+		  return mb;
+		}
+		
+			
+		@Override
+		public MethodBinding[] getMethods(char[] selector) { 
+			MethodBinding[] mbs = null;
+			mbs = getMethodsBase(selector);
+			if (mbs==null || mbs.length==0) {
+				mbs = type.getMethods(selector); // ask the generic type which may return anything ITDd
+						
+				MethodBinding[] parameterizedMethods = null;
+			    // MethodBinding[] originalMethods = this.type.getMethods(selector);
+			    int length = mbs.length;
+			    if (length == 0) return Binding.NO_METHODS; 
+
+			    parameterizedMethods = new MethodBinding[length];
+			    for (int i = 0; i < length; i++) {
+			    	// substitute methods, so as to get updated declaring class at least
+		            parameterizedMethods[i] = createParameterizedMethod(mbs[i]);
+			    }
+			    return parameterizedMethods;
+			}
+			return mbs;
+		}
+		
+
+		// End AspectJ extension
 }

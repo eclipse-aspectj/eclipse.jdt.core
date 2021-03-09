@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -55,6 +56,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
+import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 
 /**
  * Reflects the context of code analysis, keeping track of enclosing
@@ -350,7 +352,14 @@ public void checkExceptionHandlers(TypeBinding raisedException, ASTNode location
 	if (isExceptionOnAutoClose) {
 		scope.problemReporter().unhandledExceptionFromAutoClose(raisedException, location);
 	} else {
-		scope.problemReporter().unhandledException(raisedException, location);
+		// New AspectJ Extension - see pr151772
+		// old code:
+		// scope.problemReporter().unhandledException(raisedException, location); 
+		// new code:
+		ProblemReporter problemReporter = scope.referenceCompilationUnit().problemReporter;
+		problemReporter.referenceContext = scope.referenceContext();
+		problemReporter.unhandledException(raisedException, location);
+		// AspectJ Extension End
 	}
 }
 
@@ -504,7 +513,12 @@ public void checkExceptionHandlers(TypeBinding[] raisedExceptions, ASTNode locat
 			for (int j = 0; j < i; j++) {
 				if (TypeBinding.equalsEquals(raisedExceptions[j], exception)) continue nextReport; // already reported
 			}
-			scope.problemReporter().unhandledException(exception, location);
+			// AspectJ Extension Begin
+			// was scope.problemReporter().unhandledException(exception, location); see pr151772
+			ProblemReporter problemReporter = scope.referenceCompilationUnit().problemReporter;
+			problemReporter.referenceContext = scope.referenceContext();
+			problemReporter.unhandledException(exception, location);
+			// AspectJ Extension End
 		}
 	}
 }

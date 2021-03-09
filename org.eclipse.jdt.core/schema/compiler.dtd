@@ -69,8 +69,7 @@
 			   optionKey  CDATA #IMPLIED
 >
 <!ATTLIST classfile path CDATA #REQUIRED>
-<!ATTLIST error message CDATA #REQUIRED
-				path    CDATA #IMPLIED>
+<!ATTLIST error message CDATA #REQUIRED>
 <!ATTLIST warning message CDATA #REQUIRED>
 <!ATTLIST problem_summary problems CDATA #REQUIRED
                           errors   CDATA #REQUIRED

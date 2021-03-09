@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -732,12 +733,27 @@ public char[][] getInterfaceNames() {
 	return this.interfaceNames;
 }
 
+// AspectJ start - original method has added boolean parameter, this new one has the original signature and simply
+// passes in false.  This is all needed due to the support for inter type inner types
 @Override
 public IBinaryNestedType[] getMemberTypes() {
+	return getMemberTypes(false);
+}
+// AspectJ end
+
+/**
+ * Answer the receiver's nested types or null if the array is empty.
+ *
+ * This nested type info is extracted from the inner class attributes. Ask the
+ * name environment to find a member type using its compound name
+ *
+ * @return org.eclipse.jdt.internal.compiler.api.IBinaryNestedType[]
+ */
+public IBinaryNestedType[] getMemberTypes(boolean keepIncorrectlyNamedInners) { // Aspectj extension - added boolean param
 	// we might have some member types of the current type
 	if (this.innerInfos == null) return null;
 
-	int length = this.innerInfos.length - (this.innerInfo != null ? 1 : 0);
+	int length = this.innerInfos.length;// - (this.innerInfo != null ? 1 : 0); // AspectJ remove this clause we want to see all of them (conditions below will decide what we really need)
 	if (length != 0) {
 		IBinaryNestedType[] memberTypes =
 				new IBinaryNestedType[length];
@@ -760,7 +776,11 @@ public IBinaryNestedType[] getMemberTypes() {
 			 */
 			if (outerClassNameIdx != 0
 				&& innerNameIndex != 0
-				&& outerClassNameIdx == this.classNameIndex
+				// AspectJ change:
+				// was: && outerClassNameIdx == this.classNameIndex
+				// now:
+				&& (keepIncorrectlyNamedInners || outerClassNameIdx == this.classNameIndex)
+				// AspectJ end
 				&& currentInnerInfo.getSourceName().length != 0) {
 				memberTypes[memberTypeIndex++] = currentInnerInfo;
 			}
@@ -1412,7 +1432,9 @@ public String toString() {
 	return out.toString();
 }
 
-public boolean isRecord() {
-	return this.isRecord;
+// AspectJ Extension
+public byte[] getReferenceBytes() {
+	return reference;
 }
+// End AspectJ Extension
 }

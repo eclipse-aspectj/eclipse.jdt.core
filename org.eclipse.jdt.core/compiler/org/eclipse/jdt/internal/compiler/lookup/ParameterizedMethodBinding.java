@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2017 IBM Corporation and others.
  *
@@ -21,6 +22,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
@@ -362,4 +364,29 @@ public class ParameterizedMethodBinding extends MethodBinding {
 	public MethodBinding shallowOriginal() {
 		return this.originalMethod;
 	}
+	
+	// AspectJ Extension - delegate to the original method
+	
+	@Override
+	public boolean alwaysNeedsAccessMethod() {
+		return originalMethod.alwaysNeedsAccessMethod();
+	}
+
+	@Override
+	public boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSite, Scope scope) {
+		if (alwaysNeedsAccessMethod()) return originalMethod.canBeSeenBy(receiverType,invocationSite,scope);
+		else                           return super.canBeSeenBy(receiverType,invocationSite,scope);
+	}
+
+	@Override
+	public MethodBinding getAccessMethod(boolean staticReference) {
+		return originalMethod.getAccessMethod(staticReference);
+	}
+	
+	@Override
+	public AbstractMethodDeclaration sourceMethod() {
+		return originalMethod.sourceMethod();
+	}
+	
+	// End AspectJ Extension
 }

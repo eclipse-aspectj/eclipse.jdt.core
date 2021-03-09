@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2018 IBM Corporation and others.
  *
@@ -10,6 +11,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Palo Alto Research Center, Incorporated - AspectJ adaptation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
  *     							bug 185682 - Increment/decrement operators mark local variables as read
  *								bug 186342 - [compiler][null] Using annotations for null checking
@@ -896,6 +898,36 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
  * index is <0 to denote write access emulation
  */
 public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FieldBinding fieldBinding, int index, FlowInfo flowInfo) {
+	
+	 //	AspectJ Extension
+	if (index < 0) {
+		if (fieldBinding.alwaysNeedsAccessMethod(false)) {
+			SyntheticMethodBinding newBinding = fieldBinding.getAccessMethod(false);
+			setSyntheticAccessor(fieldBinding,index,newBinding);
+//			FieldBinding originalField = fieldBinding.original();
+			// dont seem to need in e37
+//				if (originalField != fieldBinding) {
+//					// was setCodeGenBinding MERGECONFLICT
+////					setGenericCast(index < 0 ? (this.otherBindings == null ? 0 : this.otherBindings.length) : index, originalField);
+//				}
+			return;
+		}
+	} else {
+		if (fieldBinding.alwaysNeedsAccessMethod(true)) {
+			SyntheticMethodBinding newBinding = fieldBinding.getAccessMethod(true);
+			setSyntheticAccessor(fieldBinding,index,newBinding);
+//			FieldBinding originalField = fieldBinding.original();
+			// dont seem to need in e37
+//				if (originalField != fieldBinding) {
+//					throw new IllegalStateException("wtf");
+//					// was setCodeGenBinding MERGECONFLICT
+////					setGenericCast(index < 0 ? (this.otherBindings == null ? 0 : this.otherBindings.length) : index, originalField);
+//				}
+			return;
+		}
+	}
+	// End AspectJ Extension
+	
 	if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) != 0) return;
 	// index == 0 denotes the first fieldBinding, index > 0 denotes one of the 'otherBindings', index < 0 denotes a write access (to last binding)
 	if (fieldBinding.constant(currentScope) != Constant.NotAConstant)
@@ -1017,10 +1049,12 @@ public TypeBinding reportError(BlockScope scope) {
 
 @Override
 public TypeBinding resolveType(BlockScope scope) {
+    if (resolvedType != null) return resolvedType; // already done it! // AspectJ Extension - prevents erroring when
+                                                    // called twice
 	// field and/or local are done before type lookups
 	// the only available value for the restrictiveFlag BEFORE
 	// the TC is Flag_Type Flag_LocalField and Flag_TypeLocalField
-	this.actualReceiverType = scope.enclosingReceiverType();
+	this.actualReceiverType = scope.enclosingSourceType();// invocationType();// AspectJ Extension - was enclosingReceiverType()
 	this.constant = Constant.NotAConstant;
 	if ((this.binding = scope.getBinding(this.tokens, this.bits & ASTNode.RestrictiveFlagMASK, this, true /*resolve*/)).isValidBinding()) {
 		switch (this.bits & ASTNode.RestrictiveFlagMASK) {

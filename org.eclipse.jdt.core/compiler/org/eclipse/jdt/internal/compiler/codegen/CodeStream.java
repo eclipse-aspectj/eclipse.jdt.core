@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -3713,6 +3714,14 @@ public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, Fiel
 					&& constantPoolDeclaringClass.id != TypeIds.T_JavaLangObject) // no change for Object fields
 				|| !constantPoolDeclaringClass.canBeSeenBy(currentScope)) {
 
+			// AspectJ Extension for inter-type scopes
+			if (codegenBinding.isStatic() && (codegenBinding.declaringClass.canBeSeenBy(currentScope))) {
+				ReferenceBinding rb = (ReferenceBinding) actualReceiverType.erasure();
+				FieldBinding b = rb.getField(codegenBinding.name, false);
+				if (b == null) return constantPoolDeclaringClass;  // field was visible in inter-type scope and is not on actualReceiverType, so don't avoid returning actualReceiverType
+			}
+			// End AspectJ Extension
+
 			return actualReceiverType.erasure();
 		}
 	}
@@ -6216,7 +6225,8 @@ public final void load(LocalVariableBinding localBinding) {
 	load(localBinding.type, localBinding.resolvedPosition);
 }
 
-protected final void load(TypeBinding typeBinding, int resolvedPosition) {
+//AspectJ Extension - raised to public
+public final void load(TypeBinding typeBinding, int resolvedPosition) {
 	this.countLabels = 0;
 	// Using dedicated int bytecode
 	switch(typeBinding.id) {

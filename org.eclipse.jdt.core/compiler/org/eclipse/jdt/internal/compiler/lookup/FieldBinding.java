@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -49,7 +50,7 @@ public FieldBinding(FieldBinding initialFieldBinding, ReferenceBinding declaring
 	super(initialFieldBinding.name, initialFieldBinding.type, initialFieldBinding.modifiers, initialFieldBinding.constant());
 	this.declaringClass = declaringClass;
 	this.id = initialFieldBinding.id;
-	setAnnotations(initialFieldBinding.getAnnotations(), false);
+    if (declaringClass!=null) setAnnotations(initialFieldBinding.getAnnotations(), false);	// New AspectJ Extension - null guard
 }
 /* API
 * Answer the receiver's binding type from Binding.BindingID.
@@ -72,11 +73,11 @@ public final boolean canBeSeenBy(PackageBinding invocationPackage) {
 *
 * NOTE: Cannot invoke this method with a compilation unit scope.
 */
-
-public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSite, Scope scope) {
+//AspectJ Extension made non-final for AspectJ
+public boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSite, Scope scope) {
 	if (isPublic()) return true;
 
-	SourceTypeBinding invocationType = scope.enclosingSourceType();
+	SourceTypeBinding invocationType = scope.invocationType(); // AspectJ Extension, was enclosingSourceType()
 	if (TypeBinding.equalsEquals(invocationType, this.declaringClass) && TypeBinding.equalsEquals(invocationType, receiverType)) return true;
 
 	if (invocationType == null) // static import call
@@ -444,4 +445,31 @@ public FieldDeclaration sourceField() {
 	}
 	return null;
 }
+
+// AspectJ Extension
+public boolean alwaysNeedsAccessMethod(boolean isReadAccess) { return false; }
+public SyntheticMethodBinding getAccessMethod(boolean isReadAccess) {
+	throw new RuntimeException("unimplemented");
+}
+
+public FieldBinding getFieldBindingForLookup() { return this; }
+
+public FieldBinding getVisibleBinding(TypeBinding receiverType, InvocationSite invocationSite, Scope scope) {
+	boolean isVisible = (invocationSite==null?
+            canBeSeenBy(scope.getCurrentPackage()):
+            canBeSeenBy(receiverType,invocationSite,scope));
+	if (isVisible) return this;
+	return findPrivilegedBinding(scope.invocationType(), (ASTNode)invocationSite);
+}
+
+
+public FieldBinding findPrivilegedBinding(SourceTypeBinding invocationType, ASTNode location) {
+	if (Scope.findPrivilegedHandler(invocationType) != null) {
+		return Scope.findPrivilegedHandler(invocationType).getPrivilegedAccessField(this, location); //notePrivilegedTypeAccess(this, null);
+	} else {
+		return null;
+	}
+}
+// End AspectJ Extension
+
 }

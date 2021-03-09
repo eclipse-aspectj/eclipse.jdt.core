@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2017 IBM Corporation and others.
  *
@@ -132,6 +133,10 @@ private int computePriority(CategorizedProblem problem){
 	} else {
 		priority += P_OUTSIDE_METHOD;
 	}
+	if (this.firstErrors!=null && // AspectJ Extension - too many routes get us to here with a null firstErrors 
+			this.firstErrors.contains(problem)){
+			priority += P_FIRST_ERROR;
+		}
 	return priority;
 }
 
@@ -415,9 +420,11 @@ ReferenceContext getContext(CategorizedProblem problem) {
  */
 public void record(char[] typeName, ClassFile classFile) {
     SourceTypeBinding sourceType = classFile.referenceBinding;
-    if (sourceType != null && !sourceType.isLocalType() && sourceType.isHierarchyInconsistent()) {
+    if (sourceType != null) { // AspectJ Extension - does this matter??
+    if (!sourceType.isLocalType() && sourceType.isHierarchyInconsistent()) {
         this.hasInconsistentToplevelHierarchies = true;
     }
+    } // End AspectJ Extension - complete new if()
 	this.compiledTypes.put(typeName, classFile);
 }
 
@@ -471,4 +478,57 @@ public String toString(){
 	}
 	return buffer.toString();
 }
+
+	// AspectJ Extension
+	private boolean fromBinarySource = false;
+	public boolean isFromBinarySource() { return fromBinarySource; }
+	public void noSourceAvailable() { fromBinarySource = true; }
+	
+	/**
+	 * Can be used to tidy up the problems set, if a problem is accepted by the
+	 * filter, it will be removed. Returns number of problems removed.
+	 */
+	public int removeProblems(ProblemsForRemovalFilter pf) {
+		if (problemCount==0) return 0;
+		
+		// Quick first pass - check if anything to do
+		boolean problemsNeedRemoving = false;
+		for (int i = 0; i < problemCount && !problemsNeedRemoving; i++) {
+			if (pf.accept(problems[i])) problemsNeedRemoving = true;
+        }
+		if (!problemsNeedRemoving) return 0;
+		
+		// Second pass, do the removal - is this expensive?
+		int removed = 0;
+		for (int i = 0; i < problemCount; i++) {
+			if (pf.accept(problems[i])) {
+			  if (problemsMap!=null) problemsMap.remove(problems[i]);
+			  if (firstErrors!=null) firstErrors.remove(problems[i]);
+			  problems[i] = null;
+			  removed++;
+			} 
+		}
+		if (removed > 0) {
+			for (int i = 0, index = 0; i < this.problemCount; i++) {
+				CategorizedProblem problem;
+				if ((problem = this.problems[i]) != null) {
+					if (i > index) {
+						this.problems[index++] = problem;
+					} else {
+						index++;
+					}
+				}
+			}
+			this.problemCount -= removed;
+		}
+		
+		// Don't adjust the array size as the same deows are likely just to get readded
+		// in the imminent weave...
+		return removed;
+	}
+	
+	public interface ProblemsForRemovalFilter {
+		boolean accept(IProblem p);
+	}
+	// End AspectJ Extension
 }

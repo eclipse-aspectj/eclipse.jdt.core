@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2004, 2014 IBM Corporation and others.
  *
@@ -26,6 +27,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.ChildListPropertyDescriptor;
 import org.eclipse.jdt.core.dom.ChildPropertyDescriptor;
@@ -301,7 +303,11 @@ public class ASTRewrite {
 		TargetSourceRangeComputer sourceRangeComputer= getExtendedSourceRangeComputer();
 		this.eventStore.prepareMovedNodes(sourceRangeComputer);
 
-		ASTRewriteAnalyzer visitor= new ASTRewriteAnalyzer(content, lineInfo, lineDelim, result, this.eventStore, this.nodeStore, commentNodes, options, sourceRangeComputer, recoveryScannerData);
+		// AspectJ extension - ask the factory in ASTRewriteAnalyzer for a visitor rather than building it directly.
+		// ASTRewriteAnalyzer visitor= new ASTRewriteAnalyzer(content, lineInfo, lineDelim, result, this.eventStore, this.nodeStore, commentNodes, options, sourceRangeComputer,recoveryScannerData);
+		ASTVisitor visitor = ASTRewriteAnalyzer.getAnalyzerVisitor(content, lineInfo, lineDelim, result, this.eventStore, this.nodeStore, commentNodes, options, sourceRangeComputer,recoveryScannerData);
+		// End AspectJ Extension
+
 		rootNode.accept(visitor); // throws IllegalArgumentException
 
 		this.eventStore.revertMovedNodes();

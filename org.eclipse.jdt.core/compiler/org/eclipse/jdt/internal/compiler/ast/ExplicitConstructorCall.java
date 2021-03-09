@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -10,6 +11,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Palo Alto Research Center, Incorporated - AspectJ adaptation
+
  *     Stephan Herrmann - Contributions for
  *								bug 319201 - [null] no warning when unboxing SingleNameReference causes NPE
  *								bug 186342 - [compiler][null] Using annotations for null checking
@@ -35,6 +38,7 @@ package org.eclipse.jdt.internal.compiler.ast;
 
 import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION_CONTEXT;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
@@ -248,6 +252,15 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 	}
 
 	public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo) {
+
+		// AspectJ Extension
+		if (binding.alwaysNeedsAccessMethod()) {
+			syntheticAccessor = binding.getAccessMethod(true);
+//			this.codegenBinding = this.binding.original();
+			return;
+		}
+		// End AspectJ Extension
+		
 		if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0)	{
 			// if constructor from parameterized type got found, use the original constructor at codegen time
 			MethodBinding codegenBinding = this.binding.original();
@@ -310,6 +323,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			if (methodDeclaration == null
 					|| !methodDeclaration.isConstructor()
 					|| ((ConstructorDeclaration) methodDeclaration).constructorCall != this) {
+						
+				//XXX Horrible AspectJ-specific hack
+				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension				
 				scope.problemReporter().invalidExplicitConstructorCall(this);
 				// fault-tolerance
 				if (this.qualification != null) {
@@ -326,6 +342,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					}
 				}
 				return;
+				} // AspectJ Extension - end of new if()
+
 			}
 			methodScope.isConstructorCall = true;
 			ReferenceBinding receiverType = scope.enclosingReceiverType();

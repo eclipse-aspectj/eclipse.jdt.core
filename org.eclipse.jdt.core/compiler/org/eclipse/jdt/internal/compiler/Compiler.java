@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2017 IBM Corporation and others.
  *
@@ -574,18 +575,19 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 								}));
 						process(unit, i);
 					} finally {
-						// cleanup compilation unit result, but only if not annotation processed.
-						if (this.annotationProcessorManager == null || shouldCleanup(i))
-							unit.cleanUp();
+						// cleanup compilation unit result
+						// if (this.annotationProcessorManager == null || shouldCleanup(i))
+						// unit.cleanUp(); // AspectJ Extension - moved to afterProcessing
 					}
-					if (this.annotationProcessorManager == null) {
-						this.unitsToProcess[i] = null; // release reference to processed unit declaration
-					}
-
+					// AspectJ Extension
+					// this.unitsToProcess[i] = null; // release reference to processed unit declaration
+					// AspectJ Extension end
 					reportWorked(1, i);
 					this.stats.lineCount += unit.compilationResult.lineSeparatorPositions.length;
 					long acceptStart = System.currentTimeMillis();
-					this.requestor.acceptResult(unit.compilationResult.tagAsAccepted());
+					// AspectJ Extension
+					// this.requestor.acceptResult(unit.compilationResult.tagAsAccepted());
+					// AspectJ Extension end
 					this.stats.generateTime += System.currentTimeMillis() - acceptStart; // record accept time as part of generation
 					if (this.options.verbose)
 						this.out.println(
@@ -645,7 +647,9 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 				processingTask.shutdown();
 				processingTask = null;
 			}
-			reset();
+			// AspectJ Extension - handled by CompilerAdapter
+			// reset();
+			// AspectJ Extension end
 			this.annotationProcessorStartIndex  = 0;
 			this.stats.endTime = System.currentTimeMillis();
 		}
@@ -691,8 +695,19 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 		}
 		if (result == null) {
 			synchronized (this) {
-				if (this.unitsToProcess != null && this.totalUnits > 0)
-					result = this.unitsToProcess[this.totalUnits - 1].compilationResult;
+				if (this.unitsToProcess != null && this.totalUnits > 0) {
+					// AspectJ Extension - pr242328 - replacing:
+					//  result = this.unitsToProcess[this.totalUnits - 1].compilationResult;
+					// with:
+					int i = totalUnits - 1;
+					while (result == null && i>=0) {
+						if (unitsToProcess[i]!=null) {
+							result = unitsToProcess[i].compilationResult;
+						}
+						i--;
+					}
+				}
+				// End AspectJ Extension
 			}
 		}
 		// last unit in beginToCompile ?
@@ -935,6 +950,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 	}
 
 	private void processAnnotationsInternal() {
+		try { // AspectJ
 		int newUnitSize = 0;
 		int newClassFilesSize = 0;
 		int bottom = this.annotationProcessorStartIndex;
@@ -1014,6 +1030,13 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 		}
 		// Units added in final round don't get annotation processed
 		this.annotationProcessorStartIndex = this.totalUnits;
+		// AspectJ - start
+		// Used to be done in reset calls above but if you do that
+		// the last processing round can't load new classes
+		} finally {
+			this.annotationProcessorManager.closeClassLoader();
+		}
+		// AspectJ - end
 	}
 
 	public void reset() {

@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -33,6 +34,7 @@ import org.eclipse.jdt.internal.compiler.flow.SwitchFlowContext;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
@@ -187,7 +189,14 @@ public class SwitchStatement extends Expression {
 
 			final TypeBinding resolvedTypeBinding = this.expression.resolvedType;
 			if (resolvedTypeBinding.isEnum()) {
-				final SourceTypeBinding sourceTypeBinding = currentScope.classScope().referenceContext.binding;
+				// AspectJ extension: pr108370
+				// was (in 33): this.scope.classScope().referenceContext.binding;,
+				// was (in 37):
+				// final SourceTypeBinding sourceTypeBinding = currentScope.classScope().referenceContext.binding;
+				// now:
+				ClassScope classScope = currentScope.classScope();
+				final SourceTypeBinding sourceTypeBinding = classScope.invocationType();
+				// AspectJ extension end
 				this.synthetic = sourceTypeBinding.addSyntheticMethodForSwitchEnum(resolvedTypeBinding, this);
 			}
 			// if no default case, then record it may jump over the block directly to the end

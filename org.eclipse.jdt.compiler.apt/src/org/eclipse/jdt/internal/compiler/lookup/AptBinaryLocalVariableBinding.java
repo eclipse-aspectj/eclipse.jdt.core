@@ -29,6 +29,7 @@ public class AptBinaryLocalVariableBinding extends LocalVariableBinding {
 		this.methodBinding = methodBinding;
 	}
 
+	@Override
 	public AnnotationBinding[] getAnnotations() {
 		return this.annotationBindings;
 	}

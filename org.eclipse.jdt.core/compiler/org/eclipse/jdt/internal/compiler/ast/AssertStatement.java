@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2013 IBM Corporation and others.
  *
@@ -189,7 +190,7 @@ public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo f
 	if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0) {
 		// need assertion flag: $assertionsDisabled on outer most source clas
 		// (in case of static member of interface, will use the outermost static member - bug 22334)
-		SourceTypeBinding outerMostClass = currentScope.enclosingSourceType();
+		SourceTypeBinding outerMostClass = currentScope.invocationType(); //AspectJ Extension - for inter-type declarations
 		while (outerMostClass.isLocalType()) {
 			ReferenceBinding enclosing = outerMostClass.enclosingType();
 			if (enclosing == null || enclosing.isInterface()) break;

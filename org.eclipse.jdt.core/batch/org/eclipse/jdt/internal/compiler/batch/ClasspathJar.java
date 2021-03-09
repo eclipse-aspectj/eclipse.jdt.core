@@ -1,3 +1,4 @@
+// AspectJ Extension
 /*******************************************************************************
  * Copyright (c) 2000, 2018 IBM Corporation and others.
  *
@@ -15,6 +16,9 @@
  *								Bug 440687 - [compiler][batch][null] improve command line option for external annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.batch;
+
+// this file has a number of changes made by ASC to prevent us from
+// leaking OS resources by keeping jars open longer than needed.
 
 import java.io.File;
 import java.io.IOException;
@@ -47,12 +51,42 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClasspathJar extends ClasspathLocation {
 
+	// AspectJ Extension
+	/**
+	 * ASC 23112004
+	 * These fields and related logic throughout the class enable us to cope with very long
+	 * classpaths.  Normally all the archives on the classpath were openede and left open
+	 * for the duration of a compile - this doesn't scale since you will start running out
+	 * of file handles when you have extremely long classpaths (e.g. 4000 jars).  These
+	 * fields enable us to keep track of how many are currently open and if you attempt to
+	 * open more than some defined limit, it will close some that you haven't used for a
+	 * while before opening the new one.  The limit is tailorable through the
+	 *   org.aspectj.weaver.openarchives
+	 * system property, the default is 1000 which means most users will never exercise
+	 * this logic.  The only change outside of this class related to this feature is that
+	 * the FileSystem class now constructs a ClasspathJar object by passing in a File
+	 * rather than a ZipFile - it is then the responsibility of this class to
+	 * open and manage the ZipFile.
+	 */
+	private static int maxOpenArchives = 1000;
+	private final static int MAXOPEN_DEFAULT = 1000;
+    private static List openArchives = new ArrayList();
+	// End AspectJ Extension
+
 protected File file;
 protected ZipFile zipFile;
 protected ZipFile annotationZipFile;
 protected boolean closeZipFileAtEnd;
 protected Set<String> packageCache;
 protected List<String> annotationPaths;
+
+// AspectJ Extension
+static {
+	String openarchivesString = getSystemPropertyWithoutSecurityException("org.aspectj.weaver.openarchives",Integer.toString(MAXOPEN_DEFAULT));
+	maxOpenArchives=Integer.parseInt(openarchivesString);
+	if (maxOpenArchives<20) maxOpenArchives=1000;
+}
+// End AspectJ Extension
 
 public ClasspathJar(File file, boolean closeZipFileAtEnd,
 		AccessRuleSet accessRuleSet, String destinationPath) {
@@ -101,6 +135,7 @@ public List<Classpath> fetchLinkedJars(FileSystem.ClasspathSectionProblemReporte
 		if (inputStream != null) {
 			try {
 				inputStream.close();
+				close(); // AspectJ extension - close it (tidyup on windows)
 			} catch (IOException e) {
 				// best effort
 			}
@@ -117,6 +152,7 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 		return null; // most common case
 
 	try {
+	    ensureOpen(); // AspectJ Extension
 		IBinaryType reader = ClassFileReader.read(this.zipFile, qualifiedBinaryFileName);
 		if (reader != null) {
 			char[] modName = this.module == null ? null : this.module.name();
@@ -164,6 +200,18 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 		return null; // most common case
 	final char[] packageArray = qualifiedPackageName.toCharArray();
 	final ArrayList answers = new ArrayList();
+
+	// AspectJ Extension
+	try {
+        ensureOpen();
+	} catch (IOException ioe) {
+		// Doesn't normally occur - probably means since starting the compile
+		// you have removed one of the jars.
+		ioe.printStackTrace();
+		return null;
+	}
+	// End AspectJ Extension
+
 	nextEntry : for (Enumeration e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		String fileName = ((ZipEntry) e.nextElement()).getName();
 
@@ -195,9 +243,12 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 
 @Override
 public void initialize() throws IOException {
+	ensureOpen();
+	// AspectJ - start - replace next bit with above
 	if (this.zipFile == null) {
 		this.zipFile = new ZipFile(this.file);
 	}
+	// AspectJ - end
 }
 void acceptModule(ClassFileReader reader) {
 	if (reader != null) {
@@ -233,6 +284,16 @@ public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageN
 	if (this.packageCache != null)
 		return singletonModuleNameIf(this.packageCache.contains(qualifiedPackageName));
 
+	// AspectJ Extension
+	try {
+        ensureOpen();
+	} catch (IOException ioe) {
+		// Doesn't normally occur - probably means since starting the compile
+		// you have removed one of the jars.
+		ioe.printStackTrace();
+		return singletonModuleNameIf(false);
+	}
+	// End AspectJ Extension
 	this.packageCache = new HashSet<>(41);
 	this.packageCache.add(Util.EMPTY_STRING);
 
@@ -275,13 +336,18 @@ public void reset() {
 	super.reset();
 	if (this.closeZipFileAtEnd) {
 		if (this.zipFile != null) {
-			try {
-				this.zipFile.close();
-			} catch(IOException e) {
-				// ignore
-			}
-			this.zipFile = null;
+		// AspectJ Extension
+		// old code:
+		//try {
+		//	this.zipFile.close(); // AspectJ Extension - dont do this
+		//} catch(IOException e) {
+		//	// ignore
+		//}
+		//this.zipFile = null;
+		// new code:
+		close();
 		}
+		// End AspectJ Extension
 		if (this.annotationZipFile != null) {
 			try {
 				this.annotationZipFile.close();
@@ -331,4 +397,43 @@ public int getMode() {
 public IModule getModule() {
 	return this.module;
 }
+// AspectJ Extension
+private void ensureOpen() throws IOException {
+	if (zipFile != null) return; // If its not null, the zip is already open
+	if (openArchives.size()>=maxOpenArchives) {
+		closeSomeArchives(openArchives.size()/10); // Close 10% of those open
+	}
+	zipFile = new ZipFile(file);
+	openArchives.add(this);
+}
+
+private void closeSomeArchives(int n) {
+	for (int i=n-1;i>=0;i--) {
+		ClasspathJar zf = (ClasspathJar)openArchives.get(0);
+		zf.close();
+	}
+}
+
+public void close() {
+	if (zipFile == null) return;
+	try {
+		openArchives.remove(this);
+		zipFile.close();
+	} catch (IOException ioe) {
+		ioe.printStackTrace();
+	} finally {
+		zipFile = null;
+	}
+}
+
+// Copes with the security manager
+private static String getSystemPropertyWithoutSecurityException (String aPropertyName, String aDefaultValue) {
+	try {
+		return System.getProperty(aPropertyName, aDefaultValue);
+	} catch (SecurityException ex) {
+		return aDefaultValue;
+	}
+}
+
+// End AspectJ Extension
 }

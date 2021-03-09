@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2012, 2019 IBM Corporation and others.
  *
@@ -277,7 +278,17 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		if (!skipKosherCheck && (!haveDescriptor || this.descriptor.typeVariables != Binding.NO_TYPE_VARIABLES)) // already complained in kosher*
 			return this.resolvedType = null;
 
-		this.binding = new MethodBinding(ClassFileConstants.AccPrivate | ClassFileConstants.AccSynthetic | ExtraCompilerModifiers.AccUnresolved,
+		// AspectJ extension - start
+		int modifiers = 0;
+		if (methodScope.parent != null && methodScope.parent.isInterTypeScope()) {
+			modifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccSynthetic | ExtraCompilerModifiers.AccUnresolved;
+		} else {
+			modifiers = ClassFileConstants.AccPrivate | ClassFileConstants.AccSynthetic | ExtraCompilerModifiers.AccUnresolved;
+		}
+		this.binding = new MethodBinding(modifiers,
+		// was
+		// this.binding = new MethodBinding(ClassFileConstants.AccPrivate | ClassFileConstants.AccSynthetic | ExtraCompilerModifiers.AccUnresolved,
+		// AspectJ extension - end
 							CharOperation.concat(TypeConstants.ANONYMOUS_METHOD, Integer.toString(this.ordinal).toCharArray()), // will be fixed up later.
 							haveDescriptor ? this.descriptor.returnType : TypeBinding.VOID,
 							Binding.NO_PARAMETERS, // for now.
