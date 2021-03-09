@@ -47,7 +47,7 @@
 
     <target name="make.jdtcore.jar">
 			<!-- Make sure to always build from project root directory -->
-    	<property name="aj" value="."/>
+    	<property name="aj" value="../../AspectJ/org.eclipse.jdt.core"/>
     	<delete file="${aj}/jdtcore-for-aspectj.jar"/>
         <jar destfile="${aj}/jdtcore-for-aspectj.jar">
             <fileset dir="bin"/>
