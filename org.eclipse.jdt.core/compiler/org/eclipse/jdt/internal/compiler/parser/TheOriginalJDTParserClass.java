@@ -8728,7 +8728,7 @@ private void populatePermittedTypes() {
 	this.recordNestedMethodLevels.remove(typeDecl);
 	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORDS, typeDecl.sourceStart, typeDecl.sourceEnd);
 		//convert constructor that do not have the type's name into methods
-	ConstructorDeclaration cd = typeDecl.getConstructor(this);
+	ConstructorDeclaration cd = typeDecl.getConstructor((Parser) this);
 		if (cd == null) {
 			/* create canonical constructor - check for the clash later at binding time */
 		cd = typeDecl.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);

@@ -2769,11 +2769,6 @@ RelationalExpression ::= RelationalExpression '>=' ShiftExpression
 /.$putCase consumeBinaryExpression(OperatorIds.GREATER_EQUAL); $break ./
 /:$readableName Expression:/
 
-InstanceofExpression -> RelationalExpression
-InstanceofExpression ::= InstanceofExpression 'instanceof' ReferenceType
-/.$putCase consumeInstanceOfExpression(); $break ./
-/:$readableName Expression:/
-
 EqualityExpression -> InstanceofExpression
 EqualityExpression ::= EqualityExpression '==' InstanceofExpression
 /.$putCase consumeEqualityExpression(OperatorIds.EQUAL_EQUAL); $break ./

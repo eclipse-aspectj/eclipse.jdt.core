@@ -100,7 +100,8 @@ public class BinaryTypeBinding extends SourceTypeBinding {
 //	protected ReferenceBinding superclass;
 	protected ReferenceBinding enclosingType;
 //	protected ReferenceBinding[] superInterfaces;
-//	protected ReferenceBinding[] permittedSubtypes;
+	// AspectJ - TODO kriegaex: Is there anything to be done if this new field is active?
+	protected ReferenceBinding[] permittedSubtypes;
 //	protected FieldBinding[] fields;
 //	protected MethodBinding[] methods;
 //	protected ReferenceBinding[] memberTypes;

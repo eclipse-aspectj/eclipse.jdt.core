@@ -13,10 +13,10 @@
 
         	<!-- Eclipse 2019-12 -->
         	<zipfileset src="${plugins.dir}/org.eclipse.equinox.registry_3.8.600.v20191017-2055.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.equinox.common_3.10.600.v20191004-1420.jar"/>
+        	<zipfileset src="lib/org.eclipse.equinox.common_3.14.100.v20210212-1143.jar"/>
         	<zipfileset src="${plugins.dir}/org.eclipse.osgi_3.15.100.v20191114-1701.jar"/>
         	<zipfileset src="${plugins.dir}/org.eclipse.core.jobs_3.10.600.v20191122-2104.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.resources_3.13.600.v20191122-2104.jar"/>
+        	<zipfileset src="lib/org.eclipse.core.resources_3.14.0.v20210215-0934.jar"/>
         	<zipfileset src="${plugins.dir}/org.eclipse.core.runtime_3.17.0.v20191122-2104.jar"/>
         	<zipfileset src="${plugins.dir}/org.eclipse.equinox.preferences_3.7.600.v20191017-2055.jar"/>
         	<zipfileset src="${plugins.dir}/org.eclipse.equinox.app_1.4.300.v20190815-1535.jar"/>

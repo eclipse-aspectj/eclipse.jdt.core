@@ -2837,6 +2837,7 @@ public void configure(String[] argv) {
 					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_13);
 				} else if (currentArg.equals("14") ||  currentArg.equals("14.0")) { //$NON-NLS-1$//$NON-NLS-2$
 					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
+				}
 				String version = optionStringToVersion(currentArg);
 				if (version != null) {
 					this.options.put(CompilerOptions.OPTION_Source, version);
