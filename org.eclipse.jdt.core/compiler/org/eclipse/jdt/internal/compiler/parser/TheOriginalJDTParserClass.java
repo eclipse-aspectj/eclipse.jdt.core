@@ -58,7 +58,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-import org.eclipse.jdt.internal.compiler.impl.IrritantSet;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
@@ -237,6 +237,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 					compliance = ClassFileConstants.JDK13;
 				}  else if("14".equals(token)) { //$NON-NLS-1$
 					compliance = ClassFileConstants.JDK14;
+					}  else if("15".equals(token)) { //$NON-NLS-1$
+						compliance = ClassFileConstants.JDK15;
 				} else if("recovery".equals(token)) { //$NON-NLS-1$
 					compliance = ClassFileConstants.JDK_DEFERRED;
 				}
@@ -781,9 +783,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected static String[] readReadableNameTable(Class parserClass, String filename) { 	//	AspectJ Extension - used passed class not static ref
 		String[] result = new String[name.length];
 
-		InputStream is = parserClass.getResourceAsStream(filename);
 		Properties props = new Properties();
-		try {
+		try (InputStream is = parserClass.getResourceAsStream(filename)) {
 			props.load(is);
 		} catch (IOException e) {
 			result = name;
@@ -926,11 +927,15 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected int lParenPos,rParenPos; //accurate only when used !
 	protected int modifiers;
 	protected int modifiersSourceStart;
+	protected int annotationAsModifierSourceStart = -1;
 	protected int colonColonStart = -1;
 	protected int[] nestedMethod; //the ptr is nestedType
 	protected int forStartPosition = 0;
 
 	protected int nestedType, dimensions, switchNestingLevel;
+	/* package */ int caseLevel;
+	protected int casePtr;
+	protected int[] caseStack;
 	ASTNode [] noAstNodes = new ASTNode[AstStackIncrement];
 	public boolean switchWithTry = false;
 
@@ -980,6 +985,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected boolean parsingJava8Plus;
 	protected boolean parsingJava9Plus;
 	protected boolean parsingJava14Plus;
+	protected boolean parsingJava15Plus;
+	protected boolean previewEnabled;
 	protected boolean parsingJava11Plus;
 	protected int unstackedAct = ERROR_ACTION;
 	private boolean haltOnSyntaxError = false;
@@ -988,7 +995,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	private boolean expectTypeAnnotation = false;
 	private boolean reparsingLambdaExpression = false;
 
-	private Map<RecordDeclaration, Integer[]> recordNestedMethodLevels;
+private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 
 	public TheOriginalJDTParserClass () { // AspectJ - new name
 		// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -1001,13 +1008,16 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		initializeScanner();
 		this.parsingJava8Plus = this.options.sourceLevel >= ClassFileConstants.JDK1_8;
 		this.parsingJava9Plus = this.options.sourceLevel >= ClassFileConstants.JDK9;
+	this.parsingJava11Plus = this.options.sourceLevel >= ClassFileConstants.JDK11;
 		this.parsingJava14Plus = this.options.sourceLevel >= ClassFileConstants.JDK14;
-		this.parsingJava11Plus = this.options.sourceLevel >= ClassFileConstants.JDK11;
+	this.parsingJava15Plus = this.options.sourceLevel >= ClassFileConstants.JDK15;
+	this.previewEnabled = this.options.sourceLevel == ClassFileConstants.getLatestJDKLevel() && this.options.enablePreviewFeatures;
 		this.astLengthStack = new int[50];
 		this.patternLengthStack = new int[20];
 		this.expressionLengthStack = new int[30];
 		this.typeAnnotationLengthStack = new int[30];
 		this.intStack = new int[50];
+	this.caseStack = new int[16];
 		this.identifierStack = new char[30][];
 		this.identifierLengthStack = new int[30];
 		this.nestedMethod = new int[30];
@@ -1231,6 +1241,10 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		if (this.currentElement != null) {
 			this.currentElement.addModifier(flag, this.modifiersSourceStart);
 		}
+	if (flag == ExtraCompilerModifiers.AccSealed || flag == ExtraCompilerModifiers.AccNonSealed) {
+		problemReporter().validateJavaFeatureSupport(JavaFeature.SEALED_CLASSES, this.scanner.startPosition,
+				this.scanner.currentPosition - 1);
+	}
 	}
 	public void checkComment() {
 
@@ -1241,7 +1255,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 
 		int lastComment = this.scanner.commentPtr;
 
-		if (this.modifiersSourceStart >= 0) {
+	if (this.modifiersSourceStart >= 0 && this.modifiersSourceStart > this.annotationAsModifierSourceStart) {
 			// eliminate comments located after modifierSourceStart if positioned
 			while (lastComment >= 0) {
 				int commentSourceStart = this.scanner.commentStarts[lastComment];
@@ -1537,6 +1551,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		int sourceStart = expression.sourceStart;
 		if (this.modifiersSourceStart < 0) {
 			this.modifiersSourceStart = sourceStart;
+		this.annotationAsModifierSourceStart = sourceStart;
 		}
 	}
 	protected void consumeAnnotationName() {
@@ -1751,7 +1766,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	}
 	protected void consumeAnnotationTypeMemberDeclaration() {
 		// AnnotationTypeMemberDeclaration ::= AnnotationTypeMemberDeclarationHeader AnnotationTypeMemberHeaderExtendedDims DefaultValueopt ';'
-		AnnotationMethodDeclaration annotationTypeMemberDeclaration = (AnnotationMethodDeclaration) this.astStack[this.astPtr];
+	MethodDeclaration annotationTypeMemberDeclaration = (MethodDeclaration) this.astStack[this.astPtr];
 		annotationTypeMemberDeclaration.modifiers |= ExtraCompilerModifiers.AccSemicolonBody;
 		// store the this.endPosition (position just before the '}') in case there is
 		// a trailing comment behind the end of the method
@@ -2278,6 +2293,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		if (hasLeadingTagComment(FALL_THROUGH_TAG, caseStatement.sourceStart)) {
 			caseStatement.bits |= ASTNode.DocumentedFallthrough;
 		}
+	this.casePtr--;
+	this.scanner.caseStartPosition = this.casePtr >= 0 ? this.caseStack[this.casePtr] : -1;
 
 		pushOnAstStack(caseStatement);
 	}
@@ -2695,7 +2712,9 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		// we want to keep the beginning position but get rid of the end position
 		// it is only used for the ClassLiteralAccess positions.
 		typeDecl.declarationSourceStart = this.intStack[this.intPtr--];
+	if (isRecord) {
 		typeDecl.restrictedIdentifierStart = typeDecl.declarationSourceStart;
+	}
 		this.intPtr--; // remove the end position of the class token
 
 		typeDecl.modifiersSourceStart = this.intStack[this.intPtr--];
@@ -2723,7 +2742,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		}
 		typeDecl.bodyStart = typeDecl.sourceEnd + 1;
 		if (isRecord) {
-			typeDecl = new RecordDeclaration(typeDecl);
+		typeDecl.modifiers |= ExtraCompilerModifiers.AccRecord;
 		}
 		pushOnAstStack(typeDecl);
 
@@ -2742,6 +2761,9 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		// ClassHeaderName1 ::= Modifiersopt 'class' 'Identifier'
 		consumeClassOrRecordHeaderName1(false);
 	}
+protected void consumeClassHeaderPermittedSubclasses() {
+populatePermittedTypes();
+}
 	protected void consumeClassInstanceCreationExpression() {
 		// ClassInstanceCreationExpression ::= 'new' ClassType '(' ArgumentListopt ')' ClassBodyopt
 		classInstanceCreation(false);
@@ -3125,6 +3147,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		//modifiers
 		ccd.declarationSourceStart = this.intStack[this.intPtr--];
 		ccd.modifiers = this.intStack[this.intPtr--];
+	ccd.modifiers |=  ExtraCompilerModifiers.AccCompactConstructor;
 		// consume annotations
 		int length;
 		if ((length = this.expressionLengthStack[this.expressionLengthPtr--]) != 0) {
@@ -3576,8 +3599,10 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		int recordIndex = -1;
 		Integer[] nestingTypeAndMethod = null;
 		for (int i = this.astPtr; i >= 0; --i) {
-			if (this.astStack[i] instanceof RecordDeclaration) {
-				RecordDeclaration node = (RecordDeclaration) this.astStack[i];
+		if (this.astStack[i] instanceof TypeDeclaration) {
+			TypeDeclaration node = (TypeDeclaration) this.astStack[i];
+			if (!node.isRecord())
+				continue;
 				nestingTypeAndMethod = this.recordNestedMethodLevels.get(node);
 				if (nestingTypeAndMethod != null) { // record declaration is done yet
 					recordIndex = i;
@@ -4546,15 +4571,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		type = getTypeReference(this.intStack[this.intPtr--]); //getTypeReference(0); // no type dimension
 		local.declarationSourceStart = type.sourceStart;
 		local.type = type;
-		if (!this.parsingJava14Plus) {
-			problemReporter().previewFeatureNotSupported(type.sourceStart, local.declarationEnd, "Instanceof Pattern", CompilerOptions.VERSION_13); //$NON-NLS-1$
-		} else if (!this.options.enablePreviewFeatures){
-			problemReporter().previewFeatureNotEnabled(type.sourceStart, local.declarationEnd, "Instanceof Pattern"); //$NON-NLS-1$
-		} else {
-			if (this.options.isAnyEnabled(IrritantSet.PREVIEW)) {
-				problemReporter().previewFeatureUsed(type.sourceStart, local.declarationEnd);
-			}
-		}
+	problemReporter().validateJavaFeatureSupport(JavaFeature.PATTERN_MATCHING_IN_INSTANCEOF, type.sourceStart, local.declarationEnd);
 		local.modifiers |= ClassFileConstants.AccFinal;
 		pushOnPatternStack(local);
 	}
@@ -4754,6 +4771,35 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		typeDecl.javadoc = this.javadoc;
 		this.javadoc = null;
 	}
+protected void consumeInterfaceHeaderPermittedSubClassesAndSubInterfaces() {
+	// InterfaceHeaderPermittedSubClassesAndSubInterfaces ::= RestrictedIdentifierpermits ClassTypeList
+	populatePermittedTypes();
+}
+private void populatePermittedTypes() {
+	int length = this.astLengthStack[this.astLengthPtr--];
+	//permitted types
+	this.astPtr -= length;
+	TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
+	typeDecl.restrictedIdentifierStart= this.intStack[this.intPtr--];
+	System.arraycopy(
+		this.astStack,
+		this.astPtr + 1,
+		typeDecl.permittedTypes = new TypeReference[length],
+		0,
+		length);
+	TypeReference[] permittedTypes = typeDecl.permittedTypes;
+	for (int i = 0, max = permittedTypes.length; i < max; i++) {
+		TypeReference typeReference = permittedTypes[i];
+		typeDecl.bits |= (typeReference.bits & ASTNode.HasTypeAnnotations); // TODO: Confirm with spec
+//		typeReference.bits |= ASTNode.IsSuperType; // TODO: Check equivalent required
+	}
+	typeDecl.bodyStart = typeDecl.permittedTypes[length-1].sourceEnd + 1;
+	this.listLength = 0; // reset after having read super-interfaces
+	// recovery
+	if (this.currentElement != null) {
+		this.lastCheckPoint = typeDecl.bodyStart;
+	}
+}
 	protected void consumeInterfaceMemberDeclarations() {
 		// InterfaceMemberDeclarations ::= InterfaceMemberDeclarations InterfaceMemberDeclaration
 		concatNodeLists();
@@ -4856,6 +4902,13 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	}
 	protected void consumeInvalidEnumDeclaration() {
 		// BlockStatement ::= EnumDeclaration
+	if (this.previewEnabled) {
+		 /* JLS 15 Local Static Interfaces and Enum Classes - Records preview - Sec 6.1
+		  * A local class or interface (14.3), declared in one of the following: A class declaration, An enum declaration,
+		  * An interface declaration
+		  */
+		return;
+	}
 		TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
 		if(!this.statementRecoveryActivated) problemReporter().illegalLocalTypeDeclaration(typeDecl);
 		// remove the ast node created in interface header
@@ -4866,6 +4919,13 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected void consumeInvalidInterfaceDeclaration() {
 		// BlockStatement ::= InvalidInterfaceDeclaration
 		//InterfaceDeclaration ::= Modifiersopt 'interface' 'Identifier' ExtendsInterfacesopt InterfaceHeader InterfaceBody
+	if (this.previewEnabled) {
+		 /* JLS 15 Local Static Interfaces and Enum Classes - Records preview - Sec 6.1
+		  * A local class or interface (14.3), declared in one of the following: A class declaration, An enum declaration,
+		  * An interface declaration
+		  */
+		return;
+	}
 		TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
 		if(!this.statementRecoveryActivated) problemReporter().illegalLocalTypeDeclaration(typeDecl);
 		// remove the ast node created in interface header
@@ -6642,10 +6702,12 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		// TypeAnnotationsopt ::= $empty
 		pushOnTypeAnnotationLengthStack(0); // signal absence of @308 annotations.
 	}
+// BEGIN_AUTOGENERATED_REGION_CONSUME_RULE
 	//This method is part of an automatic generation : do NOT edit-modify
 	protected void consumeRule(int act) {
 		throw new UnsupportedOperationException("Should be invoking method in Parser instead"); // AspectJ extension - subclass should be used
 	}
+// END_AUTOGENERATED_REGION_CONSUME_RULE
 	protected void consumeVariableDeclaratorIdParameter () {
 		pushOnIntStack(1);  // signal "normal" variable declarator id parameter.
 	}
@@ -7600,15 +7662,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		}
 	}
 	protected void consumeTextBlock() {
-		if (!this.parsingJava14Plus) {
-			problemReporter().previewFeatureNotSupported(this.scanner.startPosition, this.scanner.currentPosition - 1, "Text Blocks", CompilerOptions.VERSION_14); //$NON-NLS-1$
-		} else if (!this.options.enablePreviewFeatures){
-			problemReporter().previewFeatureNotEnabled(this.scanner.startPosition, this.scanner.currentPosition - 1, "Text Blocks"); //$NON-NLS-1$
-		} else {
-			if (this.options.isAnyEnabled(IrritantSet.PREVIEW)) {
-				problemReporter().previewFeatureUsed(this.scanner.startPosition, this.scanner.currentPosition - 1);
-			}
-		}
+	problemReporter().validateJavaFeatureSupport(JavaFeature.TEXT_BLOCKS, this.scanner.startPosition, this.scanner.currentPosition - 1);
 		char[] textBlock2 = this.scanner.getCurrentTextBlock();
 		TextBlock textBlock;
 		if (this.recordStringLiterals &&
@@ -7622,8 +7676,6 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 					this.scanner.startPosition,
 					this.scanner.currentPosition - 1,
 					Util.getLineNumber(this.scanner.startPosition, this.scanner.lineEnds, 0, this.scanner.linePtr));
-			// TODO
-			//this.compilationUnit.recordStringLiteral(stringLiteral, this.currentElement != null);
 		} else {
 			textBlock = new TextBlock(
 				textBlock2,
@@ -7712,7 +7764,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			}
 			@Override
 			public boolean visit(SwitchStatement stmt, BlockScope blockScope) {
-				return false;
+			return true;
 			}
 			@Override
 			public boolean visit(TypeDeclaration stmt, BlockScope blockScope) {
@@ -7890,6 +7942,10 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 				checkAndSetModifiers(ClassFileConstants.AccNative);
 				pushOnExpressionStackLengthStack(0);
 				break;
+		case TokenNamenon_sealed :
+			checkAndSetModifiers(ExtraCompilerModifiers.AccNonSealed);
+			pushOnExpressionStackLengthStack(0);
+			break;
 			case TokenNameopen :
 				checkAndSetModifiers(ClassFileConstants.ACC_OPEN);
 				pushOnExpressionStackLengthStack(0);
@@ -7906,6 +7962,10 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 				checkAndSetModifiers(ClassFileConstants.AccPublic);
 				pushOnExpressionStackLengthStack(0);
 				break;
+		case TokenNameRestrictedIdentifiersealed :
+			checkAndSetModifiers(ExtraCompilerModifiers.AccSealed);
+			pushOnExpressionStackLengthStack(0);
+			break;
 			case TokenNametransient :
 				checkAndSetModifiers(ClassFileConstants.AccTransient);
 				pushOnExpressionStackLengthStack(0);
@@ -8072,7 +8132,6 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			case TokenNamebreak :
 			case TokenNamecontinue :
 			case TokenNamereturn :
-			case TokenNamecase :
 			case TokenNamemodule:
 			case TokenNamerequires:
 			case TokenNameexports:
@@ -8082,6 +8141,15 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			case TokenNameRestrictedIdentifierYield:
 				pushOnIntStack(this.scanner.startPosition);
 				break;
+		case TokenNameRestrictedIdentifierpermits:
+			problemReporter().validateJavaFeatureSupport(JavaFeature.SEALED_CLASSES, this.scanner.startPosition,this.scanner.currentPosition - 1);
+			pushOnIntStack(this.scanner.startPosition);
+			break;
+		case TokenNamecase :
+			this.caseLevel = this.switchNestingLevel;
+			pushOnIntStack(this.scanner.startPosition);
+			pushOnCaseStack(this.scanner.startPosition);
+			break;
 			case TokenNameswitch :
 				consumeNestedType();
 				++this.switchNestingLevel;
@@ -8656,41 +8724,35 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			dispatchDeclarationIntoRecordDeclaration(length);
 		}
 
-		RecordDeclaration rd = (RecordDeclaration) this.astStack[this.astPtr];
-		this.recordNestedMethodLevels.remove(rd);
-		if (!this.options.enablePreviewFeatures){
-			problemReporter().previewFeatureNotEnabled(rd.sourceStart, rd.sourceEnd, "Records"); //$NON-NLS-1$
-		} else {
-			if (this.options.isAnyEnabled(IrritantSet.PREVIEW)) {
-				problemReporter().previewFeatureUsed(rd.sourceStart, rd.sourceEnd);
-			}
-		}
+	TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
+	this.recordNestedMethodLevels.remove(typeDecl);
+	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORDS, typeDecl.sourceStart, typeDecl.sourceEnd);
 		//convert constructor that do not have the type's name into methods
-		ConstructorDeclaration cd = rd.getConstructor((Parser)this); // AspectJ - cast to Parser
+	ConstructorDeclaration cd = typeDecl.getConstructor(this);
 		if (cd == null) {
 			/* create canonical constructor - check for the clash later at binding time */
-			cd = rd.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);
+		cd = typeDecl.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);
 		} else {
 			cd.bits |= ASTNode.IsCanonicalConstructor;
 		}
 
 		if (this.scanner.containsAssertKeyword) {
-			rd.bits |= ASTNode.ContainsAssertion;
+		typeDecl.bits |= ASTNode.ContainsAssertion;
 		}
-		rd.addClinit();
-		rd.bodyEnd = this.endStatementPosition;
-		if (length == 0 && !containsComment(rd.bodyStart, rd.bodyEnd)) {
-			rd.bits |= ASTNode.UndocumentedEmptyBlock;
+	typeDecl.addClinit();
+	typeDecl.bodyEnd = this.endStatementPosition;
+	if (length == 0 && !containsComment(typeDecl.bodyStart, typeDecl.bodyEnd)) {
+		typeDecl.bits |= ASTNode.UndocumentedEmptyBlock;
 		}
 		TypeReference superClass = new QualifiedTypeReference(TypeConstants.JAVA_LANG_RECORD, new long[] {0});
 		superClass.bits |= ASTNode.IsSuperType;
-		rd.superclass = superClass;
-		rd.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
+	typeDecl.superclass = superClass;
+	typeDecl.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
 	}
 	protected void consumeRecordHeaderPart() {
 		// RecordHeaderPart ::= RecordHeaderName RecordHeader ClassHeaderImplementsopt
 		TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
-		assert typeDecl instanceof RecordDeclaration;
+	assert typeDecl.isRecord();
 		// do nothing
 	}
 	protected void consumeRecordHeaderNameWithTypeParameters() {
@@ -8705,65 +8767,64 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		// RecordComponentHeaderRightParen ::= ')'
 		int length = this.astLengthStack[this.astLengthPtr--];
 		this.astPtr -= length;
-		RecordDeclaration rd = (RecordDeclaration) this.astStack[this.astPtr];
+	TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
 		int nestedMethodLevel = this.nestedMethod[this.nestedType];
-		rd.isLocalRecord = nestedMethodLevel > 0;
-		if (rd.isLocalRecord)
-			rd.modifiers |= ClassFileConstants.AccStatic; // JLS 14 Sec 14.3
-		this.recordNestedMethodLevels.put(rd, new Integer[] {this.nestedType, nestedMethodLevel});
-		this.astStack[this.astPtr] = rd;
+	this.recordNestedMethodLevels.put(typeDecl, new Integer[] {this.nestedType, nestedMethodLevel});
+	this.astStack[this.astPtr] = typeDecl;
 //	rd.sourceEnd = 	this.rParenPos;
 		if (length != 0) {
-			Argument[] args = new Argument[length];
+		RecordComponent[] recComps = new RecordComponent[length];
 			System.arraycopy(
 				this.astStack,
 				this.astPtr + 1,
-				args,
+				recComps,
 				0,
 				length);
-			rd.setArgs(args);
-			convertToFields(rd, args);
+		typeDecl.recordComponents = recComps;
+		convertToFields(typeDecl, recComps);
+	} else {
+		typeDecl.recordComponents = ASTNode.NO_RECORD_COMPONENTS;
 		}
-		rd.bodyStart = this.rParenPos+1;
+	typeDecl.bodyStart = this.rParenPos+1;
 		this.listLength = 0; // reset this.listLength after having read all parameters
 		// recovery
 		if (this.currentElement != null){
-			this.lastCheckPoint = rd.bodyStart;
-			if (this.currentElement.parseTree() == rd) return;
+		this.lastCheckPoint = typeDecl.bodyStart;
+		if (this.currentElement.parseTree() == typeDecl) return;
 		}
+	resetModifiers();
 	}
-	private void convertToFields(RecordDeclaration rd, Argument[] args) {
-		int length = args.length;
+private void convertToFields(TypeDeclaration typeDecl, RecordComponent[] recComps) {
+	int length = recComps.length;
 		FieldDeclaration[] fields = new FieldDeclaration[length];
 		int nFields = 0;
 		Set<String> argsSet = new HashSet<>();
-		for (int i = 0, max = args.length; i < max; i++) {
-			Argument arg = args[i];
-			arg.bits |= ASTNode.IsRecordComponent;
-			String argName = new String(arg.name);
-			if (RecordDeclaration.disallowedComponentNames.contains(argName)) {
-				problemReporter().recordIllegalComponentNameInRecord(arg, rd);
+	for (int i = 0, max = recComps.length; i < max; i++) {
+		RecordComponent recComp = recComps[i];
+		String argName = new String(recComp.name);
+		if (TypeDeclaration.disallowedComponentNames.contains(argName)) {
+			problemReporter().recordIllegalComponentNameInRecord(recComp, typeDecl);
 				continue;
 			}
 			if (argsSet.contains(argName)) {
 				// flag the error at the place where duplicate params of methods would have been flagged.
 				continue;
 			}
-			if (arg.type.getLastToken() == TypeConstants.VOID) {
-				problemReporter().recordComponentCannotBeVoid(rd, arg);
+		if (recComp.type.getLastToken() == TypeConstants.VOID) {
+			problemReporter().recordComponentCannotBeVoid(recComp);
 				continue;
 			}
-			if (arg.isVarArgs() && i < max - 1)
-				problemReporter().recordIllegalVararg(arg, rd);
+		if (recComp.isVarArgs() && i < max - 1)
+			problemReporter().recordIllegalVararg(recComp, typeDecl);
 
 			argsSet.add(argName);
-			FieldDeclaration f = fields[nFields++] = createFieldDeclaration(arg.name, arg.sourceStart, arg.sourceEnd);
-			f.bits = arg.bits;
-			f.declarationSourceStart = arg.declarationSourceStart;
-			f.declarationEnd = arg.declarationEnd;
-			f.declarationSourceEnd = arg.declarationSourceEnd;
-			f.endPart1Position = arg.sourceEnd; //TODO BETA_JAVA14 - recheck
-			f.endPart2Position = arg.declarationSourceEnd;
+		FieldDeclaration f = fields[nFields++] = createFieldDeclaration(recComp.name, recComp.sourceStart, recComp.sourceEnd);
+		f.bits = recComp.bits;
+		f.declarationSourceStart = recComp.declarationSourceStart;
+		f.declarationEnd = recComp.declarationEnd;
+		f.declarationSourceEnd = recComp.declarationSourceEnd;
+		f.endPart1Position = recComp.sourceEnd; //TODO BETA_JAVA14 - recheck
+		f.endPart2Position = recComp.declarationSourceEnd;
 			f.modifiers = ClassFileConstants.AccPrivate | ClassFileConstants.AccFinal;
 			// Note: JVMS 14 S 4.7.8 The Synthetic Attribute mandates do not mark Synthetic for Record compoents.
 			// hence marking this "explicitly" as implicit.
@@ -8781,10 +8842,11 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			 * component and the type as the declared type of the record component.
 			 */
 			f.modifiers |= ClassFileConstants.AccPrivate | ClassFileConstants.AccFinal;
-			f.modifiersSourceStart = arg.modifiersSourceStart;
-			f.sourceStart = arg.sourceStart;
-			f.sourceEnd = arg.sourceEnd;
-			f.type = arg.type;
+		f.modifiers |= ExtraCompilerModifiers.AccRecord;
+		f.modifiersSourceStart = recComp.modifiersSourceStart;
+		f.sourceStart = recComp.sourceStart;
+		f.sourceEnd = recComp.sourceEnd;
+		f.type = recComp.type;
 			/*
 			 * JLS 14 SEC 8.10.3 Item 1 says the following:
 			 *  "This field is annotated with the annotation that appears on the corresponding
@@ -8795,9 +8857,9 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			 *  targeted by the annotation. Hence, do a blanket assignment for now and later (read binding
 			 *  time) weed out the irrelevant ones.
 			 */
-			f.annotations = arg.annotations;
-			arg.annotations = null;
-			if ((args[i].bits & ASTNode.HasTypeAnnotations) != 0) {
+//		f.annotations = recComp.annotations;
+//		comp.annotations = null;
+		if ((recComp.bits & ASTNode.HasTypeAnnotations) != 0) {
 				f.bits |= ASTNode.HasTypeAnnotations;
 			}
 		}
@@ -8807,8 +8869,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			System.arraycopy(fields	, 0, tmp, 0, nFields);
 			fields = tmp;
 		}
-		rd.fields = fields;
-		rd.nRecordComponents = fields.length;
+	typeDecl.fields = fields;
+	typeDecl.nRecordComponents = fields.length;
 	}
 	protected void consumeRecordHeader() {
 		//RecordHeader ::= '(' RecordComponentsopt RecordComponentHeaderRightParen
@@ -8867,28 +8929,28 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			type.bits |= ASTNode.IsVarArgs; // set isVarArgs
 		}
 		int modifierPositions = this.intStack[this.intPtr--];
-		Argument arg;
-		arg = new Argument(
+	RecordComponent recordComponent;
+	recordComponent = new RecordComponent(
 			identifierName,
 			namePositions,
 			type,
 			this.intStack[this.intPtr--] & ~ClassFileConstants.AccDeprecated); // modifiers
-		arg.declarationSourceStart = modifierPositions;
-		arg.bits |= (type.bits & ASTNode.HasTypeAnnotations);
+	recordComponent.declarationSourceStart = modifierPositions;
+	recordComponent.bits |= (type.bits & ASTNode.HasTypeAnnotations);
 		// consume annotations
 		if ((length = this.expressionLengthStack[this.expressionLengthPtr--]) != 0) {
 			System.arraycopy(
 				this.expressionStack,
 				(this.expressionPtr -= length) + 1,
-				arg.annotations = new Annotation[length],
+			recordComponent.annotations = new Annotation[length],
 				0,
 				length);
-			arg.bits |= ASTNode.HasTypeAnnotations;
+		recordComponent.bits |= ASTNode.HasTypeAnnotations;
 			RecoveredType currentRecoveryType = this.currentRecoveryType();
 			if (currentRecoveryType != null)
-				currentRecoveryType.annotationsConsumed(arg.annotations);
+			currentRecoveryType.annotationsConsumed(recordComponent.annotations);
 		}
-		pushOnAstStack(arg);
+	pushOnAstStack(recordComponent);
 
 	/* if incomplete record header, this.listLength counter will not have been reset,
 		indicating that some arguments are available on the stack */
@@ -8897,10 +8959,10 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			if (!this.statementRecoveryActivated &&
 				this.options.sourceLevel < ClassFileConstants.JDK1_5 &&
 				this.lastErrorEndPositionBeforeRecovery < this.scanner.currentPosition) {
-				problemReporter().invalidUsageOfVarargs(arg);
+				problemReporter().invalidUsageOfVarargs(recordComponent);
 			} else if (!this.statementRecoveryActivated &&
 				extendedDimensions > 0) {
-				problemReporter().illegalExtendedDimensions(arg);
+			problemReporter().illegalExtendedDimensions(recordComponent);
 			}
 		}
 	}
@@ -9047,7 +9109,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		}
 
 		//arrays creation
-		RecordDeclaration recordDecl = (RecordDeclaration) this.astStack[this.astPtr];
+	TypeDeclaration recordDecl = (TypeDeclaration) this.astStack[this.astPtr];
 		int nCreatedFields = recordDecl.fields != null ? recordDecl.fields.length : 0;
 		if (nFields != 0) {
 			FieldDeclaration[] tmp = new FieldDeclaration[(recordDecl.fields != null ? recordDecl.fields.length  : 0) + nFields];
@@ -9117,11 +9179,11 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 			}
 		}
 	}
-	private void checkForRecordMemberErrors(RecordDeclaration recordDecl, int nCreatedFields) {
-		if (recordDecl.fields == null)
+private void checkForRecordMemberErrors(TypeDeclaration typeDecl, int nCreatedFields) {
+	if (typeDecl.fields == null)
 			return;
-		for (int i = nCreatedFields; i < recordDecl.fields.length; i++) {
-			FieldDeclaration f = recordDecl.fields[i];
+	for (int i = nCreatedFields; i < typeDecl.fields.length; i++) {
+		FieldDeclaration f = typeDecl.fields[i];
 			if (f != null && !f.isStatic()) {
 				if (f instanceof Initializer)
 					problemReporter().recordInstanceInitializerBlockInRecord((Initializer) f);
@@ -9129,9 +9191,9 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 					problemReporter().recordNonStaticFieldDeclarationInRecord(f);
 			}
 		}
-		if (recordDecl.methods != null) {
-			for (int i = 0; i < recordDecl.methods.length; i++) {
-				AbstractMethodDeclaration method = recordDecl.methods[i];
+	if (typeDecl.methods != null) {
+		for (int i = 0; i < typeDecl.methods.length; i++) {
+			AbstractMethodDeclaration method = typeDecl.methods[i];
 				if ((method.modifiers & ClassFileConstants.AccNative) != 0) {
 					problemReporter().recordIllegalNativeModifierInRecord(method);
 				}
@@ -9313,8 +9375,9 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 
 		if (typeDecl.memberTypes != null) {
 			for (int i = typeDecl.memberTypes.length - 1; i >= 0; i--) {
-				typeDecl.memberTypes[i].enclosingType = typeDecl;
-				markNestedRecordStatic(typeDecl.memberTypes[i]);
+			TypeDeclaration memberType = typeDecl.memberTypes[i];
+			memberType.enclosingType = typeDecl;
+			markNestedRecordStatic(memberType);
 			}
 		}
 	}
@@ -9324,7 +9387,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		 * A nested record type is implicitly static.
 		 * It is permitted for the declaration of a nested record type to redundantly specify the static modifier.
 		 */
-		if (typeDeclaration instanceof RecordDeclaration)
+	if (typeDeclaration.isRecord())
 			typeDeclaration.modifiers |= ClassFileConstants.AccStatic;
 	}
 	protected void dispatchDeclarationIntoEnumDeclaration(int length) {
@@ -10099,6 +10162,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		this.identifierPtr = -1;
 		this.identifierLengthPtr	= -1;
 		this.intPtr = -1;
+	this.casePtr = -1;
 		this.nestedMethod[this.nestedType = 0] = 0; // need to reset for further reuse
 		this.switchNestingLevel = 0;
 		this.switchWithTry = false;
@@ -10138,6 +10202,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		this.scanner.checkNonExternalizedStringLiterals = parsingCompilationUnit && checkNLS;
 		this.scanner.checkUninternedIdentityComparison = parsingCompilationUnit && this.options.complainOnUninternedIdentityComparison;
 		this.scanner.lastPosition = -1;
+	this.scanner.caseStartPosition = -1;
 
 		resetModifiers();
 
@@ -10311,6 +10376,11 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 				return false;
 			}
 		}
+	if (this.lastCheckPoint == this.scanner.currentPosition) {
+		// Possible infinite loop - synthetic token? bailout for now
+		// TODO: more intelligent solution?
+		return false;
+	}
 		this.lastCheckPoint = this.scanner.currentPosition;
 
 		/* reset this.scanner again to previous checkpoint location*/
@@ -11522,6 +11592,18 @@ called in order to remember (when needed) the consumed token */
 		}
 		this.intStack[this.intPtr] = pos;
 	}
+protected void pushOnCaseStack(int pos) {
+
+	int stackLength = this.caseStack.length;
+	if (++this.casePtr >= stackLength) {
+		System.arraycopy(
+			this.caseStack, 0,
+			this.caseStack = new int[stackLength + StackIncrement], 0,
+			stackLength);
+	}
+	this.caseStack[this.casePtr] = pos;
+	// this.scanner.caseStartPosition updated at the scanner anyway - so not updating again.
+}
 	protected void pushOnRealBlockStack(int i){
 
 		int stackLength = this.realBlockStack.length;
@@ -11879,6 +11961,7 @@ called in order to remember (when needed) the consumed token */
 	protected void resetModifiers() {
 		this.modifiers = ClassFileConstants.AccDefault;
 		this.modifiersSourceStart = -1; // <-- see comment into modifiersFlag(int)
+	this.annotationAsModifierSourceStart = -1;
 		this.scanner.commentPtr = -1;
 	}
 	/*
