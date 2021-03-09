@@ -15,6 +15,7 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.function.Predicate;
 
 import org.eclipse.jdt.core.CompletionContext;
 import org.eclipse.jdt.core.CompletionProposal;
@@ -22,8 +23,10 @@ import org.eclipse.jdt.core.CompletionRequestor;
 import org.eclipse.jdt.core.Flags;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.Signature;
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.codeassist.InternalCompletionContext;
+import org.eclipse.jdt.internal.codeassist.impl.RestrictedIdentifiers;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.util.ObjectVector;
 import org.eclipse.jdt.internal.core.JavaElement;
@@ -51,6 +54,8 @@ public class CompletionTestsRequestor2 extends CompletionRequestor {
 	private String assignableType;
 
 	public boolean debug = false;
+
+	private Predicate<CompletionProposal> proposalFilter = x -> true;
 
 	public CompletionTestsRequestor2() {
 		this(false, false);
@@ -96,6 +101,9 @@ public class CompletionTestsRequestor2 extends CompletionRequestor {
 		this.context = cc;
 	}
 	public void accept(CompletionProposal proposal) {
+		if (!this.proposalFilter.test(proposal))
+			return;
+
 		int length = this.proposals.length;
 		if (++this.proposalsPtr== length) {
 			System.arraycopy(this.proposals, 0, this.proposals = new CompletionProposal[length+PROPOSALS_INCREMENT], 0, length);
@@ -339,8 +347,12 @@ public class CompletionTestsRequestor2 extends CompletionRequestor {
 			case CompletionProposal.FIELD_REF_WITH_CASTED_RECEIVER :
 				buffer.append("FIELD_REF_WITH_CASTED_RECEIVER"); //$NON-NLS-1$
 				break;
-			case CompletionProposal.KEYWORD :
-				buffer.append("KEYWORD"); //$NON-NLS-1$
+			case CompletionProposal.KEYWORD :{
+				if(isRestrictedIdentifier(proposal.getCompletion()))
+						buffer.append("RESTRICTED_IDENTIFIER");
+					else
+						buffer.append("KEYWORD"); //$NON-NLS-1$
+			}
 				break;
 			case CompletionProposal.LABEL_REF :
 				buffer.append("LABEL_REF"); //$NON-NLS-1$
@@ -516,6 +528,18 @@ public class CompletionTestsRequestor2 extends CompletionRequestor {
 		return buffer;
 	}
 
+	private boolean isRestrictedIdentifier(char[] completion) {
+		if(CharOperation.equals(completion, RestrictedIdentifiers.RECORD))
+			return true;
+		if(CharOperation.equals(completion, RestrictedIdentifiers.SEALED))
+			return true;
+		if(CharOperation.equals(completion, RestrictedIdentifiers.NON_SEALED))
+			return true;
+		if(CharOperation.equals(completion, RestrictedIdentifiers.PERMITS))
+			return true;
+
+		return false;
+	}
 	protected CompletionProposal[] quickSort(CompletionProposal[] collection, int left, int right) {
 		int original_left = left;
 		int original_right = right;
@@ -624,6 +648,9 @@ public class CompletionTestsRequestor2 extends CompletionRequestor {
 	}
 	public void setComputeEnclosingElement(boolean computeEnclosingElement) {
 		this.computeEnclosingElement = computeEnclosingElement;
+	}
+	public void setProposalFilter(Predicate<CompletionProposal> proposalFilter) {
+		this.proposalFilter = proposalFilter;
 	}
 
 	public boolean canUseDiamond(int proposalNo) {

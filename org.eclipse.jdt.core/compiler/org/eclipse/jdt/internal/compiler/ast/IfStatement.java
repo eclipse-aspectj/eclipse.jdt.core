@@ -158,7 +158,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	flowContext.conditionalLevel--;
 	return mergedInfo;
 }
-
 /**
  * If code generation
  *
@@ -217,7 +216,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 			// May loose some local variable initializations : affecting the local variable attributes
 			if (this.elseInitStateIndex != -1) {
 				codeStream.removeNotDefinitelyAssignedVariables(
-					currentScope,
+						currentScope,
 					this.elseInitStateIndex);
 				codeStream.addDefinitelyAssignedVariables(currentScope, this.elseInitStateIndex);
 			}
@@ -276,14 +275,38 @@ public StringBuffer printStatement(int indent, StringBuffer output) {
 	}
 	return output;
 }
-@Override
-public void resolve(BlockScope scope) {
+private void resolveIfStatement(BlockScope scope) {
 	TypeBinding type = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
 	this.condition.computeConversion(scope, type, type);
 	if (this.thenStatement != null)
 		this.thenStatement.resolve(scope);
 	if (this.elseStatement != null)
 		this.elseStatement.resolve(scope);
+}
+@Override
+public void resolve(BlockScope scope) {
+	if (this.condition.containsPatternVariable()) {
+		this.condition.collectPatternVariablesToScope(null, scope);
+		LocalVariableBinding[] patternVariablesInTrueScope = this.condition.getPatternVariablesWhenTrue();
+		LocalVariableBinding[] patternVariablesInFalseScope = this.condition.getPatternVariablesWhenFalse();
+		TypeBinding type = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
+		this.condition.computeConversion(scope, type, type);
+
+		if (this.thenStatement != null) {
+			this.thenStatement.resolveWithPatternVariablesInScope(patternVariablesInTrueScope, scope);
+		}
+		if (this.elseStatement != null) {
+			this.elseStatement.resolveWithPatternVariablesInScope(patternVariablesInFalseScope, scope);
+		}
+		if (this.thenStatement != null)
+			this.thenStatement.promotePatternVariablesIfApplicable(patternVariablesInFalseScope,
+				this.thenStatement::doesNotCompleteNormally);
+		if (this.elseStatement != null)
+			this.elseStatement.promotePatternVariablesIfApplicable(patternVariablesInTrueScope,
+					this.elseStatement::doesNotCompleteNormally);
+	} else {
+		resolveIfStatement(scope);
+	}
 }
 
 @Override
@@ -305,5 +328,15 @@ public boolean doesNotCompleteNormally() {
 @Override
 public boolean completesByContinue() {
 	return this.thenStatement != null && this.thenStatement.completesByContinue() || this.elseStatement != null && this.elseStatement.completesByContinue();
+}
+@Override
+public boolean canCompleteNormally() {
+	return ((this.thenStatement == null || this.thenStatement.canCompleteNormally()) ||
+		(this.elseStatement == null || this.elseStatement.canCompleteNormally()));
+}
+@Override
+public boolean continueCompletes() {
+	return this.thenStatement != null && this.thenStatement.continueCompletes() ||
+			this.elseStatement != null && this.elseStatement.continueCompletes();
 }
 }

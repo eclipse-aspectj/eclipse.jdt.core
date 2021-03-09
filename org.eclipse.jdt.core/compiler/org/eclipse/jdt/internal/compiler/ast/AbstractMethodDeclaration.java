@@ -161,9 +161,17 @@ public abstract class AbstractMethodDeclaration
 					paramAnnotations[i] = Binding.NO_ANNOTATIONS;
 				}
 			}
+			if (paramAnnotations == null) {
+				paramAnnotations = getPropagatedRecordComponentAnnotations();
+			}
+
 			if (paramAnnotations != null)
 				this.binding.setParameterAnnotations(paramAnnotations);
 		}
+	}
+
+	protected AnnotationBinding[][] getPropagatedRecordComponentAnnotations() {
+		return null;
 	}
 
 	/**
@@ -431,6 +439,10 @@ public abstract class AbstractMethodDeclaration
 		return false;
 	}
 
+	public boolean isCanonicalConstructor() {
+
+		return false;
+	}
 	public boolean isDefaultConstructor() {
 
 		return false;
@@ -457,7 +469,7 @@ public abstract class AbstractMethodDeclaration
 		return (this.modifiers & ClassFileConstants.AccNative) != 0;
 	}
 
-	public Argument getRecordComponent() {
+	public RecordComponent getRecordComponent() {
 		return null;
 	}
 

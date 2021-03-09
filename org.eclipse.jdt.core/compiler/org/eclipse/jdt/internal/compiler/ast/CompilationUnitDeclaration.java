@@ -46,7 +46,6 @@ import org.eclipse.jdt.internal.compiler.parser.NLSTag;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilationUnit;
 import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 import org.eclipse.jdt.internal.compiler.problem.AbortType;
-import org.eclipse.jdt.internal.compiler.problem.DefaultProblem;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.HashSetOfInt;
@@ -175,7 +174,6 @@ public void cleanUp() {
 		classFile.referenceBinding = null;
 		classFile.innerClassesBindings = null;
 		classFile.bootstrapMethods = null;
-		classFile.recordBootstrapMethods = null;
 		classFile.missingTypes = null;
 		classFile.visitedTypes = null;
 	}
@@ -275,9 +273,6 @@ public void finalizeProblems() {
 			if (start < startSuppress) continue nextSuppress;
 			if (end > endSuppress) continue nextSuppress;
 			if (!this.suppressWarningIrritants[iSuppress].isSet(irritant)) {
-				if (problem instanceof DefaultProblem) {
-					((DefaultProblem) problem).reportError();
-				}
 				continue nextSuppress;
 			}
 			// discard suppressed warning

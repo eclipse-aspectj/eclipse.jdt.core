@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,6 +23,7 @@ import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.BreakStatement;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.SimpleName;
@@ -34,6 +35,7 @@ import org.eclipse.jdt.core.dom.SwitchStatement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.YieldStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
@@ -54,10 +56,15 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		return createSuite(ASTRewritingSwitchExpressionsTest.class);
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		if (this.apiLevel == AST.JLS14 ) {
+		if (this.apiLevel == AST_INTERNAL_JLS15 ) {
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+		} else if (this.apiLevel == AST_INTERNAL_JLS14 ) {
 			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_14);
 			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_14);
 			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_14);
@@ -167,9 +174,8 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		assertEqualString(preview, buf.toString());
 	}
-	@Deprecated
 	@SuppressWarnings("rawtypes")
-	public void _testSwitchExpressions_02_since_12() throws Exception {
+	public void testSwitchExpressions_02_since_12() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -201,7 +207,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 			caseStatement1.setSwitchLabeledRule(true);
 			caseStatement1.expressions().add(ast.newNumberLiteral("1024"));
 
-			BreakStatement breakStatement = ast.newBreakStatement();
+			YieldStatement breakStatement = ast.newYieldStatement();
 			breakStatement.setExpression(ast.newNumberLiteral("2048"));
 			ListRewrite listRewrite= rewrite.getListRewrite(switchStatement, SwitchStatement.STATEMENTS_PROPERTY);
 
@@ -219,7 +225,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("        switch (i) {\n");
 		buf.append("            case 1, 2 -> i= 1;\n");
 		buf.append("            case 3 -> i= 3;\n");
-		buf.append("            case 1024 -> break 2048;\n");
+		buf.append("            case 1024 -> yield 2048;\n");
 		buf.append("            default -> i= 4;\n");
 		buf.append("        }\n");
 		buf.append("    }\n");
@@ -227,9 +233,11 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	@Deprecated
 	@SuppressWarnings("rawtypes")
-	public void _testSwitchExpressions_03_since_12() throws Exception {
+	public void testSwitchExpressions_03_since_12() throws Exception {
+		/*
+		 * if (this.apiLevel == AST_INTERNAL_JLS15) { return; }
+		 */
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		String s	=
 				"package test1;\n"+
@@ -239,10 +247,10 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		switch (i) {\n"+
 				"			case 1 -> {\n"+
 				" 				int z = 100;\n"+
-				" 				break z;\n"+
+				" 				yield z;\n"+
 				"			}\n"+
 				"			default -> {\n"+
-				"				break 12;\n"+
+				"				yield 12;\n"+
 				"			}\n"+
 				"		};\n"+
 				"		return tw;\n"+
@@ -276,10 +284,10 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 			SwitchCase caseStatement2= ast.newSwitchCase(); // default
 			caseStatement2.setSwitchLabeledRule(true);
 
-			BreakStatement breakStatement = ast.newBreakStatement();
-			breakStatement.setExpression(ast.newNumberLiteral("2048"));
+			YieldStatement yieldStatement = ast.newYieldStatement();
+			yieldStatement.setExpression(ast.newNumberLiteral("2048"));
 			Block block1 = ast.newBlock();
-			block1.statements().add(breakStatement);
+			block1.statements().add(yieldStatement);
 
 			SwitchCase defaultCase = (SwitchCase) switchExpression.statements().get(2);
 			ListRewrite listRewrite= rewrite.getListRewrite(switchExpression, SwitchExpression.STATEMENTS_PROPERTY);
@@ -298,11 +306,13 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("		switch (i) {\n");
 		buf.append("			case 1 -> {\n");
 		buf.append(" 				int z = 100;\n");
-		buf.append(" 				break z;\n");
+		buf.append(" 				yield z;\n");
 		buf.append("			}\n");
-		buf.append("			case 100, 200 -> {break 2048;}\n");
+		buf.append("			case 100, 200 -> {\n");
+		buf.append("    yield 2048;\n");
+		buf.append("}\n");
 		buf.append("            default -> {\n");
-		buf.append("				break 12;\n");
+		buf.append("				yield 12;\n");
 		buf.append("			}\n");
 		buf.append("		};\n");
 		buf.append("		return tw;\n");
@@ -315,7 +325,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void _testSwitchStatement_Bug543720_since_12() throws Exception {
+	public void testSwitchStatement_Bug543720_since_12() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		String s	=
 				"package test1;\n"+
@@ -396,7 +406,10 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 	@SuppressWarnings("rawtypes")
-	public void _testSwitchExpressions_04_since_12() throws Exception {
+	public void testSwitchExpressions_04_since_12() throws Exception {
+		/*
+		 * if (this.apiLevel == AST_INTERNAL_JLS15) { return; }
+		 */
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		String s	= "package test1;\n"+
 				"public class X {\n"+
@@ -406,10 +419,10 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"			case 1 -> \n"+
 				"			 {\n"+
 				" 				int z = 100;\n"+
-				" 				break z;\n"+
+				" 				yield z;\n"+
 				"			}\n"+
 				"			default -> {\n"+
-				"				break 12;\n"+
+				"				yield 12;\n"+
 				"			}\n"+
 				"		};\n"+
 				"		return tw;\n"+
@@ -454,7 +467,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("		int tw =\n");
 		buf.append("		switch (x) {\n");
 		buf.append("			default -> {\n");
-		buf.append("				break 12;\n");
+		buf.append("				yield 12;\n");
 		buf.append("			}\n");
 		buf.append("		};\n");
 		buf.append("		return tw;\n");
@@ -847,4 +860,62 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		builder.append("}\n");
 		assertEqualString(preview, builder.toString());
 	}
+
+	@SuppressWarnings("rawtypes")
+	public void testSwitchExpressions_Bug567975_since_12() throws Exception {
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=567975
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuilder builder= new StringBuilder();
+		builder.append(
+				"package test1;\n" +
+				"public class X {\n" +
+				"    public String foo(int i) {\n" +
+				"		String ret = switch(i) {\n" +
+				"		case 0 -> \"abc\";\n" +
+				"		default -> \"\";\n" +
+				"		};\n" +
+				"		return ret;" +
+				"    }\n" +
+				"}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", builder.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "X");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List blockStatements= block.statements();
+		{
+			VariableDeclarationStatement varStatement= (VariableDeclarationStatement) blockStatements.get(0);
+			List fragments = varStatement.fragments();
+			assertEquals("Incorrect no of fragments", 1, fragments.size());
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			SwitchExpression initializer = (SwitchExpression) fragment.getInitializer();
+			List statements= initializer.statements();
+			assertEquals("incorrect Number of statements", 4, statements.size());
+
+			// replace the implicit yield expression to exercise the fix
+			YieldStatement yieldStmt = (YieldStatement) statements.get(1);
+			Expression exp = yieldStmt.getExpression();
+			ASTNode newLiteral = rewrite.createStringPlaceholder("\"def\"", ASTNode.STRING_LITERAL);
+			rewrite.replace(exp, newLiteral, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		builder= new StringBuilder();
+		builder.append(
+				"package test1;\n" +
+				"public class X {\n" +
+				"    public String foo(int i) {\n" +
+				"		String ret = switch(i) {\n" +
+				"		case 0 -> \"def\";\n" +
+				"		default -> \"\";\n" +
+				"		};\n" +
+				"		return ret;" +
+				"    }\n" +
+				"}\n");
+		assertEqualString(preview, builder.toString());
+	}
+
 }

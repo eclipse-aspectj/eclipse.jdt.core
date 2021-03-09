@@ -2772,11 +2772,10 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 *    be found as a substring in a case-insensitive way.</p>
 	 * <dl>
 	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.codeComplete.substringMatch"</code></dd>
-	 * <dt>Possible values:</dt><dd><code>{ "enabled", "disabled" }</code></dd>
-	 * <dt>Default:</dt><dd><code>"enabled"</code></dd>
 	 * </dl>
 	 * @since 3.12
-	 * @category CodeAssistOptionID
+	 * @deprecated - this option has no effect
+	 * @category DeprecatedOptionID
 	 */
 	public static final String CODEASSIST_SUBSTRING_MATCH = PLUGIN_ID + ".codeComplete.substringMatch"; //$NON-NLS-1$
 	/**
@@ -3122,12 +3121,18 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_14 = "14"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
+	 * @since 3.24
+	 * @category OptionValue
+	 */
+	public static final String VERSION_15 = "15"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
 	 * @since 3.4
 	 * @category OptionValue
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
-			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14));
+			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15));
 
 	/**
 	 * Returns all {@link JavaCore}{@code #VERSION_*} levels in the order of their

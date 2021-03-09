@@ -105,7 +105,8 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 			// otherwise default super constructor exists, so go ahead and complain unused.
 		}
 		// complain unused
-		this.scope.problemReporter().unusedPrivateConstructor(this);
+		if ((this.bits & ASTNode.IsImplicit) == 0)
+			this.scope.problemReporter().unusedPrivateConstructor(this);
 	}
 
 	// check constructor recursion, once all constructor got resolved
@@ -204,27 +205,8 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 			&& (this.constructorCall.accessMode != ExplicitConstructorCall.This)) {
 			flowInfo = flowInfo.mergedWith(constructorContext.initsOnReturn);
 			FieldBinding[] fields = this.binding.declaringClass.fields();
-			for (int i = 0, count = fields.length; i < count; i++) {
-				FieldBinding field = fields[i];
-				checkAndGenerateFieldAssignment(initializerFlowContext, flowInfo, field);
-				if (!field.isStatic() && !flowInfo.isDefinitelyAssigned(field)) {
-					if (field.isFinal()) {
-						this.scope.problemReporter().uninitializedBlankFinalField(
-								field,
-								((this.bits & ASTNode.IsDefaultConstructor) != 0)
-									? (ASTNode) this.scope.referenceType().declarationOf(field.original())
-									: this);
-					} else if (field.isNonNull() || field.type.isFreeTypeVariable()) {
-						FieldDeclaration fieldDecl = this.scope.referenceType().declarationOf(field.original());
-						if (!isValueProvidedUsingAnnotation(fieldDecl))
-							this.scope.problemReporter().uninitializedNonNullField(
-								field,
-								((this.bits & ASTNode.IsDefaultConstructor) != 0)
-									? (ASTNode) fieldDecl
-									: this);
-					}
-				}
-			}
+			checkAndGenerateFieldAssignment(initializerFlowContext, flowInfo, fields);
+			doFieldReachAnalysis(flowInfo, fields);
 		}
 		// check unreachable catch blocks
 		constructorContext.complainIfUnusedExceptionHandlers(this);
@@ -235,8 +217,30 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 		this.ignoreFurtherInvestigation = true;
 	}
 }
+protected void doFieldReachAnalysis(FlowInfo flowInfo, FieldBinding[] fields) {
+	for (int i = 0, count = fields.length; i < count; i++) {
+		FieldBinding field = fields[i];
+		if (!field.isStatic() && !flowInfo.isDefinitelyAssigned(field)) {
+			if (field.isFinal()) {
+				this.scope.problemReporter().uninitializedBlankFinalField(
+						field,
+						((this.bits & ASTNode.IsDefaultConstructor) != 0)
+							? (ASTNode) this.scope.referenceType().declarationOf(field.original())
+							: this);
+			} else if (field.isNonNull() || field.type.isFreeTypeVariable()) {
+				FieldDeclaration fieldDecl = this.scope.referenceType().declarationOf(field.original());
+				if (!isValueProvidedUsingAnnotation(fieldDecl))
+					this.scope.problemReporter().uninitializedNonNullField(
+						field,
+						((this.bits & ASTNode.IsDefaultConstructor) != 0)
+							? (ASTNode) fieldDecl
+							: this);
+			}
+		}
+	}
+}
 
-protected void checkAndGenerateFieldAssignment(FlowContext flowContext, FlowInfo flowInfo, FieldBinding field) {
+protected void checkAndGenerateFieldAssignment(FlowContext flowContext, FlowInfo flowInfo, FieldBinding[] fields) {
 	return;
 }
 boolean isValueProvidedUsingAnnotation(FieldDeclaration fieldDecl) {
@@ -481,6 +485,41 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 }
 
 @Override
+protected AnnotationBinding[][] getPropagatedRecordComponentAnnotations() {
+
+	if ((this.bits & (ASTNode.IsCanonicalConstructor | ASTNode.IsImplicit)) == 0)
+		return null;
+	if (this.binding == null)
+		return null;
+	AnnotationBinding[][] paramAnnotations = null;
+	ReferenceBinding declaringClass = this.binding.declaringClass;
+	if (declaringClass instanceof SourceTypeBinding) {
+		assert declaringClass.isRecord();
+		RecordComponentBinding[] rcbs = ((SourceTypeBinding) declaringClass).components();
+		for (int i = 0, length = rcbs.length; i < length; i++) {
+			RecordComponentBinding rcb = rcbs[i];
+			RecordComponent recordComponent = rcb.sourceRecordComponent();
+			long rcMask = TagBits.AnnotationForParameter | TagBits.AnnotationForTypeUse;
+			List<AnnotationBinding> relevantAnnotationBindings = new ArrayList<>();
+			Annotation[] relevantAnnotations = ASTNode.getRelevantAnnotations(recordComponent.annotations, rcMask, relevantAnnotationBindings);
+			if (relevantAnnotations != null) {
+				if (paramAnnotations == null) {
+					paramAnnotations = new AnnotationBinding[length][];
+					for (int j=0; j<i; j++) {
+						paramAnnotations[j] = Binding.NO_ANNOTATIONS;
+					}
+				}
+				this.binding.tagBits |= TagBits.HasParameterAnnotations;
+				paramAnnotations[i] = relevantAnnotationBindings.toArray(new AnnotationBinding[0]);
+			} else if (paramAnnotations != null) {
+				paramAnnotations[i] = Binding.NO_ANNOTATIONS;
+			}
+		}
+	}
+	return paramAnnotations;
+}
+
+@Override
 public void getAllAnnotationContexts(int targetType, List allAnnotationContexts) {
 	TypeReference fakeReturnType = new SingleTypeReference(this.selector, 0);
 	fakeReturnType.resolvedType = this.binding.declaringClass;
@@ -494,6 +533,11 @@ public void getAllAnnotationContexts(int targetType, List allAnnotationContexts)
 @Override
 public boolean isConstructor() {
 	return true;
+}
+
+@Override
+public boolean isCanonicalConstructor() {
+	return (this.bits & ASTNode.IsCanonicalConstructor) != 0;
 }
 
 @Override
@@ -617,7 +661,14 @@ public void resolveStatements() {
 				this.scope.problemReporter().cannotUseSuperInJavaLangObject(this.constructorCall);
 			}
 			this.constructorCall = null;
-		} else {
+		} else if (sourceType.isRecord() &&
+				!(this instanceof CompactConstructorDeclaration) && // compact constr should be marked as canonical?
+				(this.binding != null && (this.binding.tagBits & TagBits.IsCanonicalConstructor) == 0) &&
+				this.constructorCall.accessMode != ExplicitConstructorCall.This) {
+			this.scope.problemReporter().recordMissingExplicitConstructorCallInNonCanonicalConstructor(this);
+			this.constructorCall = null;
+		}
+		else {
 			this.constructorCall.resolve(this.scope);
 		}
 	}

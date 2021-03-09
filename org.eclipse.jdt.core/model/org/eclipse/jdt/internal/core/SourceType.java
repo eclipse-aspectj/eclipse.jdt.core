@@ -45,6 +45,7 @@ public class SourceType extends NamedMember implements IType {
  * Currently this is computed and used only for anonymous types.
  */
 public int localOccurrenceCount = 1;
+private static final IField[] NO_FIELDS = new IField[0];
 
 protected SourceType(JavaElement parent, String name) {
 	super(parent, name);
@@ -282,10 +283,53 @@ public IField getField(String fieldName) {
  */
 @Override
 public IField[] getFields() throws JavaModelException {
+	if (!isRecord()) {
+		ArrayList list = getChildrenOfType(FIELD);
+		if (list.size() == 0) {
+			return NO_FIELDS;
+		}
+		IField[] array= new IField[list.size()];
+		list.toArray(array);
+		return array;
+	}
+	return getFieldsOrComponents(false);
+}
+@Override
+public IField[] getRecordComponents() throws JavaModelException {
+	if (!isRecord())
+		return NO_FIELDS;
+	return getFieldsOrComponents(true);
+}
+@Override
+public String[] getPermittedSubtypeNames() throws JavaModelException {
+	SourceTypeElementInfo info = (SourceTypeElementInfo) getElementInfo();
+	char[][] names= info.getPermittedSubtypeNames();
+	return CharOperation.toStrings(names);
+}
+private IField[] getFieldsOrComponents(boolean component) throws JavaModelException {
 	ArrayList list = getChildrenOfType(FIELD);
-	IField[] array= new IField[list.size()];
-	list.toArray(array);
+	if (list.size() == 0) {
+		return NO_FIELDS;
+	}
+	ArrayList<IField> fields = new ArrayList<>();
+	for (Object object : list) {
+		IField field = (IField) object;
+		if (field.isRecordComponent() == component)
+			fields.add(field);
+	}
+	IField[] array= new IField[fields.size()];
+	fields.toArray(array);
 	return array;
+}
+@Override
+public IField getRecordComponent(String compName) {
+	try {
+		if (isRecord())
+			return new SourceField(this, compName);
+	} catch (JavaModelException e) {
+		// Should throw an exception instead?
+	}
+	return null;
 }
 /**
  * @see IType#getFullyQualifiedName()
@@ -656,6 +700,15 @@ public boolean isRecord() throws JavaModelException {
 	SourceTypeElementInfo info = (SourceTypeElementInfo) getElementInfo();
 	return TypeDeclaration.kind(info.getModifiers()) == TypeDeclaration.RECORD_DECL;
 }
+/**
+ * @see IType#isSealed()
+ * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+ */
+@Override
+public boolean isSealed() throws JavaModelException {
+	SourceTypeElementInfo info = (SourceTypeElementInfo) getElementInfo();
+	return Flags.isSealed(info.getModifiers());
+}
 
 /**
  * @see IType
@@ -929,6 +982,9 @@ protected void toStringInfo(int tab, StringBuffer buffer, Object info, boolean s
 		}
 	} else {
 		try {
+			if (isSealed()) {
+				buffer.append("sealed "); //$NON-NLS-1$
+			}
 			if (isRecord()) {
 				buffer.append("record "); //$NON-NLS-1$
 			} else if (isEnum()) {

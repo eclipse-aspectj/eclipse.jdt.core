@@ -120,6 +120,11 @@ public interface TypeConstants {
     // JEP 359 Records
 	char[] RECORD_RESTRICTED_IDENTIFIER = "record".toCharArray(); //$NON-NLS-1$
 	char[] RECORD_CLASS = "Record".toCharArray(); //$NON-NLS-1$
+	// JEP 360 Sealed
+	char[] PERMITS = "permits".toCharArray(); //$NON-NLS-1$
+	char[] SEALED = "sealed".toCharArray(); //$NON-NLS-1$
+	String KEYWORD_EXTENDS = "extends"; //$NON-NLS-1$
+	String IMPLEMENTS = "implements"; //$NON-NLS-1$
 
     // jsr308
 	char[] TYPE_USE_TARGET  = "TYPE_USE".toCharArray(); //$NON-NLS-1$

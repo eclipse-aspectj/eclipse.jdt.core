@@ -82,9 +82,11 @@ package org.eclipse.jdt.internal.compiler.problem;
 import java.io.CharConversionException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -150,7 +152,7 @@ import org.eclipse.jdt.internal.compiler.ast.QualifiedNameReference;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedSuperReference;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.Receiver;
-import org.eclipse.jdt.internal.compiler.ast.RecordDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.ast.Reference;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
@@ -170,6 +172,8 @@ import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
+import org.eclipse.jdt.internal.compiler.impl.IrritantSet;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.impl.StringConstant;
 import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
@@ -190,6 +194,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBindin
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
@@ -225,6 +230,21 @@ public class ProblemReporter extends ProblemHandler {
 
 	private static String RESTRICTED_IDENTIFIER_RECORD = "RestrictedIdentifierrecord"; //$NON-NLS-1$
 	private static String RECORD = "record"; //$NON-NLS-1$
+	private static String RESTRICTED_IDENTIFIER_SEALED = "RestrictedIdentifiersealed"; //$NON-NLS-1$
+	private static String SEALED = "sealed"; //$NON-NLS-1$
+	private static String RESTRICTED_IDENTIFIER_PERMITS = "RestrictedIdentifierpermits"; //$NON-NLS-1$
+	private static String PERMITS = "permits"; //$NON-NLS-1$
+	private static String PREVIEW_KEYWORD_NON_SEALED = "non-sealed"; //$NON-NLS-1$
+
+	private static Map<String, String> permittedRestrictedKeyWordMap;
+
+	static {
+		permittedRestrictedKeyWordMap = new HashMap<>();
+		permittedRestrictedKeyWordMap.put(RECORD, RESTRICTED_IDENTIFIER_RECORD);
+		permittedRestrictedKeyWordMap.put(SEALED, RESTRICTED_IDENTIFIER_SEALED);
+		permittedRestrictedKeyWordMap.put(PERMITS, RESTRICTED_IDENTIFIER_PERMITS);
+		permittedRestrictedKeyWordMap.put(PREVIEW_KEYWORD_NON_SEALED, PREVIEW_KEYWORD_NON_SEALED);
+	}
 
 public ProblemReporter(IErrorHandlingPolicy policy, CompilerOptions options, IProblemFactory problemFactory) {
 	super(policy, options, problemFactory);
@@ -597,6 +617,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.JavadocIncorrectArityForParameterizedConstructor:
 		case IProblem.JavadocParameterizedConstructorArgumentTypeMismatch:
 		case IProblem.JavadocTypeArgumentsForRawGenericConstructor:
+		case IProblem.JavadocNotAccessibleType:
 		case IProblem.JavadocNotVisibleField:
 		case IProblem.JavadocNotVisibleConstructor:
 		case IProblem.JavadocNotVisibleMethod:
@@ -608,6 +629,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.JavadocHiddenReference:
 		case IProblem.JavadocMissingTagDescription:
 		case IProblem.JavadocInvalidSeeUrlReference:
+		case IProblem.JavadocInvalidModuleQualification:
 			return CompilerOptions.InvalidJavadoc;
 
 		case IProblem.JavadocMissingParamTag:
@@ -2107,20 +2129,12 @@ public void duplicateInitializationOfBlankFinalField(FieldBinding field, Referen
 }
 public void duplicateInitializationOfFinalLocal(LocalVariableBinding local, ASTNode location) {
 	String[] arguments = new String[] { new String(local.readableName())};
-	if ((local.modifiers & ExtraCompilerModifiers.AccPatternVariable) == 0) {
-		this.handle(
+	this.handle(
 			IProblem.DuplicateFinalLocalInitialization,
 			arguments,
 			arguments,
 			nodeSourceStart(local, location),
 			nodeSourceEnd(local, location));
-	} else {
-		this.handle(IProblem.PatternVariableNotInScope,
-			arguments,
-			arguments,
-			nodeSourceStart(local, location),
-			nodeSourceEnd(local, location));
-	}
 }
 public void duplicateMethodInType(AbstractMethodDeclaration methodDecl, boolean equalParameters, int severity) {
     MethodBinding method = methodDecl.binding;
@@ -2799,13 +2813,13 @@ public void illegalExtendedDimensions(AnnotationMethodDeclaration annotationType
 		annotationTypeMemberDeclaration.sourceStart,
 		annotationTypeMemberDeclaration.sourceEnd);
 }
-public void illegalExtendedDimensions(Argument argument) {
+public void illegalExtendedDimensions(AbstractVariableDeclaration aVarDecl) {
 	this.handle(
 		IProblem.IllegalExtendedDimensionsForVarArgs,
 		NoArgument,
 		NoArgument,
-		argument.sourceStart,
-		argument.sourceEnd);
+		aVarDecl.sourceStart,
+		aVarDecl.sourceEnd);
 }
 public void illegalGenericArray(TypeBinding leafComponentType, ASTNode location) {
 	this.handle(
@@ -2865,6 +2879,8 @@ public void illegalLocalTypeDeclaration(TypeDeclaration typeDeclaration) {
 		problemID = IProblem.CannotDefineAnnotationInLocalType;
 	} else if ((typeDeclaration.modifiers & ClassFileConstants.AccInterface) != 0) {
 		problemID = IProblem.CannotDefineInterfaceInLocalType;
+	} else if (typeDeclaration.isRecord()) {
+		problemID = IProblem.RecordCannotDefineRecordInLocalType;
 	}
 	if (problemID != 0) {
 		String[] arguments = new String[] {new String(typeDeclaration.name)};
@@ -5008,15 +5024,14 @@ public void invalidUsageOfTypeParametersForEnumDeclaration(TypeDeclaration annot
 			parameters[0].declarationSourceStart,
 			parameters[length - 1].declarationSourceEnd);
 }
-public void invalidUsageOfVarargs(Argument argument) {
+public void invalidUsageOfVarargs(AbstractVariableDeclaration aVarDecl) {
 	this.handle(
 		IProblem.InvalidUsageOfVarargs,
 		NoArgument,
 		NoArgument,
-		argument.type.sourceStart,
-		argument.sourceEnd);
+		aVarDecl.type.sourceStart,
+		aVarDecl.sourceEnd);
 }
-
 public void invalidUsageOfTypeAnnotations(Annotation annotation) {
 	this.handle(
 			IProblem.InvalidUsageOfTypeAnnotations,
@@ -5082,6 +5097,16 @@ public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclar
 private boolean isIdentifier(int token) {
 	return token == TerminalTokens.TokenNameIdentifier;
 }
+private boolean isRestrictedIdentifier(int token) {
+	switch(token) {
+		case TerminalTokens.TokenNameRestrictedIdentifierYield:
+		case TerminalTokens.TokenNameRestrictedIdentifierrecord:
+		case TerminalTokens.TokenNameRestrictedIdentifiersealed:
+		case TerminalTokens.TokenNameRestrictedIdentifierpermits:
+			return true;
+		default: return false;
+	}
+}
 private boolean isKeyword(int token) {
 	switch(token) {
 		case TerminalTokens.TokenNameabstract:
@@ -5112,6 +5137,7 @@ private boolean isKeyword(int token) {
 		case TerminalTokens.TokenNameinstanceof:
 		case TerminalTokens.TokenNamelong:
 		case TerminalTokens.TokenNamenew:
+		case TerminalTokens.TokenNamenon_sealed:
 		case TerminalTokens.TokenNamenull:
 		case TerminalTokens.TokenNamenative:
 		case TerminalTokens.TokenNamepublic:
@@ -5137,6 +5163,8 @@ private boolean isKeyword(int token) {
 			return true;
 		case TerminalTokens.TokenNameRestrictedIdentifierYield:
 		case TerminalTokens.TokenNameRestrictedIdentifierrecord:
+		case TerminalTokens.TokenNameRestrictedIdentifiersealed:
+		case TerminalTokens.TokenNameRestrictedIdentifierpermits:
 			// making explicit - not a (restricted) keyword but restricted identifier.
 			//$FALL-THROUGH$
 		default:
@@ -5529,6 +5557,11 @@ public void javadocInvalidMemberTypeQualification(int sourceStart, int sourceEnd
 		this.handle(IProblem.JavadocInvalidMemberTypeQualification, NoArgument, NoArgument, sourceStart, sourceEnd);
 	}
 }
+public void javadocInvalidModuleQualification(int sourceStart, int sourceEnd, int modifiers){
+	if (javadocVisibility(this.options.reportInvalidJavadocTagsVisibility, modifiers)) {
+		this.handle(IProblem.JavadocInvalidModuleQualification, NoArgument, NoArgument, sourceStart, sourceEnd);
+	}
+}
 /*
  * Similar implementation than invalidMethod(MessageSend...)
  * Note that following problem id cannot occur for Javadoc:
@@ -5795,6 +5828,9 @@ public void javadocInvalidType(ASTNode location, TypeBinding type, int modifiers
 				break;
 			case ProblemReasons.NotVisible :
 				id = IProblem.JavadocNotVisibleType;
+				break;
+			case ProblemReasons.NotAccessible:
+				id = IProblem.JavadocNotAccessibleType;
 				break;
 			case ProblemReasons.Ambiguous :
 				id = IProblem.JavadocAmbiguousType;
@@ -8238,24 +8274,10 @@ private boolean handleSyntaxErrorOnNewTokens(
 	char[] errorTokenSource,
 	String errorTokenName,
 	String expectedToken) {
-	boolean val = false;
 	if (isIdentifier(currentKind)) {
-		String eTokenName = new String(errorTokenSource);
-		String origExpectedToken = expectedToken;
-		expectedToken = replaceIfSynthetic(expectedToken);
-		if (isIdentifier(currentKind)) {
-			if (RESTRICTED_IDENTIFIER_RECORD.equals(origExpectedToken) && RECORD.equals(eTokenName)) {
-				if (this.options.sourceLevel < ClassFileConstants.JDK14) {
-					previewFeatureNotSupported(start, end, RECORD, CompilerOptions.VERSION_14);
-					val = true;
-				} else if (!this.options.enablePreviewFeatures) {
-					previewFeatureNotEnabled(start, end, RECORD);
-					val = true;
-				}
-			}
-		}
+		return validateRestrictedKeywords(errorTokenSource, expectedToken, start, end, true);
 	}
-	return val;
+	return false;
 }
 private void handleSyntaxError(
 	int id,
@@ -8306,6 +8328,8 @@ private void syntaxError(
 	} else {
 		eTokenName = errorTokenName;
 	}
+	if (isRestrictedIdentifier(currentKind))
+		eTokenName = replaceIfSynthetic(eTokenName);
 
 	String[] arguments;
 	if(expectedToken != null) {
@@ -8336,6 +8360,10 @@ private String replaceIfSynthetic(String token) {
 		return "yield"; //$NON-NLS-1$
 	if (token.equals(RESTRICTED_IDENTIFIER_RECORD))
 		return RECORD;
+	if (token.equals(RESTRICTED_IDENTIFIER_SEALED))
+		return SEALED;
+	if (token.equals(RESTRICTED_IDENTIFIER_PERMITS))
+		return PERMITS;
 	return token;
 }
 public void task(String tag, String message, String priority, int start, int end){
@@ -8401,6 +8429,22 @@ public void typeCastError(CastExpression expression, TypeBinding leftType, TypeB
 	}
 	this.handle(
 		IProblem.IllegalCast,
+		new String[] { rightName, leftName },
+		new String[] { rightShortName, leftShortName },
+		expression.sourceStart,
+		expression.sourceEnd);
+}
+public void unsafeCastInInstanceof(Expression expression, TypeBinding leftType, TypeBinding rightType) {
+	String leftName = new String(leftType.readableName());
+	String rightName = new String(rightType.readableName());
+	String leftShortName = new String(leftType.shortReadableName());
+	String rightShortName = new String(rightType.shortReadableName());
+	if (leftShortName.equals(rightShortName)){
+		leftShortName = leftName;
+		rightShortName = rightName;
+	}
+	this.handle(
+		IProblem.UnsafeCast,
 		new String[] { rightName, leftName },
 		new String[] { rightShortName, leftShortName },
 		expression.sourceStart,
@@ -8783,25 +8827,14 @@ public void uninitializedNonNullField(FieldBinding field, ASTNode location) {
 		nodeSourceEnd(field, location));
 }
 public void uninitializedLocalVariable(LocalVariableBinding binding, ASTNode location, Scope scope) {
-	if ((binding.modifiers & ExtraCompilerModifiers.AccPatternVariable) == 0) {
-		binding.markAsUninitializedIn(scope);
-		String[] arguments = new String[] {new String(binding.readableName())};
-		this.handle(
-				methodHasMissingSwitchDefault() ? IProblem.UninitializedLocalVariableHintMissingDefault : IProblem.UninitializedLocalVariable,
-						arguments,
-						arguments,
-						nodeSourceStart(binding, location),
-						nodeSourceEnd(binding, location));
-	} else {
-		String[] arguments = new String[] {new String(binding.readableName())};
-		this.handle(
-				IProblem.PatternVariableNotInScope,
-						arguments,
-						arguments,
-						nodeSourceStart(binding, location),
-						nodeSourceEnd(binding, location));
-
-	}
+	binding.markAsUninitializedIn(scope);
+	String[] arguments = new String[] {new String(binding.readableName())};
+	this.handle(
+			methodHasMissingSwitchDefault() ? IProblem.UninitializedLocalVariableHintMissingDefault : IProblem.UninitializedLocalVariable,
+					arguments,
+					arguments,
+					nodeSourceStart(binding, location),
+					nodeSourceEnd(binding, location));
 }
 private boolean methodHasMissingSwitchDefault() {
 	MethodScope methodScope = null;
@@ -9509,15 +9542,8 @@ public void problemNotAnalysed(Expression token, String optionKey) {
 		token.sourceStart,
 		token.sourceEnd);
 }
-public void previewFeatureNotEnabled(int sourceStart, int sourceEnd, String featureName) {
-	String[] args = new String[] {featureName};
-	this.handle(
-			IProblem.PreviewFeatureDisabled,
-			args,
-			args,
-			sourceStart,
-			sourceEnd);
-}
+// Try not to use this. Ideally, this should only be invoked through
+// validateJavaFeatureSupport()
 public void previewFeatureUsed(int sourceStart, int sourceEnd) {
 	this.handle(
 			IProblem.PreviewFeatureUsed,
@@ -9526,14 +9552,70 @@ public void previewFeatureUsed(int sourceStart, int sourceEnd) {
 			sourceStart,
 			sourceEnd);
 }
-public void previewFeatureNotSupported(int sourceStart, int sourceEnd, String featureName, String sourceLevel) {
-	String[] args = new String[] {featureName, sourceLevel};
-	this.handle(
-			IProblem.PreviewFeatureNotSupported,
-			args,
-			args,
-			sourceStart,
-			sourceEnd);
+//Returns true if the problem is handled and reported (only errors considered and not warnings)
+public boolean validateRestrictedKeywords(char[] name, int start, int end, boolean reportSyntaxError) {
+	return validateRestrictedKeywords(name, null, start, end, reportSyntaxError);
+}
+private boolean validateRestrictedKeywords(char[] name, String expectedToken, int start, int end, boolean reportSyntaxError) {
+	boolean isPreviewEnabled = this.options.enablePreviewFeatures;
+	if (expectedToken != null) {
+		String tokenName= new String(name);
+		String restrictedIdentifier= permittedRestrictedKeyWordMap.get(tokenName);
+		if (restrictedIdentifier == null || !restrictedIdentifier.equals(expectedToken)) {
+			return false;
+		}
+	}
+	for (JavaFeature feature : JavaFeature.values()) {
+		char[][] restrictedKeywords = feature.getRestrictedKeywords();
+		for (char[] k : restrictedKeywords) {
+			if (CharOperation.equals(name, k)) {
+				if (reportSyntaxError) {
+					return validateJavaFeatureSupport(feature, start, end);
+				} else {
+					if (feature.isPreview()) {
+						int severity = isPreviewEnabled ? ProblemSeverities.Error | ProblemSeverities.Fatal : ProblemSeverities.Warning;
+						restrictedTypeName(name, CompilerOptions.versionFromJdkLevel(feature.getCompliance()), start, end, severity);
+						return isPreviewEnabled;
+					} else {
+						restrictedTypeName(name, CompilerOptions.versionFromJdkLevel(feature.getCompliance()), start, end, ProblemSeverities.Error | ProblemSeverities.Fatal);
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+public boolean validateRestrictedKeywords(char[] name, ASTNode node) {
+	return validateRestrictedKeywords(name, node.sourceStart, node.sourceEnd, false);
+}
+//Returns true if the problem is handled and reported (only errors considered and not warnings)
+public boolean validateJavaFeatureSupport(JavaFeature feature, int sourceStart, int sourceEnd) {
+	boolean versionInRange = feature.getCompliance() <= this.options.sourceLevel;
+	String version = CompilerOptions.versionFromJdkLevel(feature.getCompliance());
+	int problemId = -1;
+	if (feature.isPreview()) {
+		if (!versionInRange) {
+			problemId = IProblem.PreviewFeatureNotSupported;
+		} else if (!this.options.enablePreviewFeatures) {
+			problemId = IProblem.PreviewFeatureDisabled;
+		} else if (this.options.isAnyEnabled(IrritantSet.PREVIEW)) {
+			problemId = IProblem.PreviewFeatureUsed;
+		}
+	} else if (!versionInRange) {
+		problemId = IProblem.FeatureNotSupported;
+	}
+	if (problemId > -1) {
+		String[] args = new String[] {feature.getName(), version};
+		this.handle(
+				problemId,
+				args,
+				args,
+				sourceStart,
+				sourceEnd);
+		return true;
+	}
+	return false;
 }
 public void useAssertAsAnIdentifier(int sourceStart, int sourceEnd) {
 	this.handle(
@@ -9553,9 +9635,10 @@ public void useEnumAsAnIdentifier(int sourceStart, int sourceEnd) {
 }
 public void illegalUseOfUnderscoreAsAnIdentifier(int sourceStart, int sourceEnd, boolean reportError) {
 	this.underScoreIsError = reportError;
+	int problemId = (reportError) ? IProblem.ErrorUseOfUnderscoreAsAnIdentifier : IProblem.IllegalUseOfUnderscoreAsAnIdentifier;
 	try {
 		this.handle(
-			IProblem.IllegalUseOfUnderscoreAsAnIdentifier,
+			problemId,
 			NoArgument,
 			NoArgument,
 			sourceStart,
@@ -11347,6 +11430,38 @@ public void autoModuleWithUnstableName(ModuleReference moduleReference) {
 			moduleReference.sourceStart,
 			moduleReference.sourceEnd);
 }
+public void conflictingPackageInModules(char[][] wellKnownTypeName, CompilationUnitDeclaration compUnitDecl, Object location,
+		char[] packageName, char[] expectedModuleName, char[] conflictingModuleName) {
+	ReferenceContext savedContext = this.referenceContext;
+	this.referenceContext = compUnitDecl;
+	String[] arguments = new String[] {CharOperation.toString(wellKnownTypeName),
+			new String(packageName),
+			new String(expectedModuleName),
+			new String(conflictingModuleName)};
+	int start = 0, end = 0;
+	if (location != null) {
+		if (location instanceof InvocationSite) {
+			InvocationSite site = (InvocationSite) location;
+			start = site.sourceStart();
+			end = site.sourceEnd();
+		} else if (location instanceof ASTNode) {
+			ASTNode node = (ASTNode) location;
+			start = node.sourceStart();
+			end = node.sourceEnd();
+		}
+	}
+	try {
+		this.handle(
+				IProblem.ConflictingPackageInModules,
+				arguments,
+				arguments,
+				start,
+				end);
+	} finally {
+		this.referenceContext = savedContext;
+	}
+}
+
 public void switchExpressionIncompatibleResultExpressions(SwitchExpression expression) {
 	TypeBinding type = expression.resultExpressions.get(0).resolvedType;
 	this.handle(
@@ -11377,7 +11492,7 @@ public void switchExpressionSwitchLabeledBlockCompletesNormally(Block block) {
 		IProblem.SwitchExpressionaYieldSwitchLabeledBlockCompletesNormally,
 		NoArgument,
 		NoArgument,
-		block.sourceStart,
+		block.sourceEnd - 1,
 		block.sourceEnd);
 }
 public void switchExpressionLastStatementCompletesNormally(Statement stmt) {
@@ -11385,7 +11500,7 @@ public void switchExpressionLastStatementCompletesNormally(Statement stmt) {
 		IProblem.SwitchExpressionaYieldSwitchLabeledBlockCompletesNormally,
 		NoArgument,
 		NoArgument,
-		stmt.sourceStart,
+		stmt.sourceEnd - 1,
 		stmt.sourceEnd);
 }
 public void switchExpressionIllegalLastStatement(Statement stmt) {
@@ -11516,6 +11631,25 @@ public void switchExpressionsContinueOutOfSwitchExpression(ASTNode statement) {
 		statement.sourceStart,
 		statement.sourceEnd);
 }
+public void switchExpressionsReturnWithinSwitchExpression(ASTNode statement) {
+	this.handle(
+		IProblem.SwitchExpressionsReturnWithinSwitchExpression,
+		NoArgument,
+		NoArgument,
+		statement.sourceStart,
+		statement.sourceEnd);
+}
+public void illegalModifierForLocalRecord(SourceTypeBinding type) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String[] arguments = new String[] {new String(type.sourceName())};
+	this.handle(
+		IProblem.RecordIllegalModifierForLocalRecord,
+		arguments,
+		arguments,
+		type.sourceStart(),
+		type.sourceEnd());
+}
 public void illegalModifierForInnerRecord(SourceTypeBinding type) {
 	if (!this.options.enablePreviewFeatures)
 		return;
@@ -11558,11 +11692,11 @@ public void recordAccessorMethodHasThrowsClause(ASTNode methodDeclaration) {
 		methodDeclaration.sourceStart,
 		methodDeclaration.sourceEnd);
 }
-public void recordCanonicalConstructorNotPublic(AbstractMethodDeclaration methodDecl) {
+public void recordCanonicalConstructorVisibilityReduced(AbstractMethodDeclaration methodDecl) {
 	if (!this.options.enablePreviewFeatures)
 		return;
 	this.handle(
-		IProblem.RecordCanonicalConstructorShouldBePublic,
+		IProblem.RecordCanonicalConstructorVisibilityReduced,
 		new String[] {
 				new String(methodDecl.selector)
 			},
@@ -11582,29 +11716,29 @@ public void recordCompactConstructorHasReturnStatement(ReturnStatement stmt) {
 		stmt.sourceStart,
 		stmt.sourceEnd);
 }
-public void recordIllegalComponentNameInRecord(Argument arg, RecordDeclaration rd) {
+public void recordIllegalComponentNameInRecord(RecordComponent recComp, TypeDeclaration typeDecl) {
 	if (!this.options.enablePreviewFeatures)
 		return;
 	this.handle(
 		IProblem.RecordIllegalComponentNameInRecord,
 		new String[] {
-				new String(arg.name), new String(rd.name)
+				new String(recComp.name), new String(typeDecl.name)
 			},
 			new String[] {
-					new String(arg.name), new String(rd.name)
+					new String(recComp.name), new String(typeDecl.name)
 			},
-		arg.sourceStart,
-		arg.sourceEnd);
+		recComp.sourceStart,
+		recComp.sourceEnd);
 }
-public void recordDuplicateComponent(Argument arg) {
+public void recordDuplicateComponent(RecordComponent recordComponent) {
 	if (!this.options.enablePreviewFeatures)
 		return;
 	this.handle(
 		IProblem.RecordDuplicateComponent,
-		new String[] { new String(arg.name)},
-		new String[] { new String(arg.name)},
-		arg.sourceStart,
-		arg.sourceEnd);
+		new String[] { new String(recordComponent.name)},
+		new String[] { new String(recordComponent.name)},
+		recordComponent.sourceStart,
+		recordComponent.sourceEnd);
 }
 public void recordIllegalNativeModifierInRecord(AbstractMethodDeclaration method) {
 	if (!this.options.enablePreviewFeatures)
@@ -11626,15 +11760,14 @@ public void recordInstanceInitializerBlockInRecord(Initializer initializer) {
 		initializer.sourceStart,
 		initializer.sourceEnd);
 }
-public void recordIsAReservedTypeName(ASTNode decl) {
-	if (!this.options.enablePreviewFeatures)
-		return;
+public void restrictedTypeName(char[] name, String compliance, int start, int end, int severity) {
 	this.handle(
-		IProblem.RecordIsAReservedTypeName,
-		NoArgument,
-		NoArgument,
-		decl.sourceStart,
-		decl.sourceEnd);
+		IProblem.RestrictedTypeName,
+		new String[] { new String(name), compliance},
+		new String[] { new String(name), compliance},
+		severity,
+		start,
+		end);
 }
 public void recordIllegalAccessorReturnType(ASTNode returnType, TypeBinding type) {
 	if (!this.options.enablePreviewFeatures)
@@ -11671,16 +11804,6 @@ public void recordCanonicalConstructorShouldNotBeGeneric(AbstractMethodDeclarati
 		return;
 	this.handle(
 		IProblem.RecordCanonicalConstructorShouldNotBeGeneric,
-		new String[] { new String(methodDecl.selector)},
-		new String[] { new String(methodDecl.selector)},
-		methodDecl.sourceStart,
-		methodDecl.sourceEnd);
-}
-public void recordCanonicalConstructorShouldBePublic(MethodDeclaration methodDecl) {
-	if (!this.options.enablePreviewFeatures)
-		return;
-	this.handle(
-		IProblem.RecordCanonicalConstructorShouldBePublic,
 		new String[] { new String(methodDecl.selector)},
 		new String[] { new String(methodDecl.selector)},
 		methodDecl.sourceStart,
@@ -11760,7 +11883,7 @@ public void recordCannotExtendRecord(SourceTypeBinding type, TypeReference super
 		superclass.sourceStart,
 		superclass.sourceEnd);
 }
-public void recordComponentCannotBeVoid(ASTNode recordDecl, Argument arg) {
+public void recordComponentCannotBeVoid(RecordComponent arg) {
 	if (!this.options.enablePreviewFeatures)
 		return;
 	String[] arguments = new String[] { new String(arg.name) };
@@ -11768,11 +11891,11 @@ public void recordComponentCannotBeVoid(ASTNode recordDecl, Argument arg) {
 		IProblem.RecordComponentCannotBeVoid,
 		arguments,
 		arguments,
-		recordDecl.sourceStart,
-		recordDecl.sourceEnd);
+		arg.sourceStart,
+		arg.sourceEnd);
 }
-public void recordIllegalVararg(Argument argType, RecordDeclaration recordDecl) {
-	String[] arguments = new String[] {CharOperation.toString(argType.type.getTypeName()), new String(recordDecl.name)};
+public void recordIllegalVararg(RecordComponent argType, TypeDeclaration typeDecl) {
+	String[] arguments = new String[] {CharOperation.toString(argType.type.getTypeName()), new String(typeDecl.name)};
 	this.handle(
 		IProblem.RecordIllegalVararg,
 		arguments,
@@ -11788,5 +11911,282 @@ public void recordStaticReferenceToOuterLocalVariable(LocalVariableBinding local
 		arguments,
 		node.sourceStart,
 		node.sourceEnd);
+}
+public void recordComponentsCannotHaveModifiers(RecordComponent comp) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String[] arguments = new String[] { new String(comp.name) };
+	this.handle(
+		IProblem.RecordComponentsCannotHaveModifiers,
+		arguments,
+		arguments,
+		comp.sourceStart,
+		comp.sourceEnd);
+}
+public void recordIllegalParameterNameInCanonicalConstructor(RecordComponentBinding comp, Argument arg) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	this.handle(
+		IProblem.RecordIllegalParameterNameInCanonicalConstructor,
+		new String[] {new String(arg.name), new String(comp.name)},
+			new String[] {new String(arg.name), new String(comp.name)},
+		arg.sourceStart,
+		arg.sourceEnd);
+}
+public void recordIllegalExplicitFinalFieldAssignInCompactConstructor(FieldBinding field, FieldReference fieldRef) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String[] arguments = new String[] { new String(field.name) };
+	this.handle(
+		IProblem.RecordIllegalExplicitFinalFieldAssignInCompactConstructor,
+		arguments,
+		arguments,
+		fieldRef.sourceStart,
+		fieldRef.sourceEnd);
+}
+public void recordMissingExplicitConstructorCallInNonCanonicalConstructor(ASTNode location) {
+	this.handle(
+		IProblem.RecordMissingExplicitConstructorCallInNonCanonicalConstructor,
+		NoArgument,
+		NoArgument,
+		location.sourceStart,
+		location.sourceEnd);
+}
+public void recordIllegalStaticModifierForLocalClassOrInterface(SourceTypeBinding type) {
+	String[] arguments = new String[] {new String(type.sourceName())};
+	this.handle(
+		IProblem.RecordIllegalStaticModifierForLocalClassOrInterface,
+		arguments,
+		arguments,
+		type.sourceStart(),
+		type.sourceEnd());
+}
+public void localStaticsIllegalVisibilityModifierForInterfaceLocalType(SourceTypeBinding type) {
+	String[] arguments = new String[] {new String(type.sourceName())};
+	this.handle(
+		IProblem.LocalStaticsIllegalVisibilityModifierForInterfaceLocalType,
+		arguments,
+		arguments,
+		type.sourceStart(),
+		type.sourceEnd());
+}
+public void illegalModifierForLocalEnumDeclaration(SourceTypeBinding type) {
+	String[] arguments = new String[] {new String(type.sourceName())};
+	this.handle(
+		IProblem.IllegalModifierForLocalEnumDeclaration,
+		arguments,
+		arguments,
+		type.sourceStart(),
+		type.sourceEnd());
+}
+private void sealedMissingModifier(int problem, SourceTypeBinding type, TypeDeclaration typeDecl, TypeBinding superTypeBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	String superTypeFullName = new String(superTypeBinding.readableName());
+	String superTypeShortName = new String(superTypeBinding.shortReadableName());
+	if (superTypeShortName.equals(name)) superTypeShortName = superTypeFullName;
+	this.handle(
+		problem,
+		new String[] {superTypeFullName, name},
+		new String[] {superTypeShortName, name},
+		typeDecl.sourceStart,
+		typeDecl.sourceEnd);
+}
+
+public void sealedMissingClassModifier(SourceTypeBinding type, TypeDeclaration typeDecl, TypeBinding superTypeBinding) {
+	sealedMissingModifier(IProblem.SealedMissingClassModifier, type, typeDecl, superTypeBinding);
+}
+public void sealedMissingInterfaceModifier(SourceTypeBinding type, TypeDeclaration typeDecl, TypeBinding superTypeBinding) {
+	sealedMissingModifier(IProblem.SealedMissingInterfaceModifier, type, typeDecl, superTypeBinding);
+}
+public void sealedDisAllowedNonSealedModifierInClass(SourceTypeBinding type, TypeDeclaration typeDecl) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(
+			IProblem.SealedDisAllowedNonSealedModifierInClass,
+			new String[] { name },
+			new String[] { name },
+			typeDecl.sourceStart,
+			typeDecl.sourceEnd);
+}
+
+private void sealedSuperTypeDoesNotPermit(int problem, SourceTypeBinding type, TypeReference superType, TypeBinding superTypeBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	String superTypeFullName = new String(superTypeBinding.readableName());
+	String superTypeShortName = new String(superTypeBinding.shortReadableName());
+	if (superTypeShortName.equals(name)) superTypeShortName = superTypeFullName;
+	this.handle(
+		problem,
+		new String[] {name, superTypeFullName},
+		new String[] {name, superTypeShortName},
+		superType.sourceStart,
+		superType.sourceEnd);
+}
+
+public void sealedSuperClassDoesNotPermit(SourceTypeBinding type, TypeReference superType, TypeBinding superTypeBinding) {
+	sealedSuperTypeDoesNotPermit(IProblem.SealedSuperClassDoesNotPermit, type, superType, superTypeBinding);
+}
+public void sealedSuperInterfaceDoesNotPermit(SourceTypeBinding type, TypeReference superType, TypeBinding superTypeBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	String superTypeFullName = new String(superTypeBinding.readableName());
+	String superTypeShortName = new String(superTypeBinding.shortReadableName());
+	String keyword = type.isClass() ? new String(TypeConstants.IMPLEMENTS) : new String(TypeConstants.KEYWORD_EXTENDS);
+	if (superTypeShortName.equals(name)) superTypeShortName = superTypeFullName;
+	this.handle(
+			IProblem.SealedSuperInterfaceDoesNotPermit,
+		new String[] {name, superTypeFullName, keyword},
+		new String[] {name, superTypeShortName, keyword},
+		superType.sourceStart,
+		superType.sourceEnd);
+}
+
+public void sealedMissingSealedModifier(SourceTypeBinding type, ASTNode node) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(IProblem.SealedMissingSealedModifier, new String[] { name }, new String[] { name }, node.sourceStart,
+			node.sourceEnd);
+}
+
+public void sealedDuplicateTypeInPermits(SourceTypeBinding type, TypeReference reference, ReferenceBinding superType) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	this.handle(
+		IProblem.SealedDuplicateTypeInPermits,
+		new String[] {
+			new String(superType.readableName()),
+			new String(type.sourceName())},
+		new String[] {
+			new String(superType.shortReadableName()),
+			new String(type.sourceName())},
+		reference.sourceStart,
+		reference.sourceEnd);
+}
+
+public void sealedNotDirectSuperClass(ReferenceBinding type, TypeReference reference, SourceTypeBinding superType) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	this.handle(
+		IProblem.SealedNotDirectSuperClass,
+		new String[] {
+			new String(type.sourceName()),
+			new String(superType.readableName())},
+		new String[] {
+				new String(type.sourceName()),
+				new String(superType.readableName())},
+		reference.sourceStart,
+		reference.sourceEnd);
+}
+public void sealedPermittedTypeOutsideOfModule(ReferenceBinding permType, SourceTypeBinding type, ASTNode node, ModuleBinding moduleBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String permTypeName = new String(permType.sourceName);
+	String name = new String(type.sourceName());
+	String moduleName = new String(moduleBinding.name());
+	String[] arguments = new String[] {permTypeName, moduleName, name};
+	this.handle(IProblem.SealedPermittedTypeOutsideOfModule,
+			arguments,
+			arguments,
+			node.sourceStart,
+			node.sourceEnd);
+}
+public void sealedPermittedTypeOutsideOfModule(SourceTypeBinding type, ASTNode node) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(IProblem.SealedPermittedTypeOutsideOfModule, new String[] { name }, new String[] { name },
+			node.sourceStart, node.sourceEnd);
+}
+
+public void sealedPermittedTypeOutsideOfPackage(ReferenceBinding permType, SourceTypeBinding type, ASTNode node, PackageBinding packageBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String permTypeName = new String(permType.sourceName);
+	String name = new String(type.sourceName());
+	String packageName = packageBinding.compoundName == CharOperation.NO_CHAR_CHAR ? "default" : //$NON-NLS-1$
+		CharOperation.toString(packageBinding.compoundName);
+	String[] arguments = new String[] {permTypeName, packageName, name};
+	this.handle(IProblem.SealedPermittedTypeOutsideOfPackage,
+			arguments,
+			arguments,
+			node.sourceStart,
+			node.sourceEnd);
+}
+
+public void sealedSealedTypeMissingPermits(SourceTypeBinding type, ASTNode node) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(IProblem.SealedSealedTypeMissingPermits, new String[] { name }, new String[] { name }, node.sourceStart,
+			node.sourceEnd);
+}
+
+public void sealedInterfaceIsSealedAndNonSealed(SourceTypeBinding type, ASTNode node) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(IProblem.SealedInterfaceIsSealedAndNonSealed,
+			new String[] { name },
+			new String[] { name },
+			node.sourceStart,
+			node.sourceEnd);
+}
+
+public void sealedDisAllowedNonSealedModifierInInterface(SourceTypeBinding type, TypeDeclaration typeDecl) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	this.handle(
+			IProblem.SealedDisAllowedNonSealedModifierInInterface,
+			new String[] { name },
+			new String[] { name },
+			typeDecl.sourceStart,
+			typeDecl.sourceEnd);
+}
+
+public void sealedNotDirectSuperInterface(ReferenceBinding type, TypeReference reference, SourceTypeBinding superType) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	this.handle(
+		IProblem.SealedNotDirectSuperInterface,
+		new String[] {
+			new String(type.sourceName()),
+			new String(superType.readableName())},
+		new String[] {
+				new String(type.sourceName()),
+				new String(superType.readableName())},
+		reference.sourceStart,
+		reference.sourceEnd);
+}
+
+public void sealedLocalDirectSuperTypeSealed(SourceTypeBinding type, TypeReference superclass, TypeBinding superTypeBinding) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	String name = new String(type.sourceName());
+	String superTypeFullName = new String(superTypeBinding.readableName());
+	String superTypeShortName = new String(superTypeBinding.shortReadableName());
+	if (superTypeShortName.equals(name)) superTypeShortName = superTypeFullName;
+	this.handle(
+		IProblem.SealedLocalDirectSuperTypeSealed,
+		new String[] {superTypeFullName, name},
+		new String[] {superTypeShortName, name},
+		superclass.sourceStart,
+		superclass.sourceEnd);
+}
+public void sealedAnonymousClassCannotExtendSealedType(TypeReference reference, TypeBinding type) {
+	if (!this.options.enablePreviewFeatures)
+		return;
+	this.handle(
+			IProblem.SealedAnonymousClassCannotExtendSealedType,
+			new String[] {new String(type.readableName())},
+			new String[] {new String(type.shortReadableName())},
+			reference.sourceStart,
+			reference.sourceEnd);
 }
 }

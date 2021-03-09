@@ -1329,6 +1329,23 @@ public abstract class ASTVisitor {
 	 * Visits the given type-specific AST node.
 	 * <p>
 	 * The default implementation does nothing and return true.
+	 * Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param node the node to visit
+	 * @return <code>true</code> if the children of this node should be
+	 * visited, and <code>false</code> if the children of this node should
+	 * be skipped
+	 * @noreference
+	 */
+	public boolean visit(ModuleQualifiedName node) {
+		return true;
+	}
+
+	/**
+	 * Visits the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing and return true.
 	 * Subclasses may re-implement.
 	 * </p>
 	 *
@@ -1551,9 +1568,7 @@ public abstract class ASTVisitor {
 	 * @return <code>true</code> if the children of this node should be
 	 * visited, and <code>false</code> if the children of this node should
 	 * be skipped
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 * @nooverride This method is not intended to be re-implemented or extended by clients as it is a part of Java preview feature.
-	 * @since 3.18
+	 * @since 3.24
 	 */
 	public boolean visit(SwitchExpression node) {
 		return true;
@@ -1621,9 +1636,7 @@ public abstract class ASTVisitor {
 	 * @return <code>true</code> if the children of this node should be
 	 * visited, and <code>false</code> if the children of this node should
 	 * be skipped
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 * @nooverride This method is not intended to be re-implemented or extended by clients as it is a part of Java preview feature.
-	 * @since 3.20
+	 * @since 3.24
 	 */
 	public boolean visit(TextBlock node) {
 		return true;
@@ -1903,9 +1916,7 @@ public abstract class ASTVisitor {
 	 * @return <code>true</code> if the children of this node should be
 	 * visited, and <code>false</code> if the children of this node should
 	 * be skipped
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 * @nooverride This method is not intended to be re-implemented or extended by clients as it is a part of Java preview feature.
-	 * @since 3.20
+	 * @since 3.24
 	 */
 	public boolean visit(YieldStatement node) {
 		return true;
@@ -2758,6 +2769,19 @@ public abstract class ASTVisitor {
 	 * </p>
 	 *
 	 * @param node the node to visit
+	 * @noreference
+	 */
+	public void endVisit(ModuleQualifiedName node) {
+		// default implementation: do nothing
+	}
+
+	/**
+	 * End of visit the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing. Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param node the node to visit
 	 * @since 3.14
 	 */
 	public void endVisit(RequiresDirective node) {
@@ -2970,9 +2994,7 @@ public abstract class ASTVisitor {
 	 * </p>
 	 *
 	 * @param node the node to visit
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 * @nooverride This method is not intended to be re-implemented or extended by clients as it is a part of Java preview feature.
-	 * @since 3.20
+	 * @since 3.24
 	 */
 	public void endVisit(TextBlock node) {
 		// default implementation: do nothing
@@ -3196,9 +3218,7 @@ public abstract class ASTVisitor {
 	 * </p>
 	 *
 	 * @param node the node to visit
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 * @nooverride This method is not intended to be re-implemented or extended by clients as it is a part of Java preview feature.
-	 * @since 3.20
+	 * @since 3.24
 	 */
 	public void endVisit(YieldStatement node) {
 		// default implementation: do nothing

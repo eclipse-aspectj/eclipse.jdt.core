@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -46,6 +46,48 @@ public interface IMethodBinding extends IBinding {
 	 *    and <code>false</code> if this is the binding for a method
 	 */
 	public boolean isConstructor();
+
+	/**
+	 * Returns whether this binding is for a compact constructor or not.
+	 *
+	 * <p>
+	 * This method returns <code>true</code> for:
+	 * </p>
+	 * <ul>
+	 * <li>compact constructors where the binding
+	 * information was obtained from a Java source file containing a compact constructor
+	 * declaration</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * This method returns <code>false</code> for:
+	 * </p>
+	 * <ul>
+	 * <li>methods</li>
+	 * <li>constructors</li>
+	 * <li>constructors where the binding information was obtained from a Java class file (it
+	 * is not possible to determine from a class file whether a constructor is a
+	 * compact constructor or not</li>
+	 * </ul>
+	 *
+	 * @return <code>true</code> if this is the binding for a compact constructor
+	 * in a source file and and <code>false</code> otherwise
+	 * @noreference
+	 */
+	public boolean isCompactConstructor();
+
+	/**
+	 * Returns whether this binding is for a canonical constructor or not.
+	 *
+	 * <p>
+	 * This method returns <code>true</code> for canonical constructors
+	 * </p>
+	 *
+	 * @return <code>true</code> if this is the binding for a canonical constructor
+	 * and <code>false</code> otherwise
+	 * @noreference
+	 */
+	public boolean isCanonicalConstructor();
 
 	/**
 	 * Returns whether this binding is known to be a compiler-generated
@@ -395,5 +437,19 @@ public interface IMethodBinding extends IBinding {
 	 * @since 3.18
 	 */
 	public IVariableBinding[] getSyntheticOuterLocals();
+
+	/**
+	 * Returns if this is a compiler generated  equals(), hashCode(), toString() or any accessor
+	 * method of a Record or not.
+	 * Methods equals(), hashCode() and toString() and accessor methods of a Record do not have
+	 * AccSynthetic flag set for them even if they are compiler generated methods. To differentiate
+	 * between these above compiler generated methods and user created methods equals(), hashCode()
+	 * and toString() or accessor methods in a Record, this function can be used.
+	 *
+	 * @return <code>true</code> for compiler generated  equals(), hashCode() and toString() or any
+	 * accessor method of a Record, else it returns <code>false</code>.
+	 * @noreference This method is not intended to be referenced by clients.
+	 */
+	public boolean isSyntheticRecordMethod();
 
 }

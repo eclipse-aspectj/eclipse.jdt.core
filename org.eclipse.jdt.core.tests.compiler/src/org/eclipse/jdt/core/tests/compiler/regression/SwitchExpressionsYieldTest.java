@@ -26,7 +26,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug561766" };
+//		TESTS_NAMES = new String[] { "testBug565844_yy" };
 	}
 
 	public static Class<?> testClass() {
@@ -486,7 +486,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 					"----------\n" +
 					"1. ERROR in X.java (at line 8)\n" +
 					"	default :v = 2;\n" +
-					"	         ^^^^^\n" +
+					"	            ^^\n" +
 					"A switch labeled block in a switch expression should not complete normally\n" +
 					"----------\n";
 			this.runNegativeTest(
@@ -2166,7 +2166,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"			};\n"+
 				"			System.out.println(k);\n"+
 				"		}\n"+
-				"		return 1;\n"+
+				"		return 100;\n"+
 				"	}\n"+
 				"	public static void main(String[] args) {\n"+
 				"		X.foo();\n"+
@@ -2177,7 +2177,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 			"1. ERROR in X.java (at line 11)\n" +
 			"	return 2;\n" +
 			"	^^^^^^^^^\n" +
-			"'continue' or 'return' cannot be the last statement in a Switch expression case body\n" +
+			"Return within switch expressions not permitted\n" +
 			"----------\n");
 	}
 	public void testBug544073_078() {
@@ -4669,5 +4669,1293 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 			},
 			"1");
 	}
+	public void testBug562728_001() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"       static public void main (String[] args) {\n"+
+				"               int a = 0x21;\n"+
+				"               int b = 0xff;\n"+
+				"               switch (a) {\n"+
+				"               case 0x21 -> {\n"+
+				"                       switch (b) {\n"+
+				"                       default -> System.out.println(\"default\");\n"+
+				"                       }\n"+
+				"               }\n"+
+				"               case 0x3b -> System.out.println(\"3b <- WTH?\");\n"+
+				"               }\n"+
+				"       }\n"+
+				"}\n"
+			},
+			"default");
+	}
+	public void testBug562728_002() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				" static public void main (String[] args) {\n"+
+				"   int a = 0x21;\n"+
+				"   int b = 0xff;\n"+
+				"   switch (a) {\n"+
+				"     case 0x21 -> {\n"+
+				"       switch (b) {\n"+
+				"         default -> System.out.println(\"default\");\n"+
+				"       }\n"+
+				"       return;\n"+
+				"     }\n"+
+				"     case 0x3b -> System.out.println(\"3b <- WTH?\");\n"+
+				"   }\n"+
+				" }\n"+
+				"}\n"
+			},
+			"default");
+	}
+	public void testBug562728_003() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					" static public void main (String[] args) throws Exception {\n"+
+					"   int a = 0x21;\n"+
+					"   int b = 0xff;\n"+
+					"   switch (a) {\n"+
+					"     case 0x21 -> {\n"+
+					"       switch (b) {\n"+
+					"         default -> throw new Exception();\n"+
+					"       }\n"+
+					"       return; \n"+
+					"     }\n"+
+					"     case 0x3b -> System.out.println(\"3b <- WTH?\");\n"+
+					"   }\n"+
+					" }\n"+
+					"}\n",
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 10)\n" +
+				"	return; \n" +
+				"	^^^^^^^\n" +
+				"Unreachable code\n" +
+				"----------\n");
 
+	}
+	public void testBug562728_004() {
+		this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n"+
+			"       static public void main (String[] args) throws Exception {\n"+
+			"               int a = 0x21;\n"+
+			"               int b = 0xff;\n"+
+			"               Zork();\n"+
+			"               switch (a) {\n"+
+			"               case 0x21 -> {\n"+
+			"                       switch (b) {\n"+
+			"                       default -> {\n"+
+			"                               for (;;) {\n"+
+			"                                       if (b > 1)\n"+
+			"                                       throw new Exception();\n"+
+			"                               }\n"+
+			"                       }\n"+
+			"                       }\n"+
+			"               }\n"+
+			"               case 0x3b -> System.out.println(\"3b <- WTH?\");\n"+
+			"               }\n"+
+			"       }\n"+
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 5)\n" +
+		"	Zork();\n" +
+		"	^^^^\n" +
+		"The method Zork() is undefined for the type X\n" +
+		"----------\n");
+	}
+	public void testBug562728_005() {
+		this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {                        \n"+
+			"        public static int foo(int i) {  \n"+
+			"                int v;                  \n"+
+			"                int t = switch (i) {    \n"+
+			"                case 0 : {              \n"+
+			"                        yield 0;        \n"+
+			"                }                       \n"+
+			"                case 2 :v = 2;\n"+
+			"                default :v = 2;\n"+
+			"                };                      \n"+
+			"                return t;               \n"+
+			"        }                               \n"+
+			"                                        \n"+
+			"        public boolean bar() {          \n"+
+			"                return true;            \n"+
+			"        }\n"+
+			"        public static void main(String[] args) {\n"+
+			"                System.out.println(foo(3));\n"+
+			"        }                               \n"+
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 9)\n" +
+		"	default :v = 2;\n" +
+		"	            ^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+		"----------\n");
+	}
+	public void testBug562728_006() {
+		this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {                        \n"+
+			"        public static int foo(int i) {  \n"+
+			"                int v;                  \n"+
+			"                int t = switch (i) {    \n"+
+			"                case 0 -> {              \n"+
+			"                        yield 0;        \n"+
+			"                }                       \n"+
+			"                case 2 ->{v = 2;}\n"+
+			"                default ->{v = 2;}\n"+
+			"                };                      \n"+
+			"                return t;               \n"+
+			"        }                               \n"+
+			"                                        \n"+
+			"        public boolean bar() {          \n"+
+			"                return true;            \n"+
+			"        }\n"+
+			"        public static void main(String[] args) {\n"+
+			"                System.out.println(foo(3));\n"+
+			"        }                               \n"+
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 8)\n" +
+		"	case 2 ->{v = 2;}\n" +
+		"	               ^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 9)\n" +
+		"	default ->{v = 2;}\n" +
+		"	                ^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+		"----------\n");
+	}
+    public void testBug562728_007() {
+        this.runNegativeTest(
+        new String[] {
+                "X.java",
+                "public class X {                        \n"+
+                "        public static int foo(int i) {  \n"+
+                "                int v;                  \n"+
+                "                int t = switch (i) {    \n"+
+                "                case 0 -> {              \n"+
+                "                     return 1;\n"+
+                "                }                       \n"+
+                "                default ->100;\n"+
+                "                };                      \n"+
+                "                return t;               \n"+
+                "        }                               \n"+
+                "                                        \n"+
+                "        public boolean bar() {          \n"+
+                "                return true;            \n"+
+                "        }\n"+
+                "        public static void main(String[] args) {\n"+
+                "                System.out.println(foo(3));\n"+
+                "        }                               \n"+
+                "}\n"
+        },
+        "----------\n" +
+		"1. ERROR in X.java (at line 6)\n" +
+		"	return 1;\n" +
+		"	^^^^^^^^^\n" +
+		"Return within switch expressions not permitted\n" +
+        "----------\n");
+}
+	public void testBug563023_001() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X { \n"+
+				" static public int foo(int a, int b){\n"+
+				"   int t = switch (a) {\n"+
+				"     default -> {\n"+
+				"       switch (b) {\n"+
+				"            default -> {\n"+
+				"              yield 0;\n"+
+				"            }\n"+
+				"       }      \n"+
+				"     }\n"+
+				"   };\n"+
+				"   return t;\n"+
+				" }\n"+
+				" public static void main(String[] args) {\n"+
+				"   System.out.println(X.foo(0, 0));\n"+
+				" }\n"+
+				"}\n"
+			},
+			"0");
+	}
+    public void testBug563023_002() {
+        this.runNegativeTest(
+    		new String[] {
+    			"X.java",
+    			"public class X { \n"+
+    			" static public int foo(int a, int b){\n"+
+    			"   int t = switch (a) {\n"+
+    			"     default -> {\n"+
+    			"       switch (b) {\n"+
+    			"            case 0 -> {\n"+
+    			"              break;\n"+
+    			"            }\n"+
+    			"            default -> {\n"+
+    			"              yield 0;\n"+
+    			"            }\n"+
+    			"       }      \n"+
+    			"     }\n"+
+    			"   };\n"+
+    			"   return t;\n"+
+    			" }\n"+
+    			" public static void main(String[] args) {\n"+
+    			"   System.out.println(X.foo(0, 0));\n"+
+    			" }\n"+
+    			"}\n"
+    		},
+        "----------\n" +
+		"1. ERROR in X.java (at line 13)\n" +
+		"	}\n" +
+		"	^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+        "----------\n");
+}
+    public void testBug563023_003() {
+        this.runNegativeTest(
+    		new String[] {
+    			"X.java",
+    			"public class X { \n"+
+    			" static public int foo(int a, int b){\n"+
+    			"   int t = switch (a) {\n"+
+    			"     default -> {\n"+
+    			"       switch (b) {\n"+
+    			"            case 0 -> {\n"+
+    			"              yield 0;\n"+
+    			"            }\n"+
+    			"       }      \n"+
+    			"     }\n"+
+    			"   };\n"+
+    			"   return t;\n"+
+    			" }\n"+
+    			" public static void main(String[] args) {\n"+
+    			"   System.out.println(X.foo(0, 0));\n"+
+    			" }\n"+
+    			"}\n"
+    		},
+        "----------\n" +
+		"1. ERROR in X.java (at line 10)\n" +
+		"	}\n" +
+		"	^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+        "----------\n");
+}
+    public void testBug563023_004() {
+        this.runNegativeTest(
+    		new String[] {
+    			"X.java",
+    			"public class X { \n"+
+    			" static public int foo(int a, int b){\n"+
+    			"   int t = switch (a) {\n"+
+    			"     default -> {\n"+
+    			"       switch (b) {\n"+
+    			"            case 0 -> {\n"+
+    			"              break;\n"+
+    			"            }\n"+
+    			"            default -> yield 0;\n"+
+    			"       }      \n"+
+    			"     }\n"+
+    			"   };\n"+
+    			"   return t;\n"+
+    			" }\n"+
+    			" public static void main(String[] args) {\n"+
+    			"   System.out.println(X.foo(0, 0));\n"+
+    			" }\n"+
+    			"}\n"
+    		},
+        "----------\n" +
+		"1. ERROR in X.java (at line 9)\n" +
+		"	default -> yield 0;\n" +
+		"	                 ^\n" +
+		"Syntax error on token \"0\", delete this token\n" +
+        "----------\n");
+}
+    public void testBug563023_005() {
+        this.runNegativeTest(
+    		new String[] {
+    			"X.java",
+    			"public class X { \n"+
+    			" static public int foo(int a, int b){\n"+
+    			"   int t = switch (a) {\n"+
+    			"     default -> {\n"+
+    			"       switch (b) {\n"+
+    			"            case 0 -> {\n"+
+    			"              break;\n"+
+    			"            }\n"+
+    			"            default ->{ yield 0;}\n"+
+    			"       }      \n"+
+    			"     }\n"+
+    			"   };\n"+
+    			"   return t;\n"+
+    			" }\n"+
+    			" public static void main(String[] args) {\n"+
+    			"   System.out.println(X.foo(0, 0));\n"+
+    			" }\n"+
+    			"}\n"
+    		},
+        "----------\n" +
+		"1. ERROR in X.java (at line 11)\n" +
+		"	}\n" +
+		"	^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+        "----------\n");
+}
+	public void testBug563023_006() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X { \n"+
+				" static public int foo(MyEnum a, MyEnum b){\n"+
+				"   int t = switch (a) {\n"+
+				"     default -> {\n"+
+				"       switch (b) {\n"+
+				"       case ONE -> { \n"+
+				"              yield 0;\n"+
+				"            }\n"+
+				"       default -> {yield 1;}\n"+
+				"       }      \n"+
+				"     }\n"+
+				"   };\n"+
+				"   return t;\n"+
+				" }\n"+
+				" public static void main(String[] args) {\n"+
+				"   System.out.println(X.foo(MyEnum.ONE, MyEnum.TWO));\n"+
+				" }\n"+
+				"} \n"+
+				"enum MyEnum {\n"+
+				" ONE,\n"+
+				" TWO\n"+
+				"}\n"
+			},
+			"1");
+	}
+    public void testBug563023_007() {
+        this.runNegativeTest(
+    		new String[] {
+    			"X.java",
+    			"public class X { \n"+
+    			" static public int foo(MyEnum a, MyEnum b){\n"+
+    			"   int t = switch (a) {\n"+
+    			"     default -> {\n"+
+    			"       switch (b) {\n"+
+    			"       case ONE -> { \n"+
+    			"              yield 0;\n"+
+    			"            }\n"+
+    			"       }      \n"+
+    			"     }\n"+
+    			"   };\n"+
+    			"   return t;\n"+
+    			" }\n"+
+    			" public static void main(String[] args) {\n"+
+    			"   System.out.println(X.foo(MyEnum.ONE, MyEnum.TWO));\n"+
+    			" }\n"+
+    			"} \n"+
+    			"enum MyEnum {\n"+
+    			" ONE,\n"+
+    			" TWO\n"+
+    			"}\n"
+    		},
+        "----------\n" +
+		"1. WARNING in X.java (at line 5)\n" +
+		"	switch (b) {\n" +
+		"	        ^\n" +
+		"The enum constant TWO needs a corresponding case label in this enum switch on MyEnum\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 10)\n" +
+		"	}\n" +
+		"	^^\n" +
+		"A switch labeled block in a switch expression should not complete normally\n" +
+        "----------\n");
+}
+	public void testBug563147_001() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"interface I {\n"+
+				" public int apply();\n"+
+				"}\n"+
+				"public class X { \n"+
+				" static public int foo(int a){\n"+
+				"   int t = switch (a) {\n"+
+				"     default -> {\n"+
+				"       I lambda = () -> { return 0;};\n"+
+				"       yield lambda.apply();\n"+
+				"     }\n"+
+				"   };\n"+
+				"   return t;\n"+
+				" }\n"+
+				" public static void main(String[] args) {\n"+
+				"   System.out.println(X.foo(1));\n"+
+				" }\n"+
+				"} \n"
+			},
+			"0");
+	}
+	public void testBug563147_002() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"interface FI {\n"+
+				"  public int foo();\n"+
+				"}\n"+
+				"public class X {\n"+
+				"  public int field = 0;\n"+
+				"  public int test() {\n"+
+				"   var v = switch (field) {\n"+
+				"     case 0 -> {\n"+
+				"       yield ((FI  ) () -> {\n"+
+				"         int i = 0;\n"+
+				"         while (true) {\n"+
+				"           i++;\n"+
+				"           if (i == 7) {\n"+
+				"             break;\n"+
+				"           }\n"+
+				"         }\n"+
+				"         return i;\n"+
+				"       });   \n"+
+				"     }\n"+
+				"     default -> {\n"+
+				"       yield null;\n"+
+				"     }\n"+
+				"   }; \n"+
+				"   return 0;\n"+
+				"  }\n"+
+				"  public static void main(String[] args) {\n"+
+				" int t = new X().test();\n"+
+				" System.out.println(t);\n"+
+				"}\n"+
+				"}\n"
+			},
+			"0");
+	}
+	public void testBug563147_003() {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"interface FI {\n"+
+				"  public int foo();\n"+
+				"}\n"+
+				"public class X {\n"+
+				"  public int field = 0;\n"+
+				"  public int test() {\n"+
+				"   var v = switch (field) {\n"+
+				"     case 0 -> {\n"+
+				"       yield ((F  ) () -> {\n"+
+				"         int i = 0;\n"+
+				"         while (true) {\n"+
+				"           i++;\n"+
+				"           if (i == 7) {\n"+
+				"             break;\n"+
+				"           }\n"+
+				"         }\n"+
+				"         return i;\n"+
+				"       });   \n"+
+				"     }\n"+
+				"     default -> {\n"+
+				"       yield null;\n"+
+				"     }\n"+
+				"   }; \n"+
+				"   return 0;\n"+
+				"  }\n"+
+				"  public static void main(String[] args) {\n"+
+				" int t = new X().test();\n"+
+				" System.out.println(t);\n"+
+				"}\n"+
+				"}\n"
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 9)\n" +
+			"	yield ((F  ) () -> {\n" +
+			"	        ^\n" +
+			"F cannot be resolved to a type\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 9)\n" +
+			"	yield ((F  ) () -> {\n" +
+			"	             ^^^^^\n" +
+			"The target type of this expression must be a functional interface\n" +
+			"----------\n");
+	}
+	public void testBug565156_001() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public int test() {\n"+
+				"    return switch (0) {\n"+
+				"      default -> {\n"+
+				"        try {\n"+
+				"          yield 0;\n"+
+				"        }\n"+
+				"        catch (RuntimeException e) {\n"+
+				"          throw e;\n"+
+				"        }\n"+
+				"      }\n"+
+				"    };\n"+
+				"  }    \n"+
+				"  public static void main(String[] args) {\n"+
+				"       int i = new X().test();\n"+
+				"       System.out.println(i);\n"+
+				" }\n"+
+				"}\n"
+			},
+			"0");
+	}
+	public void testBug565156_002() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public int test() {\n"+
+				"    return switch (0) {\n"+
+				"      default -> {\n"+
+				"        try {\n"+
+				"          yield 0;\n"+
+				"        }\n"+
+				"        finally {\n"+
+				"          //do nothing\n"+
+				"        }\n"+
+				"      }\n"+
+				"    };\n"+
+				"  }    \n"+
+				"  public static void main(String[] args) {\n"+
+				"       int i = new X().test();\n"+
+				"       System.out.println(i);\n"+
+				" }\n"+
+				"}\n"
+			},
+			"0");
+	}
+	public void testBug565156_003() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public int test() {\n"+
+				"    return switch (0) {\n"+
+				"      default -> {\n"+
+				"        try {\n"+
+				"          yield 0;\n"+
+				"        }\n"+
+				"        finally {\n"+
+				"          int i = 20;"+
+				"          yield 20;"+
+				"        }\n"+
+				"      }\n"+
+				"    };\n"+
+				"  }    \n"+
+				"  public static void main(String[] args) {\n"+
+				"       int i = new X().test();\n"+
+				"       System.out.println(i);\n"+
+				" }\n"+
+				"}\n"
+			},
+			"20");
+	}
+	public void testBug565156_004() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public int test()  {\n"+
+				"    return switch (0) {\n"+
+				"      default -> {\n"+
+				"        try {\n"+
+				"          yield switch (0) {\n"+
+				"          default -> {\n"+
+				"              try {\n"+
+				"                yield 100;\n"+
+				"              }\n"+
+				"              finally {\n"+
+				"                   yield 200;       \n"+
+				"               }\n"+
+				"            }\n"+
+				"          };\n"+
+				"        }\n"+
+				"        finally {\n"+
+				"             yield 20;\n"+
+				"         }\n"+
+				"      }\n"+
+				"    };\n"+
+				"  }\n"+
+				"  public static void main(String[] args){\n"+
+				"       int i = new X().test();\n"+
+				"       System.out.println(i);\n"+
+				"  }\n"+
+				"}"
+			},
+			"20");
+	}
+	public void testBug565156_005() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public int test()  {\n"+
+				"    return switch (0) {\n"+
+				"      default -> {\n"+
+				"        try {\n"+
+				"          yield switch (0) {\n"+
+				"          default -> {\n"+
+				"              try {\n"+
+				"                yield 100;\n"+
+				"              }\n"+
+				"              finally {\n"+
+				"                   // do nothing\n"+
+				"               }\n"+
+				"            }\n"+
+				"          };\n"+
+				"        }\n"+
+				"        finally {\n"+
+				"           // do nothing\n"+
+				"         }\n"+
+				"      }\n"+
+				"    };\n"+
+				"  }\n"+
+				"  public static void main(String[] args){\n"+
+				"       int i = new X().test();\n"+
+				"       System.out.println(i);\n"+
+				"  }\n"+
+				"}"
+			},
+			"100");
+	}
+	public void testBug565156_006() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"    public static void main(String[] args) {\n"+
+				"            new X().foo(args);\n"+
+				"    }\n"+
+				"\n"+
+				"  @SuppressWarnings({ \"finally\" })\n"+
+				"  public void foo(String[] args) {\n"+
+				"     int t = switch (0) {\n"+
+				"     default -> {\n"+
+				"        try {\n"+
+				"            if (args == null)\n"+
+				"            yield 1;\n"+
+				"            else if (args.length ==2)\n"+
+				"                    yield 2; \n"+
+				"            else if (args.length == 4)\n"+
+				"                    yield 4;\n"+
+				"            else yield 5; \n"+
+				"        } finally {\n"+
+				"                yield 3; \n"+
+				"        }\n"+
+				"     }\n"+
+				"     }; \n"+
+				"     t = switch (100) {\n"+
+				"     default -> {\n"+
+				"             try {\n"+
+				"                     yield 10;\n"+
+				"             } finally {\n"+
+				"             }\n"+
+				"     }  \n"+
+				"     };      \n"+
+				"     System.out.println(t);\n"+
+				"  }\n"+
+				"}"
+			},
+			"10");
+	}
+	public void testBug565156_007() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"    public static void main(String[] args) {\n"+
+				"            new X().foo(args);\n"+
+				"    }\n"+
+				"\n"+
+				"  @SuppressWarnings({ \"finally\" })\n"+
+				"  public void foo(String[] args) {\n"+
+				"     int t = switch (0) {\n"+
+				"     case 101 -> {yield 101;}\n"+
+				"     default -> {\n"+
+				"        try {\n"+
+				"            if (args == null)\n"+
+				"            yield 1;\n"+
+				"            else if (args.length ==2)\n"+
+				"                    yield 2; \n"+
+				"            else if (args.length == 4)\n"+
+				"                    yield 4;\n"+
+				"            else yield 5; \n"+
+				"        } finally {\n"+
+				"                yield 3; \n"+
+				"        }\n"+
+				"     }\n"+
+				"     }; \n"+
+				"     t = switch (100) {\n"+
+				"     default -> {\n"+
+				"             try {\n"+
+				"                     yield 10;\n"+
+				"             } finally {\n"+
+				"             }\n"+
+				"     }  \n"+
+				"     };      \n"+
+				"     System.out.println(t);\n"+
+				"  }\n"+
+				"}"
+			},
+			"10");
+	}
+	public void testBug547193_001() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				"  public static void main(String[] args) {\n"+
+				"    System.out.println(switch (0) {default -> {\n"+
+				"      try {\n"+
+				"        yield 1;\n"+
+				"      } catch (Exception ex) {\n"+
+				"        yield 2;\n"+
+				"      }\n"+
+				"    }});\n"+
+				"  }\n"+
+				"}"
+			},
+			"1");
+	}
+	public void testBug565844_01() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? 2 : 3 ->  true;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void testBug565844_02() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 2;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? 2 : (j == 2 ? 4 : 5) ->  true;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"true");
+	}
+	public void testBug565844_03() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? 2 : 3 ->  {\n" +
+					"    						yield true;\n" +
+					"    					}\n" +
+					"    				default -> { yield false;}\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void testBug565844_04() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? 2 : 3 :  {\n" +
+					"    						yield true;\n" +
+					"    					}\n" +
+					"    				default : { yield false;}\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void testBug565844_05() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? 2 : 3 ->  {\n" +
+					"    						yield true;\n" +
+					"    					}\n" +
+					"    				default -> { yield false;}\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 6)\n" +
+				"	case j != 1 ? 2 : 3 ->  {\n" +
+				"	     ^^^^^^^^^^^^^^\n" +
+				"case expressions must be constant expressions\n" +
+				"----------\n");
+	}
+	public void testBug565844_06() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case j != 1 ? ( j != 1 ? 2: 3 ) : 3 -> false;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void testBug565844_07() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"\n"+
+					"       void foo() {\n"+
+					"               Object value2 = switch(1) {\n"+
+					"                       case AAABBB -> 1;\n"+
+					"                               (I)()->();\n"+
+					"                       default -> 0;\n"+
+					"               };\n"+
+					"       }\n"+
+					"}\n"+
+					"interface I {\n"+
+					"       void apply();\n"+
+					"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 5)\n" +
+				"	case AAABBB -> 1;\n" +
+				"	                ^\n" +
+				"Syntax error on token \";\", case expected after this token\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 6)\n" +
+				"	(I)()->();\n" +
+				"	  ^^^^^\n" +
+				"Syntax error on token(s), misplaced construct(s)\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 6)\n" +
+				"	(I)()->();\n" +
+				"	        ^\n" +
+				"Syntax error, insert \")\" to complete Expression\n" +
+				"----------\n" +
+				"4. ERROR in X.java (at line 6)\n" +
+				"	(I)()->();\n" +
+				"	        ^\n" +
+				"Syntax error, insert \":\" to complete SwitchLabel\n" +
+				"----------\n");
+	}
+	public void _testBug565844SwitchConst_07() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case switch(1) {default -> 2;} -> false;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void _testBug565844SwitchConst_08() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case switch(1) {case 1 -> 2; default -> 0;} -> false;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void _testBug565844SwitchConst_09() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case switch(1) {default -> 2;}, switch(2) {default -> 3;}  -> false;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void _testBug565844SwitchConst_10() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public final static int j = 5;\n" +
+					"    public static void main(String argv[]) {\n" +
+					"    	boolean b = \n" +
+					"    			switch (j) {\n" +
+					"    				case switch(1) {case 1 -> 2; default -> 0;}," +
+					" 							switch(2) {case 1 -> 3; default -> 4;}  -> false;\n" +
+					"    				default -> false;\n" +
+					"    			}; \n" +
+					"    	System.out.println(b);\n" +
+					"    }\n"+
+					"}"
+				},
+				"false");
+	}
+	public void testBug566125_01() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 -> new Short((short)0);\n" +
+						"	    	case 2 -> new Double(2.0d);\n" +
+						"	    	default -> new Integer((short)6);\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"    boolean foo(double data){ return true; }\n" +
+						"}"
+				},
+				"true");
+
+	}
+	// Same as above, but with explicit yield
+	public void testBug566125_02() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 : yield new Short((short)0);\n" +
+						"	    	case 2 : yield new Double(2.0d);\n" +
+						"	    	default : yield new Integer((short)6);\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"    boolean foo(double data){ return true; }\n" +
+						"}"
+				},
+				"true");
+
+	}
+	public void testBug566125_03() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 -> new Short((short)0);\n" +
+						"	    	case 2 -> 2.0d;\n" +
+						"	    	default -> new Integer((short)6);\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"    boolean foo(double data){ return true; }\n" +
+						"}"
+				},
+				"true");
+
+	}
+	// Long -> float is accepted
+	public void testBug566125_04() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 -> new Integer((short)0);\n" +
+						"	    	default -> 2l;\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"	boolean foo(int data){ return false; }\n" +
+						"    boolean foo(long data){ return true; }\n" +
+						"}"
+				},
+				"true");
+
+	}
+	public void testBug566125_05() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo(\n" +
+						"    				switch(i%2)  {\n" +
+						"    					case 1 -> switch(i) {\n" +
+						"    								case 1 -> new Byte((byte)1);\n" +
+						"    								case 3 -> new Float(3);\n" +
+						"    								case 5 -> new Long(5);\n" +
+						"    								default -> new Short((short)6);\n" +
+						"    							}; \n" +
+						"    					default -> switch(i) {\n" +
+						"									case 0 -> new Integer((byte)2);\n" +
+						"									case 2 -> new Double(4);\n" +
+						"									case 4 -> new Long(6);\n" +
+						"									default -> new Short((short)8);\n" +
+						"    							};\n" +
+						"    				}\n" +
+						"    			);\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"    boolean foo(double data){ return true; }\n" +
+						"}"
+				},
+				"true"
+				);
+
+	}
+	public void testBug566125_06() {
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 -> new Short((short)0);\n" +
+						"	    	default -> new Double(2.0d);\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 7)\n" +
+				"	boolean b = foo( switch(i+1) {\n" +
+				"	            ^^^\n" +
+				"The method foo(short) in the type X is not applicable for the arguments (double)\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 9)\n" +
+				"	default -> new Double(2.0d);\n" +
+				"	           ^^^^^^^^^^^^^^^^\n" +
+				"Type mismatch: cannot convert from Double to short\n" +
+				"----------\n"
+				);
+	}
+	public void testBug566125_07() {
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 -> new Short((short)0);\n" +
+						"	    	default -> 2.0d;\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 7)\n" +
+				"	boolean b = foo( switch(i+1) {\n" +
+				"	            ^^^\n" +
+				"The method foo(short) in the type X is not applicable for the arguments (double)\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 9)\n" +
+				"	default -> 2.0d;\n" +
+				"	           ^^^^\n" +
+				"Type mismatch: cannot convert from double to short\n" +
+				"----------\n"
+				);
+	}
+	// Same as 07() but with explicit yield
+	public void testBug566125_08() {
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"public class X  {\n" +
+						"	public static void main(String[] args) {\n" +
+						"		new X().bar(0);\n" +
+						"	}\n" +
+						"    @SuppressWarnings(\"deprecation\")\n" +
+						"    public void bar(int i) {\n" +
+						"		boolean b = foo( switch(i+1) {\n" +
+						"	    	case 0 : yield new Short((short)0);\n" +
+						"	    	default : yield 2.0d;\n" +
+						"    	});\n" +
+						"    	System.out.println(b);\n" +
+						"    }\n" +
+						"    boolean foo(short data){ return false; }\n" +
+						"    boolean foo(byte data){ return false; }\n" +
+						"    boolean foo(int data){ return false; }\n" +
+						"    boolean foo(float data){ return false; }\n" +
+						"    boolean foo(long data){ return false; }\n" +
+						"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 7)\n" +
+				"	boolean b = foo( switch(i+1) {\n" +
+				"	            ^^^\n" +
+				"The method foo(short) in the type X is not applicable for the arguments (double)\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 9)\n" +
+				"	default : yield 2.0d;\n" +
+				"	                ^^^^\n" +
+				"Type mismatch: cannot convert from double to short\n" +
+				"----------\n"
+				);
+	}
+	public void testBug567112_001() {
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"import java.util.ArrayList;\n"+
+						"\n"+
+						"public class X {\n"+
+						"    public void foo() {\n"+
+						"        new ArrayList<>().stream().filter(p -> p != null)\n"+
+						"        switch (\"\") {\n"+
+						"        case \"\":\n"+
+						"        }\n"+
+						"    }\n"+
+						"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 5)\n" +
+				"	new ArrayList<>().stream().filter(p -> p != null)\n" +
+				"	                                            ^^^^^\n" +
+				"Syntax error on tokens, delete these tokens\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 8)\n" +
+				"	}\n" +
+				"	^\n" +
+				"Syntax error, insert \")\" to complete Expression\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 8)\n" +
+				"	}\n" +
+				"	^\n" +
+				"Syntax error, insert \";\" to complete BlockStatements\n" +
+				"----------\n"
+				);
+	}
 }

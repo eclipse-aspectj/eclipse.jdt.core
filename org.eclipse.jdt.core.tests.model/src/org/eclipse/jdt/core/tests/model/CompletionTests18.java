@@ -2495,7 +2495,7 @@ public void testBug459189_004() throws JavaModelException {
 			requestor.getResults());
 }
 public void testBug460410() throws JavaModelException {
-	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies = new ICompilationUnit[2];
 	this.workingCopies[0] = getWorkingCopy(
 			"/Completion/src/X.java",
 			"import java.util.ArrayList;\n" +
@@ -2504,9 +2504,16 @@ public void testBug460410() throws JavaModelException {
 			"	public static void main(String[] args) {\n"+
 			"		ArrayList<Supplier<Runnable>> list = new ArrayList<>();\n"+
 			"		list.forEach((supp) -> {\n"+
-			"			Supplier<Run/* HERE */>}\n"+
+			"			Supplier<Bug460/* HERE */>}\n"+
 			"		});\n"+
 			"	}\n"+
+			"	public static class Bug460410 {" +
+			"	}" +
+			"}\n");
+	this.workingCopies[1] = getWorkingCopy(
+			"/Completion/src/Bug460411.java",
+			"package abc;" +
+			"public class Bug460411 {\n"+
 			"}\n");
 
 	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
@@ -2515,7 +2522,42 @@ public void testBug460410() throws JavaModelException {
 	String completeBehind = "/* HERE */";
 	int cursorLocation = str.indexOf(completeBehind);
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	assertResults("", requestor.getResults());
+	assertResults(
+			"Bug460411[TYPE_REF]{abc.Bug460411, abc, Labc.Bug460411;, null, null, " + (R_DEFAULT + 39) + "}\n" +
+			"Bug460410[TYPE_REF]{Bug460410, , LBug460410;, null, null, " + (R_DEFAULT + 42) + "}",
+			requestor.getResults());
+}
+public void testBug462015() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/X.java",
+			"package abc;\n" +
+			"import java.util.ArrayList;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"public class X {\n"+
+			"	public static void main(String[] args) {\n"+
+			"		ArrayList<Entry> list = new ArrayList<>();\n"+
+			"		list.stream().collect(Collectors.averagingInt(e -> e.a/* HERE */));\n"+
+			"	}\n"+
+			"}\n");
+	this.workingCopies[1] = getWorkingCopy(
+			"/Completion/src/Entry.java",
+			"package abc;" +
+			"public class Entry {\n"+
+			"	public String age() {\n"+
+			"		return \"10\";"+
+			"	}"+
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "/* HERE */";
+	int cursorLocation = str.indexOf(completeBehind);
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertResults(
+			"age[METHOD_REF]{age(), LEntry;, ()Ljava.lang.String;, age, null, " + (R_DEFAULT + 30) + "}",
+			requestor.getResults());
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=481564
 public void testBug481564() throws JavaModelException {
@@ -3718,4 +3760,291 @@ public void testCompletionConstructorRelevance() throws JavaModelException {
             "LinkedBlockingQueue[CONSTRUCTOR_INVOCATION]{(), Ljava.util.concurrent.LinkedBlockingQueue;, (Ljava.util.Collection<+TE;>;)V, LinkedBlockingQueue, (arg0), " + expectedConstructorRelevance + "}",
             requestor.getResults());
 }
+
+public void testBug570593_SingleTypeParam() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private List<XBug570593>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultipleTypeParams_OnFirstTP() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<XBug570593,V>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultipleTypeParams_OnSecondTP() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<Long,XBug570593>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_SingleTypeParam_NestedSingleParam() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private List<List<XBug570593>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_SingleTypeParam_NestedMultiParams_OnFirst() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private List<Map<XBug570593,V>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_SingleTypeParam_NestedMultiParams_OnSecond() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private List<Map<Long,XBug570593>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultiTypeParam_OnFirst_NestedSingleParam() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<List<XBug570593>,V>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultiTypeParam_OnSecond_NestedSingleParam() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<Long,List<XBug570593>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultiTypeParam_NestedMultiParam_OnFirst() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<Long,Map<XBug570593,R>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
+public void testBug570593_MultiTypeParam_NestedMultiParam_OnSecond() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+            "/Completion/src/Bug570593.java",
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "\n" +
+            "public class Bug570593 {\n" +
+            "	private Map<Long,Map<String,XBug570593>>\n" +
+            "}");
+	this.workingCopies[1] = getWorkingCopy(
+            "/Completion/src/XBug570593Type.java",
+            "\n" +
+            "public class XBug570593Type {\n" +
+            "}");
+
+    CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+    String str = this.workingCopies[0].getSource();
+    String completeBehind = "XBug570593";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+    assertResults(
+            "XBug570593Type[TYPE_REF]{XBug570593Type, , LXBug570593Type;, null, null, 72}",
+            requestor.getResults());
+}
+
 }

@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -27,6 +27,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
@@ -42,6 +43,8 @@ import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -496,6 +499,16 @@ public class ForeachStatement extends Statement {
 			} else {
 				elementType = this.elementVariable.patchType(elementType);
 			}
+			if (elementType instanceof ReferenceBinding) {
+				ReferenceBinding refBinding = (ReferenceBinding) elementType;
+				if (!elementType.canBeSeenBy(upperScope)) {
+					upperScope.problemReporter().invalidType(this.elementVariable,
+							new ProblemReferenceBinding(
+									CharOperation.splitOn('.', refBinding.shortReadableName()),
+									refBinding,
+									ProblemReasons.NotVisible));
+				}
+			}
 			// additional check deferred from LocalDeclaration.resolve():
 			if (this.elementVariable.binding != null && this.elementVariable.binding.isValidBinding()) {
 				this.elementVariable.validateNullAnnotations(this.scope);
@@ -679,4 +692,10 @@ public class ForeachStatement extends Statement {
 	public boolean doesNotCompleteNormally() {
 		return false; // may not be entered at all.
 	}
+
+	@Override
+	public boolean canCompleteNormally() {
+		return true;
+	}
+
 }

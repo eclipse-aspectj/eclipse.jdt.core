@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -175,6 +175,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 	/** @deprecated using deprecated code */
 	private static final int JLS9_INTERNAL = AST.JLS9;
 
+	/** @deprecated using deprecated code */
+	private static final int JLS14_INTERNAL = AST.JLS14;
 
 	TextEdit currentEdit;
 	final RewriteEventStore eventStore; // used from inner classes
@@ -1454,6 +1456,17 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 	}
 
 	/*
+	 * Next token is a right parenthesis. Returns the offset after the parenthesis. For incomplete code, return the start offset.
+	 */
+	private int getPosAfterRightParenthesis(int pos) {
+		try {
+			return getPosAfterToken(pos, TerminalTokens.TokenNameRPAREN);
+		} catch (IllegalArgumentException e) {
+			return pos;
+		}
+	}
+
+	/*
 	 * Next token is try keyword. Returns the offset after 'try' keyword. For incomplete code, return the start offset.
 	 */
 	private int getPosAfterTry(int pos) {
@@ -1593,6 +1606,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 					case TerminalTokens.TokenNamestrictfp: keep= Modifier.isStrictfp(newModifiers); break;
 					case TerminalTokens.TokenNametransient: keep= Modifier.isTransient(newModifiers); break;
 					case TerminalTokens.TokenNamesynchronized: keep= Modifier.isSynchronized(newModifiers); break;
+					case TerminalTokens.TokenNameRestrictedIdentifiersealed: keep= Modifier.isSealed(newModifiers); break;
+					case TerminalTokens.TokenNamenon_sealed: keep= Modifier.isNonSealed(newModifiers); break;
 					default:
 						break loop;
 				}
@@ -1971,6 +1986,18 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			pos= rewriteNodeList(node, superInterfaceProperty, pos, keyword, ", "); //$NON-NLS-1$
 		}
 
+		if (DOMASTUtil.isFeatureSupportedinAST(node.getAST(), Modifier.SEALED)) {
+			// permits for sealed
+			ChildListPropertyDescriptor permitsProperty= TypeDeclaration.PERMITS_TYPES_PROPERTY;
+
+			RewriteEvent permitsEvent= getEvent(node, permitsProperty);
+			if (permitsEvent == null || permitsEvent.getChangeKind() == RewriteEvent.UNCHANGED) {
+				pos= doVisit(node, permitsProperty, pos);
+			} else {
+				pos= rewriteNodeList(node, permitsProperty, pos, " permits ", ", "); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		}
+
 		// type members
 		// startPos : find position after left brace of type, be aware that bracket might be missing
 		int startIndent= getIndent(node.getStartPosition()) + 1;
@@ -2288,7 +2315,20 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 		pos= rewriteOptionalTypeParameters(node, RecordDeclaration.TYPE_PARAMETERS_PROPERTY, pos, Util.EMPTY_STRING, false, true);
 
+		try {
+			pos= getScanner().getTokenEndOffset(TerminalTokens.TokenNameLPAREN, pos);
+		}catch(CoreException ex) {
+				//ignore
+		}
+
+
 		pos= rewriteNodeList(node, RecordDeclaration.RECORD_COMPONENTS_PROPERTY, pos, Util.EMPTY_STRING, ", "); //$NON-NLS-1$
+
+		try {
+		pos= getScanner().getTokenEndOffset(TerminalTokens.TokenNameRPAREN, pos);
+		}catch(CoreException ex) {
+			//ignore
+		}
 
 		// extended interfaces
 		ChildListPropertyDescriptor superInterfaceProperty= RecordDeclaration.SUPER_INTERFACE_TYPES_PROPERTY;
@@ -2303,9 +2343,11 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 		// type members
 		// startPos : find position after left brace of type, be aware that bracket might be missing
+
 		int startIndent= getIndent(node.getStartPosition()) + 1;
-		int startPos= getPosAfterLeftBrace(pos);
-		rewriteParagraphList(node, RecordDeclaration.BODY_DECLARATIONS_PROPERTY, startPos, startIndent, -1, 2);
+		pos = getPosAfterRightParenthesis(pos);
+		pos= getPosAfterLeftBrace(pos);
+		rewriteParagraphList(node, RecordDeclaration.BODY_DECLARATIONS_PROPERTY, pos, startIndent, -1, 2);
 		return false;
 	}
 
@@ -3591,7 +3633,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		}
 
 		// dont allow switching from case to default or back. New statements should be created.
-		if (node.getAST().apiLevel() >= AST.JLS14) {
+		if (node.getAST().apiLevel() >= JLS14_INTERNAL) {
 			int pos = node.expressions().size() == 0 ? node.getStartPosition() :
 					rewriteNodeList(node, SwitchCase.EXPRESSIONS2_PROPERTY, node.getStartPosition(), Util.EMPTY_STRING, ", "); //$NON-NLS-1$
 			if (isChanged(node, SwitchCase.SWITCH_LABELED_RULE_PROPERTY)) {
@@ -3815,7 +3857,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 					insertIndent++;
 				}
 				ParagraphListRewriter listRewriter;
-				if ((node.getAST().apiLevel() >= AST.JLS14)) {
+				if ((node.getAST().apiLevel() >= JLS14_INTERNAL)) {
 					listRewriter= new SwitchListLabeledRuleRewriter(insertIndent);
 				} else {
 					listRewriter= new SwitchListRewriter(insertIndent);
@@ -4561,8 +4603,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		}
 
 		try {
-			int offset= getScanner().getTokenEndOffset(TerminalTokens.TokenNamebreak, node.getStartPosition());
-			if ((node.getAST().apiLevel() >= AST.JLS14)) {
+			int offset= node.isImplicit() ? node.getStartPosition() : getScanner().getTokenEndOffset(TerminalTokens.TokenNamebreak, node.getStartPosition());
+			if ((node.getAST().apiLevel() >= JLS14_INTERNAL)) {
 				rewriteNode(node, YieldStatement.EXPRESSION_PROPERTY, offset, ASTRewriteFormatter.SPACE); // space between yield and label
 			}
 		} catch (CoreException e) {

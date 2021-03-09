@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -46,6 +46,7 @@ import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationPosition;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -851,6 +852,12 @@ public final boolean isConstructor() {
 	return this.selector == TypeConstants.INIT;
 }
 
+/* Answer true if the receiver is a compact constructor
+*/
+public final boolean isCompactConstructor() {
+	return (this.modifiers &  ExtraCompilerModifiers.AccCompactConstructor) != 0;
+}
+
 /* Answer true if the receiver has default visibility
 */
 public final boolean isDefault() {
@@ -1324,6 +1331,9 @@ public AbstractMethodDeclaration sourceMethod() {
 	return null;
 }
 public LambdaExpression sourceLambda() {
+	return null;
+}
+public RecordComponent sourceRecordComponent() {
 	return null;
 }
 public final int sourceStart() {

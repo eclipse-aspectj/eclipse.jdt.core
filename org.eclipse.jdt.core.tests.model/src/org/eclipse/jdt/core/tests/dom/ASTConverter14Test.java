@@ -23,21 +23,17 @@ import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.BreakStatement;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.IBinding;
-import org.eclipse.jdt.core.dom.ITypeBinding;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.SwitchCase;
 import org.eclipse.jdt.core.dom.SwitchExpression;
 import org.eclipse.jdt.core.dom.SwitchStatement;
-import org.eclipse.jdt.core.dom.TextBlock;
 import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclarationStatement;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.YieldStatement;
@@ -45,6 +41,12 @@ import org.eclipse.jdt.core.dom.YieldStatement;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 
+/*
+ * This test, although originally was created for AST Level 14,
+ * during the second iteration of preview feature Records,
+ * being migrated to AST 15.
+ *
+ */
 @SuppressWarnings("rawtypes")
 public class ASTConverter14Test extends ConverterTestSetup {
 
@@ -54,11 +56,9 @@ public class ASTConverter14Test extends ConverterTestSetup {
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
 		this.ast = AST.newAST(getAST14(), false);
-		if (this.ast.apiLevel() == AST.JLS14 ) {
-			this.currentProject.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_14);
-			this.currentProject.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_14);
-			this.currentProject.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_14);
-		}
+		this.currentProject.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_14);
+		this.currentProject.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_14);
+		this.currentProject.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_14);
 	}
 
 	public ASTConverter14Test(String name) {
@@ -74,6 +74,7 @@ public class ASTConverter14Test extends ConverterTestSetup {
 		return buildModelTestSuite(ASTConverter14Test.class);
 	}
 
+	@SuppressWarnings("deprecation")
 	static int getAST14() {
 		return AST.JLS14;
 	}
@@ -84,10 +85,12 @@ public class ASTConverter14Test extends ConverterTestSetup {
 			this.workingCopy = null;
 		}
 	}
+
+
 	/*
 	 * Test that a simple switch expression's return type holds the correct type
 	 */
-	public void _test0001() throws JavaModelException {
+	public void test0001() throws JavaModelException {
 		String contents =
 			"	public class X {\n" +
 			"   enum Day\n" +
@@ -220,7 +223,7 @@ public class ASTConverter14Test extends ConverterTestSetup {
 
 	}
 
-	public void _test0004() throws JavaModelException {
+	public void test0004() throws JavaModelException {
 		String contents =
 				"public class X {\n" +
 				"	static enum Day {MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY, SATURDAY,SUNDAY}\n" +
@@ -319,45 +322,9 @@ public class ASTConverter14Test extends ConverterTestSetup {
 		assertEquals("incorrect node type", ASTNode.STRING_LITERAL, expression2.getNodeType());
 
 	}
-	public void _test0006() throws JavaModelException {
-		String contents =
-				"public class X {\n" +
-						"	public String test001() {\n" +
-						"		int i = 0;\n" +
-						"		String ret = switch(i%2) {\n" +
-						"		case 0 -> {return \"odd\"; }\n" +
-						"		case 1 -> \"even\";\n" +
-						"		default -> \"\";\n" +
-						"		};\n" +
-						"		return ret;\n" +
-						"	}" +
-						"}" ;
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-		CompilationUnit compilationUnit = (CompilationUnit) node;
-		assertProblemsSize(compilationUnit, 0);
-		node = getASTNode(compilationUnit, 0, 0, 1);
-		assertEquals("Switch statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_STATEMENT);
-		List fragments = ((VariableDeclarationStatement) node).fragments();
-		assertEquals("Incorrect no of fragments", 1, fragments.size());
-		node = (ASTNode) fragments.get(0);
-		assertEquals("Switch statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_FRAGMENT);
-		VariableDeclarationFragment fragment = (VariableDeclarationFragment) node;
-		Expression initializer = fragment.getInitializer();
-		List statements = ((SwitchExpression) initializer).statements();
-		assertEquals("incorrect no of statements", 6, statements.size());
-		Block block = (Block) statements.get(1);
-		statements = block.statements();
-		assertEquals("incorrect no of statements", 1, statements.size());
-		Statement stmt = (Statement) statements.get(0);
-		assertEquals("incorrect node type", ASTNode.RETURN_STATEMENT, stmt.getNodeType());
-
-	}
 	// Moved over from ASTConverter9Test
-	public void _testBug531714_015() throws CoreException {
+	@SuppressWarnings("deprecation")
+	public void testBug531714_015() throws CoreException {
 		// saw NPE in SwitchExpression.resolveType(SwitchExpression.java:423)
 		if (!isJRE14) {
 			System.err.println("Test "+getName()+" requires a JRE 14");
@@ -443,172 +410,7 @@ public class ASTConverter14Test extends ConverterTestSetup {
 		}
 	}
 
-	public void _test0007() throws JavaModelException {
-		String contents =
-				"public class X {\n" +
-						"	public String test001() {\n" +
-						"		String s = \"\"\"\n" +
-						"      	<html>\n" +
-						"        <body>\n" +
-						"            <p>Hello, world</p>\n" +
-						"        </body>\n" +
-						"    	</html>\n" +
-						"    	\"\"\";\n" +
-						"    	System.out.println(s);" +
-						"		return s;\n" +
-						"	}" +
-						"}" ;
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-		CompilationUnit compilationUnit = (CompilationUnit) node;
-		assertProblemsSize(compilationUnit, 0);
-		node = getASTNode(compilationUnit, 0, 0, 0);
-		assertEquals("Text block statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_STATEMENT);
-		List fragments = ((VariableDeclarationStatement) node).fragments();
-		assertEquals("Incorrect no of fragments", 1, fragments.size());
-		node = (ASTNode) fragments.get(0);
-		assertEquals("Switch statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_FRAGMENT);
-		VariableDeclarationFragment fragment = (VariableDeclarationFragment) node;
-		Expression initializer = fragment.getInitializer();
-		assertTrue("Initializer is not a TextBlock", initializer instanceof TextBlock);
-			String escapedValue = ((TextBlock) initializer).getEscapedValue();
-
-			assertTrue("String should not be empty", escapedValue.length() != 0);
-		assertTrue("String should start with \"\"\"", escapedValue.startsWith("\"\"\""));
-
-		String literal = ((TextBlock) initializer).getLiteralValue();
-		assertEquals("literal value not correct",
-				"      	<html>\n" +
-				"        <body>\n" +
-				"            <p>Hello, world</p>\n" +
-				"        </body>\n" +
-				"    	</html>\n" +
-				"    	",
-				literal);
-
-	}
-	public void _test0008() throws JavaModelException {
-		String contents =
-				"public class X {\n" +
-						"	public String test001() {\n" +
-						"		String s = \"\"\"\n" +
-						"      	<html>\n" +
-						"        <body>\n" +
-						"            <p>Hello, world</p>\n" +
-						"        </body>\n" +
-						"    	</html>\n" +
-						"    	\"\"\";\n" +
-						"    	System.out.println(s);" +
-						"		return s;\n" +
-						"	}" +
-						"}" ;
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		try {
-		buildAST(
-				contents,
-				this.workingCopy);
-		} catch(UnsupportedOperationException e) {
-			fail("Should not throw UnsupportedOperationException");
-		} catch(AssertionFailedError e) {
-			e.printStackTrace();
-			return;
-		}
-		fail("Compilation should not succeed");
-
-	}
-	public void _test0009() throws JavaModelException {
-		String contents =
-				"public class X {\n" +
-						"	public String test001() {\n" +
-						"		String s = \"\"\"\n" +
-						"      	<html>\n" +
-						"        <body>\n" +
-						"            <p>Hello, world</p>\n" +
-						"        </body>\n" +
-						"    	</html>\n" +
-						"    	\"\"\";\n" +
-						"    	System.out.println(s);" +
-						"		return s;\n" +
-						"	}" +
-						"}" ;
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-		CompilationUnit compilationUnit = (CompilationUnit) node;
-		assertProblemsSize(compilationUnit, 0);
-		node = getASTNode(compilationUnit, 0, 0, 0);
-		assertEquals("Text block statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_STATEMENT);
-		List fragments = ((VariableDeclarationStatement) node).fragments();
-		assertEquals("Incorrect no of fragments", 1, fragments.size());
-		node = (ASTNode) fragments.get(0);
-		assertEquals("Switch statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_FRAGMENT);
-		VariableDeclarationFragment fragment = (VariableDeclarationFragment) node;
-		Expression initializer = fragment.getInitializer();
-		assertTrue("Initializer is not a TextBlock", initializer instanceof TextBlock);
-		ITypeBinding binding = initializer.resolveTypeBinding();
-		assertNotNull("No binding", binding);
-		assertEquals("Wrong qualified name", "java.lang.String", binding.getQualifiedName());
-
-			String escapedValue = ((TextBlock) initializer).getEscapedValue();
-
-			assertTrue("String should not be empty", escapedValue.length() != 0);
-		assertTrue("String should start with \"\"\"", escapedValue.startsWith("\"\"\""));
-		assertEquals("escaped value not correct",
-				"\"\"\"\n" +
-				"      	<html>\n" +
-				"        <body>\n" +
-				"            <p>Hello, world</p>\n" +
-				"        </body>\n" +
-				"    	</html>\n" +
-				"    	\"\"\"",
-				escapedValue);
-
-		String literal = ((TextBlock) initializer).getLiteralValue();
-		assertEquals("literal value not correct",
-				"      	<html>\n" +
-				"        <body>\n" +
-				"            <p>Hello, world</p>\n" +
-				"        </body>\n" +
-				"    	</html>\n" +
-				"    	",
-				literal);
-	}
-	public void _test0010() throws JavaModelException {
-		String contents =
-				"public class test14 {\n" +
-				"	public static void main(String[] args) {\n" +
-				"		String s = \"\"\"\n" +
-				"				nadknaks vgvh \n" +
-				"				\"\"\";\n" +
-				"\n" +
-				"		int m = 10;\n" +
-				"		m = m* 6;\n" +
-				"		System.out.println(s);\n" +
-				"	}\n" +
-				"}" ;
-		this.workingCopy = getWorkingCopy("/Converter14/src/test14.java", true/*resolve*/);
-		ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-		CompilationUnit compilationUnit = (CompilationUnit) node;
-		assertProblemsSize(compilationUnit, 0);
-		node = getASTNode(compilationUnit, 0, 0, 0);
-		assertEquals("wrong line number", 3, compilationUnit.getLineNumber(node.getStartPosition()));
-		node = getASTNode(compilationUnit, 0, 0, 1);
-		assertEquals("wrong line number", 7, compilationUnit.getLineNumber(node.getStartPosition()));
-		node = getASTNode(compilationUnit, 0, 0, 2);
-		assertEquals("wrong line number", 8, compilationUnit.getLineNumber(node.getStartPosition()));
-		node = getASTNode(compilationUnit, 0, 0, 3);
-		assertEquals("wrong line number", 9, compilationUnit.getLineNumber(node.getStartPosition()));
-	}
-
-	public void _test0011() throws CoreException {
+	public void test0011() throws CoreException {
 		// saw NPE in SwitchExpression.resolveType(SwitchExpression.java:423)
 		if (!isJRE14) {
 			System.err.println("Test "+getName()+" requires a JRE 14");
@@ -646,139 +448,38 @@ public class ASTConverter14Test extends ConverterTestSetup {
 
 	}
 
-	public void testRecord001() throws CoreException {
+	public void testTextBlock002() throws JavaModelException {
 		if (!isJRE14) {
 			System.err.println("Test "+getName()+" requires a JRE 14");
 			return;
 		}
 		String contents =
-			"public record X() {\n" +
-			"		public X {\n" +
-			"			System.out.println(\"no error\");\n" +
-			"		}\n" +
-			"\n" +
-			"}\n";
+				"public class X {\n" +
+						"	public String test001() {\n" +
+						"		String s = \"\"\"\n" +
+						"      	<html>\n" +
+						"        <body>\n" +
+						"            <p>Hello, world</p>\n" +
+						"        </body>\n" +
+						"    	</html>\n" +
+						"    	\"\"\";\n" +
+						"    	System.out.println(s);" +
+						"		return s;\n" +
+						"	}" +
+						"}" ;
 		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		IJavaProject javaProject = this.workingCopy.getJavaProject();
-		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
-			javaProject.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			ASTNode node = buildAST(
+		buildAST(
 				contents,
 				this.workingCopy);
-			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-			CompilationUnit compilationUnit = (CompilationUnit) node;
-			assertProblemsSize(compilationUnit, 0);
-		} finally {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
-		}
-	}
-
-	/**
-	 * Added for Bug 561193 - [14]record keyword inside method not colored correctly
-	 * @throws CoreException
-	 */
-	public void testRecord002() throws CoreException {
-		if (!isJRE14) {
-			System.err.println("Test "+getName()+" requires a JRE 14");
+		} catch(UnsupportedOperationException e) {
+			fail("Should not throw UnsupportedOperationException");
+		} catch(AssertionFailedError e) {
+			e.printStackTrace();
 			return;
 		}
-		String contents =
-			"public record X(int param1, int param2) {\n" +
-			"		public X {\n" +
-			"			if (param1 > 5) {\n" +
-			"				System.out.println(\"error\");\n" +
-			"			}\n" +
-			"		}\n" +
-			"\n" +
-			"}\n";
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		IJavaProject javaProject = this.workingCopy.getJavaProject();
-		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
-		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
-			javaProject.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-			CompilationUnit compilationUnit = (CompilationUnit) node;
-			assertProblemsSize(compilationUnit, 0);
-		} finally {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
-		}
+		fail("Compilation should not succeed");
+
 	}
 
-	public void testRecord003() throws CoreException {
-		if (!isJRE14) {
-			System.err.println("Test "+getName()+" requires a JRE 14");
-			return;
-		}
-		String contents =
-			"public record X(int param1, int param2) {\n" +
-			"		public X {\n" +
-			"			if (param1 > 5) {\n" +
-			"				System.out.println(\"error\");\n" +
-			"			}\n" +
-			"		}\n" +
-			"\n" +
-			"		public X(int a) {\n" +
-			"			this.param1 = 6;\n" +
-			"			this.param2 = 16;\n" +
-			"			a = 6;\n" +
-			"		}\n" +
-			"}\n";
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/*resolve*/);
-		IJavaProject javaProject = this.workingCopy.getJavaProject();
-		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
-		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
-			javaProject.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			ASTNode node = buildAST(
-				contents,
-				this.workingCopy);
-			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-			CompilationUnit compilationUnit = (CompilationUnit) node;
-			assertProblemsSize(compilationUnit, 0);
-		} finally {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
-		}
-	}
-
-	public void testRecord004() throws CoreException {
-		if (!isJRE14) {
-			System.err.println("Test " + getName() + " requires a JRE 14");
-			return;
-		}
-		String contents = "public class X {\n" +
-						  "	public static void main(String[] args) {\n" +
-				          "		record R(int x,int y){}\n" +
-						  "		R r = new R(100, 200);\n" +
-				          "		System.out.println(r.x());\n" +
-						  "	}\n" +
-				          "}";
-		this.workingCopy = getWorkingCopy("/Converter14/src/X.java", true/* resolve */);
-		IJavaProject javaProject = this.workingCopy.getJavaProject();
-		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
-		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
-			javaProject.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			ASTNode node = buildAST(contents, this.workingCopy);
-			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
-			CompilationUnit compilationUnit = (CompilationUnit) node;
-			assertProblemsSize(compilationUnit, 0);
-			node = getASTNode(compilationUnit, 0, 0);
-			assertEquals("Not a method declaration", ASTNode.METHOD_DECLARATION, node.getNodeType());
-			MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-			List<ASTNode> statements = methodDeclaration.getBody().statements();
-			node = statements.get(0);
-			assertEquals("Not a TypDeclaration statement", ASTNode.TYPE_DECLARATION_STATEMENT, node.getNodeType());
-			TypeDeclarationStatement tdStmt = (TypeDeclarationStatement) node;
-			node = tdStmt.getDeclaration();
-			assertEquals("Not a RecordDeclaration", ASTNode.RECORD_DECLARATION, node.getNodeType());
-		} finally {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
-		}
-	}
 }

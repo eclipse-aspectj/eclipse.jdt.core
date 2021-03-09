@@ -144,4 +144,7 @@ public class BatchProcessingEnvImpl extends BaseProcessingEnvImpl {
 		return _compilerOwner.compilerLocale;
 	}
 
+	public boolean shouldIgnoreOptionalProblems(char[] fileName) {
+		return Main.shouldIgnoreOptionalProblems(this._compilerOwner.ignoreOptionalProblemsFromFolders, fileName);
+	}
 }

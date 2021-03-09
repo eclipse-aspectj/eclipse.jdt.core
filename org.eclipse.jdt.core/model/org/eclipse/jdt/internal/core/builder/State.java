@@ -18,21 +18,39 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.builder;
 
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.env.AccessRule;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IUpdatableModule;
-import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.*;
-import org.eclipse.jdt.internal.compiler.env.AccessRule;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.AddExports;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.AddReads;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.UpdateKind;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.Util;
 import org.eclipse.jdt.internal.core.JavaModelManager;
-
-import java.io.*;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class State {
@@ -41,12 +59,12 @@ public class State {
 String javaProjectName;
 public ClasspathMultiDirectory[] sourceLocations;
 public ClasspathMultiDirectory[] testSourceLocations;
-ClasspathLocation[] binaryLocations;
-ClasspathLocation[] testBinaryLocations;
+public ClasspathLocation[] binaryLocations;
+public ClasspathLocation[] testBinaryLocations;
 // keyed by the project relative path of the type (i.e. "src1/p1/p2/A.java"), value is a ReferenceCollection or an AdditionalTypeCollection
-SimpleLookupTable references;
+Map<String, ReferenceCollection> references;
 // keyed by qualified type name "p1/p2/A", value is the project relative path which defines this type "src1/p1/p2/A.java"
-public SimpleLookupTable typeLocators;
+public Map<String, String> typeLocators;
 
 int buildNumber;
 long lastStructuralBuildTime;
@@ -58,7 +76,7 @@ private long previousStructuralBuildTime;
 private StringSet structurallyChangedTypes;
 public static int MaxStructurallyChangedTypes = 100; // keep track of ? structurally changed types, otherwise consider all to be changed
 
-public static final byte VERSION = 0x0022;
+public static final byte VERSION = 0x0024;
 
 static final byte SOURCE_FOLDER = 1;
 static final byte BINARY_FOLDER = 2;
@@ -78,8 +96,8 @@ protected State(JavaBuilder javaBuilder) {
 	this.binaryLocations = javaBuilder.nameEnvironment.binaryLocations;
 	this.testSourceLocations = javaBuilder.testNameEnvironment.sourceLocations;
 	this.testBinaryLocations = javaBuilder.testNameEnvironment.binaryLocations;
-	this.references = new SimpleLookupTable(7);
-	this.typeLocators = new SimpleLookupTable(7);
+	this.references = new LinkedHashMap<>(7);
+	this.typeLocators = new LinkedHashMap<>(7);
 
 	this.buildNumber = 0; // indicates a full build
 	this.lastStructuralBuildTime = computeStructuralBuildTime(javaBuilder.lastState == null ? 0 : javaBuilder.lastState.lastStructuralBuildTime);
@@ -101,24 +119,8 @@ void copyFrom(State lastState) {
 	this.lastStructuralBuildTime = lastState.lastStructuralBuildTime;
 	this.structuralBuildTimes = lastState.structuralBuildTimes;
 
-	try {
-		this.references = (SimpleLookupTable) lastState.references.clone();
-		this.typeLocators = (SimpleLookupTable) lastState.typeLocators.clone();
-	} catch (CloneNotSupportedException e) {
-		this.references = new SimpleLookupTable(lastState.references.elementSize);
-		Object[] keyTable = lastState.references.keyTable;
-		Object[] valueTable = lastState.references.valueTable;
-		for (int i = 0, l = keyTable.length; i < l; i++)
-			if (keyTable[i] != null)
-				this.references.put(keyTable[i], valueTable[i]);
-
-		this.typeLocators = new SimpleLookupTable(lastState.typeLocators.elementSize);
-		keyTable = lastState.typeLocators.keyTable;
-		valueTable = lastState.typeLocators.valueTable;
-		for (int i = 0, l = keyTable.length; i < l; i++)
-			if (keyTable[i] != null)
-				this.typeLocators.put(keyTable[i], valueTable[i]);
-	}
+	this.references = new LinkedHashMap<>(lastState.references);
+	this.typeLocators = new LinkedHashMap<>(lastState.typeLocators);
 }
 public char[][] getDefinedTypeNamesFor(String typeLocator) {
 	Object c = this.references.get(typeLocator);
@@ -127,7 +129,7 @@ public char[][] getDefinedTypeNamesFor(String typeLocator) {
 	return null; // means only one type is defined with the same name as the file... saves space
 }
 
-public SimpleLookupTable getReferences() {
+public Map<String, ReferenceCollection> getReferences() {
 	return this.references;
 }
 
@@ -142,33 +144,30 @@ StringSet getStructurallyChangedTypes(State prereqState) {
 }
 
 public boolean isDuplicateLocator(String qualifiedTypeName, String typeLocator) {
-	String existing = (String) this.typeLocators.get(qualifiedTypeName);
+	String existing = this.typeLocators.get(qualifiedTypeName);
 	return existing != null && !existing.equals(typeLocator);
 }
 
 public boolean isKnownPackage(String qualifiedPackageName) {
 	if (this.knownPackageNames == null) {
-		LinkedHashSet<String> names = new LinkedHashSet<>(this.typeLocators.elementSize);
-		Object[] keyTable = this.typeLocators.keyTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			if (keyTable[i] != null) {
-				String packageName = (String) keyTable[i]; // is a type name of the form p1/p2/A
-				int last = packageName.lastIndexOf('/');
+		LinkedHashSet<String> names = new LinkedHashSet<>(this.typeLocators.size());
+		Set<Entry<String, String>> keyTable = this.typeLocators.entrySet();
+		for (Entry<String, String> entry : keyTable) {
+			String packageName = entry.getKey(); // is a type name of the form p1/p2/A
+			int last = packageName.lastIndexOf('/');
+			packageName = last == -1 ? null : packageName.substring(0, last);
+			while (packageName != null && !names.contains(packageName)) {
+				names.add(packageName);
+				last = packageName.lastIndexOf('/');
 				packageName = last == -1 ? null : packageName.substring(0, last);
-				while (packageName != null && !names.contains(packageName)) {
-					names.add(packageName);
-					last = packageName.lastIndexOf('/');
-					packageName = last == -1 ? null : packageName.substring(0, last);
-				}
 			}
 		}
 		this.knownPackageNames = new String[names.size()];
 		names.toArray(this.knownPackageNames);
+		Arrays.sort(this.knownPackageNames);
 	}
-	for (int i = 0, l = this.knownPackageNames.length; i < l; i++)
-		if (this.knownPackageNames[i].equals(qualifiedPackageName))
-			return true;
-	return false;
+	int result = Arrays.binarySearch(this.knownPackageNames, qualifiedPackageName);
+	return result >= 0;
 }
 
 public boolean isKnownType(String qualifiedTypeName) {
@@ -177,10 +176,11 @@ public boolean isKnownType(String qualifiedTypeName) {
 
 boolean isSourceFolderEmpty(IContainer sourceFolder) {
 	String sourceFolderName = sourceFolder.getProjectRelativePath().addTrailingSeparator().toString();
-	Object[] table = this.typeLocators.valueTable;
-	for (int i = 0, l = table.length; i < l; i++)
-		if (table[i] != null && ((String) table[i]).startsWith(sourceFolderName))
+	for (String value : this.typeLocators.values()) {
+		if (value.startsWith(sourceFolderName)) {
 			return false;
+		}
+	}
 	return true;
 }
 
@@ -211,9 +211,11 @@ void recordStructuralDependency(IProject prereqProject, State prereqState) {
 
 void removeLocator(String typeLocatorToRemove) {
 	this.knownPackageNames = null;
-	this.references.removeKey(typeLocatorToRemove);
-	this.typeLocators.removeValue(typeLocatorToRemove);
+	this.references.remove(typeLocatorToRemove);
+	this.typeLocators.values().removeIf(v -> typeLocatorToRemove.equals(v));
 }
+
+
 
 void removePackage(IResourceDelta sourceDelta) {
 	IResource resource = sourceDelta.getResource();
@@ -232,7 +234,7 @@ void removePackage(IResourceDelta sourceDelta) {
 
 void removeQualifiedTypeName(String qualifiedTypeNameToRemove) {
 	this.knownPackageNames = null;
-	this.typeLocators.removeKey(qualifiedTypeNameToRemove);
+	this.typeLocators.remove(qualifiedTypeNameToRemove);
 }
 
 static State read(IProject project, DataInputStream in) throws IOException, CoreException {
@@ -254,129 +256,13 @@ static State read(IProject project, DataInputStream in) throws IOException, Core
 	newState.buildNumber = in.readInt();
 	newState.lastStructuralBuildTime = in.readLong();
 
-	int length = in.readInt();
-	newState.sourceLocations = new ClasspathMultiDirectory[length];
-	for (int i = 0; i < length; i++) {
-		IContainer sourceFolder = project, outputFolder = project;
-		String folderName;
-		if ((folderName = in.readUTF()).length() > 0) sourceFolder = project.getFolder(folderName);
-		if ((folderName = in.readUTF()).length() > 0) outputFolder = project.getFolder(folderName);
-		ClasspathMultiDirectory md =
-			(ClasspathMultiDirectory) ClasspathLocation.forSourceFolder(sourceFolder, outputFolder, readNames(in), readNames(in), in.readBoolean());
-		if (in.readBoolean())
-			md.hasIndependentOutputFolder = true;
-		newState.sourceLocations[i] = md;
-	}
+	newState.sourceLocations = readSourceLocations(project, in);
+	newState.binaryLocations = readBinaryLocations(project, in, newState.sourceLocations);
 
-	length = in.readInt();
-	newState.binaryLocations = new ClasspathLocation[length];
-	IWorkspaceRoot root = project.getWorkspace().getRoot();
-	for (int i = 0; i < length; i++) {
-		switch (in.readByte()) {
-			case SOURCE_FOLDER :
-				newState.binaryLocations[i] = newState.sourceLocations[in.readInt()];
-				break;
-			case BINARY_FOLDER :
-				IPath path = new Path(in.readUTF());
-				IContainer outputFolder = path.segmentCount() == 1
-					? (IContainer) root.getProject(path.toString())
-					: (IContainer) root.getFolder(path);
-					newState.binaryLocations[i] = ClasspathLocation.forBinaryFolder(outputFolder, in.readBoolean(),
-							readRestriction(in), new Path(in.readUTF()), in.readBoolean());
-				break;
-			case EXTERNAL_JAR :
-				String jarPath = in.readUTF();
-				if (Util.isJrt(jarPath)) {
-					newState.binaryLocations[i] = ClasspathLocation.forJrtSystem(jarPath, readRestriction(in), new Path(in.readUTF()), in.readUTF());
-				} else {
-					newState.binaryLocations[i] = ClasspathLocation.forLibrary(jarPath, in.readLong(),
-							readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
-				}
-				break;
-			case INTERNAL_JAR :
-					newState.binaryLocations[i] = ClasspathLocation.forLibrary(root.getFile(new Path(in.readUTF())),
-							readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
-					break;
-		}
-		ClasspathLocation loc = newState.binaryLocations[i];
-		char[] patchName = readName(in);
-		loc.patchModuleName = patchName.length > 0 ? new String(patchName) : null;
-		int limitSize = in.readInt();
-		if (limitSize != 0) {
-			loc.limitModuleNames = new LinkedHashSet<>(limitSize);
-			for (int j = 0; j < limitSize; j++) {
-				loc.limitModuleNames.add(in.readUTF());
-			}
-		} else {
-			loc.limitModuleNames = null;
-		}
-		IUpdatableModule.UpdatesByKind updates = new IUpdatableModule.UpdatesByKind();
-		List<Consumer<IUpdatableModule>> packageUpdates = null;
-		int packageUpdatesSize = in.readInt();
-		if (packageUpdatesSize != 0) {
-			packageUpdates = updates.getList(UpdateKind.PACKAGE, true);
-			for (int j = 0; j < packageUpdatesSize; j++) {
-				char[] pkgName = readName(in);
-				char[][] targets = readNames(in);
-				packageUpdates.add(new AddExports(pkgName, targets));
-			}
-		}
-		List<Consumer<IUpdatableModule>> moduleUpdates = null;
-		int moduleUpdatesSize = in.readInt();
-		if (moduleUpdatesSize != 0) {
-			moduleUpdates = updates.getList(UpdateKind.MODULE, true);
-			char[] modName = readName(in);
-			moduleUpdates.add(new AddReads(modName));
-		}
-		if (packageUpdates != null || moduleUpdates != null)
-			loc.updates = updates;
-	}
+	newState.testSourceLocations = readSourceLocations(project, in);
+	newState.testBinaryLocations = readBinaryLocations(project, in, newState.testSourceLocations);
 
-	length = in.readInt();
-	newState.testSourceLocations = new ClasspathMultiDirectory[length];
-	for (int i = 0; i < length; i++) {
-		IContainer sourceFolder = project, outputFolder = project;
-		String folderName;
-		if ((folderName = in.readUTF()).length() > 0) sourceFolder = project.getFolder(folderName);
-		if ((folderName = in.readUTF()).length() > 0) outputFolder = project.getFolder(folderName);
-		ClasspathMultiDirectory md =
-			(ClasspathMultiDirectory) ClasspathLocation.forSourceFolder(sourceFolder, outputFolder, readNames(in), readNames(in), in.readBoolean());
-		if (in.readBoolean())
-			md.hasIndependentOutputFolder = true;
-		newState.testSourceLocations[i] = md;
-	}
-
-	length = in.readInt();
-	newState.testBinaryLocations = new ClasspathLocation[length];
-	for (int i = 0; i < length; i++) {
-		switch (in.readByte()) {
-			case SOURCE_FOLDER :
-				newState.testBinaryLocations[i] = newState.testSourceLocations[in.readInt()];
-				break;
-			case BINARY_FOLDER :
-				IPath path = new Path(in.readUTF());
-				IContainer outputFolder = path.segmentCount() == 1
-					? (IContainer) root.getProject(path.toString())
-					: (IContainer) root.getFolder(path);
-					newState.testBinaryLocations[i] = ClasspathLocation.forBinaryFolder(outputFolder, in.readBoolean(),
-							readRestriction(in), new Path(in.readUTF()), in.readBoolean());
-				break;
-			case EXTERNAL_JAR :
-				String jarPath = in.readUTF();
-				if (Util.isJrt(jarPath)) {
-					newState.testBinaryLocations[i] = ClasspathLocation.forJrtSystem(jarPath, readRestriction(in), new Path(in.readUTF()), in.readUTF());
-				} else {
-						newState.testBinaryLocations[i] = ClasspathLocation.forLibrary(jarPath, in.readLong(),
-								readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
-				}
-				break;
-			case INTERNAL_JAR :
-					newState.testBinaryLocations[i] = ClasspathLocation.forLibrary(root.getFile(new Path(in.readUTF())),
-							readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
-					break;
-		}
-	}
-
+	int length;
 	newState.structuralBuildTimes = new SimpleLookupTable(length = in.readInt());
 	for (int i = 0; i < length; i++)
 		newState.structuralBuildTimes.put(in.readUTF(), Long.valueOf(in.readLong()));
@@ -385,7 +271,8 @@ static State read(IProject project, DataInputStream in) throws IOException, Core
 	for (int i = 0; i < length; i++)
 		internedTypeLocators[i] = in.readUTF();
 
-	newState.typeLocators = new SimpleLookupTable(length = in.readInt());
+	length = in.readInt();
+	newState.typeLocators = new LinkedHashMap<>((int) (length / 0.75 + 1));
 	for (int i = 0; i < length; i++)
 		newState.recordLocatorForType(in.readUTF(), internedTypeLocators[in.readInt()]);
 
@@ -404,7 +291,8 @@ static State read(IProject project, DataInputStream in) throws IOException, Core
 	}
 	internedQualifiedNames = ReferenceCollection.internQualifiedNames(internedQualifiedNames, false /* drop well known */, false /* do not sort */);
 
-	newState.references = new SimpleLookupTable(length = in.readInt());
+	length = in.readInt();
+	newState.references = new LinkedHashMap((int) (length / 0.75 + 1));
 	for (int i = 0; i < length; i++) {
 		String typeLocator = internedTypeLocators[in.readInt()];
 		ReferenceCollection collection = null;
@@ -441,6 +329,90 @@ static State read(IProject project, DataInputStream in) throws IOException, Core
 	return newState;
 }
 
+private static ClasspathMultiDirectory[] readSourceLocations(IProject project, DataInputStream in) throws IOException {
+	int length = in.readInt();
+	ClasspathMultiDirectory[] sourceLocations = new ClasspathMultiDirectory[length];
+	for (int i = 0; i < length; i++) {
+		IContainer sourceFolder = project, outputFolder = project;
+		String folderName;
+		if ((folderName = in.readUTF()).length() > 0) sourceFolder = project.getFolder(folderName);
+		if ((folderName = in.readUTF()).length() > 0) outputFolder = project.getFolder(folderName);
+		ClasspathMultiDirectory md =
+			(ClasspathMultiDirectory) ClasspathLocation.forSourceFolder(sourceFolder, outputFolder, readNames(in), readNames(in), in.readBoolean(), readNullablePath(in));
+		if (in.readBoolean())
+			md.hasIndependentOutputFolder = true;
+		sourceLocations[i] = md;
+	}
+	return sourceLocations;
+}
+
+private static ClasspathLocation[] readBinaryLocations(IProject project, DataInputStream in, ClasspathMultiDirectory[] sourceLocations) throws IOException, CoreException {
+	int length = in.readInt();
+	ClasspathLocation[] locations = new ClasspathLocation[length];
+	IWorkspaceRoot root = project.getWorkspace().getRoot();
+	for (int i = 0; i < length; i++) {
+		switch (in.readByte()) {
+			case SOURCE_FOLDER :
+				locations[i] = sourceLocations[in.readInt()];
+				break;
+			case BINARY_FOLDER :
+				IPath path = new Path(in.readUTF());
+				IContainer outputFolder = path.segmentCount() == 1
+					? (IContainer) root.getProject(path.toString())
+					: (IContainer) root.getFolder(path);
+					locations[i] = ClasspathLocation.forBinaryFolder(outputFolder, in.readBoolean(),
+							readRestriction(in), new Path(in.readUTF()), in.readBoolean());
+				break;
+			case EXTERNAL_JAR :
+				String jarPath = in.readUTF();
+				if (Util.isJrt(jarPath)) {
+					locations[i] = ClasspathLocation.forJrtSystem(jarPath, readRestriction(in), new Path(in.readUTF()), in.readUTF());
+				} else {
+					locations[i] = ClasspathLocation.forLibrary(jarPath, in.readLong(),
+							readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
+				}
+				break;
+			case INTERNAL_JAR :
+					locations[i] = ClasspathLocation.forLibrary(root.getFile(new Path(in.readUTF())),
+							readRestriction(in), new Path(in.readUTF()), in.readBoolean(), in.readUTF());
+					break;
+		}
+		ClasspathLocation loc = locations[i];
+		char[] patchName = readName(in);
+		loc.patchModuleName = patchName.length > 0 ? new String(patchName) : null;
+		int limitSize = in.readInt();
+		if (limitSize != 0) {
+			loc.limitModuleNames = new LinkedHashSet<>(limitSize);
+			for (int j = 0; j < limitSize; j++) {
+				loc.limitModuleNames.add(in.readUTF());
+			}
+		} else {
+			loc.limitModuleNames = null;
+		}
+		IUpdatableModule.UpdatesByKind updates = new IUpdatableModule.UpdatesByKind();
+		List<Consumer<IUpdatableModule>> packageUpdates = null;
+		int packageUpdatesSize = in.readInt();
+		if (packageUpdatesSize != 0) {
+			packageUpdates = updates.getList(UpdateKind.PACKAGE, true);
+			for (int j = 0; j < packageUpdatesSize; j++) {
+				char[] pkgName = readName(in);
+				char[][] targets = readNames(in);
+				packageUpdates.add(new AddExports(pkgName, targets));
+			}
+		}
+		List<Consumer<IUpdatableModule>> moduleUpdates = null;
+		int moduleUpdatesSize = in.readInt();
+		if (moduleUpdatesSize != 0) {
+			moduleUpdates = updates.getList(UpdateKind.MODULE, true);
+			char[] modName = readName(in);
+			moduleUpdates.add(new AddReads(modName));
+		}
+		if (packageUpdates != null || moduleUpdates != null)
+			loc.updates = updates;
+	}
+	return locations;
+}
+
 private static char[] readName(DataInputStream in) throws IOException {
 	int nLength = in.readInt();
 	char[] name = new char[nLength];
@@ -455,6 +427,13 @@ private static char[][] readNames(DataInputStream in) throws IOException {
 	for (int i = 0; i < length; i++)
 		names[i] = readName(in);
 	return names;
+}
+
+private static IPath readNullablePath(DataInputStream in) throws IOException {
+	String path = in.readUTF();
+	if (!path.isEmpty())
+		return new Path(path);
+	return null;
 }
 
 private static AccessRuleSet readRestriction(DataInputStream in) throws IOException {
@@ -522,30 +501,244 @@ void write(DataOutputStream out) throws IOException {
  * ClasspathMultiDirectory[]
  * int			id
  * String		path(s)
-*/
-	out.writeInt(length = this.sourceLocations.length);
-	for (int i = 0; i < length; i++) {
-		ClasspathMultiDirectory md = this.sourceLocations[i];
-		out.writeUTF(md.sourceFolder.getProjectRelativePath().toString());
-		out.writeUTF(md.binaryFolder.getProjectRelativePath().toString());
-		writeNames(md.inclusionPatterns, out);
-		writeNames(md.exclusionPatterns, out);
-		out.writeBoolean(md.ignoreOptionalProblems);
-		out.writeBoolean(md.hasIndependentOutputFolder);
-	}
+ */
+	writeSourceLocations(out, this.sourceLocations);
 
 /*
  * ClasspathLocation[]
  * int			id
  * String		path(s)
+ */
+	writeBinaryLocations(out, this.binaryLocations, this.sourceLocations);
+
+/*
+ * ClasspathMultiDirectory[]
+ * int			id
+ * String		path(s)
+ */
+	writeSourceLocations(out, this.testSourceLocations);
+
+/*
+ * ClasspathLocation[]
+ * int			id
+ * String		path(s)
+ */
+	writeBinaryLocations(out, this.testBinaryLocations, this.testSourceLocations);
+
+/*
+ * Structural build numbers table
+ * String		prereq project name
+ * int			last structural build number
 */
-	out.writeInt(length = this.binaryLocations.length);
+	out.writeInt(length = this.structuralBuildTimes.elementSize);
+	if (length > 0) {
+		keyTable = this.structuralBuildTimes.keyTable;
+		valueTable = this.structuralBuildTimes.valueTable;
+		for (int i = 0, l = keyTable.length; i < l; i++) {
+			if (keyTable[i] != null) {
+				length--;
+				out.writeUTF((String) keyTable[i]);
+				out.writeLong(((Long) valueTable[i]).longValue());
+			}
+		}
+		if (JavaBuilder.DEBUG && length != 0)
+			System.out.println("structuralBuildNumbers table is inconsistent"); //$NON-NLS-1$
+	}
+
+/*
+ * String[]	Interned type locators
+ */
+	out.writeInt(length = this.references.size());
+	SimpleLookupTable internedTypeLocators = new SimpleLookupTable(length);
+	if (length > 0) {
+		Set<String> keys = this.references.keySet();
+		for (String key : keys) {
+			if (key != null) {
+				length--;
+				out.writeUTF(key);
+				internedTypeLocators.put(key, Integer.valueOf(internedTypeLocators.elementSize));
+			}
+		}
+		if (JavaBuilder.DEBUG && length != 0)
+			System.out.println("references table is inconsistent"); //$NON-NLS-1$
+	}
+
+/*
+ * Type locators table
+ * String		type name
+ * int			interned locator id
+ */
+	out.writeInt(length = this.typeLocators.size());
+	if (length > 0) {
+		Set<Entry<String, String>> entries = this.typeLocators.entrySet();
+		for (Entry<String, String> entry : entries) {
+			String key = entry.getKey();
+			String value = entry.getValue();
+			if (key != null) {
+				length--;
+				out.writeUTF(key);
+				Integer index = (Integer) internedTypeLocators.get(value);
+				out.writeInt(index.intValue());
+			}
+		}
+		if (JavaBuilder.DEBUG && length != 0)
+			System.out.println("typeLocators table is inconsistent"); //$NON-NLS-1$
+	}
+
+/*
+ * char[][]	Interned root names
+ * char[][][]	Interned qualified names
+ * char[][]	Interned simple names
+ */
+	SimpleLookupTable internedRootNames = new SimpleLookupTable(3);
+	SimpleLookupTable internedQualifiedNames = new SimpleLookupTable(31);
+	SimpleLookupTable internedSimpleNames = new SimpleLookupTable(31);
+	for (ReferenceCollection collection : this.references.values()) {
+		char[][] rNames = collection.rootReferences;
+		for (int j = 0, m = rNames.length; j < m; j++) {
+			char[] rName = rNames[j];
+			if (!internedRootNames.containsKey(rName)) // remember the names have been interned
+				internedRootNames.put(rName, Integer.valueOf(internedRootNames.elementSize));
+		}
+		char[][][] qNames = collection.qualifiedNameReferences;
+		for (int j = 0, m = qNames.length; j < m; j++) {
+			char[][] qName = qNames[j];
+			if (!internedQualifiedNames.containsKey(qName)) { // remember the names have been interned
+				internedQualifiedNames.put(qName, Integer.valueOf(internedQualifiedNames.elementSize));
+				for (int k = 0, n = qName.length; k < n; k++) {
+					char[] sName = qName[k];
+					if (!internedSimpleNames.containsKey(sName)) // remember the names have been interned
+						internedSimpleNames.put(sName, Integer.valueOf(internedSimpleNames.elementSize));
+				}
+			}
+		}
+		char[][] sNames = collection.simpleNameReferences;
+		for (int j = 0, m = sNames.length; j < m; j++) {
+			char[] sName = sNames[j];
+			if (!internedSimpleNames.containsKey(sName)) // remember the names have been interned
+				internedSimpleNames.put(sName, Integer.valueOf(internedSimpleNames.elementSize));
+		}
+	}
+	char[][] internedArray = new char[internedRootNames.elementSize][];
+	Object[] rootNames = internedRootNames.keyTable;
+	Object[] positions = internedRootNames.valueTable;
+	for (int i = positions.length; --i >= 0; ) {
+		if (positions[i] != null) {
+			int index = ((Integer) positions[i]).intValue();
+			internedArray[index] = (char[]) rootNames[i];
+		}
+	}
+	writeNames(internedArray, out);
+	// now write the interned simple names
+	internedArray = new char[internedSimpleNames.elementSize][];
+	Object[] simpleNames = internedSimpleNames.keyTable;
+	positions = internedSimpleNames.valueTable;
+	for (int i = positions.length; --i >= 0; ) {
+		if (positions[i] != null) {
+			int index = ((Integer) positions[i]).intValue();
+			internedArray[index] = (char[]) simpleNames[i];
+		}
+	}
+	writeNames(internedArray, out);
+	// now write the interned qualified names as arrays of interned simple names
+	char[][][] internedQArray = new char[internedQualifiedNames.elementSize][][];
+	Object[] qualifiedNames = internedQualifiedNames.keyTable;
+	positions = internedQualifiedNames.valueTable;
+	for (int i = positions.length; --i >= 0; ) {
+		if (positions[i] != null) {
+			int index = ((Integer) positions[i]).intValue();
+			internedQArray[index] = (char[][]) qualifiedNames[i];
+		}
+	}
+	out.writeInt(length = internedQArray.length);
 	for (int i = 0; i < length; i++) {
-		ClasspathLocation c = this.binaryLocations[i];
+		char[][] qName = internedQArray[i];
+		int qLength = qName.length;
+		out.writeInt(qLength);
+		for (int j = 0; j < qLength; j++) {
+			Integer index = (Integer) internedSimpleNames.get(qName[j]);
+			out.writeInt(index.intValue());
+		}
+	}
+
+/*
+ * References table
+ * int		interned locator id
+ * ReferenceCollection
+*/
+	out.writeInt(length = this.references.size());
+	if (length > 0) {
+		for (Entry<String, ReferenceCollection> entry : this.references.entrySet()) {
+			String key = entry.getKey();
+			length--;
+			Integer index = (Integer) internedTypeLocators.get(key);
+			out.writeInt(index.intValue());
+			ReferenceCollection collection = entry.getValue();
+			if (collection instanceof AdditionalTypeCollection) {
+				out.writeByte(1);
+				AdditionalTypeCollection atc = (AdditionalTypeCollection) collection;
+				writeNames(atc.definedTypeNames, out);
+			} else {
+				out.writeByte(2);
+			}
+			char[][][] qNames = collection.qualifiedNameReferences;
+			int qLength = qNames.length;
+			out.writeInt(qLength);
+			for (int j = 0; j < qLength; j++) {
+				index = (Integer) internedQualifiedNames.get(qNames[j]);
+				out.writeInt(index.intValue());
+			}
+			char[][] sNames = collection.simpleNameReferences;
+			int sLength = sNames.length;
+			out.writeInt(sLength);
+			for (int j = 0; j < sLength; j++) {
+				index = (Integer) internedSimpleNames.get(sNames[j]);
+				out.writeInt(index.intValue());
+			}
+			char[][] rNames = collection.rootReferences;
+			int rLength = rNames.length;
+			out.writeInt(rLength);
+			for (int j = 0; j < rLength; j++) {
+				index = (Integer) internedRootNames.get(rNames[j]);
+				out.writeInt(index.intValue());
+			}
+		}
+		if (JavaBuilder.DEBUG && length != 0)
+			System.out.println("references table is inconsistent"); //$NON-NLS-1$
+	}
+}
+
+private void writeSourceLocations(DataOutputStream out, ClasspathMultiDirectory[] srcLocations) throws IOException {
+	int length;
+	out.writeInt(length = srcLocations.length);
+	for (int i = 0; i < length; i++) {
+		ClasspathMultiDirectory md = srcLocations[i];
+		out.writeUTF(md.sourceFolder.getProjectRelativePath().toString());
+		out.writeUTF(md.binaryFolder.getProjectRelativePath().toString());
+		writeNames(md.inclusionPatterns, out);
+		writeNames(md.exclusionPatterns, out);
+		out.writeBoolean(md.ignoreOptionalProblems);
+		writeNullablePath(md.externalAnnotationPath, out);
+		out.writeBoolean(md.hasIndependentOutputFolder);
+	}
+}
+
+private void writeBinaryLocations(DataOutputStream out, ClasspathLocation[] locations, ClasspathMultiDirectory[] srcLocations)
+		throws IOException {
+	/*
+	 * ClasspathLocation[]
+	 * int			id
+	 * String		path(s)
+	 * String       module updates
+	*/
+
+	out.writeInt(locations.length);
+	for (int i = 0; i < locations.length; i++) {
+		ClasspathLocation c = locations[i];
 		if (c instanceof ClasspathMultiDirectory) {
 			out.writeByte(SOURCE_FOLDER);
-			for (int j = 0, m = this.sourceLocations.length; j < m; j++) {
-				if (this.sourceLocations[j] == c) {
+			for (int j = 0, m = srcLocations.length; j < m; j++) {
+				if (srcLocations[j] == c) {
 					out.writeInt(j);
 					//continue next;
 				}
@@ -556,7 +749,7 @@ void write(DataOutputStream out) throws IOException {
 			out.writeUTF(cd.binaryFolder.getFullPath().toString());
 			out.writeBoolean(cd.isOutputFolder);
 			writeRestriction(cd.accessRuleSet, out);
-			out.writeUTF(cd.externalAnnotationPath != null ? cd.externalAnnotationPath : ""); //$NON-NLS-1$
+			writeNullablePath(cd.externalAnnotationPath, out);
 			out.writeBoolean(cd.isOnModulePath);
 		} else if (c instanceof ClasspathJar) {
 			ClasspathJar jar = (ClasspathJar) c;
@@ -569,7 +762,7 @@ void write(DataOutputStream out) throws IOException {
 				out.writeUTF(jar.resource.getFullPath().toString());
 			}
 			writeRestriction(jar.accessRuleSet, out);
-			out.writeUTF(jar.externalAnnotationPath != null ? jar.externalAnnotationPath : ""); //$NON-NLS-1$
+			writeNullablePath(jar.externalAnnotationPath, out);
 			out.writeBoolean(jar.isOnModulePath);
 			out.writeUTF(jar.compliance == null ? "" : jar.compliance); //$NON-NLS-1$
 
@@ -578,7 +771,7 @@ void write(DataOutputStream out) throws IOException {
 			out.writeByte(EXTERNAL_JAR);
 			out.writeUTF(jrt.zipFilename);
 			writeRestriction(jrt.accessRuleSet, out);
-			out.writeUTF(jrt.externalAnnotationPath != null ? jrt.externalAnnotationPath : ""); //$NON-NLS-1$
+			writeNullablePath(jrt.externalAnnotationPath, out);
 			if (jrt instanceof ClasspathJrtWithReleaseOption)
 				out.writeUTF(((ClasspathJrtWithReleaseOption) jrt).release);
 			else
@@ -634,260 +827,6 @@ void write(DataOutputStream out) throws IOException {
 			out.writeInt(0);
 		}
 	}
-	/*
-	 * ClasspathMultiDirectory[]
-	 * int			id
-	 * String		path(s)
-	*/
-		out.writeInt(length = this.testSourceLocations.length);
-		for (int i = 0; i < length; i++) {
-			ClasspathMultiDirectory md = this.testSourceLocations[i];
-			out.writeUTF(md.sourceFolder.getProjectRelativePath().toString());
-			out.writeUTF(md.binaryFolder.getProjectRelativePath().toString());
-			writeNames(md.inclusionPatterns, out);
-			writeNames(md.exclusionPatterns, out);
-			out.writeBoolean(md.ignoreOptionalProblems);
-			out.writeBoolean(md.hasIndependentOutputFolder);
-		}
-
-	/*
-	 * ClasspathLocation[]
-	 * int			id
-	 * String		path(s)
-	*/
-		out.writeInt(length = this.testBinaryLocations.length);
-		next : for (int i = 0; i < length; i++) {
-			ClasspathLocation c = this.testBinaryLocations[i];
-			if (c instanceof ClasspathMultiDirectory) {
-				out.writeByte(SOURCE_FOLDER);
-				for (int j = 0, m = this.testSourceLocations.length; j < m; j++) {
-					if (this.testSourceLocations[j] == c) {
-						out.writeInt(j);
-						continue next;
-					}
-				}
-			} else if (c instanceof ClasspathDirectory) {
-				out.writeByte(BINARY_FOLDER);
-				ClasspathDirectory cd = (ClasspathDirectory) c;
-				out.writeUTF(cd.binaryFolder.getFullPath().toString());
-				out.writeBoolean(cd.isOutputFolder);
-				writeRestriction(cd.accessRuleSet, out);
-				out.writeUTF(cd.externalAnnotationPath != null ? cd.externalAnnotationPath : ""); //$NON-NLS-1$
-				out.writeBoolean(cd.isOnModulePath);
-			} else if (c instanceof ClasspathJar) {
-				ClasspathJar jar = (ClasspathJar) c;
-				if (jar.resource == null) {
-					out.writeByte(EXTERNAL_JAR);
-					out.writeUTF(jar.zipFilename);
-					out.writeLong(jar.lastModified());
-				} else {
-					out.writeByte(INTERNAL_JAR);
-					out.writeUTF(jar.resource.getFullPath().toString());
-				}
-				writeRestriction(jar.accessRuleSet, out);
-				out.writeUTF(jar.externalAnnotationPath != null ? jar.externalAnnotationPath : ""); //$NON-NLS-1$
-				out.writeBoolean(jar.isOnModulePath);
-				out.writeUTF(jar.compliance != null ? jar.compliance : ""); //$NON-NLS-1$
-			} else if (c instanceof ClasspathJrt) {
-				ClasspathJrt jrt = (ClasspathJrt) c;
-				out.writeByte(EXTERNAL_JAR);
-				out.writeUTF(jrt.zipFilename);
-				writeRestriction(jrt.accessRuleSet, out);
-				out.writeUTF(jrt.externalAnnotationPath != null ? jrt.externalAnnotationPath : ""); //$NON-NLS-1$
-				if (jrt instanceof ClasspathJrtWithReleaseOption)
-					out.writeUTF(((ClasspathJrtWithReleaseOption) jrt).release);
-				else
-					out.writeUTF(""); //$NON-NLS-1$
-			}
-		}
-
-/*
- * Structural build numbers table
- * String		prereq project name
- * int			last structural build number
-*/
-	out.writeInt(length = this.structuralBuildTimes.elementSize);
-	if (length > 0) {
-		keyTable = this.structuralBuildTimes.keyTable;
-		valueTable = this.structuralBuildTimes.valueTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			if (keyTable[i] != null) {
-				length--;
-				out.writeUTF((String) keyTable[i]);
-				out.writeLong(((Long) valueTable[i]).longValue());
-			}
-		}
-		if (JavaBuilder.DEBUG && length != 0)
-			System.out.println("structuralBuildNumbers table is inconsistent"); //$NON-NLS-1$
-	}
-
-/*
- * String[]	Interned type locators
- */
-	out.writeInt(length = this.references.elementSize);
-	SimpleLookupTable internedTypeLocators = new SimpleLookupTable(length);
-	if (length > 0) {
-		keyTable = this.references.keyTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			if (keyTable[i] != null) {
-				length--;
-				String key = (String) keyTable[i];
-				out.writeUTF(key);
-				internedTypeLocators.put(key, Integer.valueOf(internedTypeLocators.elementSize));
-			}
-		}
-		if (JavaBuilder.DEBUG && length != 0)
-			System.out.println("references table is inconsistent"); //$NON-NLS-1$
-	}
-
-/*
- * Type locators table
- * String		type name
- * int			interned locator id
- */
-	out.writeInt(length = this.typeLocators.elementSize);
-	if (length > 0) {
-		keyTable = this.typeLocators.keyTable;
-		valueTable = this.typeLocators.valueTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			if (keyTable[i] != null) {
-				length--;
-				out.writeUTF((String) keyTable[i]);
-				Integer index = (Integer) internedTypeLocators.get(valueTable[i]);
-				out.writeInt(index.intValue());
-			}
-		}
-		if (JavaBuilder.DEBUG && length != 0)
-			System.out.println("typeLocators table is inconsistent"); //$NON-NLS-1$
-	}
-
-/*
- * char[][]	Interned root names
- * char[][][]	Interned qualified names
- * char[][]	Interned simple names
- */
-	SimpleLookupTable internedRootNames = new SimpleLookupTable(3);
-	SimpleLookupTable internedQualifiedNames = new SimpleLookupTable(31);
-	SimpleLookupTable internedSimpleNames = new SimpleLookupTable(31);
-	valueTable = this.references.valueTable;
-	for (int i = 0, l = valueTable.length; i < l; i++) {
-		if (valueTable[i] != null) {
-			ReferenceCollection collection = (ReferenceCollection) valueTable[i];
-			char[][] rNames = collection.rootReferences;
-			for (int j = 0, m = rNames.length; j < m; j++) {
-				char[] rName = rNames[j];
-				if (!internedRootNames.containsKey(rName)) // remember the names have been interned
-					internedRootNames.put(rName, Integer.valueOf(internedRootNames.elementSize));
-			}
-			char[][][] qNames = collection.qualifiedNameReferences;
-			for (int j = 0, m = qNames.length; j < m; j++) {
-				char[][] qName = qNames[j];
-				if (!internedQualifiedNames.containsKey(qName)) { // remember the names have been interned
-					internedQualifiedNames.put(qName, Integer.valueOf(internedQualifiedNames.elementSize));
-					for (int k = 0, n = qName.length; k < n; k++) {
-						char[] sName = qName[k];
-						if (!internedSimpleNames.containsKey(sName)) // remember the names have been interned
-							internedSimpleNames.put(sName, Integer.valueOf(internedSimpleNames.elementSize));
-					}
-				}
-			}
-			char[][] sNames = collection.simpleNameReferences;
-			for (int j = 0, m = sNames.length; j < m; j++) {
-				char[] sName = sNames[j];
-				if (!internedSimpleNames.containsKey(sName)) // remember the names have been interned
-					internedSimpleNames.put(sName, Integer.valueOf(internedSimpleNames.elementSize));
-			}
-		}
-	}
-	char[][] internedArray = new char[internedRootNames.elementSize][];
-	Object[] rootNames = internedRootNames.keyTable;
-	Object[] positions = internedRootNames.valueTable;
-	for (int i = positions.length; --i >= 0; ) {
-		if (positions[i] != null) {
-			int index = ((Integer) positions[i]).intValue();
-			internedArray[index] = (char[]) rootNames[i];
-		}
-	}
-	writeNames(internedArray, out);
-	// now write the interned simple names
-	internedArray = new char[internedSimpleNames.elementSize][];
-	Object[] simpleNames = internedSimpleNames.keyTable;
-	positions = internedSimpleNames.valueTable;
-	for (int i = positions.length; --i >= 0; ) {
-		if (positions[i] != null) {
-			int index = ((Integer) positions[i]).intValue();
-			internedArray[index] = (char[]) simpleNames[i];
-		}
-	}
-	writeNames(internedArray, out);
-	// now write the interned qualified names as arrays of interned simple names
-	char[][][] internedQArray = new char[internedQualifiedNames.elementSize][][];
-	Object[] qualifiedNames = internedQualifiedNames.keyTable;
-	positions = internedQualifiedNames.valueTable;
-	for (int i = positions.length; --i >= 0; ) {
-		if (positions[i] != null) {
-			int index = ((Integer) positions[i]).intValue();
-			internedQArray[index] = (char[][]) qualifiedNames[i];
-		}
-	}
-	out.writeInt(length = internedQArray.length);
-	for (int i = 0; i < length; i++) {
-		char[][] qName = internedQArray[i];
-		int qLength = qName.length;
-		out.writeInt(qLength);
-		for (int j = 0; j < qLength; j++) {
-			Integer index = (Integer) internedSimpleNames.get(qName[j]);
-			out.writeInt(index.intValue());
-		}
-	}
-
-/*
- * References table
- * int		interned locator id
- * ReferenceCollection
-*/
-	out.writeInt(length = this.references.elementSize);
-	if (length > 0) {
-		keyTable = this.references.keyTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			if (keyTable[i] != null) {
-				length--;
-				Integer index = (Integer) internedTypeLocators.get(keyTable[i]);
-				out.writeInt(index.intValue());
-				ReferenceCollection collection = (ReferenceCollection) valueTable[i];
-				if (collection instanceof AdditionalTypeCollection) {
-					out.writeByte(1);
-					AdditionalTypeCollection atc = (AdditionalTypeCollection) collection;
-					writeNames(atc.definedTypeNames, out);
-				} else {
-					out.writeByte(2);
-				}
-				char[][][] qNames = collection.qualifiedNameReferences;
-				int qLength = qNames.length;
-				out.writeInt(qLength);
-				for (int j = 0; j < qLength; j++) {
-					index = (Integer) internedQualifiedNames.get(qNames[j]);
-					out.writeInt(index.intValue());
-				}
-				char[][] sNames = collection.simpleNameReferences;
-				int sLength = sNames.length;
-				out.writeInt(sLength);
-				for (int j = 0; j < sLength; j++) {
-					index = (Integer) internedSimpleNames.get(sNames[j]);
-					out.writeInt(index.intValue());
-				}
-				char[][] rNames = collection.rootReferences;
-				int rLength = rNames.length;
-				out.writeInt(rLength);
-				for (int j = 0; j < rLength; j++) {
-					index = (Integer) internedRootNames.get(rNames[j]);
-					out.writeInt(index.intValue());
-				}
-			}
-		}
-		if (JavaBuilder.DEBUG && length != 0)
-			System.out.println("references table is inconsistent"); //$NON-NLS-1$
-	}
 }
 
 private void writeName(char[] name, DataOutputStream out) throws IOException {
@@ -902,6 +841,10 @@ private void writeNames(char[][] names, DataOutputStream out) throws IOException
 	out.writeInt(length);
 	for (int i = 0; i < length; i++)
 		writeName(names[i], out);
+}
+
+private void writeNullablePath(String path, DataOutputStream out) throws IOException {
+	out.writeUTF(path != null ? path : ""); //$NON-NLS-1$
 }
 
 private void writeRestriction(AccessRuleSet accessRuleSet, DataOutputStream out) throws IOException {

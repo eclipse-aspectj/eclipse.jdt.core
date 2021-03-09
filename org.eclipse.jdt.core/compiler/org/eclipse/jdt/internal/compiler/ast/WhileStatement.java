@@ -193,7 +193,7 @@ public class WhileStatement extends Statement {
 			return;
 		}
 		if (this.condition != null && this.condition.containsPatternVariable()) {
-			this.condition.initializePatternVariables(currentScope, codeStream);
+			this.condition.addPatternVariables(currentScope, codeStream);
 		}
 		int pc = codeStream.position;
 		Constant cst = this.condition.optimizedBooleanConstant();
@@ -275,10 +275,25 @@ public class WhileStatement extends Statement {
 
 	@Override
 	public void resolve(BlockScope scope) {
-		TypeBinding type = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
-		this.condition.computeConversion(scope, type, type);
-		if (this.action != null)
-			this.action.resolve(scope);
+		if (this.condition.containsPatternVariable()) {
+			this.condition.collectPatternVariablesToScope(null, scope);
+			LocalVariableBinding[] patternVariablesInTrueScope = this.condition.getPatternVariablesWhenTrue();
+			LocalVariableBinding[] patternVariablesInFalseScope = this.condition.getPatternVariablesWhenFalse();
+
+			TypeBinding type = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
+			this.condition.computeConversion(scope, type, type);
+			if (this.action != null) {
+				this.action.resolveWithPatternVariablesInScope(patternVariablesInTrueScope, scope);
+				this.action.promotePatternVariablesIfApplicable(patternVariablesInFalseScope,
+						() -> !this.action.breaksOut(null));
+			}
+		} else {
+			TypeBinding type = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
+			this.condition.computeConversion(scope, type, type);
+			if (this.action != null)
+				this.action.resolve(scope);
+		}
+
 	}
 
 	@Override
@@ -317,6 +332,22 @@ public class WhileStatement extends Statement {
 
 	@Override
 	public boolean completesByContinue() {
+		return this.action.continuesAtOuterLabel();
+	}
+
+	@Override
+	public boolean canCompleteNormally() {
+		Constant cst = this.condition.constant;
+		boolean isConditionTrue = cst == null || cst != Constant.NotAConstant && cst.booleanValue() == true;
+		cst = this.condition.optimizedBooleanConstant();
+		boolean isConditionOptimizedTrue = cst == null ? true : cst != Constant.NotAConstant && cst.booleanValue() == true;
+		if (!(isConditionTrue || isConditionOptimizedTrue))
+			return true;
+		return this.action != null && this.action.breaksOut(null);
+	}
+
+	@Override
+	public boolean continueCompletes() {
 		return this.action.continuesAtOuterLabel();
 	}
 }

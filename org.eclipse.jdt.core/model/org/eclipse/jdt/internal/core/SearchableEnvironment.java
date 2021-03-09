@@ -76,6 +76,9 @@ public class SearchableEnvironment
 	private ModuleUpdater moduleUpdater;
 	private Map<IPackageFragmentRoot,IModuleDescription> rootToModule;
 
+	private long timeSpentInGetModulesDeclaringPackage;
+	private long timeSpentInFindTypes;
+
 	@Deprecated
 	public SearchableEnvironment(JavaProject project, org.eclipse.jdt.core.ICompilationUnit[] workingCopies) throws JavaModelException {
 		this(project, workingCopies, false);
@@ -497,7 +500,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 * types are found relative to their enclosing type.
 	 */
 	public void findTypes(char[] prefix, final boolean findMembers, boolean camelCaseMatch, int searchFor, final ISearchRequestor storage) {
-		findTypes(prefix, findMembers, camelCaseMatch, searchFor, storage, null);
+		findTypes(prefix, findMembers, camelCaseMatch ? SearchPattern.R_PREFIX_MATCH | SearchPattern.R_CAMELCASE_MATCH : SearchPattern.R_PREFIX_MATCH, searchFor, storage, null);
 	}
 	/**
 	 * Must be used only by CompletionEngine.
@@ -517,8 +520,12 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 * This method can not be used to find member types... member
 	 * types are found relative to their enclosing type.
 	 */
-	public void findTypes(char[] prefix, final boolean findMembers, boolean camelCaseMatch, int searchFor, final ISearchRequestor storage, IProgressMonitor monitor) {
-
+	public void findTypes(char[] prefix, final boolean findMembers, int matchRule, int searchFor, final ISearchRequestor storage, IProgressMonitor monitor) {
+		long start = -1;
+		if (NameLookup.VERBOSE)
+			start = System.currentTimeMillis();
+		
+		boolean camelCaseMatch = (matchRule & SearchPattern.R_CAMELCASE_MATCH) != 0;
 		/*
 			if (true){
 				findTypes(new String(prefix), storage, NameLookup.ACCEPT_CLASSES | NameLookup.ACCEPT_INTERFACES);
@@ -606,8 +613,6 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 				}
 			};
 
-			int matchRule = SearchPattern.R_PREFIX_MATCH;
-			if (camelCaseMatch) matchRule |= SearchPattern.R_CAMELCASE_MATCH;
 			if (monitor != null) {
 				IndexManager indexManager = JavaModelManager.getIndexManager();
 				if (indexManager.awaitingJobsCount() == 0) {
@@ -638,7 +643,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 							qualification,
 							SearchPattern.R_EXACT_MATCH,
 							simpleName,
-							matchRule, // not case sensitive
+							matchRule,
 							searchFor,
 							getSearchScope(),
 							typeRequestor,
@@ -676,6 +681,9 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 				new String(prefix),
 				storage,
 				convertSearchFilterToModelFilter(searchFor));
+		} finally {
+			if (NameLookup.VERBOSE)
+				this.timeSpentInFindTypes += System.currentTimeMillis()-start;
 		}
 	}
 
@@ -691,7 +699,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 * The constructors found are passed to one of the following methods:
 	 *    ISearchRequestor.acceptConstructor(...)
 	 */
-	public void findConstructorDeclarations(char[] prefix, boolean camelCaseMatch, final ISearchRequestor storage, IProgressMonitor monitor) {
+	public void findConstructorDeclarations(char[] prefix, int matchRule, final ISearchRequestor storage, IProgressMonitor monitor) {
 		try {
 			final String excludePath;
 			if (this.unitToSkip != null && this.unitToSkip instanceof IJavaElement) {
@@ -701,6 +709,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 			}
 
 			int lastDotIndex = CharOperation.lastIndexOf('.', prefix);
+			boolean camelCaseMatch = (matchRule & SearchPattern.R_CAMELCASE_MATCH) != 0;
 			char[] qualification, simpleName;
 			if (lastDotIndex < 0) {
 				qualification = null;
@@ -788,8 +797,6 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 				}
 			};
 
-			int matchRule = SearchPattern.R_PREFIX_MATCH;
-			if (camelCaseMatch) matchRule |= SearchPattern.R_CAMELCASE_MATCH;
 			if (monitor != null) {
 				IndexManager indexManager = JavaModelManager.getIndexManager();
 				// Wait for the end of indexing or a cancel
@@ -891,55 +898,66 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 */
 	@Override
 	public char[][] getModulesDeclaringPackage(char[][] packageName, char[] moduleName) {
-		String[] pkgName = Arrays.stream(packageName).map(String::new).toArray(String[]::new);
-		LookupStrategy strategy = LookupStrategy.get(moduleName);
-		switch (strategy) {
-			case Named:
-				if (this.knownModuleLocations != null) {
-					IPackageFragmentRoot[] moduleContext = findModuleContext(moduleName);
-					if (moduleContext != null) {
-						// (this.owner != null && this.owner.isPackage(pkgName)) // TODO(SHMOD) see old isPackage
-						if (this.nameLookup.isPackage(pkgName, moduleContext)) {
-							return new char[][] { moduleName };
-						}
-					}
-				}
-				return null;
-			case Unnamed:
-			case Any:
-				// if in pre-9 mode we may still search the unnamed module
-				if (this.knownModuleLocations == null) {
-					if ((this.owner != null && this.owner.isPackage(pkgName))
-							|| this.nameLookup.isPackage(pkgName))
-						return new char[][] { ModuleBinding.UNNAMED };
-					return null;
-				}
-				//$FALL-THROUGH$
-			case AnyNamed:
-				char[][] names = CharOperation.NO_CHAR_CHAR;
-				IPackageFragmentRoot[] packageRoots = this.nameLookup.packageFragmentRoots;
-				boolean containsUnnamed = false;
-				for (IPackageFragmentRoot packageRoot : packageRoots) {
-					IPackageFragmentRoot[] singleton = { packageRoot };
-					if (strategy.matches(singleton, locs -> locs[0] instanceof JrtPackageFragmentRoot || getModuleDescription(locs) != null)) {
-						if (this.nameLookup.isPackage(pkgName, singleton)) {
-							IModuleDescription moduleDescription = getModuleDescription(singleton);
-							char[] aName;
-							if (moduleDescription != null) {
-								aName = moduleDescription.getElementName().toCharArray();
-							} else {
-								if (containsUnnamed)
-									continue;
-								containsUnnamed = true;
-								aName = ModuleBinding.UNNAMED;
+		long start = -1;
+		if (NameLookup.VERBOSE)
+			start = System.currentTimeMillis();
+		try {
+			String[] pkgName = Arrays.stream(packageName).map(String::new).toArray(String[]::new);
+			LookupStrategy strategy = LookupStrategy.get(moduleName);
+			switch (strategy) {
+				case Named:
+					if (this.knownModuleLocations != null) {
+						IPackageFragmentRoot[] moduleContext = findModuleContext(moduleName);
+						if (moduleContext != null) {
+							// (this.owner != null && this.owner.isPackage(pkgName)) // TODO(SHMOD) see old isPackage
+							if (this.nameLookup.isPackage(pkgName, moduleContext)) {
+								return new char[][] { moduleName };
 							}
-							names = CharOperation.arrayConcat(names, aName);
 						}
 					}
-				}
-				return names == CharOperation.NO_CHAR_CHAR ? null : names;
-			default:
-				throw new IllegalArgumentException("Unexpected LookupStrategy "+strategy); //$NON-NLS-1$
+					return null;
+				case Unnamed:
+				case Any:
+					// if in pre-9 mode we may still search the unnamed module
+					if (this.knownModuleLocations == null) {
+						if ((this.owner != null && this.owner.isPackage(pkgName))
+								|| this.nameLookup.isPackage(pkgName))
+							return new char[][] { ModuleBinding.UNNAMED };
+						return null;
+					}
+					//$FALL-THROUGH$
+				case AnyNamed:
+					char[][] names = CharOperation.NO_CHAR_CHAR;
+					// narrow down candidates of roots (https://bugs.eclipse.org/566498)
+					IPackageFragmentRoot[] matchingRoots = this.nameLookup.findPackageFragementRoots(pkgName);
+					if(matchingRoots != null) {
+						boolean containsUnnamed = false;
+						for (IPackageFragmentRoot packageRoot : matchingRoots) {
+							IPackageFragmentRoot[] singleton = { packageRoot };
+							if (strategy.matches(singleton, locs -> locs[0] instanceof JrtPackageFragmentRoot || getModuleDescription(locs) != null)) {
+								if (this.nameLookup.isPackage(pkgName, singleton)) {
+									IModuleDescription moduleDescription = getModuleDescription(singleton);
+									char[] aName;
+									if (moduleDescription != null) {
+										aName = moduleDescription.getElementName().toCharArray();
+									} else {
+										if (containsUnnamed)
+											continue;
+										containsUnnamed = true;
+										aName = ModuleBinding.UNNAMED;
+									}
+									names = CharOperation.arrayConcat(names, aName);
+								}
+							}
+						}
+					}
+					return names == CharOperation.NO_CHAR_CHAR ? null : names;
+				default:
+					throw new IllegalArgumentException("Unexpected LookupStrategy "+strategy); //$NON-NLS-1$
+			}
+		} finally {
+			if (NameLookup.VERBOSE)
+				this.timeSpentInGetModulesDeclaringPackage += System.currentTimeMillis()-start;
 		}
 	}
 	@Override
@@ -965,12 +983,16 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 				}
 				//$FALL-THROUGH$
 			case AnyNamed:
-				IPackageFragmentRoot[] packageRoots = this.nameLookup.packageFragmentRoots;
-				for (IPackageFragmentRoot packageRoot : packageRoots) {
-					IPackageFragmentRoot[] singleton = { packageRoot };
-					if (strategy.matches(singleton, locs -> locs[0] instanceof JrtPackageFragmentRoot || getModuleDescription(locs) != null)) {
-						if (this.nameLookup.hasCompilationUnit(pkgName, singleton))
-							return true;
+				// narrow down candidates of roots (https://bugs.eclipse.org/566498)
+				String[] splittedName = Util.toStrings(pkgName);
+				IPackageFragmentRoot[] packageRoots = this.nameLookup.findPackageFragementRoots(splittedName);
+				if(packageRoots != null) {
+					for (IPackageFragmentRoot packageRoot : packageRoots) {
+						IPackageFragmentRoot[] singleton = { packageRoot };
+						if (strategy.matches(singleton, locs -> locs[0] instanceof JrtPackageFragmentRoot || getModuleDescription(locs) != null)) {
+							if (this.nameLookup.hasCompilationUnit(pkgName, singleton))
+								return true;
+						}
 					}
 				}
 				return false;
@@ -1157,5 +1179,16 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 			default:
 				throw new UnsupportedOperationException("can list packages only of a named module"); //$NON-NLS-1$
 		}
+	}
+
+	public void printTimeSpent() {
+		if(!NameLookup.VERBOSE)
+			return;
+
+		Util.verbose(" TIME SPENT SearchableEnvironment");  //$NON-NLS-1$
+		Util.verbose(" -> getModulesDeclaringPackage..." +  this.timeSpentInGetModulesDeclaringPackage + "ms");  //$NON-NLS-1$ //$NON-NLS-2$
+		Util.verbose(" -> findTypes...................." +  this.timeSpentInFindTypes + "ms");  //$NON-NLS-1$ //$NON-NLS-2$
+
+		this.nameLookup.printTimeSpent();
 	}
 }

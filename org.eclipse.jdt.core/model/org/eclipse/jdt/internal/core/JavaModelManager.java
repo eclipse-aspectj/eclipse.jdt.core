@@ -2490,7 +2490,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		defaultOptionsMap.put(JavaCore.CODEASSIST_FORBIDDEN_REFERENCE_CHECK, JavaCore.ENABLED);
 		defaultOptionsMap.put(JavaCore.CODEASSIST_DISCOURAGED_REFERENCE_CHECK, JavaCore.DISABLED);
 		defaultOptionsMap.put(JavaCore.CODEASSIST_CAMEL_CASE_MATCH, JavaCore.ENABLED);
-		defaultOptionsMap.put(JavaCore.CODEASSIST_SUBSTRING_MATCH, JavaCore.ENABLED);
 		defaultOptionsMap.put(JavaCore.CODEASSIST_SUBWORD_MATCH, JavaCore.ENABLED);
 		defaultOptionsMap.put(JavaCore.CODEASSIST_SUGGEST_STATIC_IMPORTS, JavaCore.ENABLED);
 
@@ -4777,12 +4776,12 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					Map<IFile, Map<String, Map<String, IType>>> indexedSecondaryTypes;
 					if (projectInfo.secondaryTypes == null) {
 						projectInfo.secondaryTypes = new Hashtable<>(3);
-						indexedSecondaryTypes = new HashMap<>(3);
+						indexedSecondaryTypes = Collections.synchronizedMap(new HashMap<>(3));
 						projectInfo.indexingSecondaryCache = indexedSecondaryTypes;
 					} else {
 						indexedSecondaryTypes = projectInfo.indexingSecondaryCache;
 						if (indexedSecondaryTypes == null) {
-							indexedSecondaryTypes = new HashMap<>(3);
+							indexedSecondaryTypes = Collections.synchronizedMap(new HashMap<>(3));
 							projectInfo.indexingSecondaryCache = indexedSecondaryTypes;
 						}
 					}
@@ -4937,9 +4936,13 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (indexedSecondaryTypes == null) {
 			return secondaryTypes;
 		}
+		Map<IFile, Map<String, Map<String, IType>>> indexedSecondaryTypesCopy;
+		synchronized (indexedSecondaryTypes) {
+			indexedSecondaryTypesCopy = new HashMap<>(indexedSecondaryTypes);
+		}
 
 		// Merge indexing cache in secondary types one
-		Iterator<Entry<IFile, Map<String, Map<String, IType>>>> entries = indexedSecondaryTypes.entrySet().iterator();
+		Iterator<Entry<IFile, Map<String, Map<String, IType>>>> entries = indexedSecondaryTypesCopy.entrySet().iterator();
 		while (entries.hasNext()) {
 			Entry<IFile, Map<String, Map<String, IType>>> entry = entries.next();
 			IFile file = entry.getKey();
@@ -5088,28 +5091,12 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					if (indexingCache == null) {
 						// Need to signify that secondary types indexing will happen before any request happens
 						// see bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=152841
-						projectInfo.indexingSecondaryCache = new HashMap<>();
+						projectInfo.indexingSecondaryCache = Collections.synchronizedMap(new HashMap<>());
 					}
 					return;
 				}
 				if (indexingCache != null) {
-					Set<IFile> keys = indexingCache.keySet();
-					int filesSize = keys.size(), filesCount = 0;
-					IFile[] removed = null;
-					Iterator<IFile> cachedFiles = keys.iterator();
-					while (cachedFiles.hasNext()) {
-						IFile cachedFile = cachedFiles.next();
-						if (file.equals(cachedFile)) {
-							if (removed == null) removed = new IFile[filesSize];
-							filesSize--;
-							removed[filesCount++] = cachedFile;
-						}
-					}
-					if (removed != null) {
-						for (int i=0; i<filesCount; i++) {
-							indexingCache.remove(removed[i]);
-						}
-					}
+					indexingCache.remove(file);
 				}
 			}
 		}

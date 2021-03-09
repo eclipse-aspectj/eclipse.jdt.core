@@ -678,14 +678,6 @@ protected void consumeFieldAccess(boolean isSuperAccess) {
 protected void consumeFormalParameter(boolean isVarArgs) {
 	if (this.indexOfAssistIdentifier() < 0) {
 		super.consumeFormalParameter(isVarArgs);
-		if((!this.diet || this.dietInt != 0) && this.astPtr > -1) {
-			Argument argument = (Argument) this.astStack[this.astPtr];
-			if(argument.type == this.assistNode) {
-				this.isOrphanCompletionNode = true;
-				this.restartRecovery	= true;	// force to restart in recovery mode
-				this.lastIgnoredToken = -1;
-			}
-		}
 	} else {
 		boolean isReceiver = this.intStack[this.intPtr--] == 0;
 	    if (isReceiver) {
@@ -809,7 +801,26 @@ protected void consumeInstanceOfExpression() {
 }
 @Override
 protected void consumeInstanceOfExpressionWithName() {
-	if (indexOfAssistIdentifier() < 0) {
+	int length = this.patternLengthPtr >= 0 ?
+			this.patternLengthStack[this.patternLengthPtr--] : 0;
+	if (length > 0) {
+		LocalDeclaration typeDecl = (LocalDeclaration) this.patternStack[this.patternPtr--];
+		pushOnExpressionStack(getUnspecifiedReferenceOptimized());
+		if (this.assistNode == null || this.expressionStack[this.expressionPtr] != this.assistNode) {
+			// Push only when the selection node is not the expression of this
+			// pattern matching instanceof expression
+			pushOnAstStack(typeDecl);
+			if ((this.selectionStart >= typeDecl.sourceStart)
+					&&  (this.selectionEnd <= typeDecl.sourceEnd)) {
+				this.restartRecovery	= true;
+				this.lastIgnoredToken = -1;
+			}
+		} else if (indexOfAssistIdentifier() >= 0) {
+			this.isOrphanCompletionNode = true;
+			this.restartRecovery = true;
+			this.lastIgnoredToken = -1;
+		}
+	} else if (indexOfAssistIdentifier() < 0) {
 		super.consumeInstanceOfExpressionWithName();
 	} else {
 		getTypeReference(this.intStack[this.intPtr--]);

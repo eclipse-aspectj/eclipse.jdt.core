@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2019 IBM Corporation and others.
+ * Copyright (c) 2016, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -706,9 +706,9 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			IJavaProject project = setUpJavaProject("ConvertToModule");
 			Map<String, String> options = new HashMap<>();
 			// Make sure the new options map doesn't reset.
-			options.put(CompilerOptions.OPTION_Compliance, "9");
-			options.put(CompilerOptions.OPTION_Source, "9");
-			options.put(CompilerOptions.OPTION_TargetPlatform, "9");
+			options.put(CompilerOptions.OPTION_Compliance, "10");
+			options.put(CompilerOptions.OPTION_Source, "10");
+			options.put(CompilerOptions.OPTION_TargetPlatform, "10");
 			options.put(CompilerOptions.OPTION_Release, "enabled");
 			project.setOptions(options);
 			project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
@@ -6295,7 +6295,9 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	}
 
 	public void testBug526054() throws Exception {
-		if (!isJRE9) return;
+		// JDK 15 has removed the only module that was not part of module default root module jdk.rmic.
+		// Hence, we no longer need this test for JDK 15 and above.
+		if (!isJRE9 || isJRE15) return;
 		ClasspathJrt.resetCaches();
 		try {
 			// jdk.rmic is not be visible to code in an unnamed module, but using requires we can see the module.
@@ -6345,6 +6347,9 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	}
 
 	public void testBug526054b() throws Exception {
+		// JDK 15 has removed the only module that was not part of module default root module jdk.rmic.
+		// Hence, we no longer need this test for JDK 15 and above.
+		if (!isJRE9 || isJRE15) return;
 		ClasspathJrt.resetCaches();
 		try {
 			// one project can see jdk.rmic/sun.rmi.rmic
@@ -8875,6 +8880,59 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		} finally {
 			deleteProject(prjA);
 			deleteProject(prjB);
+		}
+	}
+	public void testBug538512_comment9() throws CoreException, IOException {
+		try {
+			IJavaProject project = createJava9Project("ztest", new String[] { "src" });
+			createFolder("/ztest/lib");
+			Util.createJar(new String[] {
+					"org/xml/sax/Parser.java",
+					"package org.xml.sax;\n" +
+					"public class Parser {}\n"
+				},
+				project.getProject().getLocation().toString() + "/lib/xml-apis.jar", // conflicts with module 'java.xml'
+				"1.8");
+			IClasspathEntry libraryEntry = JavaCore.newLibraryEntry(new Path("/ztest/lib/xml-apis.jar"), null, null);
+			addClasspathEntry(project, libraryEntry, 1); // right after src and before jrt-fs.jar
+			Util.createJar(new String[] {
+					"org/apache/xerces/parsers/SAXParser.java",
+					"package org.apache.xerces.parsers;\n" +
+					"public abstract class SAXParser implements org.xml.sax.Parser, java.io.Serializable {}\n"
+				},
+				project.getProject().getLocation().toString() + "/lib/xercesImpl.jar",
+				"1.8");
+			project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
+			libraryEntry = JavaCore.newLibraryEntry(new Path("/ztest/lib/xercesImpl.jar"), null, null);
+			addClasspathEntry(project, libraryEntry, 1); // right after src and before jrt-fs.jar
+
+			String testSource =
+					"package com.ztest;\n" +
+					"import org.apache.xerces.parsers.SAXParser;\n" +
+					"\n" +
+					"public class MySAXParser extends SAXParser {\n" +
+					"	static final long serialVersionUID = 0;\n" +
+					"}\n";
+			createFolder("/ztest/src/com/ztest");
+			createFile("/ztest/src/com/ztest/MySAXParser.java", testSource);
+			getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = project.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			sortMarkers(markers);
+			assertMarkers("Unexpected Markers",
+					"",
+					markers);
+
+			char[] sourceChars = testSource.toCharArray();
+			this.problemRequestor.initialize(sourceChars);
+			getCompilationUnit("/ztest/src/com/ztest/MySAXParser.java").getWorkingCopy(this.wcOwner, null);
+			assertProblems(
+					"Unexpected problems",
+					"----------\n" +
+					"----------\n",
+					this.problemRequestor);
+
+		} finally {
+			deleteProject("ztest");
 		}
 	}
 	protected void assertNoErrors() throws CoreException {

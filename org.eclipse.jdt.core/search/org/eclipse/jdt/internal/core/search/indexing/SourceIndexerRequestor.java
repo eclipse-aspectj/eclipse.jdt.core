@@ -457,6 +457,13 @@ public void exitField(int initializationStart, int declarationEnd, int declarati
 	this.methodDepth--;
 }
 /**
+ * @see ISourceElementRequestor#exitRecordComponent(int, int)
+ */
+@Override
+public void exitRecordComponent(int declarationEnd, int declarationSourceEnd) {
+	//Nothing by default
+}
+/**
  * @see ISourceElementRequestor#exitInitializer(int)
  */
 @Override

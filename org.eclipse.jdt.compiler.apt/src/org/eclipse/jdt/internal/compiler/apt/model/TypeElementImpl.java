@@ -45,6 +45,7 @@ import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
+import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -165,8 +166,8 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		}
 		if (binding.isRecord() && binding instanceof SourceTypeBinding) {
 			SourceTypeBinding sourceBinding = (SourceTypeBinding) binding;
-			for (FieldBinding field : sourceBinding.getRecordComponents()) {
-				RecordComponentElement rec = new RecordComponentElementImpl(_env, field);
+			for (RecordComponentBinding comp : sourceBinding.components()) {
+				RecordComponentElement rec = new RecordComponentElementImpl(_env, comp);
 				enclosed.add(rec);
 			}
 		}
@@ -185,11 +186,9 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		if (_binding instanceof SourceTypeBinding) {
 			SourceTypeBinding binding = (SourceTypeBinding) _binding;
 			List<RecordComponentElement> enclosed = new ArrayList<>();
-			for (FieldBinding field : binding.fields()) {
-				if (!field.isSynthetic()) {
-					 RecordComponentElement variable = new RecordComponentElementImpl(_env, field);
-					 enclosed.add(variable);
-				}
+			for (RecordComponentBinding comp : binding.components()) {
+				RecordComponentElement variable = new RecordComponentElementImpl(_env, comp);
+				enclosed.add(variable);
 			}
 			Collections.sort(enclosed, new SourceLocationComparator());
 			return Collections.unmodifiableList(enclosed);
@@ -198,6 +197,19 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		return Collections.emptyList();
     }
 
+	@Override
+	public List<? extends TypeMirror> getPermittedSubclasses() {
+		ReferenceBinding binding = (ReferenceBinding)_binding;
+		if (binding.isSealed()) {
+			List<TypeMirror> permitted = new ArrayList<>();
+			for (ReferenceBinding type : binding.permittedTypes()) {
+				TypeMirror typeMirror = _env.getFactory().newTypeMirror(type);
+				permitted.add(typeMirror);
+			}
+			return Collections.unmodifiableList(permitted);
+		}
+		return Collections.emptyList();
+    }
 	@Override
 	public Element getEnclosingElement() {
 		ReferenceBinding binding = (ReferenceBinding)_binding;
@@ -276,6 +288,7 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		if (refBinding.isInterface() && refBinding.isNestedType()) {
 			modifiers |= ClassFileConstants.AccStatic;
 		}
+		
 		return Factory.getModifiers(modifiers, getKind(), refBinding.isBinaryBinding());
 	}
 

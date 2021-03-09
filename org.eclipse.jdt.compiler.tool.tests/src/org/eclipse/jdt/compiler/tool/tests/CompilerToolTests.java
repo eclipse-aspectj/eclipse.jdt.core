@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2018 IBM Corporation and others.
+ * Copyright (c) 2006, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -14,6 +14,8 @@
  *         Bug 407297: [1.8][compiler] Control generation of parameter names by option
  *******************************************************************************/
 package org.eclipse.jdt.compiler.tool.tests;
+
+import static org.eclipse.jdt.core.tests.compiler.regression.AbstractBatchCompilerTest.OUTPUT_DIR_PLACEHOLDER;
 
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.lang.model.SourceVersion;
 import javax.tools.Diagnostic;
@@ -46,13 +49,13 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 
-import junit.framework.TestCase;
-
 import org.eclipse.jdt.compiler.tool.tests.AbstractCompilerToolTest.CompilerInvocationDiagnosticListener;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
+
+import junit.framework.TestCase;
 
 public class CompilerToolTests extends TestCase {
 	private static final boolean DEBUG = false;
@@ -859,6 +862,126 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 		assertTrue("delete failed", inputFile.delete());
 	}
 
+	public void testCompilerOneModuleWithEclipseCompiler() {
+		String tmpFolder = System.getProperty("java.io.tmpdir") + "/src/java";
+		File tempDir= new File(tmpFolder + "/bar");
+		tempDir.mkdirs();
+		File inputFile1 = new File(tmpFolder, "module-info.java");
+		BufferedWriter writer = null;
+		try {
+			writer = new BufferedWriter(new FileWriter(inputFile1));
+			writer.write(
+				"module bar {\n" + 
+				"    exports bar;\n" + 
+				"}\n");
+			writer.flush();
+			writer.close();
+		} catch (IOException e) {
+			// ignore
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException e) {
+					// ignore
+				}
+			}
+		}
+		File inputFile2 = new File(tmpFolder + "/bar", "Library.java");
+		writer = null;
+		try {
+			writer = new BufferedWriter(new FileWriter(inputFile2));
+			writer.write(
+				"package bar;\n" + 
+				"public class Library { /**/ }\n");
+			writer.flush();
+			writer.close();
+		} catch (IOException e) {
+			// ignore
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException e) {
+					// ignore
+				}
+			}
+		}
+		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
+
+		ForwardingJavaFileManager<StandardJavaFileManager> forwardingJavaFileManager = new ForwardingJavaFileManager<StandardJavaFileManager>(manager) {
+			@Override
+			public FileObject getFileForInput(Location location, String packageName, String relativeName)
+					throws IOException {
+				if (DEBUG) {
+					System.out.println("Create file for input : " + packageName + " " + relativeName + " in location " + location);
+				}
+				return super.getFileForInput(location, packageName, relativeName);
+			}
+			@Override
+			public JavaFileObject getJavaFileForInput(Location location, String className, Kind kind)
+					throws IOException {
+				if (DEBUG) {
+					System.out.println("Create java file for input : " + className + " in location " + location);
+				}
+				return super.getJavaFileForInput(location, className, kind);
+			}
+			@Override
+			public JavaFileObject getJavaFileForOutput(Location location,
+					String className,
+					Kind kind,
+					FileObject sibling) throws IOException {
+
+				if (DEBUG) {
+					System.out.println("Create .class file for " + className + " in location " + location + " with sibling " + sibling.toUri());
+				}
+				JavaFileObject javaFileForOutput = super.getJavaFileForOutput(location, className, kind, sibling);
+				if (DEBUG) {
+					System.out.println(javaFileForOutput.toUri());
+				}
+				return javaFileForOutput;
+			}
+		};
+		// create new list containing input file
+		List<File> files = new ArrayList<File>();
+		files.add(inputFile1);
+		files.add(inputFile2);
+		Iterable<? extends JavaFileObject> units = manager.getJavaFileObjectsFromFiles(files);
+		StringWriter stringWriter = new StringWriter();
+		PrintWriter printWriter = new PrintWriter(stringWriter);
+
+		List<String> options = new ArrayList<String>();
+		options.add("-d");
+		options.add(tmpFolder + "/target/classes");
+ 		CompilationTask task = compiler.getTask(printWriter, forwardingJavaFileManager, null, options, null, units);
+ 		// check the classpath location
+ 		assertTrue("Has no location CLASS_OUPUT", forwardingJavaFileManager.hasLocation(StandardLocation.CLASS_OUTPUT));
+		Boolean result = task.call();
+		printWriter.flush();
+		printWriter.close();
+ 		if (!result.booleanValue()) {
+ 			System.err.println("Compilation failed: " + stringWriter.getBuffer().toString());
+ 	 		assertTrue("Compilation failed ", false);
+ 		}
+ 		try {
+			ClassFileReader.read(new File(tmpFolder + "/target/classes", "module-info.class"), true);
+		} catch (ClassFormatException e) {
+			assertTrue("Should not happen", false);
+		} catch (IOException e) {
+			assertTrue("Should not happen", false);
+		}
+ 		try {
+			ClassFileReader.read(new File(tmpFolder + "/target/classes", "bar/Library.class"), true);
+		} catch (ClassFormatException e) {
+			assertTrue("Should not happen", false);
+		} catch (IOException e) {
+			assertTrue("Should not happen", false);
+		}
+		// check that the .class file exist for module-info.class and library.class
+		assertTrue("delete failed", inputFile1.delete());
+		assertTrue("delete failed", inputFile2.delete());
+	}
+
 	// Test that JavaFileManager#inferBinaryName returns null for invalid file
 	public void testInferBinaryName() {
 		String tmpFolder = System.getProperty("java.io.tmpdir");
@@ -1157,6 +1280,142 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 		//passing in the directory to no warn should ignore the path - resulting in no warnings.
 		assertEquals("No error should be reported", 0, errors.size());
 	}
+
+	private void suppressTest(String fileName, String source, String expectedDiagnostics, String expectedOutput) throws Exception {
+		String tmpFolder = new File(System.getProperty("java.io.tmpdir")).getCanonicalPath();
+		File inputFile = new File(tmpFolder, fileName);
+		BufferedWriter writer = null;
+		try {
+			writer = new BufferedWriter(new FileWriter(inputFile));
+			writer.write(source);
+			writer.flush();
+			writer.close();
+		} catch (IOException e) {
+			// ignore
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException e) {
+					// ignore
+				}
+			}
+		}
+
+		// System compiler
+		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
+
+		// create new list containing inputfile
+		List<File> files = new ArrayList<File>();
+		files.add(inputFile);
+		Iterable<? extends JavaFileObject> units = manager.getJavaFileObjectsFromFiles(files);
+		StringWriter stringWriter = new StringWriter();
+		PrintWriter printWriter = new PrintWriter(stringWriter);
+
+		List<String> options = new ArrayList<String>();
+		options.add("-d");
+		options.add(tmpFolder);
+		options.add("-warn:+unused,boxing");
+		final List<Diagnostic<JavaFileObject>> errors = new ArrayList<>();
+ 		CompilationTask task = compiler.getTask(printWriter, manager, new DiagnosticListener<JavaFileObject>() {
+
+			@SuppressWarnings("unchecked")
+			@Override
+			public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
+				errors.add((Diagnostic<JavaFileObject>) diagnostic);
+			}
+
+		}, options, null, units);
+		task.call();
+		printWriter.flush();
+		printWriter.close();
+
+		assertEquals("Unexpected diagnostics:", expectedDiagnostics,
+				errors.stream()
+				.map(d -> d.getKind().toString() + ' ' + 
+						d.getLineNumber() + ": " + d.getMessage(Locale.getDefault()))
+				.collect(Collectors.joining("\n")));
+
+		
+		String expected = expectedOutput.replaceAll(OUTPUT_DIR_PLACEHOLDER, normalized(tmpFolder));
+		String actual = normalized(stringWriter.toString());
+		
+		assertEquals("Unexpected output:", expected, actual);
+	}
+
+	private static String normalized(String s) {
+		s = convertToIndependantLineDelimiter(s);
+		if(File.separatorChar != '/') {
+			s = s.replace(File.separatorChar, '/');
+		}
+		return s;
+	}
+
+	public static String convertToIndependantLineDelimiter(String source) {
+		if (source == null) return "";
+	    if (source.indexOf('\n') == -1 && source.indexOf('\r') == -1) return source;
+	    StringBuffer buffer = new StringBuffer();
+	    for (int i = 0, length = source.length(); i < length; i++) {
+	        char car = source.charAt(i);
+	        if (car == '\r') {
+	            buffer.append('\n');
+	            if (i < length-1 && source.charAt(i+1) == '\n') {
+	                i++; // skip \n after \r
+	            }
+	        } else {
+	            buffer.append(car);
+	        }
+	    }
+	    return buffer.toString();
+	}
+	
+	public void testCompilerSimpleSuppressWarnings() throws Exception {
+		suppressTest("p/SuppressTest.java", 
+				"package p;\n" +
+				"public class SuppressTest {\n" +
+				"@SuppressWarnings(\"boxing\")\n" +
+				"public Long get(long l) {\n" +
+				"  Long result = l * 2;\n" +
+				"  return result;\n" +
+				"}\n}\n",
+				"", "");
+	}
+
+	public void testCompilerNestedSuppressWarnings() throws Exception {
+		suppressTest("p/SuppressTest.java", 
+				"package p;\n" +
+				"@SuppressWarnings(\"unused\")\n" +
+				"public class SuppressTest {\n" +
+				"private String unused=\"testUnused\";\n" +
+				"@SuppressWarnings(\"boxing\")\n" +
+				"public Long get(long l) {\n" +
+				"  Long result = l * 2;\n" +
+				"  return result;\n" +
+				"}\n}\n",
+				"", "");
+	}
+
+	public void testCompilerUnrelatedSuppressWarnings() throws Exception {
+		suppressTest("p/SuppressTest.java", 
+				"package p;\n" +
+				"@SuppressWarnings(\"unused\")\n" +
+				"public class SuppressTest {\n" +
+				"private String unused=\"testUnused\";\n" +
+				"public Long get(long l) {\n" +
+				"  Long result = l * 2;\n" +
+				"  return result;\n" +
+				"}\n}\n",
+				"WARNING 6: The expression of type long is boxed into java.lang.Long",
+				"----------\n" +
+				"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/SuppressTest.java (at line 6)\n" +
+				"	Long result = l * 2;\n" +
+				"	              ^^^^^\n" +
+				"The expression of type long is boxed into Long\n" +
+				"----------\n" +
+				"1 problem (1 warning)\n"
+				);
+	}
+
 	public void testSupportedCompilerVersions() throws IOException {
 		Set<SourceVersion> sourceVersions = compiler.getSourceVersions();
 		SourceVersion[] values = SourceVersion.values();

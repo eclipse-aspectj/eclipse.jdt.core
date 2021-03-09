@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -17,9 +17,9 @@ import java.util.HashMap;
 
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ImportReference;
 import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -88,6 +88,7 @@ public interface ISourceElementRequestor {
 		public int nameSourceEnd;
 		public char[] superclass;
 		public char[][] superinterfaces;
+		public char[][] permittedSubtypes;
 		public TypeParameterInfo[] typeParameters;
 		public char[][] categories;
 		public boolean secondary;
@@ -110,6 +111,7 @@ public interface ISourceElementRequestor {
 
 	public static class MethodInfo {
 		public boolean typeAnnotated;
+		public boolean isCanonicalConstr;
 		public boolean isConstructor;
 		public boolean isAnnotation;
 		public int declarationStart;
@@ -141,6 +143,7 @@ public interface ISourceElementRequestor {
 		public char[] name;
 	}
 	public static class FieldInfo {
+		public boolean isRecordComponent;
 		public boolean typeAnnotated;
 		public int declarationStart;
 		public int modifiers;
@@ -150,7 +153,7 @@ public interface ISourceElementRequestor {
 		public int nameSourceEnd;
 		public char[][] categories;
 		public Annotation[] annotations;
-		public FieldDeclaration node;
+		public AbstractVariableDeclaration node;
 	}
 
 	void acceptAnnotationTypeReference(char[][] annotation, int sourceStart, int sourceEnd);
@@ -227,6 +230,8 @@ public interface ISourceElementRequestor {
 	 * initializing the field if any (-1 if no initialization).
 	 */
 	void exitField(int initializationStart, int declarationEnd, int declarationSourceEnd);
+
+	void exitRecordComponent(int declarationEnd, int declarationSourceEnd);
 
 	void exitInitializer(int declarationEnd);
 

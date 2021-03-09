@@ -39,7 +39,6 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-@SuppressWarnings("rawtypes")
 public class FieldDeclaration extends AbstractVariableDeclaration {
 
 	public FieldBinding binding;
@@ -141,20 +140,20 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 	}
 	// The fields escape CodeStream#exitUserScope(), and as a result end PC wouldn't be set.
 	// Set this explicitly (unlike a local declaration)
-	if (this.initialization != null && this.initialization.containsPatternVariable()) {
-		this.initialization.traverse(new ASTVisitor() {
-			@Override
-			public boolean visit(
-		    		InstanceOfExpression instanceOfExpression,
-		    		BlockScope scope) {
-				instanceOfExpression.elementVariable.binding.recordInitializationEndPC(codeStream.position);
-				return true;
-			}
-		}, currentScope);
-	}
+//	if (this.initialization != null && this.initialization.containsPatternVariable()) {
+//		this.initialization.traverse(new ASTVisitor() {
+//			@Override
+//			public boolean visit(
+//		    		InstanceOfExpression instanceOfExpression,
+//		    		BlockScope scope) {
+//				instanceOfExpression.elementVariable.binding.recordInitializationEndPC(codeStream.position);
+//				return true;
+//			}
+//		}, currentScope);
+//	}
 	codeStream.recordPositionsFrom(pc, this.sourceStart);
 }
-public void getAllAnnotationContexts(int targetType, List allAnnotationContexts) {
+public void getAllAnnotationContexts(int targetType, List<AnnotationContext> allAnnotationContexts) {
 	AnnotationCollector collector = new AnnotationCollector(this.type, targetType, allAnnotationContexts);
 	for (int i = 0, max = this.annotations.length; i < max; i++) {
 		Annotation annotation = this.annotations[i];
@@ -179,6 +178,12 @@ public boolean isFinal() {
 	if (this.binding != null)
 		return this.binding.isFinal();
 	return (this.modifiers & ClassFileConstants.AccFinal) != 0;
+}
+@Override
+public StringBuffer print(int indent, StringBuffer output) {
+	if (this.isARecordComponent)
+		output.append("/* Implicit */"); //$NON-NLS-1$
+	return super.print(indent, output);
 }
 
 @Override

@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.env.IBinaryAnnotation;
 import org.eclipse.jdt.internal.compiler.env.ITypeAnnotationWalker;
@@ -80,6 +81,17 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 		binding.externalAnnotationProvider = provider; // for superimposing method signatures
 	}
 
+	public static void annotateComponentBinding(RecordComponentBinding componentBinding, ExternalAnnotationProvider provider, LookupEnvironment environment) {
+		char[] componentSignature = componentBinding.genericSignature();
+		if (componentSignature == null && componentBinding.type != null)
+			componentSignature = componentBinding.type.signature();
+		// TODO: check - do we need a provider.forRecordComponent; won't the field be sufficient - SH?
+		ITypeAnnotationWalker walker = provider.forField(componentBinding.name, componentSignature, environment);
+		ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment);
+		if (visitor.go(walker))
+			componentBinding.type = visitor.superimpose(componentBinding.type, TypeBinding.class);
+	}
+
 	public static void annotateFieldBinding(FieldBinding field, ExternalAnnotationProvider provider, LookupEnvironment environment) {
 		char[] fieldSignature = field.genericSignature();
 		if (fieldSignature == null && field.type != null)
@@ -90,7 +102,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 			field.type = visitor.superimpose(field.type, TypeBinding.class);
 	}
 
-	public static void annotateMethodBinding(MethodBinding method, ExternalAnnotationProvider provider, LookupEnvironment environment) {
+	public static void annotateMethodBinding(MethodBinding method, Argument[] arguments, ExternalAnnotationProvider provider, LookupEnvironment environment) {
 		char[] methodSignature = method.genericSignature();
 		if (methodSignature == null)
 			methodSignature = method.signature();
@@ -108,8 +120,11 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 			}
 			TypeBinding[] parameters = method.parameters;
 			for (short i = 0; i < parameters.length; i++) {
-				if (visitor.go(walker.toMethodParameter(i)))
+				if (visitor.go(walker.toMethodParameter(i))) {
 					parameters[i] = visitor.superimpose(parameters[i], TypeBinding.class);
+					if (arguments != null && i < arguments.length)
+						arguments[i].binding.type = parameters[i];
+				}
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -30,6 +30,7 @@ import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.PrimitiveType;
+import org.eclipse.jdt.core.dom.RecordDeclaration;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
@@ -83,9 +84,12 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	/** @deprecated using deprecated code */
 	private final static int JLS10_INTERNAL = AST.JLS10;
 
+	/** @deprecated using deprecated code */
 	private final static int JLS14_INTERNAL = AST.JLS14;
 
-	private final static int[] JLS_LEVELS = { JLS2_INTERNAL, JLS3_INTERNAL, JLS4_INTERNAL, JLS8_INTERNAL, JLS9_INTERNAL, JLS10_INTERNAL, JLS14_INTERNAL };
+	private final static int JLS15_INTERNAL = AST.JLS15;
+
+	private final static int[] JLS_LEVELS = { JLS2_INTERNAL, JLS3_INTERNAL, JLS4_INTERNAL, JLS8_INTERNAL, JLS9_INTERNAL, JLS10_INTERNAL, JLS14_INTERNAL, JLS15_INTERNAL};
 
 	private static final String ONLY_AST_STRING = "_only";
 	private static final String SINCE_AST_STRING = "_since";
@@ -143,9 +147,11 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		  suite.addTest(ASTRewritingPackageDeclTest.suite());
 		  suite.addTest(ASTRewritingLambdaExpressionTest.suite());
 		  suite.addTest(ASTRewritingReferenceExpressionTest.suite());
+		  suite.addTest(ASTRewritingRecordDeclarationTest.suite());
 		  suite.addTest(SourceModifierTest.suite());
 		  suite.addTest(ImportRewriteTest.suite());
 		  suite.addTest(ImportRewrite18Test.suite());
+		  suite.addTest(ImportRewrite_15Test.suite());
 
 		return suite;
 	}
@@ -289,6 +295,16 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	}
 
 	public static MethodDeclaration findMethodDeclaration(TypeDeclaration typeDecl, String methodName) {
+		MethodDeclaration[] methods= typeDecl.getMethods();
+		for (int i= 0; i < methods.length; i++) {
+			if (methodName.equals(methods[i].getName().getIdentifier())) {
+				return methods[i];
+			}
+		}
+		return null;
+	}
+
+	public static MethodDeclaration findMethodDeclaration(RecordDeclaration typeDecl, String methodName) {
 		MethodDeclaration[] methods= typeDecl.getMethods();
 		for (int i= 0; i < methods.length; i++) {
 			if (methodName.equals(methods[i].getName().getIdentifier())) {

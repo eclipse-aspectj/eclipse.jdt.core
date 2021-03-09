@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 Mateusz Matela and others.
+ * Copyright (c) 2014, 2020 Mateusz Matela and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -53,21 +53,18 @@ import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
 import org.eclipse.jdt.core.dom.EnumDeclaration;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.ForStatement;
+import org.eclipse.jdt.core.dom.IExtendedModifier;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.ImportDeclaration;
 import org.eclipse.jdt.core.dom.Initializer;
 import org.eclipse.jdt.core.dom.LabeledStatement;
 import org.eclipse.jdt.core.dom.LambdaExpression;
-import org.eclipse.jdt.core.dom.MarkerAnnotation;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.ModuleDeclaration;
 import org.eclipse.jdt.core.dom.ModuleDirective;
-import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
 import org.eclipse.jdt.core.dom.RecordDeclaration;
 import org.eclipse.jdt.core.dom.ReturnStatement;
-import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.SwitchCase;
@@ -85,13 +82,17 @@ import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatterOptions.Alignment;
 import org.eclipse.jdt.internal.formatter.Token.WrapMode;
 import org.eclipse.jdt.internal.formatter.Token.WrapPolicy;
-import org.eclipse.jface.text.IRegion;
 
 public class LineBreaksPreparator extends ASTVisitor {
 	final private TokenManager tm;
 	final private DefaultCodeFormatterOptions options;
 
-	private boolean declarationModifierVisited;
+	/**
+	 * Internal synonym for constant AST.JSL14
+	 * to alleviate deprecation warnings once AST.JLS14 is deprecated in future.
+	 * @deprecated
+	 */
+	private static final int AST_INTERNAL_JLS14 = AST.JLS14;
 
 	public LineBreaksPreparator(TokenManager tokenManager, DefaultCodeFormatterOptions options) {
 		this.tm = tokenManager;
@@ -139,8 +140,8 @@ public class LineBreaksPreparator extends ASTVisitor {
 			putBlankLinesAfter(this.tm.lastTokenIn(node.getJavadoc(), -1), this.options.blank_lines_before_package);
 		}
 
+		handleAnnotations(node.annotations(), this.options.insert_new_line_after_annotation_on_package);
 		putBlankLinesAfter(this.tm.lastTokenIn(node, -1), this.options.blank_lines_after_package);
-		this.declarationModifierVisited = false;
 		return true;
 	}
 
@@ -158,11 +159,9 @@ public class LineBreaksPreparator extends ASTVisitor {
 			return true;
 
 		breakLineBefore(node);
-
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_type);
 		handleBracedCode(node, node.getName(), this.options.brace_position_for_type_declaration,
 				this.options.indent_body_declarations_compare_to_type_header);
-
-		this.declarationModifierVisited = false;
 		return true;
 	}
 
@@ -211,6 +210,7 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	@Override
 	public boolean visit(EnumDeclaration node) {
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_type);
 		handleBracedCode(node, node.getName(), this.options.brace_position_for_enum_declaration,
 				this.options.indent_body_declarations_compare_to_enum_declaration_header);
 
@@ -244,21 +244,18 @@ public class LineBreaksPreparator extends ASTVisitor {
 			else
 				break;
 		}
-
-		this.declarationModifierVisited = false;
 		return true;
 	}
 
 	@Override
 	public boolean visit(AnnotationTypeDeclaration node) {
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_type);
 		handleBracedCode(node, node.getName(), this.options.brace_position_for_annotation_type_declaration,
 				this.options.indent_body_declarations_compare_to_annotation_declaration_header);
 
 		handleBodyDeclarations(node.bodyDeclarations());
 		if (node.getModifiers() == 0)
 			this.tm.firstTokenBefore(node.getName(), TokenNameAT).breakBefore();
-
-		this.declarationModifierVisited = false;
 		return true;
 	}
 
@@ -277,6 +274,7 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	@Override
 	public boolean visit(RecordDeclaration node) {
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_type);
 		handleBracedCode(node, node.getName(), this.options.brace_position_for_record_declaration,
 				this.options.indent_body_declarations_compare_to_record_header);
 		handleBodyDeclarations(node.bodyDeclarations());
@@ -285,7 +283,7 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	@Override
 	public boolean visit(MethodDeclaration node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_method);
 		if (node.getBody() == null)
 			return true;
 
@@ -407,7 +405,7 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	private void doSwitchStatementsLineBreaks(List<Statement> statements) {
 		boolean arrowMode = statements.stream()
-				.anyMatch(s -> s instanceof SwitchCase && s.getAST().apiLevel() >= AST.JLS14 &&((SwitchCase) s).isSwitchLabeledRule());
+				.anyMatch(s -> s instanceof SwitchCase && s.getAST().apiLevel() >= AST_INTERNAL_JLS14 &&((SwitchCase) s).isSwitchLabeledRule());
 		Statement previous = null;
 		for (Statement statement : statements) {
 			boolean skip = statement instanceof Block // will add break in visit(Block) if necessary
@@ -484,98 +482,61 @@ public class LineBreaksPreparator extends ASTVisitor {
 	}
 
 	@Override
-	public boolean visit(NormalAnnotation node) {
-		handleAnnotation(node);
-		return true;
-	}
-
-	@Override
-	public boolean visit(SingleMemberAnnotation node) {
-		handleAnnotation(node);
-		return true;
-	}
-
-	@Override
-	public boolean visit(MarkerAnnotation node) {
-		handleAnnotation(node);
-		return true;
-	}
-
-	@Override
 	public boolean visit(VariableDeclarationStatement node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_local_variable);
 		return true;
 	}
 
 	@Override
 	public boolean visit(SingleVariableDeclaration node) {
-		this.declarationModifierVisited = false;
-		if (node.getParent() instanceof MethodDeclaration) {
-			// special case: annotations on parameters without modifiers should not be treated as type annotations
-			this.declarationModifierVisited = (node.getModifiers() == 0);
-		}
+		handleAnnotations(node.modifiers(),
+				node.getParent() instanceof EnhancedForStatement
+						? this.options.insert_new_line_after_annotation_on_local_variable
+						: this.options.insert_new_line_after_annotation_on_parameter);
 		return true;
 	}
 
 	@Override
 	public boolean visit(VariableDeclarationExpression node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_local_variable);
 		return true;
 	}
 
 	@Override
 	public boolean visit(FieldDeclaration node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_field);
 		return true;
 	}
 
 	@Override
 	public boolean visit(AnnotationTypeMemberDeclaration node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_method);
 		return true;
 	}
 
 	@Override
 	public boolean visit(EnumConstantDeclaration node) {
-		this.declarationModifierVisited = false;
+		handleAnnotations(node.modifiers(), this.options.insert_new_line_after_annotation_on_enum_constant);
 		return true;
 	}
 
-	@Override
-	public boolean visit(Modifier node) {
-		this.declarationModifierVisited = true;
-		return true;
-	}
-
-	private void handleAnnotation(Annotation node) {
-		ASTNode parentNode = node.getParent();
-		boolean breakAfter = false;
-		boolean isTypeAnnotation = this.declarationModifierVisited;
-		if (isTypeAnnotation) {
-			breakAfter = this.options.insert_new_line_after_type_annotation;
-		} else if (parentNode instanceof PackageDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_package;
-		} else if (parentNode instanceof AbstractTypeDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_type;
-		} else if (parentNode instanceof EnumConstantDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_enum_constant;
-		} else if (parentNode instanceof FieldDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_field;
-		} else if (parentNode instanceof MethodDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_method;
-		} else if (parentNode instanceof AnnotationTypeMemberDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_method
-					&& ((AnnotationTypeMemberDeclaration) parentNode).getDefault() != node;
-		} else if (parentNode instanceof VariableDeclarationStatement
-				|| parentNode instanceof VariableDeclarationExpression) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_local_variable;
-		} else if (parentNode instanceof SingleVariableDeclaration) {
-			breakAfter = this.options.insert_new_line_after_annotation_on_parameter;
-			if ((parentNode.getParent()) instanceof EnhancedForStatement)
-				breakAfter = this.options.insert_new_line_after_annotation_on_local_variable;
+	private void handleAnnotations(List<? extends IExtendedModifier> modifiers, boolean breakAfter) {
+		Annotation last = null;
+		int i;
+		for (i = 0; i < modifiers.size(); i++) {
+			if (modifiers.get(i).isModifier())
+				break;
+			last = (Annotation) modifiers.get(i);
 		}
-		if (breakAfter)
-			this.tm.lastTokenIn(node, -1).breakAfter();
+		if (last != null && breakAfter) {
+			this.tm.lastTokenIn(last, -1).breakAfter();
+		}
+
+		if (i < modifiers.size()) {
+			// any annotations following other modifiers will be associated with declaration type
+			handleAnnotations(modifiers.subList(i + 1, modifiers.size()),
+					this.options.insert_new_line_after_type_annotation);
+		}
 	}
 
 	@Override
@@ -666,8 +627,6 @@ public class LineBreaksPreparator extends ASTVisitor {
 			}
 			previous = statement;
 		}
-
-		this.declarationModifierVisited = false;
 		return true;
 	}
 
@@ -808,37 +767,13 @@ public class LineBreaksPreparator extends ASTVisitor {
 			this.tm.get(lastIndex + 1).unindent();
 	}
 
-	public void finishUp(List<IRegion> regions) {
+	public void finishUp() {
 		// the visits only noted where indents increase and decrease,
-		// now prepare actual indent values, preserving indents outside formatting regions
-		int currentIndent = this.options.initial_indentation_level * this.options.indentation_size;
-		Token previous = null;
+		// now prepare actual indent values
+		int currentIndent = this.options.initial_indentation_level;
 		for (Token token : this.tm) {
-			if (isFixedLineStart(token, previous, regions)) {
-				currentIndent = this.tm.findSourcePositionInLine(token.originalStart);
-			} else {
-				currentIndent = Math.max(currentIndent + token.getIndent() * this.options.indentation_size, 0);
-			}
-			token.setIndent(currentIndent);
-			previous = token;
+			currentIndent += token.getIndent();
+			token.setIndent(currentIndent * this.options.indentation_size);
 		}
-	}
-
-	private boolean isFixedLineStart(Token token, Token previous, List<IRegion> regions) {
-		if (previous == null && this.options.initial_indentation_level >0)
-			return false; // must be handling ast rewrite
-		if (previous != null && this.tm.countLineBreaksBetween(previous, token) == 0)
-			return false;
-		if (token.getLineBreaksBefore() == 0 && (previous == null || previous.getLineBreaksAfter() == 0))
-			return false;
-		int lineStart = token.originalStart;
-		char c;
-		while (lineStart > 0 && (c = this.tm.charAt(lineStart - 1)) != '\r' && c != '\n')
-			lineStart--;
-		for (IRegion r : regions) {
-			if (token.originalStart >= r.getOffset() && lineStart <= r.getOffset() + r.getLength())
-				return false;
-		}
-		return true;
 	}
 }

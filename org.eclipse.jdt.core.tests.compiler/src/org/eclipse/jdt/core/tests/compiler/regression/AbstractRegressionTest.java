@@ -138,7 +138,6 @@ public abstract class AbstractRegressionTest extends AbstractCompilerTest implem
 
 		ASTVisitor visitor;
 
-		@SuppressWarnings("synthetic-access")
 		protected void runConformTest() {
 			runTest(this.shouldFlushOutputDirectory,
 					this.testFiles,
@@ -164,7 +163,6 @@ public abstract class AbstractRegressionTest extends AbstractCompilerTest implem
 					this.skipJavac ? JavacTestOptions.SKIP : this.javacTestOptions);
 		}
 
-		@SuppressWarnings("synthetic-access")
 		protected void runNegativeTest() {
 			runTest(this.shouldFlushOutputDirectory,
 					this.testFiles,
@@ -190,7 +188,6 @@ public abstract class AbstractRegressionTest extends AbstractCompilerTest implem
 					this.skipJavac ? JavacTestOptions.SKIP : this.javacTestOptions);
 		}
 
-		@SuppressWarnings("synthetic-access")
 		protected void runWarningTest() {
 			runTest(this.shouldFlushOutputDirectory,
 					this.testFiles,
@@ -307,6 +304,8 @@ static class JavacCompiler {
 			return JavaCore.VERSION_13;
 		} else if(rawVersion.startsWith("14")) {
 			return JavaCore.VERSION_14;
+		} else if(rawVersion.startsWith("15")) {
+			return JavaCore.VERSION_15;
 		} else {
 			throw new RuntimeException("unknown javac version: " + rawVersion);
 		}
@@ -459,6 +458,20 @@ static class JavacCompiler {
 				return 0100;
 			}
 			if ("14.0.2".equals(rawVersion)) {
+				return 0200;
+			}
+		}
+		if (version == JavaCore.VERSION_15) {
+			if ("15-ea".equals(rawVersion)) {
+				return 0000;
+			}
+			if ("15".equals(rawVersion)) {
+				return 0000;
+			}
+			if ("15.0.1".equals(rawVersion)) {
+				return 0100;
+			}
+			if ("15.0.2".equals(rawVersion)) {
 				return 0200;
 			}
 		}
@@ -1088,6 +1101,13 @@ protected static class JavacTestOptions {
 								return compiler.compliance < ClassFileConstants.JDK9 ? null : this;
 							}
 					}: null;
+		public static JavacHasABug
+				NoWarningForMissingJavadocTag = RUN_JAVAC ?
+						new JavacHasABug(MismatchType.EclipseErrorsJavacNone)
+						: null,
+				NoWarningForDuplicateJavadocTag = RUN_JAVAC ?
+						new JavacHasABug(MismatchType.EclipseErrorsJavacNone)
+						: null;
 	}
 	public static class JavacBug8179483 extends JavacHasABug {
 		String extraJavacOptions;
@@ -1195,7 +1215,7 @@ protected static class JavacTestOptions {
 	public final static String MODULE_INFO_NAME = new String(TypeConstants.MODULE_INFO_NAME);
 
 	public static boolean SHIFT = false;
-	public static String PREVIEW_ALLOWED_LEVEL = JavaCore.VERSION_14;
+	public static String PREVIEW_ALLOWED_LEVEL = JavaCore.VERSION_15;
 
 	protected static final String SOURCE_DIRECTORY = Util.getOutputDirectory()  + File.separator + "source";
 
@@ -1208,7 +1228,7 @@ protected static class JavacTestOptions {
 		super(name);
 	}
 	protected boolean checkPreviewAllowed() {
-		return this.complianceLevel == ClassFileConstants.JDK14;
+		return this.complianceLevel == ClassFileConstants.JDK15;
 	}
 	protected void checkClassFile(String className, String source, String expectedOutput) throws ClassFormatException, IOException {
 		this.checkClassFile("", className, source, expectedOutput, ClassFileBytesDisassembler.SYSTEM);
@@ -1389,6 +1409,8 @@ protected static class JavacTestOptions {
 			int major = (int)(this.complianceLevel>>16);
 			buffer.append("\" -" + (major - ClassFileConstants.MAJOR_VERSION_0));
 		}
+		if (this.complianceLevel == ClassFileConstants.getLatestJDKLevel()  && this.enablePreview)
+			buffer.append(" --enable-preview ");
 		buffer
 			.append(" -preserveAllLocals -proceedOnError -nowarn -g -classpath \"")
 			.append(Util.getJavaClassLibsAsString())
@@ -3104,7 +3126,7 @@ protected void runNegativeTest(boolean skipJavac, JavacTestOptions javacTestOpti
 			// javac options
 			javacTestOptions /* javac test options */);
 	}
-	private void runTest(
+	protected void runTest(
 			// test directory preparation
 			boolean shouldFlushOutputDirectory,
 			String[] testFiles,
@@ -3763,6 +3785,52 @@ protected void runNegativeTest(
 		// javac options
 		javacTestOptions /* javac test options */);
 }
+//runNegativeTest(
+//// test directory preparation
+//new String[] { /* test files */
+//},
+//null /* no test files */,
+//// compiler results
+//"----------\n" + /* expected compiler log */
+//// javac options
+//JavacTestOptions.SKIP /* skip javac tests */);
+//JavacTestOptions.DEFAULT /* default javac test options */);
+//javacTestOptions /* javac test options */);
+protected void runNegativeTest(
+// test directory preparation
+String[] testFiles,
+String[] dependentFiles,
+// compiler results
+String expectedCompilerLog,
+// javac options
+JavacTestOptions javacTestOptions) {
+	runTest(
+			// test directory preparation
+		true /* flush output directory */,
+		testFiles /* test files */,
+		dependentFiles,
+		// compiler options
+		null /* no class libraries */,
+		false,
+		null /* no custom options */,
+		false /* do not perform statements recovery */,
+		null /* no custom requestor */,
+		// compiler results
+		true /* expecting compiler errors */,
+		expectedCompilerLog /* expected compiler log */,
+		// runtime options
+		null,
+		false /* do not force execution */,
+		null /* no vm arguments */,
+		// runtime results
+		null /* do not check output string */,
+		null /* do not check error string */,
+		null,
+		null,
+		// javac options
+		javacTestOptions /* javac test options */,
+		Charset.defaultCharset());
+}
 //	runNegativeTest(
 //		// test directory preparation
 //		true /* flush output directory */,
@@ -4010,9 +4078,9 @@ protected void runNegativeTest(
 	}
 	protected Map<String, String> setPresetPreviewOptions() {
 		Map<String, String> options = getCompilerOptions();
-		options.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_14);
-		options.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_14);
-		options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_14);
+		options.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
+		options.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
+		options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		options.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		return options;

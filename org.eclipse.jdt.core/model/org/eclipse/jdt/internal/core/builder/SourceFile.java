@@ -117,6 +117,10 @@ public int hashCode() {
 public boolean ignoreOptionalProblems() {
 	return this.sourceLocation.ignoreOptionalProblems;
 }
+@Override
+public String getExternalAnnotationPath(String qualifiedTypeName) {
+	return this.sourceLocation.externalAnnotationPath;
+}
 String typeLocator() {
 	return this.resource.getProjectRelativePath().toString();
 }

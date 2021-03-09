@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -107,7 +107,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		if (this.apiLevel == AST.JLS14 ) {
+		if (this.apiLevel == AST_INTERNAL_JLS15 ) {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
 		}
@@ -5621,6 +5621,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 		IJavaProject javaProject = createProject("P_17", JavaCore.VERSION_1_7);
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_INSERT_NEW_LINE_AFTER_ANNOTATION_ON_LOCAL_VARIABLE, JavaCore.DO_NOT_INSERT);
+		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE, DefaultCodeFormatterConstants.createAlignmentValue(false, DefaultCodeFormatterConstants.WRAP_NO_SPLIT));
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5822,6 +5823,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 		IJavaProject javaProject = createProject("P_17", JavaCore.VERSION_1_7);
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_INSERT_NEW_LINE_AFTER_ANNOTATION_ON_LOCAL_VARIABLE, JavaCore.DO_NOT_INSERT);
+		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE, DefaultCodeFormatterConstants.createAlignmentValue(false, DefaultCodeFormatterConstants.WRAP_NO_SPLIT));
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2017 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -202,6 +202,13 @@ public void setUpSuite() throws Exception {
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b140156.jar", false);
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b164791.jar", false);
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b166348.jar", false);
+
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/record_reference_in_nonsource_jar.jar"));
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/record_reference_in_source_jar.jar"));
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/permit_reference_in_nonsource_jar.jar"));
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/permit_reference_in_source_jar.jar"));
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/annotation_in_record_jar.jar"));
+	removeClasspathEntry(JAVA_PROJECT, new Path("/JavaSearchBugs/lib/annotation_in_record_source_jar.jar"));
 }
 @Override
 public void tearDownSuite() throws Exception {
@@ -7014,7 +7021,7 @@ public void testBug127628() throws CoreException {
 						CharOperation.concatWith(enclosingTypeNames, '$'),
 						simpleTypeName,
 						'$');
-				this.results.addElement(new String(CharOperation.concat(packageName, typeName, '.')));
+				this.results.add(new String(CharOperation.concat(packageName, typeName, '.')));
 			}
 		}
 	}
@@ -8611,7 +8618,16 @@ public void testBug166348_Qualified() throws CoreException {
  * @test Ensure that types are found even when scope is not a {@link org.eclipse.jdt.internal.core.search.JavaSearchScope}
  * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=167190"
  */
+public void testBug167190_Parallel() throws CoreException, JavaModelException {
+	bug167190(true);
+}
+
 public void testBug167190() throws CoreException, JavaModelException {
+	bug167190(false);
+}
+
+private void bug167190(boolean parallel) throws JavaModelException {
+
 	IJavaSearchScope scope = new AbstractSearchScope() {
 		IJavaSearchScope jsScope = getJavaSearchScope();
 		public void processDelta(IJavaElementDelta delta, int eventType) {
@@ -8625,6 +8641,10 @@ public void testBug167190() throws CoreException, JavaModelException {
 		}
 		public IPath[] enclosingProjectsAndJars() {
 			return this.jsScope.enclosingProjectsAndJars();
+		}
+		@Override
+		public boolean isParallelSearchSupported() {
+			return parallel;
 		}
 	};
 	// Search all type names with TypeNameMatchRequestor
@@ -8657,7 +8677,7 @@ public void testBug167190() throws CoreException, JavaModelException {
 		IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH,
 		null);
 	// Should have same types with these 2 searches
-	assertEquals("Found types sounds not to be correct", requestor.toString(), collector.toString());
+	assertEquals(String.format("Found types sounds not to be correct [Parallel=%s]", parallel), requestor.toString(), collector.toString());
 }
 
 /**
@@ -8885,6 +8905,8 @@ public void testBug185452() throws CoreException {
 		"src/b95794 b95794",
 		packageCollector);
 }
+
+
 
 /**
  * @bug 194185 [search] for package declarations finds also sub-packages

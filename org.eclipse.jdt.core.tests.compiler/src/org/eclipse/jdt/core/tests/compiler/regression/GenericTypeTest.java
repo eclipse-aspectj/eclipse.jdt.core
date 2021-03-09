@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -56,7 +56,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "test1277" };
+//		TESTS_NAMES = new String[] { "test0593" };
 //		TESTS_NUMBERS = new int[] { 470, 627 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
 	}
@@ -5395,6 +5395,69 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"	} else 	if (t instanceof T) {\n" +
 			"	       	    ^^^^^^^^^^^^^^\n" +
 			"Cannot perform instanceof check against type parameter T. Use its erasure Object instead since further generic type information will be erased at runtime\n" +
+			"----------\n",
+			null,
+			true,
+			customOptions);
+	}
+	public void test0178a() {
+		if (this.complianceLevel < ClassFileConstants.JDK15)
+			return;
+		Map customOptions = getCompilerOptions();
+		customOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		customOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X <T> {\n" +
+				"	\n" +
+				"	T foo(T t) {\n" +
+				"		boolean b = false;\n" +
+				"		if (t instanceof X<T>) {\n" +
+				"			return t;\n" +
+				"		} else if (t instanceof X<String>) {\n" +
+				"			return t;\n" +
+				"		} else if (t instanceof X<?>) {\n" +  // ok
+				"			return t;\n" +
+				"		} else 	if (t instanceof T) {\n" +
+				"			return t;\n" +
+				"		} else if (t instanceof X) { // this is allowed since Java 15 as preview feature\n" +
+				"			return t;\n" +
+				"		}\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"}\n",
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 5)\n" +
+			"	if (t instanceof X<T>) {\n" +
+			"	    ^\n" +
+			"Type T cannot be safely cast to X<T>\n" +
+			"----------\n" +
+			"2. WARNING in X.java (at line 5)\n" +
+			"	if (t instanceof X<T>) {\n" +
+			"	                 ^\n" +
+			"You are using a preview language feature that may or may not be supported in a future release\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 7)\n" +
+			"	} else if (t instanceof X<String>) {\n" +
+			"	           ^\n" +
+			"Type T cannot be safely cast to X<String>\n" +
+			"----------\n" +
+			"4. WARNING in X.java (at line 7)\n" +
+			"	} else if (t instanceof X<String>) {\n" +
+			"	                        ^\n" +
+			"You are using a preview language feature that may or may not be supported in a future release\n" +
+			"----------\n" +
+			"5. WARNING in X.java (at line 11)\n" +
+			"	} else 	if (t instanceof T) {\n" +
+			"	       	    ^^^^^^^^^^^^^^\n" +
+			"The expression of type T is already an instance of type T\n" +
+			"----------\n" +
+			"6. WARNING in X.java (at line 11)\n" +
+			"	} else 	if (t instanceof T) {\n" +
+			"	       	                 ^\n" +
+			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n",
 			null,
 			true,
@@ -18745,6 +18808,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 	public void test0593() {
 		Map options = getCompilerOptions();
 		options.put(JavaCore.COMPILER_PB_UNCHECKED_TYPE_OPERATION, JavaCore.IGNORE);
+		String bounds = isJRE15Plus ? "Object&Serializable&Comparable<?>&Constable" : "Object&Serializable&Comparable<?>";
 	    String xSource =
 				"import java.util.*;\n" +
 				"public class X {\n" +
@@ -18761,7 +18825,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 				"1. ERROR in X.java (at line 3)\n" +
 				"	List<Class<?>> classes1 = Arrays.asList(String.class, Boolean.class);\n" +
 				"	                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"Type mismatch: cannot convert from List<Class<? extends Object&Serializable&Comparable<?>>> to List<Class<?>>\n" +
+				"Type mismatch: cannot convert from List<Class<? extends " + bounds + ">> to List<Class<?>>\n" +
 				"----------\n",
 				null,
 				true,

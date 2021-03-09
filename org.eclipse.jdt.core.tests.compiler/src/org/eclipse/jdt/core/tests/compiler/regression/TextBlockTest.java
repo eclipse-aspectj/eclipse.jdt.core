@@ -15,7 +15,6 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
@@ -34,14 +33,14 @@ public class TextBlockTest extends AbstractRegressionTest {
 
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
-//		TESTS_NAMES = new String[] { "testCompliances_14" };
+//		TESTS_NAMES = new String[] { "testCompliances_13" };
 	}
 
 	public static Class<?> testClass() {
 		return TextBlockTest.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_14);
+		return buildMinimalComplianceTestSuite(testClass(), F_15);
 	}
 	public TextBlockTest(String testName){
 		super(testName);
@@ -52,15 +51,53 @@ public class TextBlockTest extends AbstractRegressionTest {
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean previewFlag) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_14);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_14);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, previewFlag ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_15);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_15);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_15);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		return defaultOptions;
 	}
 	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions, String[] vmArguments) {
-		runConformTest(testFiles, expectedOutput, customOptions, vmArguments, new JavacTestOptions("-source 14 --enable-preview"));
+		runConformTest(testFiles, expectedOutput, customOptions, vmArguments, new JavacTestOptions("-source 15 "));
+	}
+	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
+		runConformTest(true, testFiles, null, expectedOutput, null, new JavacTestOptions("-source 15"));
+	}
+	protected void runConformTest(
+			// test directory preparation
+			boolean shouldFlushOutputDirectory,
+			String[] testFiles,
+			//compiler options
+			String[] classLibraries /* class libraries */,
+			Map<String, String> customOptions /* custom options */,
+			// compiler results
+			String expectedCompilerLog,
+			// runtime results
+			String expectedOutputString,
+			String expectedErrorString,
+			String[] vmarguments,
+			// javac options
+			JavacTestOptions javacTestOptions) {
+		runTest(
+			// test directory preparation
+			shouldFlushOutputDirectory /* should flush output directory */,
+			testFiles /* test files */,
+			// compiler options
+			classLibraries /* class libraries */,
+			customOptions /* custom options */,
+			false /* do not perform statements recovery */,
+			null /* no custom requestor */,
+			// compiler results
+			false /* expecting no compiler errors */,
+			expectedCompilerLog /* expected compiler log */,
+			// runtime options
+			false /* do not force execution */,
+			vmarguments /* no vm arguments */,
+			// runtime results
+			expectedOutputString /* expected output string */,
+			expectedErrorString /* expected error string */,
+			// javac options
+			javacTestOptions /* javac test options */);
 	}
 	public void test001() {
 		runNegativeTest(
@@ -176,8 +213,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - escaped '\'
@@ -196,8 +232,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"abc\\def",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * Positive - Multi line text block with varying indentation
@@ -222,8 +257,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"  line 2\n" +
 				"\n" +
 				"line 3",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * Positive - Multi line text block with varying indentation
@@ -248,8 +282,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"  line 2\n" +
 				"\n" +
 				"line 3", // the trailing whitespace is trimmed by the test framework
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * Positive - Multi line text block with varying indentation
@@ -277,8 +310,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"\n" +
 				"  line 3\n" +
 				">", // the trailing whitespace is trimmed by the test framework
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using unescaped '"' in text block
@@ -297,8 +329,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"\"abc-def",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using escaped '"' in text block
@@ -316,8 +347,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"\"abc-def\"",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using escaped \ and escaped " in text block
@@ -335,8 +365,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"\"abc\"\"\"def",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using Unicode in text block
@@ -356,8 +385,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"true",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - bigger piece of code as text block
@@ -380,8 +408,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"public void print(Object o) {\n" +
 				"    System.out.println(Objects.toString(o));\n" +
 				"}",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - concatenation of string with text block
@@ -404,8 +431,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"public void print(Object o) {\n" +
 				"    System.out.println(Objects.toString(o));\n" +
 				"}",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - freely using quotes
@@ -435,8 +461,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"can make words mean so many different things.\"\n" +
 				"\"The question is,\" said Humpty Dumpty,\n" +
 				"\"which is to be master - that's all.",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - html code with indentation
@@ -462,8 +487,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>\n" +
 				"    </body>\n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - html code with indentation with empty lines
@@ -490,8 +514,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"                      <p>Hello, world</p>\n" +
 				"                  </body>\n" +
 				"              </html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - html code with indentation with \r as terminator
@@ -518,8 +541,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>\n" +
 				"    </body>\n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - html code with indentation and trailing whitespace
@@ -546,8 +568,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>\n" +
 				"    </body>\n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using octal escape char for trailing whitespace
@@ -573,8 +594,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>   \n" +
 				"    </body>  \n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using text block as a method argument
@@ -600,8 +620,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"                      <p>Hello, world</p>\n" +
 				"                  </body>\n" +
 				"              </html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - using variable assigned with text block as a method argument
@@ -628,8 +647,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>\n" +
 				"    </body>\n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	/*
 	 * positive - assigning strings and text blocks interchangeably.
@@ -657,11 +675,11 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"        <p>Hello, world</p>\n" +
 				"    </body>\n" +
 				"</html>",
-				null,
-				new String[] {"--enable-preview"});
+				null);
 	}
 	public void test024() {
 		runConformTest(
+				true,
 				new String[] {
 						"Main.java",
 						"@SuppressWarnings(\"preview\")\n" +
@@ -689,6 +707,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"	}\n" +
 						"}"
 				},
+				null,
 				"public class XYZ {\n" +
 				"	public static String textb = \"\"\"\n" +
 				"			abc\\\"\"\"def\"\n" +
@@ -698,7 +717,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"	}\n" +
 				"}",
 				null,
-				new String[] {"--enable-preview"});
+				JavacTestOptions.DEFAULT);
 	}
 	public void test025() {
 		runNegativeTest(
@@ -763,8 +782,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"      bar(MyDay.SUNDAY);\n" +
 				"      }\n" +
 				"    }",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	// An empty text block
 	public void test028() {
@@ -781,8 +799,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	// An empty text block
 	public void test029() {
@@ -801,32 +818,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"Hello Guru", // output comparison tool strips off all trailing whitespace
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
-	}
-	public void testBug550356() {
-		Map<String, String> options = getCompilerOptions(false);
-		runNegativeTest(
-				new String[] {
-						"X.java",
-						"public class X {\n" +
-						"	public static String textb = \"\"\"\n" +
-						"\"\"\";\n" +
-						"	public static void main(String[] args) {\n" +
-						"		System.out.println(textb);\n" +
-						"	}\n" +
-						"}\n"
-				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 2)\n" +
-				"	public static String textb = \"\"\"\n" +
-				"\"\"\";\n" +
-				"	                             ^^^^^^^\n" +
-				"Text Blocks is a preview feature and disabled by default. Use --enable-preview to enable\n" +
-				"----------\n",
-				null,
-				true,
-				options);
+				getCompilerOptions());
 	}
 	public void testBug551948_1() {
 		runConformTest(
@@ -845,8 +837,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", // output comparison tool strips off all trailing whitespace
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_2() {
 		runConformTest(
@@ -864,8 +855,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"abc\n    defghi",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_3() {
 		runConformTest(
@@ -884,8 +874,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				},
 				"if x == True and \\\n" +
 				"    y == False",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_4() {
 		runConformTest(
@@ -904,8 +893,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"red   green blue  orange",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_5() {
 		runNegativeTest(
@@ -948,8 +936,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"A line with spaces",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_7() {
 		runConformTest(
@@ -968,8 +955,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"red   \ngreen \nblue", // trailing whitespaces are trimmed
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug551948_8() {
 		runConformTest(
@@ -993,8 +979,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"aaa\n\n" +
 				"bbb\n\n\n" +
 				"ccc",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_1() {
 		runConformTest(
@@ -1016,8 +1001,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_2() {
 		runConformTest(
@@ -1040,8 +1024,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_3() {
 		runConformTest(
@@ -1064,8 +1047,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_4() {
 		runConformTest(
@@ -1094,8 +1076,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_5() {
 		runConformTest(
@@ -1118,8 +1099,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"false",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_6() {
 		runConformTest(
@@ -1141,8 +1121,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_7() {
 		runConformTest(
@@ -1164,8 +1143,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_8() {
 		runConformTest(
@@ -1181,8 +1159,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"26",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	// Escaped """ with escaping at the first '"'
 	public void testCompliances_9() {
@@ -1199,8 +1176,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"26",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	// Escaped """ with escaping at the second '"'
 	public void testCompliances_10() {
@@ -1217,8 +1193,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"26",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	// Escaped """ with escaping at the third '"'
 	public void testCompliances_11() {
@@ -1235,8 +1210,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"26",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_12() {
 		runConformTest(
@@ -1258,8 +1232,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_13() {
 		runConformTest(
@@ -1280,8 +1253,7 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"256",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testCompliances_14() {
 		runConformTest(
@@ -1305,17 +1277,45 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}"
 				},
 				"true",
-				getCompilerOptions(),
-				new String[] {"--enable-preview"});
+				getCompilerOptions());
 	}
 	public void testBug553252() {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
 		Map<String, String> copy = new HashMap<String, String>(defaultOptions);
-		copy.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_13);
-		copy.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_13);
-		copy.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_13);
+		copy.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_14);
+		copy.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
+		copy.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_14);
+		copy.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.DISABLED);
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.println(textb);\n" +
+						"	}\n" +
+						"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 2)\n" +
+				"	public static String textb = \"\"\"\n" +
+				"\"\"\";\n" +
+				"	                             ^^^^^^^\n" +
+				"The Java feature \'Text Blocks\' is only available with source level 15 and above\n" +
+				"----------\n",
+				null,
+				true,
+				new String[] {"-source 14 "},
+				copy);
+	}
+	public void testBug553252b() {
+		Map<String, String> defaultOptions = super.getCompilerOptions();
+		Map<String, String> copy = new HashMap<String, String>(defaultOptions);
+		copy.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_14);
+		copy.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
+		copy.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_14);
 		copy.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
-		copy.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		runNegativeTest(
 				new String[] {
 						"X.java",
@@ -1331,10 +1331,252 @@ public class TextBlockTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 0)\n" +
 				"	public class X {\n" +
 				"	^\n" +
-				"Preview features enabled at an invalid source release level 13, preview can be enabled only at source level 14\n" +
+				"Preview features enabled at an invalid source release level 14, preview can be enabled only at source level 15\n" +
 				"----------\n",
 				null,
 				true,
+				new String[] {"-source 14 --enable-preview"},
 				copy);
+	}
+	public void testBug562460() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"a\\sb\\sc\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.println(textb.equals(\"a b c\"));\n" +
+						"	}\n" +
+						"}\n"
+				},
+				"true",
+				getCompilerOptions());
+	}
+	public void testCompliances_15() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"	\\baa\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		print(textb.toCharArray());\n" +
+						"	}\n" +
+						"   private static void print(char[] val) {\n" +
+						"        for (char c : val) {\n" +
+						"            System.out.print((int)c + \",\");\n" +
+						"        }\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"8,97,97,",
+				getCompilerOptions());
+	}
+	public void testCompliances_16() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"	\\baa\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		print(textb.toCharArray());\n" +
+						"	}\n" +
+						"   private static void print(char[] val) {\n" +
+						"        for (char c : val) {\n" +
+						"            System.out.print((int)c + \",\");\n" +
+						"        }\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"8,97,97,",
+				getCompilerOptions());
+	}
+	public void testCompliances_17() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"\\t\\baa\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		print(textb.toCharArray());\n" +
+						"	}\n" +
+						"   private static void print(char[] val) {\n" +
+						"        for (char c : val) {\n" +
+						"            System.out.print((int)c + \",\");\n" +
+						"        }\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"9,8,97,97,",
+				getCompilerOptions());
+	}
+	public void testCompliances_18() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"\\013\\baa\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		print(textb.toCharArray());\n" +
+						"	}\n" +
+						"   private static void print(char[] val) {\n" +
+						"        for (char c : val) {\n" +
+						"            System.out.print((int)c + \",\");\n" +
+						"        }\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"11,8,97,97,",
+				getCompilerOptions());
+	}
+	public void testBug565639_1() {
+		runConformTest(true,
+					new String[]{
+						"X.java",
+						"public class X {\n" +
+						"    static final String TEXT_BLOCK = \"\"\"\n" +
+						"              1\n" +
+						"              2\n" +
+						"              3\n" +
+						"              4\n" +
+						"              5\n" +
+						"            \"\"\";\n" +
+						"    public static void main(String[] args)  {\n" +
+						"        throw new RuntimeException(\"This is line 10.\");\n" +
+						"    }\n" +
+						"}\n"
+				},
+				null,
+				getCompilerOptions(),
+				"",
+				"",
+				"Exception in thread \"main\" java.lang.RuntimeException: This is line 10.\n" +
+						"	at X.main(X.java:10)",
+				new String[] {"--enable-preview"},
+				new JavacTestOptions("-source 14 --enable-preview"));
+	}
+	public void testBug565639_2() {
+		runConformTest(true,
+				new String[]{
+					"X.java",
+					"public class X {\n" +
+					"    public static void main(String[] args)  {\n" +
+					"    	String TEXT_BLOCK = \"\"\"\n" +
+					"              1\n" +
+					"              2\n" +
+					"              3\n" +
+					"              4\n" +
+					"              5\n" +
+					"            \"\"\";\n" +
+					"        throw new RuntimeException(\"This is line 10.\");\n" +
+					"    }\n" +
+					"}\n"
+			},
+			null,
+			getCompilerOptions(),
+			"",
+			"",
+			"Exception in thread \"main\" java.lang.RuntimeException: This is line 10.\n" +
+					"	at X.main(X.java:10)",
+			new String[] {"--enable-preview"},
+			new JavacTestOptions("-source 14 --enable-preview"));
+	}
+	public void testBug565639_3() {
+		runNegativeTest(new String[]{
+					"X.java",
+					"public class X {\n" +
+					"    public static void main(String[] args)  {\n" +
+					"    	String TEXT_BLOCK = \"\"\"\n" +
+					"              1\n" +
+					"              2\n" +
+					"              3\n" +
+					"              4\n" +
+					"              5\n" +
+					"            \"\"\"\";\n" +
+					"        throw new RuntimeException(\"This is line 10.\");\n" +
+					"    }\n" +
+					"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 9)\n" +
+				"	\"\"\"\";\n" +
+				"	   ^^\n" +
+				"String literal is not properly closed by a double-quote\n" +
+				"----------\n");
+	}
+	public void testBug565639_4() {
+		runNegativeTest(new String[]{
+					"X.java",
+					"public class X {\n" +
+					"    public static void main(String[] args)  {\n" +
+					"    	String TEXT_BLOCK = \"\"\"\n" +
+					"              1\n" +
+					"              2\n" +
+					"              3\n" +
+					"              4\n" +
+					"              5\n" +
+					"            \"\"\"\"\";\n" +
+					"        throw new RuntimeException(\"This is line 10.\");\n" +
+					"    }\n" +
+					"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 9)\n" +
+				"	\"\"\"\"\";\n" +
+				"	   ^^\n" +
+				"Syntax error on token \"\"\"\", delete this token\n" +
+				"----------\n");
+	}
+	public void testBug565639_5() {
+		runNegativeTest(new String[]{
+					"X.java",
+					"public class X {\n" +
+					"    public static void main(String[] args)  {\n" +
+					"    	String TEXT_BLOCK = \"\"\"\n" +
+					"              1\n" +
+					"              2\n" +
+					"              3\n" +
+					"              4\n" +
+					"              5\n" +
+					"            \\\"\"\"\"\"\";\n" +
+					"        throw new RuntimeException(\"This is line 10.\");\n" +
+					"    }\n" +
+					"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 9)\n" +
+				"	\\\"\"\"\"\"\";\n" +
+				"	     ^^\n" +
+				"Syntax error on token \"\"\"\", delete this token\n" +
+				"----------\n");
+	}
+	public void testBug565639_6() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"    public static void main(String[] args)  {\n" +
+						"    	String TEXT_BLOCK = \"\"\"\n" +
+						"              1\n" +
+						"              2\n" +
+						"              3\n" +
+						"              4\n" +
+						"              \\\"\"\"\n" +
+						"              \"\"\";\n" +
+						"        System.out.println(TEXT_BLOCK);\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"1\n" +
+				"2\n" +
+				"3\n" +
+				"4\n" +
+				"\"\"\"",
+				getCompilerOptions(),
+				new String[] {"--enable-preview"});
 	}
 }

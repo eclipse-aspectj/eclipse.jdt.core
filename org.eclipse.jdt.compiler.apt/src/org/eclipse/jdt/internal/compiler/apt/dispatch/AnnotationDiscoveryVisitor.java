@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2017 IBM Corporation and others.
+ * Copyright (c) 2006, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -27,6 +27,7 @@ import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
@@ -40,6 +41,7 @@ import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
+import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
@@ -136,6 +138,22 @@ public class AnnotationDiscoveryVisitor extends ASTVisitor {
 		return false;
 	}
 
+	@Override
+	public boolean visit(RecordComponent recordComponent, BlockScope scope) {
+		Annotation[] annotations = recordComponent.annotations;
+		if (annotations != null) {
+			RecordComponentBinding recordComponentBinding = recordComponent.binding;
+			if (recordComponentBinding == null) {
+				return false;
+			}
+			((SourceTypeBinding) recordComponentBinding.declaringRecord).resolveTypeFor(recordComponentBinding);
+			if (recordComponent.binding == null) {
+				return false;
+			}
+			this.resolveAnnotations(scope, annotations, recordComponentBinding);
+		}
+		return false;
+	}
 	@Override
 	public boolean visit(TypeParameter typeParameter, ClassScope scope) {
 		Annotation[] annotations = typeParameter.annotations;
@@ -235,8 +253,15 @@ public class AnnotationDiscoveryVisitor extends ASTVisitor {
 		if (binding == null) {
 			return false;
 		}
-		module.resolveTypeDirectives(scope);
-		// The above call also resolvesAnnotations
+		//module.resolveTypeDirectives(scope);
+		// The above call also resolvesAnnotations <=== actually this doesn't populate _annoToElement which is what we need
+
+		Annotation[] annotations = module.annotations;
+		if (annotations != null) {
+			this.resolveAnnotations(module.scope, 
+					annotations, 
+					binding);
+		}
 		return true;
 	}
 

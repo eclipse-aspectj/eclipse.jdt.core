@@ -722,6 +722,10 @@ void setSourceStart(int sourceStart);
 	/** @since 3.5 */
 	int ComparingIdentical = Internal + 211;
 
+	/** @since 3.22
+	 * @noreference preview feature error */
+	int UnsafeCast = TypeRelated + 212;
+
 	int UnmatchedBracket = Syntax + Internal + 220;
 	int NoFieldOnBaseType = FieldRelated + 221;
 	int InvalidExpressionAsStatement = Syntax + Internal + 222;
@@ -796,8 +800,7 @@ void setSourceStart(int sourceStart);
 
 	/** @since 3.10 */
 	int MissingTypeInLambda = MethodRelated + 271;
-	/** @since 3.20
-	 * @noreference preview related error */
+	/** @since 3.23  */
 	int UnterminatedTextBlock = PreviewRelated + 272;
 	// type related problems
 	/** @since 3.1 */
@@ -1029,6 +1032,8 @@ void setSourceStart(int sourceStart);
 	int IllegalUseOfUnderscoreAsAnIdentifier = Syntax + Internal + 443;
 	 /** @since 3.10 */
 	int UninternedIdentityComparison = Syntax + Internal + 444;
+	 /** @since 3.24 */
+	int ErrorUseOfUnderscoreAsAnIdentifier = Syntax + Internal + 445;
 
 	// detected task
 	/** @since 2.1 */
@@ -1219,6 +1224,9 @@ void setSourceStart(int sourceStart);
 	int JavadocUnexpectedText = Javadoc + Internal + 518;
 	/** @since 3.1 */
 	int JavadocInvalidParamTagName = Javadoc + Internal + 519;
+
+	// see also JavadocNotAccessibleType below
+
 	/*
 	 * IDs for module errors in Javadoc
 	 */
@@ -1242,6 +1250,8 @@ void setSourceStart(int sourceStart);
 	int JavadocInvalidProvidesClassName = Javadoc + Internal + 1808;
 	/** @since 3.20 */
 	int JavadocInvalidProvidesClass = Javadoc + Internal + 1809;
+	/** @since 3.24*/
+	int JavadocInvalidModuleQualification = Javadoc + Internal + 1810;
 
 	/**
 	 * Generics
@@ -2111,6 +2121,12 @@ void setSourceStart(int sourceStart);
 	int UnnamedPackageInNamedModule = ModuleRelated + 1460;
 	/** @since  3.14 */
 	int UnstableAutoModuleName = ModuleRelated + 1461;
+	/** @since  3.24 */
+	int ConflictingPackageInModules = ModuleRelated + 1462;
+
+	// doc variant of an above constant:
+	/** @since 3.22 */
+	int JavadocNotAccessibleType = Javadoc + NotAccessibleType;
 
 	/** @since 3.13 */
 	int RedundantNullDefaultAnnotationLocal = Internal + 1062;
@@ -2134,6 +2150,8 @@ void setSourceStart(int sourceStart);
 	int PreviewFeatureNotSupported = Compliance + 1105;
 	/** @since 3.20*/
 	int PreviewFeaturesNotAllowed = PreviewRelated + 1106;
+	/** @since 3.24*/
+	int FeatureNotSupported = Compliance + 1107;
 
 	/** @since 3.13 */
 	int UnlikelyCollectionMethodArgumentType = 1200;
@@ -2261,6 +2279,11 @@ void setSourceStart(int sourceStart);
 	int SwitchExpressionsBreakOutOfSwitchExpression  = Syntax + 1722;
 	/** @since 3.22 */
 	int SwitchExpressionsContinueOutOfSwitchExpression  = Syntax + 1723;
+	/** @since 3.22 */
+	int SwitchExpressionsReturnWithinSwitchExpression  = Syntax + 1724;
+
+	/* Java 14 errors end */
+	/* Java 15 errors begin */
 	/* records - begin */
 
 	/** @since 3.22
@@ -2283,9 +2306,9 @@ void setSourceStart(int sourceStart);
 	/** @since 3.22
 	 * @noreference preview feature error */
 	int RecordCanonicalConstructorHasThrowsClause = PreviewRelated + 1735;
-	/** @since 3.22
+	/** @since 3.24
 	 * @noreference preview feature error */
-	int RecordCanonicalConstructorShouldBePublic = PreviewRelated + 1736;
+	int RecordCanonicalConstructorVisibilityReduced = PreviewRelated + 1736;
 	/** @since 3.22
 	 * @noreference preview feature error */
 	int RecordMultipleCanonicalConstructors = PreviewRelated + 1737;
@@ -2301,9 +2324,9 @@ void setSourceStart(int sourceStart);
 	/** @since 3.22
 	 * @noreference preview feature error */
 	int RecordInstanceInitializerBlockInRecord = PreviewRelated + 1741;
-	/** @since 3.22
+	/** @since 3.24
 	 * @noreference preview feature error */
-	int RecordIsAReservedTypeName = PreviewRelated + 1742;
+	int RestrictedTypeName = PreviewRelated + 1742;
 	/** @since 3.22
 	 * @noreference preview feature error */
 	int RecordIllegalAccessorReturnType = PreviewRelated + 1743;
@@ -2343,10 +2366,93 @@ void setSourceStart(int sourceStart);
 	/** @since 3.22
 	 * @noreference preview feature error */
 	int RecordStaticReferenceToOuterLocalVariable= PreviewRelated + 1755;
-	/* records - end */
-	/* instanceof pattern: */
 	/** @since 3.22
 	 * @noreference preview feature error */
-	int PatternVariableNotInScope = PreviewRelated + 1760;
-	/* Java14 errors - end */
+	int RecordCannotDefineRecordInLocalType= PreviewRelated + 1756;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int RecordComponentsCannotHaveModifiers= PreviewRelated + 1757;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int RecordIllegalParameterNameInCanonicalConstructor = PreviewRelated + 1758;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int RecordIllegalExplicitFinalFieldAssignInCompactConstructor = PreviewRelated + 1759;
+	/** @since 3.23
+	 * @noreference preview feature error */
+	int RecordMissingExplicitConstructorCallInNonCanonicalConstructor= PreviewRelated + 1760;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int RecordIllegalStaticModifierForLocalClassOrInterface = PreviewRelated + 1761;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int RecordIllegalModifierForLocalRecord = PreviewRelated + 1762;
+
+	/* records - end */
+	/* Local and Nested Static Declarations - Begin */
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int LocalStaticsIllegalVisibilityModifierForInterfaceLocalType = PreviewRelated + 1765;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int IllegalModifierForLocalEnumDeclaration = PreviewRelated + 1766;
+	/* records - end */
+
+
+	/* instanceof pattern: */
+	/** @since 3.22
+	 * @deprecated problem no longer generated */
+	int PatternVariableNotInScope = PreviewRelated + 1780;
+
+
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedMissingClassModifier = PreviewRelated + 1850;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedDisAllowedNonSealedModifierInClass = PreviewRelated + 1851;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedSuperClassDoesNotPermit = PreviewRelated + 1852;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedSuperInterfaceDoesNotPermit = PreviewRelated + 1853;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedMissingSealedModifier = PreviewRelated + 1854;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedMissingInterfaceModifier = PreviewRelated + 1855;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedDuplicateTypeInPermits = PreviewRelated + 1856;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedNotDirectSuperClass = PreviewRelated + 1857;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedPermittedTypeOutsideOfModule = PreviewRelated + 1858;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedPermittedTypeOutsideOfPackage = PreviewRelated + 1859;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedSealedTypeMissingPermits = PreviewRelated + 1860;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedInterfaceIsSealedAndNonSealed = PreviewRelated + 1861;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedDisAllowedNonSealedModifierInInterface = PreviewRelated + 1862;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedNotDirectSuperInterface = PreviewRelated + 1863;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedLocalDirectSuperTypeSealed = PreviewRelated + 1864;
+	/** @since 3.24
+	 * @noreference preview feature error */
+	int SealedAnonymousClassCannotExtendSealedType = PreviewRelated + 1865;
+	/* Java15 errors - end */
+
 	}

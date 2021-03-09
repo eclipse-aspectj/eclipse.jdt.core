@@ -119,12 +119,21 @@ public class DefaultCodeFormatterOptions {
 		return options;
 	}
 
+	public int alignment_for_annotations_on_type;
+	public int alignment_for_type_annotations;
+	public int alignment_for_annotations_on_enum_constant;
+	public int alignment_for_annotations_on_field;
+	public int alignment_for_annotations_on_method;
+	public int alignment_for_annotations_on_package;
+	public int alignment_for_annotations_on_parameter;
+	public int alignment_for_annotations_on_local_variable;
 	public int alignment_for_arguments_in_allocation_expression;
 	public int alignment_for_arguments_in_annotation;
 	public int alignment_for_arguments_in_enum_constant;
 	public int alignment_for_arguments_in_explicit_constructor_call;
 	public int alignment_for_arguments_in_method_invocation;
 	public int alignment_for_arguments_in_qualified_allocation_expression;
+	public int alignment_for_assertion_message;
 	public int alignment_for_assignment;
 	public int alignment_for_multiplicative_operator;
 	public int alignment_for_additive_operator;
@@ -500,6 +509,7 @@ public class DefaultCodeFormatterOptions {
 	public int text_block_indentation;
 	public boolean wrap_before_multiplicative_operator;
 	public boolean wrap_before_additive_operator;
+	public boolean wrap_before_assertion_message_operator;
 	public boolean wrap_before_string_concatenation;
 	public boolean wrap_before_shift_operator;
 	public boolean wrap_before_relational_operator;
@@ -550,12 +560,21 @@ public class DefaultCodeFormatterOptions {
 
 	public Map<String, String> getMap() {
 		Map<String, String> options = new HashMap<>();
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_TYPE, getAlignment(this.alignment_for_annotations_on_type));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_TYPE_ANNOTATIONS, getAlignment(this.alignment_for_type_annotations));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_ENUM_CONSTANT, getAlignment(this.alignment_for_annotations_on_enum_constant));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_FIELD, getAlignment(this.alignment_for_annotations_on_field));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_METHOD, getAlignment(this.alignment_for_annotations_on_method));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_PACKAGE, getAlignment(this.alignment_for_annotations_on_package));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_PARAMETER, getAlignment(this.alignment_for_annotations_on_parameter));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE, getAlignment(this.alignment_for_annotations_on_local_variable));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_ALLOCATION_EXPRESSION, getAlignment(this.alignment_for_arguments_in_allocation_expression));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_ANNOTATION, getAlignment(this.alignment_for_arguments_in_annotation));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_ENUM_CONSTANT, getAlignment(this.alignment_for_arguments_in_enum_constant));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_EXPLICIT_CONSTRUCTOR_CALL, getAlignment(this.alignment_for_arguments_in_explicit_constructor_call));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_METHOD_INVOCATION, getAlignment(this.alignment_for_arguments_in_method_invocation));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_QUALIFIED_ALLOCATION_EXPRESSION, getAlignment(this.alignment_for_arguments_in_qualified_allocation_expression));
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ASSERTION_MESSAGE, getAlignment(this.alignment_for_assertion_message));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ASSIGNMENT, getAlignment(this.alignment_for_assignment));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_MULTIPLICATIVE_OPERATOR ,getAlignment(this.alignment_for_multiplicative_operator));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ADDITIVE_OPERATOR ,getAlignment(this.alignment_for_additive_operator));
@@ -942,6 +961,7 @@ public class DefaultCodeFormatterOptions {
 
 		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_MULTIPLICATIVE_OPERATOR, this.wrap_before_multiplicative_operator ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_ADDITIVE_OPERATOR, this.wrap_before_additive_operator ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
+		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_ASSERTION_MESSAGE_OPERATOR, this.wrap_before_assertion_message_operator ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_STRING_CONCATENATION, this.wrap_before_string_concatenation ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_SHIFT_OPERATOR, this.wrap_before_shift_operator ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_RELATIONAL_OPERATOR, this.wrap_before_relational_operator ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
@@ -958,6 +978,22 @@ public class DefaultCodeFormatterOptions {
 	}
 
 	public void set(Map<String, String> settings) {
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_TYPE,
+				v -> this.alignment_for_annotations_on_type = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_TYPE_ANNOTATIONS,
+				v -> this.alignment_for_type_annotations = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_ENUM_CONSTANT,
+				v -> this.alignment_for_annotations_on_enum_constant = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_FIELD,
+				v -> this.alignment_for_annotations_on_field = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_METHOD,
+				v -> this.alignment_for_annotations_on_method = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_PACKAGE,
+				v -> this.alignment_for_annotations_on_package = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_PARAMETER,
+				v -> this.alignment_for_annotations_on_parameter = v);
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE,
+				v -> this.alignment_for_annotations_on_local_variable = v);
 		final Object alignmentForArgumentsInAllocationExpressionOption = settings.get(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_ALLOCATION_EXPRESSION);
 		if (alignmentForArgumentsInAllocationExpressionOption != null) {
 			try {
@@ -1006,6 +1042,8 @@ public class DefaultCodeFormatterOptions {
 				this.alignment_for_arguments_in_qualified_allocation_expression = Alignment.M_COMPACT_SPLIT;
 			}
 		}
+		setInt(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ASSERTION_MESSAGE,
+				v -> this.alignment_for_assertion_message = v);
 		final Object alignmentForAssignmentOption = settings.get(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ASSIGNMENT);
 		if (alignmentForAssignmentOption != null) {
 			try {
@@ -2491,6 +2529,8 @@ public class DefaultCodeFormatterOptions {
 		}
 		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_MULTIPLICATIVE_OPERATOR, DefaultCodeFormatterConstants.TRUE,
 				v -> this.wrap_before_multiplicative_operator = v);
+		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_ASSERTION_MESSAGE_OPERATOR, DefaultCodeFormatterConstants.TRUE,
+				v -> this.wrap_before_assertion_message_operator = v);
 		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_ADDITIVE_OPERATOR, DefaultCodeFormatterConstants.TRUE,
 				v -> this.wrap_before_additive_operator = v);
 		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_WRAP_BEFORE_STRING_CONCATENATION, DefaultCodeFormatterConstants.TRUE,
@@ -2687,6 +2727,15 @@ public class DefaultCodeFormatterOptions {
 					this.insert_new_line_after_annotation_on_package = insert;
 					this.insert_new_line_after_annotation_on_parameter = insert;
 					this.insert_new_line_after_annotation_on_local_variable = insert;
+					int alignment = insert ? Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT
+							: Alignment.M_NO_ALIGNMENT;
+					this.alignment_for_annotations_on_type = alignment;
+					this.alignment_for_annotations_on_enum_constant = alignment;
+					this.alignment_for_annotations_on_field = alignment;
+					this.alignment_for_annotations_on_method = alignment;
+					this.alignment_for_annotations_on_package = alignment;
+					this.alignment_for_annotations_on_parameter = alignment;
+					this.alignment_for_annotations_on_local_variable = alignment;
 				}
 			}
 		} else { // otherwise use new 3.7 options if available
@@ -2876,12 +2925,21 @@ public class DefaultCodeFormatterOptions {
 	}
 
 	public void setDefaultSettings() {
+		this.alignment_for_annotations_on_type = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_type_annotations = Alignment.M_NO_ALIGNMENT;
+		this.alignment_for_annotations_on_enum_constant = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_field = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_method = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_package = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_parameter = Alignment.M_NO_ALIGNMENT;
+		this.alignment_for_annotations_on_local_variable = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
 		this.alignment_for_arguments_in_allocation_expression = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_annotation = Alignment.M_NO_ALIGNMENT;
 		this.alignment_for_arguments_in_enum_constant = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_explicit_constructor_call = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_method_invocation = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_qualified_allocation_expression = Alignment.M_COMPACT_SPLIT;
+		this.alignment_for_assertion_message = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_assignment = Alignment.M_NO_ALIGNMENT;
 		this.alignment_for_multiplicative_operator = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_additive_operator = Alignment.M_COMPACT_SPLIT;
@@ -3237,6 +3295,7 @@ public class DefaultCodeFormatterOptions {
 		this.text_block_indentation = Alignment.M_INDENT_DEFAULT;
 		this.wrap_before_multiplicative_operator = true;
 		this.wrap_before_additive_operator = true;
+		this.wrap_before_assertion_message_operator = true;
 		this.wrap_before_string_concatenation = true;
 		this.wrap_before_shift_operator = true;
 		this.wrap_before_relational_operator = true;
@@ -3245,7 +3304,7 @@ public class DefaultCodeFormatterOptions {
 		this.wrap_before_or_operator_multicatch = true;
 		this.wrap_before_conditional_operator = true;
 		this.wrap_before_assignment_operator = false;
-		this.use_tags = false;
+		this.use_tags = true;
 		this.disabling_tag = DEFAULT_DISABLING_TAG;
 		this.enabling_tag = DEFAULT_ENABLING_TAG;
 		this.wrap_outer_expressions_when_nested = true;
@@ -3258,12 +3317,21 @@ public class DefaultCodeFormatterOptions {
 	}
 
 	public void setJavaConventionsSettings() {
+		this.alignment_for_annotations_on_type = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_type_annotations = Alignment.M_NO_ALIGNMENT;
+		this.alignment_for_annotations_on_enum_constant = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_field = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_method = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_package = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
+		this.alignment_for_annotations_on_parameter = Alignment.M_NO_ALIGNMENT;
+		this.alignment_for_annotations_on_local_variable = Alignment.M_FORCE | Alignment.M_ONE_PER_LINE_SPLIT;
 		this.alignment_for_arguments_in_allocation_expression = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_annotation = Alignment.M_NO_ALIGNMENT;
 		this.alignment_for_arguments_in_enum_constant = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_explicit_constructor_call = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_method_invocation = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_arguments_in_qualified_allocation_expression = Alignment.M_COMPACT_SPLIT;
+		this.alignment_for_assertion_message = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_assignment = Alignment.M_NO_ALIGNMENT;
 		this.alignment_for_multiplicative_operator = Alignment.M_COMPACT_SPLIT;
 		this.alignment_for_additive_operator = Alignment.M_COMPACT_SPLIT;
@@ -3619,6 +3687,7 @@ public class DefaultCodeFormatterOptions {
 		this.text_block_indentation = Alignment.M_INDENT_DEFAULT;
 		this.wrap_before_multiplicative_operator = true;
 		this.wrap_before_additive_operator = true;
+		this.wrap_before_assertion_message_operator = true;
 		this.wrap_before_string_concatenation = true;
 		this.wrap_before_shift_operator = true;
 		this.wrap_before_relational_operator = true;
@@ -3627,7 +3696,7 @@ public class DefaultCodeFormatterOptions {
 		this.wrap_before_or_operator_multicatch = true;
 		this.wrap_before_conditional_operator = true;
 		this.wrap_before_assignment_operator = false;
-		this.use_tags = false;
+		this.use_tags = true;
 		this.disabling_tag = DEFAULT_DISABLING_TAG;
 		this.enabling_tag = DEFAULT_ENABLING_TAG;
 		this.wrap_outer_expressions_when_nested = true;

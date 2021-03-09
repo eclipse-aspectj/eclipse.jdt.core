@@ -260,7 +260,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			return;
 		}
 		// End AspectJ Extension
-		
+
 		if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0)	{
 			// if constructor from parameterized type got found, use the original constructor at codegen time
 			MethodBinding codegenBinding = this.binding.original();
@@ -323,10 +323,11 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			if (methodDeclaration == null
 					|| !methodDeclaration.isConstructor()
 					|| ((ConstructorDeclaration) methodDeclaration).constructorCall != this) {
-						
+
 				//XXX Horrible AspectJ-specific hack
-				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension				
-				scope.problemReporter().invalidExplicitConstructorCall(this);
+				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension
+				if (!(methodDeclaration instanceof CompactConstructorDeclaration)) // already flagged for CCD
+						scope.problemReporter().invalidExplicitConstructorCall(this);
 				// fault-tolerance
 				if (this.qualification != null) {
 					this.qualification.resolveType(scope);

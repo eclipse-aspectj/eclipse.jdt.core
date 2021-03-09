@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright (c) 2012, 2016 Eclipse Foundation and others.
+  Copyright (c) 2012, 2020 Eclipse Foundation and others.
   All rights reserved. This program and the accompanying materials
   are made available under the terms of the Eclipse Distribution License v1.0
   which accompanies this distribution, and is available at
@@ -15,12 +15,12 @@
   <parent>
     <artifactId>tests-pom</artifactId>
     <groupId>eclipse.jdt.core</groupId>
-    <version>4.16.0-SNAPSHOT</version>
+    <version>4.19.0-SNAPSHOT</version>
     <relativePath>../tests-pom/</relativePath>
   </parent>
   <groupId>org.eclipse.jdt</groupId>
   <artifactId>org.eclipse.jdt.core.tests.compiler</artifactId>
-  <version>3.12.1200-SNAPSHOT</version>
+  <version>3.12.1500-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
@@ -53,15 +53,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -83,15 +74,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -114,15 +96,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -145,15 +118,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -169,22 +133,13 @@
 			<tycho.surefire.argLine>--add-modules ALL-SYSTEM -Dcompliance=1.4,1.7,1.8,12</tycho.surefire.argLine>
 		</properties>
 	</profile>
-		<profile>
+	<profile>
 		<id>test-on-javase-13</id>
 		<build>
 			<plugins>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -206,15 +161,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -227,6 +173,27 @@
 		</build>
 		<properties>
 			<tycho.surefire.argLine>--add-modules ALL-SYSTEM -Dcompliance=1.4,1.7,1.8,13,14</tycho.surefire.argLine>
+		</properties>
+	</profile>
+	<profile>
+		<id>test-on-javase-15</id>
+		<build>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-toolchains-plugin</artifactId>
+					<configuration>
+						<toolchains>
+							<jdk>
+								<id>JavaSE-15</id>
+							</jdk>
+						</toolchains>
+					</configuration>
+				</plugin>
+			</plugins>
+		</build>
+		<properties>
+			<tycho.surefire.argLine>--add-modules ALL-SYSTEM -Dcompliance=1.4,1.7,1.8,14,15</tycho.surefire.argLine>
 		</properties>
 	</profile>
   </profiles>

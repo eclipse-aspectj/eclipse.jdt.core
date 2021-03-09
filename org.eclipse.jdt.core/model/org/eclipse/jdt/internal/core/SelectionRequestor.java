@@ -14,6 +14,7 @@
 package org.eclipse.jdt.internal.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -271,6 +272,14 @@ public void acceptField(char[] declaringTypePackageName, char[] declaringTypeNam
 		if(type != null) {
 			try {
 				IField[] fields = type.getFields();
+				if (type.isRecord()) {
+					IField[] comps = type.getRecordComponents();
+					if(comps.length > 0) {
+						IField[] f = fields;
+						fields = Arrays.copyOf(f, f.length + comps.length);
+						System.arraycopy(comps, 0, fields, f.length, comps.length);
+					}
+				}
 				for (int i = 0; i < fields.length; i++) {
 					IField field = fields[i];
 					ISourceRange range = field.getNameRange();
@@ -638,14 +647,14 @@ protected void acceptSourceMethod(
 	if (this.elementIndex == -1) {
 		try {
 			if (type.isRecord()) {
-				IField field= type.getField(name);
-				if (field != null) {
-					 if (!Flags.isStatic(field.getFlags())) {
+				IField comp = type.getRecordComponent(name);
+				if (comp != null) {
+					 if (!Flags.isStatic(comp.getFlags())) {
 						// no match was actually found, but a method was originally given -> default accessor
-						 addElement(field);
+						 addElement(comp);
 						 if(SelectionEngine.DEBUG){
 								System.out.print("SELECTION - accept field("); //$NON-NLS-1$
-								System.out.print(field.toString());
+								System.out.print(comp.toString());
 								System.out.println(")"); //$NON-NLS-1$
 						 }
 					 }

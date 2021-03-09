@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -17,6 +17,7 @@ package org.eclipse.jdt.core.tests.util;
 
 import java.io.*;
 import java.net.ServerSocket;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.zip.*;
 
@@ -457,6 +458,12 @@ public static void createJar(String[] pathsAndContents, String[] extraPathsAndCo
 		}
 	}
     zip(classesDir, jarPath);
+}
+public static void createJar(String[] javaPathsAndContents, String jarPath, String compliance, boolean preview) throws IOException {
+	Map options = getCompileOptions(compliance);
+	if (preview)
+		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+	createJar(javaPathsAndContents, null, options, null, jarPath);
 }
 public static void createJar(String[] javaPathsAndContents, String jarPath, String compliance) throws IOException {
 	createJar(javaPathsAndContents, null, jarPath, compliance);
@@ -1425,9 +1432,10 @@ public static void zip(File rootDir, String zipPath) throws IOException {
     try {
         File zipFile = new File(zipPath);
         if (zipFile.exists()) {
-        	if (!delete(zipFile))
-	        	throw new IOException("Could not delete " + zipPath);
-        	 // ensure the new zip file has a different timestamp than the previous one
+        	if (!delete(zipFile)) {
+				Files.deleteIfExists(zipFile.toPath());
+			}
+        	// ensure the new zip file has a different timestamp than the previous one
         	int timeToWait = 1000; // some platform (like Linux) have a 1s granularity)
             waitAtLeast(timeToWait);
         } else {
@@ -1466,8 +1474,9 @@ private static void zip(File dir, ZipOutputStream zip, int rootPathLength) throw
 public static void zipFiles(File[] files, String zipPath) throws IOException {
 	File zipFile = new File(zipPath);
 	if (zipFile.exists()) {
-		if (!delete(zipFile))
-			throw new IOException("Could not delete " + zipPath);
+		if (!delete(zipFile)) {
+			Files.deleteIfExists(zipFile.toPath());
+		}
 		// ensure the new zip file has a different timestamp than the previous one
 		int timeToWait = 1000; // some platform (like Linux) have a 1s granularity)
 		waitAtLeast(timeToWait);

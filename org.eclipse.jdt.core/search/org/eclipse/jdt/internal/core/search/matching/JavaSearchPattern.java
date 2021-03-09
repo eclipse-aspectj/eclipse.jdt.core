@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2014 IBM Corporation and others.
+ * Copyright (c) 2004, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -22,12 +22,13 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.Signature;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
+import org.eclipse.jdt.core.search.IParallelizable;
 import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.internal.core.search.indexing.IIndexConstants;
 import org.eclipse.jdt.internal.core.util.Util;
 
 
-public class JavaSearchPattern extends SearchPattern implements IIndexConstants {
+public class JavaSearchPattern extends SearchPattern implements IIndexConstants, IParallelizable, Cloneable {
 
 	/*
 	 * Whether this pattern is case sensitive.
@@ -162,6 +163,9 @@ public class JavaSearchPattern extends SearchPattern implements IIndexConstants 
 					break;
 				case IJavaSearchConstants.METHOD_REFERENCE_EXPRESSION:
 					buffer.append("METHOD_REFERENCE_EXPRESSION"); //$NON-NLS-1$
+					break;
+				case IJavaSearchConstants.PERMITTYPE_TYPE_REFERENCE:
+					buffer.append("PERMITTYPE_TYPE_REFERENCE"); //$NON-NLS-1$
 					break;
 			}
 		}
@@ -451,4 +455,10 @@ public class JavaSearchPattern extends SearchPattern implements IIndexConstants 
 	public final String toString() {
 		return print(new StringBuffer(30)).toString();
 	}
+
+	@Override
+	public boolean isParallelSearchSupported() {
+		return true;
+	}
+
 }

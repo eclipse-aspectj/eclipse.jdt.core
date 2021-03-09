@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -242,6 +242,12 @@ public abstract class ASTVisitor {
 		// do nothing by default
 	}
 	public void endVisit(JavadocQualifiedTypeReference typeRef, ClassScope scope) {
+		// do nothing by default
+	}
+	public void endVisit(JavadocModuleReference moduleRef, BlockScope scope) {
+		// do nothing by default
+	}
+	public void endVisit(JavadocModuleReference moduleRef, ClassScope scope) {
 		// do nothing by default
 	}
 	public void endVisit(JavadocReturnStatement statement, BlockScope scope) {
@@ -517,6 +523,9 @@ public abstract class ASTVisitor {
 	public void endVisit(SwitchExpression switchExpression,	BlockScope scope) {
 		// do nothing by default
 	}
+	public void endVisit(RecordComponent recordComponent, BlockScope scope) {
+		// do nothing by default, keep traversing
+	}
 	public boolean visit(
     		AllocationExpression allocationExpression,
     		BlockScope scope) {
@@ -735,6 +744,12 @@ public abstract class ASTVisitor {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(JavadocQualifiedTypeReference typeRef, ClassScope scope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(JavadocModuleReference moduleRef, BlockScope scope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(JavadocModuleReference moduleRef, ClassScope scope) {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(JavadocReturnStatement statement, BlockScope scope) {
@@ -1015,6 +1030,9 @@ public abstract class ASTVisitor {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(SwitchExpression switchExpression, BlockScope blockScope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public  boolean visit(RecordComponent recordComponent, BlockScope scope) {
 		return true; // do nothing by default, keep traversing
 	}
 }

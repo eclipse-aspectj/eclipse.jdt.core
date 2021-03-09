@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -18,6 +18,7 @@ package org.eclipse.jdt.internal.core;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -84,12 +85,14 @@ import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.eval.IEvaluationContext;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.env.AutomaticModuleNaming;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.ObjectVector;
@@ -443,6 +446,7 @@ public class JavaProject
 							String existingMessage = cycleMarker.getAttribute(IMarker.MESSAGE, ""); //$NON-NLS-1$
 							String newMessage = new JavaModelStatus(IJavaModelStatusConstants.CLASSPATH_CYCLE,
 									project, cycleString.toString()).getMessage();
+							newMessage = truncateIfNecessary(newMessage);
 							if (!newMessage.equals(existingMessage)) {
 								cycleMarker.setAttribute(IMarker.MESSAGE, newMessage);
 							}
@@ -459,6 +463,18 @@ public class JavaProject
 				}
 			}
 		}
+	}
+
+	static String truncateIfNecessary(String markerMessage) {
+		// cf. org.eclipse.core.internal.resources.MarkerInfo.checkValidAttribute(Object)
+		if (markerMessage.length() > 21000) {
+			byte[] bytes = markerMessage.getBytes(StandardCharsets.UTF_8);
+			if (bytes.length > 65535) {
+				bytes = Arrays.copyOfRange(bytes, 0, 65500);
+				markerMessage = new String(bytes, StandardCharsets.UTF_8)+"..."; //$NON-NLS-1$
+			}
+		}
+		return markerMessage;
 	}
 
 	/**
@@ -1925,8 +1941,27 @@ public class JavaProject
 					{
 						manager.deltaState.addClasspathValidation(JavaProject.this);
 					}
+					checkExpireModule(propertyName, event.getOldValue(), event.getNewValue());
 					manager.resetProjectOptions(JavaProject.this);
 					JavaProject.this.resetCaches(); // see https://bugs.eclipse.org/bugs/show_bug.cgi?id=233568
+				}
+			}
+
+			void checkExpireModule(String propertyName, Object oldValue, Object newValue) {
+				if (propertyName.equals(JavaCore.COMPILER_SOURCE)) {
+					if (oldValue instanceof String && newValue instanceof String
+						&& CompilerOptions.versionToJdkLevel((String) oldValue) >= ClassFileConstants.JDK9
+						&& CompilerOptions.versionToJdkLevel((String) newValue) < ClassFileConstants.JDK9)
+					{
+						try {
+							// this is a change from modular to non-modular, forget the module if any:
+							IModuleDescription module = getModuleDescription();
+							if (module != null)
+								((JavaElement)module).close();
+						} catch (JavaModelException e) {
+							// ignore
+						}
+					}
 				}
 			}
 		};

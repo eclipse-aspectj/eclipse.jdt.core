@@ -448,12 +448,25 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 	}
 
 	@Override
-	public void initializePatternVariables(BlockScope scope, CodeStream codeStream) {
-		this.condition.initializePatternVariables(scope, codeStream);
-		this.valueIfTrue.initializePatternVariables(scope, codeStream);
-		this.valueIfFalse.initializePatternVariables(scope, codeStream);
+	public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
+		this.condition.addPatternVariables(scope, codeStream);
+		this.valueIfTrue.addPatternVariables(scope, codeStream);
+		this.valueIfFalse.addPatternVariables(scope, codeStream);
 	}
+	@Override
+	public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {
+		this.condition.collectPatternVariablesToScope(this.patternVarsWhenTrue, scope);
 
+		variables = this.condition.getPatternVariablesWhenTrue();
+		this.valueIfTrue.addPatternVariablesWhenTrue(variables);
+		this.valueIfFalse.addPatternVariablesWhenFalse(variables);
+		this.valueIfTrue.collectPatternVariablesToScope(variables, scope);
+
+		variables = this.condition.getPatternVariablesWhenFalse();
+		this.valueIfTrue.addPatternVariablesWhenFalse(variables);
+		this.valueIfFalse.addPatternVariablesWhenTrue(variables);
+		this.valueIfFalse.collectPatternVariablesToScope(variables, scope);
+	}
 	@Override
 	public TypeBinding resolveType(BlockScope scope) {
 		// JLS3 15.25
@@ -470,7 +483,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 				this.valueIfFalse.setExpectedType(this.expectedType);
 			}
 		}
-
+		if (this.condition.containsPatternVariable()) {
+			collectPatternVariablesToScope(null, scope);
+		}
 		if (this.constant != Constant.NotAConstant) {
 			this.constant = Constant.NotAConstant;
 			TypeBinding conditionType = this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
@@ -495,8 +510,20 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			if (this.originalValueIfFalseType == null || !this.originalValueIfFalseType.isValidBinding())
 				return this.resolvedType = null;
 		}
+		// Propagate the constant value from the valueIfTrue and valueIFFalse expression if it is possible
+		Constant condConstant, trueConstant, falseConstant;
+		if ((condConstant = this.condition.constant) != Constant.NotAConstant
+			&& (trueConstant = this.valueIfTrue.constant) != Constant.NotAConstant
+			&& (falseConstant = this.valueIfFalse.constant) != Constant.NotAConstant) {
+			// all terms are constant expression so we can propagate the constant
+			// from valueIFTrue or valueIfFalse to the receiver constant
+			this.constant = condConstant.booleanValue() ? trueConstant : falseConstant;
+		}
 		if (isPolyExpression()) {
 			if (this.expectedType == null || !this.expectedType.isProperType(true)) {
+				// We will be back here in case of a PolyTypeBinding. So, to enable
+				// further processing, set it back to default.
+				this.constant = Constant.NotAConstant;
 				return new PolyTypeBinding(this);
 			}
 			return this.resolvedType = computeConversions(scope, this.expectedType) ? this.expectedType : null;
@@ -539,15 +566,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 						valueIfFalseType = unboxedIfFalseType;
 					}
 			}
-		}
-		// Propagate the constant value from the valueIfTrue and valueIFFalse expression if it is possible
-		Constant condConstant, trueConstant, falseConstant;
-		if ((condConstant = this.condition.constant) != Constant.NotAConstant
-			&& (trueConstant = this.valueIfTrue.constant) != Constant.NotAConstant
-			&& (falseConstant = this.valueIfFalse.constant) != Constant.NotAConstant) {
-			// all terms are constant expression so we can propagate the constant
-			// from valueIFTrue or valueIfFalse to the receiver constant
-			this.constant = condConstant.booleanValue() ? trueConstant : falseConstant;
 		}
 		if (TypeBinding.equalsEquals(valueIfTrueType, valueIfFalseType)) { // harmed the implicit conversion
 			this.valueIfTrue.computeConversion(scope, valueIfTrueType, this.originalValueIfTrueType);

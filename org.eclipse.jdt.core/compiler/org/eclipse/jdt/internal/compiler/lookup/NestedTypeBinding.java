@@ -77,9 +77,15 @@ public SyntheticArgumentBinding addSyntheticArgument(LocalVariableBinding actual
 
 /* Add a new synthetic argument for <enclosingType>.
 * Answer the new argument or the existing argument if one already existed.
+* Do not add if this is static (eg. nested records)
 */
 public SyntheticArgumentBinding addSyntheticArgument(ReferenceBinding targetEnclosingType) {
 	if (!isPrototype()) throw new IllegalStateException();
+	if (isStatic()) {
+		// Ref JLS 6.1 due to record preview add-on doc: Local Static Interfaces and Enum Classes
+		// a local record, enum and interface allowed, and will be implicitly static
+		return null;
+	}
 	SyntheticArgumentBinding synthLocal = null;
 	if (this.enclosingInstances == null) {
 		synthLocal = new SyntheticArgumentBinding(targetEnclosingType);

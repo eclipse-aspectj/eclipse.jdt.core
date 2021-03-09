@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -6513,7 +6513,7 @@ public void testBug311578_320754b() throws JavaModelException {
 
 /**
  * @bug 311582: [formatter] Master switch to enable/disable on/off tags
- * @test Ensure that the formatter does not take care of formatting tags by default
+ * @test Ensure that the formatter does take care of formatting tags by default
  * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=311582"
  */
 public void testBug311582a() throws JavaModelException {
@@ -6534,12 +6534,11 @@ public void testBug311582a() throws JavaModelException {
 	formatSource(source,
 		"public class X01 {\n" +
 		"\n" +
-		"	/* disable-formatter */\n" +
-		"	void foo() {\n" +
-		"		// unformatted comment\n" +
-		"	}\n" +
-		"\n" +
-		"	/* enable-formatter */\n" +
+		"/* disable-formatter */\n" +
+		"void     foo(    )      {	\n" +
+		"				//      unformatted       comment\n" +
+		"}\n" +
+		"/* enable-formatter */\n" +
 		"	void bar() {\n" +
 		"		// formatted comment\n" +
 		"	}\n" +
@@ -6557,14 +6556,7 @@ public void testBug311582b() {
 		"				//      unformatted       area\n" +
 		"}\n" +
 		"}\n";
-	formatSource(source,
-		"/* off */\n" +
-		"public class X01 {\n" +
-		"	void foo() {\n" +
-		"		// unformatted area\n" +
-		"	}\n" +
-		"}\n"
-	);
+	formatSource(source);
 }
 
 /**
@@ -13059,7 +13051,7 @@ public void testBug220713() {
 /**
  * https://bugs.eclipse.org/558421 [formatter] Generate getter/setter creates unnecessary blank line
  */
-public void testBug() {
+public void testBug558421() {
 	this.formatterPrefs.blank_lines_after_last_class_body_declaration = 1;
 	String source =
 		"public int getA() {\n" +
@@ -13124,6 +13116,165 @@ public void testBug560889() {
 		"		doSomething(aaaaaaaaaaaaaaaaaa)\n" +
 		"				.andThen(ccccccccccccccccccc);\n" +
 		"	}\n" +
+		"}");
+}
+public void testBug563487a() {
+	formatSource(
+		"class A {\n" +
+		"	protected void f() {\n" +
+		"		cccccccccccccc\n" +
+		"				// \n" +
+		"				.forEach(c -> {\n" +
+		"					aaaaaa();\n" +
+		"[#					bbbbbb();#]\n" +
+		"				});\n" +
+		"	}\n" +
+		"}",
+		"class A {\n" +
+		"	protected void f() {\n" +
+		"		cccccccccccccc\n" +
+		"				// \n" +
+		"				.forEach(c -> {\n" +
+		"					aaaaaa();\n" +
+		"					bbbbbb();\n" +
+		"				});\n" +
+		"	}\n" +
+		"}");
+}
+public void testBug563487b() {
+	formatSource(
+		"class A {\n" +
+		"	protected void f() {\n" +
+		"		cccccccccccccc\n" +
+		"				// \n" +
+		"					.forEach(c -> {\n" +
+		"						aaaaaa();\n" +
+		"[#					bbbbbb();#]\n" +
+		"					});\n" +
+		"	}\n" +
+		"}",
+		"class A {\n" +
+		"	protected void f() {\n" +
+		"		cccccccccccccc\n" +
+		"				// \n" +
+		"					.forEach(c -> {\n" +
+		"						aaaaaa();\n" +
+		"					bbbbbb();\n" +
+		"					});\n" +
+		"	}\n" +
+		"}");
+}
+public void testBug563487c() {
+	formatSource(
+		"class A {\n" +
+		"protected void f() {\n" +
+		"cccccccccccccc\n" +
+		"		// \n" +
+		"		.forEach(c -> {\n" +
+		"			aaaaaa();\n" +
+		"[#			bbbbbb();#]\n" +
+		"		});\n" +
+		"}\n" +
+		"}",
+		"class A {\n" +
+		"protected void f() {\n" +
+		"cccccccccccccc\n" +
+		"		// \n" +
+		"		.forEach(c -> {\n" +
+		"			aaaaaa();\n" +
+		"			bbbbbb();\n" +
+		"		});\n" +
+		"}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/565053 - [formatter] Parenthesis in "separate lines if wrapped": wrapping disruptions
+ */
+public void testBug565053a() {
+	this.formatterPrefs.parenthesis_positions_in_method_invocation = DefaultCodeFormatterConstants.SEPARATE_LINES_IF_WRAPPED;
+	this.formatterPrefs.page_width = 92;
+	formatSource(
+		"class Example {\n" +
+		"\n" +
+		"	List SUPPORTED_THINGS = asList(\n" +
+		"			new Thing(\n" +
+		"					\"rocodileaaadasgasgasgasgasgasgaaaaasgsgasgasgasgasfafghasfaa aaadad\"\n" +
+		"			), \"new Thing()\"\n" +
+		"	);\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/565053 - [formatter] Parenthesis in "separate lines if wrapped": wrapping disruptions
+ */
+public void testBug565053b() {
+	this.formatterPrefs.parenthesis_positions_in_method_invocation = DefaultCodeFormatterConstants.SEPARATE_LINES_IF_WRAPPED;
+	this.formatterPrefs.page_width = 100;
+	formatSource(
+		"class Example {\n" +
+		"\n" +
+		"	List SUPPORTED_THINGS = asList(\n" +
+		"			new Thing(\"rocodileaaadasgasgasgasgasgasgaaaaasgsgasgasgasgasfafghasfaa aaadad\")\n" +
+		"			\"new Thing()\"\n" +
+		"	);\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/567714 - [15] Formatting record file moves annotation to the line of record declaration
+ */
+public void testBug567714() {
+	formatSource(
+		"@SuppressWarnings(\"preview\")\n" +
+		"@Deprecated\n" +
+		"public record X(int i) {\n" +
+		"	public X(int i) {\n" +
+		"		this.i = i;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/569798 - [formatter] Brace position - next line indented: bug for array within annotation
+ */
+public void testBug569798() {
+	this.formatterPrefs.brace_position_for_array_initializer = DefaultCodeFormatterConstants.NEXT_LINE_SHIFTED;
+	formatSource(
+		"class Test {\n" +
+		"	@Nullable\n" +
+		"	@SuppressWarnings(\n" +
+		"		{ \"\" })\n" +
+		"	@Something(a =\n" +
+		"		{ \"\" })\n" +
+		"	void f() {\n" +
+		"	}\n" +
+		"}"
+	);
+}
+/**
+ * https://bugs.eclipse.org/569964 - [formatter] Keep braced code on one line: problem with comments after javadoc
+ */
+public void testBug569964() {
+	this.formatterPrefs.keep_method_body_on_one_line = DefaultCodeFormatterConstants.ONE_LINE_IF_EMPTY;
+	formatSource(
+		"class Test {\n" +
+		"	/**\n" +
+		"	 * More Java doc comment\n" +
+		"	 */\n" +
+		"	// A line comment\n" +
+		"	/* package */ void nothing() {}\n" +
+		"}"
+	);
+}
+/**
+ * https://bugs.eclipse.org/570220 - [formatter] Bug for 'if' open parenthesis inside lambda body preceded by comment line
+ */
+public void testBug570220() {
+	this.formatterPrefs.brace_position_for_block = DefaultCodeFormatterConstants.NEXT_LINE_ON_WRAP;
+	formatSource(
+		"class C {\n" +
+		"	Runnable r = () -> {\n" +
+		"		//\n" +
+		"		if (true) {\n" +
+		"		}\n" +
+		"	};\n" +
 		"}");
 }
 }

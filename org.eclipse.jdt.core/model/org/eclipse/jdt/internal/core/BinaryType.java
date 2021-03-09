@@ -298,20 +298,50 @@ public int getElementType() {
 public IField getField(String fieldName) {
 	return new BinaryField(this, fieldName);
 }
-
 @Override
 public IField[] getFields() throws JavaModelException {
-	ArrayList list = getChildrenOfType(FIELD);
-	int size;
-	if ((size = list.size()) == 0) {
-		return NO_FIELDS;
-	} else {
-		IField[] array= new IField[size];
+	if (!isRecord()) {
+		ArrayList list = getChildrenOfType(FIELD);
+		if (list.size() == 0) {
+			return NO_FIELDS;
+		}
+		IField[] array= new IField[list.size()];
 		list.toArray(array);
 		return array;
 	}
+	return getFieldsOrComponents(false);
 }
-
+@Override
+public IField[] getRecordComponents() throws JavaModelException {
+	if (!isRecord())
+		return new IField[0];
+	return getFieldsOrComponents(true);
+}
+private IField[] getFieldsOrComponents(boolean component) throws JavaModelException {
+	ArrayList list = getChildrenOfType(FIELD);
+	if (list.size() == 0) {
+		return NO_FIELDS;
+	}
+	ArrayList<IField> fields = new ArrayList<>();
+	for (Object object : list) {
+		IField field = (IField) object;
+		if (field.isRecordComponent() == component)
+			fields.add(field);
+	}
+	IField[] array= new IField[fields.size()];
+	fields.toArray(array);
+	return array;
+}
+@Override
+public IField getRecordComponent(String compName) {
+	try {
+		if (isRecord())
+			return new BinaryField(this, compName);
+	} catch (JavaModelException e) {
+		//
+	}
+	return null;
+}
 @Override
 public int getFlags() throws JavaModelException {
 	IBinaryType info = (IBinaryType) getElementInfo();
@@ -559,6 +589,21 @@ public String[] getSuperInterfaceNames() throws JavaModelException {
 	}
 	return strings;
 }
+@Override
+public String[] getPermittedSubtypeNames() throws JavaModelException {
+	IBinaryType info = (IBinaryType) getElementInfo();
+	char[][] names= info.getPermittedSubtypeNames();
+	int length;
+	if (names == null || (length = names.length) == 0) {
+		return CharOperation.NO_STRINGS;
+	}
+	names= ClassFile.translatedNames(names);
+	String[] strings= new String[length];
+	for (int i= 0; i < length; i++) {
+		strings[i]= new String(names[i]);
+	}
+	return strings;
+}
 
 /**
  * @see IType#getSuperInterfaceTypeSignatures()
@@ -712,6 +757,16 @@ public boolean isEnum() throws JavaModelException {
 public boolean isRecord() throws JavaModelException {
 	IBinaryType info = (IBinaryType) getElementInfo();
 	return TypeDeclaration.kind(info.getModifiers()) == TypeDeclaration.RECORD_DECL;
+}
+/**
+ * @see IType#isSealed()
+ * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+ */
+@Override
+public boolean isSealed() throws JavaModelException {
+	IBinaryType info = (IBinaryType) getElementInfo();
+	char[][] names = info.getPermittedSubtypeNames();
+	return (names != null && names.length > 0);
 }
 
 @Override

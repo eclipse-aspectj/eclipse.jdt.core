@@ -5,7 +5,7 @@
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * https://www.eclipse.org/legal/epl-2.0/
- *
+ * 
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -46,8 +46,6 @@ public abstract class JavadocTest extends AbstractRegressionTest {
 		ALL_CLASSES.add(JavadocTestForMethod.class);
 		ALL_CLASSES.add(JavadocTestMixed.class);
 		ALL_CLASSES.add(JavadocTestForClass.class);
-		ALL_CLASSES.add(JavadocTestForRecord.class);
-		ALL_CLASSES.add(JavadocTestForModule.class);
 		ALL_CLASSES.add(JavadocTestForConstructor.class);
 		ALL_CLASSES.add(JavadocTestForField.class);
 		ALL_CLASSES.add(JavadocTestForInterface.class);
@@ -84,6 +82,15 @@ public abstract class JavadocTest extends AbstractRegressionTest {
 		}
 		if ((complianceLevels & AbstractCompilerTest.F_1_5) != 0) {
 			testSuite.addTest(buildUniqueComplianceTestSuite(JavadocTest_1_5.class, ClassFileConstants.JDK1_5));
+		}
+		if ((complianceLevels & AbstractCompilerTest.F_9) != 0) {
+			testSuite.addTest(buildUniqueComplianceTestSuite(JavadocTestForModule.class, ClassFileConstants.JDK9));
+		}
+		if ((complianceLevels & AbstractCompilerTest.F_14) != 0) {
+			testSuite.addTest(buildUniqueComplianceTestSuite(JavadocTestForRecord.class, ClassFileConstants.JDK14));
+		}
+		if ((complianceLevels & AbstractCompilerTest.F_15) != 0) {
+			testSuite.addTest(buildUniqueComplianceTestSuite(JavadocTest_15.class, ClassFileConstants.JDK15));
 		}
 		return testSuite;
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -11,7 +11,10 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - contribution for bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
- *     Pierre-Yves B. <pyvesdev@gmail.com> - Contribution for bug 559618 - No compiler warning for import from same package
+ *     Pierre-Yves B. <pyvesdev@gmail.com> - Contributions for
+ *                              Bug 559618 - No compiler warning for import from same package
+ *                              Bug 560630 - No warning on unused import on class from same package
+ *     Microsoft Corporation - support custom options at compilation unit level
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.model;
 
@@ -20,6 +23,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import junit.framework.Test;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -32,6 +37,7 @@ import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.rewrite.ImportRewrite;
+import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
 import org.eclipse.jdt.internal.core.Buffer;
 import org.eclipse.jdt.internal.core.CompilationUnit;
 import org.eclipse.jdt.internal.core.util.Util;
@@ -59,7 +65,7 @@ public void setUpSuite() throws Exception {
 	super.setUpSuite();
 
 	final String compliance = "1.5"; //$NON-NLS-1$
-	this.testProject = createJavaProject("P", new String[] {"src"}, new String[] {getExternalJCLPathString(compliance)}, "bin", compliance); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+	this.testProject = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", compliance); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	createFolder("/P/src/p");
 	createFile(
 		"/P/src/p/X.java",
@@ -2789,6 +2795,70 @@ public void testBug559618_3() throws CoreException { // Nested class imports mus
 	} finally {
 		deleteFile("/P/src/p/C.java");
 		deleteFile("/P/src/p/D.java");
+	}
+}
+public void testBug560630() throws CoreException {
+  try {
+          createFile("/P/src/p/C.java",
+                  "package p;\n" +
+                  "public class C{};\n");
+
+          createFile("/P/src/p/D.java",
+                  "package p;\n" +
+                  "import p.C;\n" +
+                  "public class D extends C {}\n");
+          ICompilationUnit cuD = getCompilationUnit("/P/src/p/D.java");
+
+          ASTParser parser = ASTParser.newParser(AST_INTERNAL_LATEST);
+          parser.setProject(this.testProject);
+          parser.setSource(cuD);
+          parser.setResolveBindings(true);
+          org.eclipse.jdt.core.dom.CompilationUnit cuAST = (org.eclipse.jdt.core.dom.CompilationUnit) parser.createAST(null);
+          IProblem[] problems = cuAST.getProblems();
+          assertEquals("Should have 1 problem", 1, problems.length);
+          assertEquals("Should have only an unused warning", "The import p.C is never used", problems[0].getMessage());
+  } finally {
+          deleteFile("/P/src/p/C.java");
+          deleteFile("/P/src/p/D.java");
+  }
+}
+
+public void testSetOptions() throws CoreException {
+	try {
+		Map<String, String> newOptions = new HashMap<>();
+		newOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_SIZE, "4");
+		newOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, JavaCore.SPACE);
+		this.cu.setOptions(newOptions);
+
+		Map<String, String> customOptions = this.cu.getCustomOptions();
+		assertEquals(newOptions.size(), customOptions.size());
+		for (Map.Entry<String, String> entry : newOptions.entrySet()) {
+			assertEquals(entry.getValue(), customOptions.get(entry.getKey()));
+		}
+	} finally {
+		this.cu.setOptions(null);
+	}
+}
+
+public void testGetOptions() throws CoreException {
+	String oldTabChar = this.testProject.getOption(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, false);
+	try {
+		Map<String, String> projectOptions = this.testProject.getOptions(true);
+		Map<String, String> unitOptions = this.cu.getOptions(true);
+		assertEquals("Should inherit the project options", unitOptions, projectOptions);
+
+		this.testProject.setOption(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, JavaCore.TAB);
+		Map<String, String> newOptions = new HashMap<>();
+		newOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, JavaCore.SPACE);
+		this.cu.setOptions(newOptions);
+
+		projectOptions = this.testProject.getOptions(true);
+		unitOptions = this.cu.getOptions(true);
+		assertEquals("Should use the options from the compilation unit", JavaCore.SPACE, unitOptions.get(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR));
+		assertEquals("should inherit the project options", projectOptions.get(DefaultCodeFormatterConstants.FORMATTER_TAB_SIZE), unitOptions.get(DefaultCodeFormatterConstants.FORMATTER_TAB_SIZE));
+	} finally {
+		this.testProject.setOption(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, oldTabChar);
+		this.cu.setOptions(null);
 	}
 }
 }

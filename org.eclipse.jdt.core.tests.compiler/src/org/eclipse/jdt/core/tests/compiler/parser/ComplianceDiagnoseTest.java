@@ -1986,11 +1986,9 @@ public void test0042() {
 			"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 			"Syntax error on tokens, delete these tokens\n" +
 			"----------\n";
-	@SuppressWarnings("unused")
 	String expected14ProblemLog =
 		expected13ProblemLog;
 
-	@SuppressWarnings("unused")
 	String expected15ProblemLog =
 			"----------\n" +
 			"1. ERROR in X.java (at line 1)\n" +
@@ -3234,17 +3232,18 @@ public void testBug399781() {
 		"}\n",
 	};
 	String usLevel = this.complianceLevel < ClassFileConstants.JDK9 ? "WARNING" : "ERROR";
+	String errorMessage = this.complianceLevel < ClassFileConstants.JDK9 ? "\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" : "\'_\' is a keyword from source level 9 onwards, cannot be used as identifier\n";
 	String expectedProblemLog =
 			"----------\n" +
 			"1. " + usLevel +" in X.java (at line 2)\n" +
 			"	int _;\n" +
 			"	    ^\n" +
-			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" +
+			errorMessage +
 			"----------\n" +
 			"2. " + usLevel +" in X.java (at line 4)\n" +
 			"	int _   = 3;\n" +
 			"	    ^\n" +
-			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" +
+			errorMessage +
 			"----------\n" +
 			"3. WARNING in X.java (at line 4)\n" +
 			"	int _   = 3;\n" +
@@ -3254,7 +3253,7 @@ public void testBug399781() {
 			"4. " + usLevel +" in X.java (at line 8)\n" +
 			"	void goo(int _) {}\n" +
 			"	             ^\n" +
-			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" +
+			errorMessage +
 			"----------\n" +
 			"5. WARNING in X.java (at line 8)\n" +
 			"	void goo(int _) {}\n" +
@@ -3264,7 +3263,7 @@ public void testBug399781() {
 			"6. " + usLevel +" in X.java (at line 11)\n" +
 			"	} catch (Exception _) {\n" +
 			"	                   ^\n" +
-			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" +
+			errorMessage +
 			"----------\n" +
 			"7. WARNING in X.java (at line 11)\n" +
 			"	} catch (Exception _) {\n" +

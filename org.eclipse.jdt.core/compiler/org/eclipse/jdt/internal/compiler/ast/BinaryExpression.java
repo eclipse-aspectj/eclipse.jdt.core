@@ -1812,9 +1812,9 @@ public StringBuffer printExpressionNoParenthesis(int indent, StringBuffer output
 }
 
 @Override
-public void initializePatternVariables(BlockScope scope, CodeStream codeStream) {
-	this.left.initializePatternVariables(scope, codeStream);
-	this.right.initializePatternVariables(scope, codeStream);
+public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
+	this.left.addPatternVariables(scope, codeStream);
+	this.right.addPatternVariables(scope, codeStream);
 }
 @Override
 public boolean containsPatternVariable() {
@@ -1824,6 +1824,13 @@ public boolean containsPatternVariable() {
 public TypeBinding resolveType(BlockScope scope) {
 	// keep implementation in sync with CombinedBinaryExpression#resolveType
 	// and nonRecursiveResolveTypeUpwards
+	if(this.patternVarsWhenFalse == null && this.patternVarsWhenTrue == null &&
+			this.containsPatternVariable()) {
+		// the null check is to guard against a second round of collection.
+		// This usually doesn't happen,
+		// except when we call collectPatternVariablesToScope() from here
+		this.collectPatternVariablesToScope(null, scope);
+	}
 	boolean leftIsCast, rightIsCast;
 	if ((leftIsCast = this.left instanceof CastExpression) == true) this.left.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 	TypeBinding leftType = this.left.resolveType(scope);

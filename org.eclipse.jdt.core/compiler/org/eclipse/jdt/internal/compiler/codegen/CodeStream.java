@@ -6833,7 +6833,7 @@ public void pop2() {
 
 public void pushExceptionOnStack(TypeBinding binding) {
 	this.stackDepth = 1;
-	clearTypeBindingStack();
+//	clearTypeBindingStack();
 	pushTypeBinding(binding);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
@@ -7699,7 +7699,7 @@ private void popTypeBinding(int nPop) {
 	for (int i = 0; i< nPop; ++i)
 		popTypeBinding();
 }
-private void clearTypeBindingStack() {
+public void clearTypeBindingStack() {
 	if (!isSwitchStackTrackingActive())
 		return;
 	this.switchSaveTypeBindings.clear();

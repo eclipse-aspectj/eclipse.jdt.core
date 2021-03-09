@@ -61,6 +61,7 @@
  *                          	Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *     Pierre-Yves B. <pyvesdev@gmail.com> - Contributions for
  *                              Bug 559618 - No compiler warning for import from same package
+ *                              Bug 560630 - No warning on unused import on class from same package
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -2104,8 +2105,7 @@ public abstract class Scope {
 		return typeBinding;
 	}
 
-	public LocalVariableBinding findVariable(char[] variable) {
-
+	public LocalVariableBinding findVariable(char[] variable, InvocationSite invocationSite) {
 		return null;
 	}
 
@@ -2160,7 +2160,7 @@ public abstract class Scope {
 
 							//$FALL-THROUGH$ could duplicate the code below to save a cast - questionable optimization
 						case BLOCK_SCOPE :
-							LocalVariableBinding variableBinding = scope.findVariable(name);
+							LocalVariableBinding variableBinding = scope.findVariable(name, invocationSite);
 							// looks in this scope only
 							if (variableBinding != null) {
 								if (foundField != null && foundField.isValidBinding())
@@ -2307,7 +2307,7 @@ public abstract class Scope {
 						for (int i = 0, length = imports.length; i < length; i++) {
 							ImportBinding importBinding = imports[i];
 							if (importBinding.isStatic() && !importBinding.onDemand) {
-								if (CharOperation.equals(importBinding.compoundName[importBinding.compoundName.length - 1], name)) {
+								if (CharOperation.equals(importBinding.getSimpleName(), name)) {
 									if (unitScope.resolveSingleImport(importBinding, Binding.TYPE | Binding.FIELD | Binding.METHOD) != null && importBinding.resolvedImport instanceof FieldBinding) {
 										foundField = (FieldBinding) importBinding.resolvedImport;
 										ImportReference importReference = importBinding.reference;
@@ -3554,12 +3554,12 @@ public abstract class Scope {
 				nextImport : for (int i = 0, length = imports.length; i < length; i++) {
 					ImportBinding importBinding = imports[i];
 					if (!importBinding.onDemand) {
-						if (CharOperation.equals(importBinding.compoundName[importBinding.compoundName.length - 1], name)) {
+						if (CharOperation.equals(importBinding.getSimpleName(), name)) {
 							Binding resolvedImport = unitScope.resolveSingleImport(importBinding, Binding.TYPE);
 							if (resolvedImport == null) continue nextImport;
 							if (resolvedImport instanceof TypeBinding) {
 								ImportReference importReference = importBinding.reference;
-								if (importReference != null)
+								if (importReference != null && !isUnnecessarySamePackageImport(importBinding.resolvedImport, unitScope))
 									importReference.bits |= ASTNode.Used;
 								return resolvedImport; // already know its visible
 							}
@@ -3674,8 +3674,9 @@ public abstract class Scope {
 
 	private boolean isUnnecessarySamePackageImport(Binding resolvedImport, Scope unitScope) {
 		if (resolvedImport instanceof ReferenceBinding) {
-			if (unitScope.getCurrentPackage() == ((ReferenceBinding) resolvedImport).getPackage()) {
-				if ((resolvedImport.getAnnotationTagBits() & TagBits.IsNestedType) != 0)
+			ReferenceBinding referenceBinding = (ReferenceBinding) resolvedImport;
+			if (unitScope.getCurrentPackage() == referenceBinding.getPackage()) {
+				if (referenceBinding.isNestedType())
 					return false; // importing nested types is still necessary
 				return true;
 			}

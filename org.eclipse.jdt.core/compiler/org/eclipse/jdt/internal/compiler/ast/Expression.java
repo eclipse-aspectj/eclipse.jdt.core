@@ -785,12 +785,43 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 		throw new ShouldNotImplement(Messages.ast_missingCode);
 	}
 }
-public void initializePatternVariables(BlockScope scope, CodeStream codeStream) {
+public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
 	// Nothing by default
 }
 public boolean containsPatternVariable() {
 	return false;
 }
+public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {
+	new ASTVisitor() {
+		LocalVariableBinding[] patternVariablesInScope;
+		@Override
+		public boolean visit(Argument argument, BlockScope skope) {
+			// Most likely to be a lambda parameter
+			argument.addPatternVariablesWhenTrue(this.patternVariablesInScope);
+			return true;
+		}
+		@Override
+		public boolean visit(
+				QualifiedNameReference nameReference,
+				BlockScope skope) {
+			nameReference.addPatternVariablesWhenTrue(this.patternVariablesInScope);
+			return true;
+		}
+		@Override
+		public boolean visit(
+				SingleNameReference nameReference,
+				BlockScope skope) {
+			nameReference.addPatternVariablesWhenTrue(this.patternVariablesInScope);
+			return true;
+		}
+
+		public void propagatePatternVariablesInScope(LocalVariableBinding[] vars, BlockScope skope) {
+			this.patternVariablesInScope = vars;
+			Expression.this.traverse(this, skope);
+		}
+	}.propagatePatternVariablesInScope(variables, scope);
+}
+
 /**
  * Default generation of a boolean value
  * @param currentScope
@@ -1175,7 +1206,10 @@ public boolean forcedToBeRaw(ReferenceContext referenceContext) {
 		if (field.type.isRawType()) {
 			if (referenceContext instanceof AbstractMethodDeclaration) {
 				AbstractMethodDeclaration methodDecl = (AbstractMethodDeclaration) referenceContext;
-				if (TypeBinding.notEquals(field.declaringClass, methodDecl.binding.declaringClass)) { // inherited raw field, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=337962
+				ReferenceBinding declaringClass = methodDecl.binding != null
+						? methodDecl.binding.declaringClass
+						: methodDecl.scope.enclosingReceiverType();
+				if (TypeBinding.notEquals(field.declaringClass, declaringClass)) { // inherited raw field, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=337962
 					return true;
 				}
 			} else if (referenceContext instanceof TypeDeclaration) {

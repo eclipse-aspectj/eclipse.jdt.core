@@ -197,21 +197,23 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 	}
 
 	@Override
-	public Argument getRecordComponent() {
+	public RecordComponent getRecordComponent() {
 		if (this.arguments != null && this.arguments.length != 0)
 			return null;
 		ClassScope skope = this.scope.classScope();
-		if (!(skope.referenceContext instanceof RecordDeclaration))
+		TypeDeclaration typeDecl = skope.referenceContext;
+		if (!typeDecl.isRecord())
 			return null;
-		RecordDeclaration rd = (RecordDeclaration) skope.referenceContext;
-		Argument[] args = rd.getArgs();
-		if (args == null || args.length == 0)
+		if (!(skope.referenceContext.isRecord()))
 			return null;
-		for (Argument arg : rd.getArgs()) {
-			if (arg == null || arg.name == null)
+		RecordComponent[] recComps = typeDecl.recordComponents;
+		if (recComps == null || recComps.length == 0)
+			return null;
+		for (RecordComponent recComp : recComps) {
+			if (recComp == null || recComp.name == null)
 				continue;
-			if (CharOperation.equals(this.selector, arg.name)) {
-				return arg;
+			if (CharOperation.equals(this.selector, recComp.name)) {
+				return recComp;
 			}
 		}
 		return null;
@@ -238,7 +240,7 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 			this.returnType.resolvedType = this.binding.returnType;
 			// record the return type binding
 		}
-		Argument recordComponent = getRecordComponent();
+		RecordComponent recordComponent = getRecordComponent();
 		if (recordComponent != null) {
 			/* JLS 14 Records Sec 8.10.3 */
 			if (this.returnType != null && TypeBinding.notEquals(this.returnType.resolvedType, recordComponent.type.resolvedType))
@@ -277,7 +279,8 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 		// check @Override annotation
 		final CompilerOptions compilerOptions = this.scope.compilerOptions();
 		checkOverride: {
-			if (this.binding == null) break checkOverride;
+			// For a record component accessor method, don't bother with checking for override (JLS 15 9.6.4.4)
+			if (this.binding == null || recordComponent != null) break checkOverride;
 			long complianceLevel = compilerOptions.complianceLevel;
 			if (complianceLevel < ClassFileConstants.JDK1_5) break checkOverride;
 			int bindingModifiers = this.binding.modifiers;

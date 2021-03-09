@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -10410,11 +10410,16 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		DefaultCodeFormatterOptions preferences = new DefaultCodeFormatterOptions(options);
 		preferences.line_separator = "\n";//$NON-NLS-1$
 		preferences.insert_new_line_after_annotation_on_type = false;
+		preferences.alignment_for_annotations_on_type = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_field = false;
+		preferences.alignment_for_annotations_on_field = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_method = false;
+		preferences.alignment_for_annotations_on_method = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_package = false;
+		preferences.alignment_for_annotations_on_package = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_parameter = true;
 		preferences.insert_new_line_after_annotation_on_local_variable = false;
+		preferences.alignment_for_annotations_on_local_variable = Alignment.M_NO_ALIGNMENT;
 		Hashtable javaCoreOptions = JavaCore.getOptions();
 		try {
 			Hashtable newJavaCoreOptions = JavaCore.getOptions();
@@ -10444,6 +10449,7 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		preferences.insert_new_line_after_annotation_on_package = true;
 		preferences.insert_new_line_after_annotation_on_parameter = true;
 		preferences.insert_new_line_after_annotation_on_local_variable = false;
+		preferences.alignment_for_annotations_on_local_variable = Alignment.M_NO_ALIGNMENT;
 		preferences.line_separator = "\n";//$NON-NLS-1$
 		Hashtable javaCoreOptions = JavaCore.getOptions();
 		try {
@@ -10475,6 +10481,7 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		preferences.insert_new_line_after_annotation_on_package = true;
 		preferences.insert_new_line_after_annotation_on_parameter = false;
 		preferences.insert_new_line_after_annotation_on_local_variable = false;
+		preferences.alignment_for_annotations_on_local_variable = Alignment.M_NO_ALIGNMENT;
 		setPageWidth80(preferences);
 		Hashtable javaCoreOptions = JavaCore.getOptions();
 		try {
@@ -10500,11 +10507,16 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		final Map options = DefaultCodeFormatterConstants.getEclipseDefaultSettings();
 		DefaultCodeFormatterOptions preferences = new DefaultCodeFormatterOptions(options);
 		preferences.insert_new_line_after_annotation_on_type = false;
+		preferences.alignment_for_annotations_on_type = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_field = false;
+		preferences.alignment_for_annotations_on_field = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_method = false;
+		preferences.alignment_for_annotations_on_method = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_package = false;
+		preferences.alignment_for_annotations_on_package = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_parameter = false;
 		preferences.insert_new_line_after_annotation_on_local_variable = false;
+		preferences.alignment_for_annotations_on_local_variable = Alignment.M_NO_ALIGNMENT;
 		preferences.line_separator = "\n";//$NON-NLS-1$
 		setPageWidth80(preferences);
 		Hashtable javaCoreOptions = JavaCore.getOptions();
@@ -10531,9 +10543,13 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		final Map options = DefaultCodeFormatterConstants.getEclipseDefaultSettings();
 		DefaultCodeFormatterOptions preferences = new DefaultCodeFormatterOptions(options);
 		preferences.insert_new_line_after_annotation_on_type = false;
+		preferences.alignment_for_annotations_on_type = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_field = false;
+		preferences.alignment_for_annotations_on_field = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_method = false;
+		preferences.alignment_for_annotations_on_method = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_package = false;
+		preferences.alignment_for_annotations_on_package = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_parameter = true;
 		preferences.insert_new_line_after_annotation_on_local_variable = true;
 		preferences.line_separator = "\n";//$NON-NLS-1$
@@ -10561,9 +10577,13 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 		final Map options = DefaultCodeFormatterConstants.getEclipseDefaultSettings();
 		DefaultCodeFormatterOptions preferences = new DefaultCodeFormatterOptions(options);
 		preferences.insert_new_line_after_annotation_on_type = false;
+		preferences.alignment_for_annotations_on_type = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_field = false;
+		preferences.alignment_for_annotations_on_field = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_method = false;
+		preferences.alignment_for_annotations_on_method = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_package = false;
+		preferences.alignment_for_annotations_on_package = Alignment.M_NO_ALIGNMENT;
 		preferences.insert_new_line_after_annotation_on_parameter = false;
 		preferences.insert_new_line_after_annotation_on_local_variable = true;
 		preferences.line_separator = "\n";//$NON-NLS-1$
@@ -15251,7 +15271,7 @@ public void testBug390720b() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436a() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.SPACE;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15264,7 +15284,7 @@ public void testBug549436a() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436b() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.SPACE;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15277,7 +15297,7 @@ public void testBug549436b() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436c() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.SPACE;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15290,7 +15310,7 @@ public void testBug549436c() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436d() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.SPACE;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15303,7 +15323,7 @@ public void testBug549436d() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436e() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.SPACE;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15316,7 +15336,7 @@ public void testBug549436e() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436f() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.TAB;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15329,7 +15349,7 @@ public void testBug549436f() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436g() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.TAB;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15342,7 +15362,7 @@ public void testBug549436g() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436h() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.TAB;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = true;
@@ -15355,7 +15375,7 @@ public void testBug549436h() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436i() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.TAB;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = true;
@@ -15368,7 +15388,7 @@ public void testBug549436i() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436j() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.MIXED;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15381,7 +15401,7 @@ public void testBug549436j() throws JavaModelException {
  * https://bugs.eclipse.org/549436 - [13] Formatter support for JEP 355 Text Block
  */
 public void testBug549436k() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	setPageWidth80();
 	this.formatterPrefs.tab_char = DefaultCodeFormatterOptions.TAB;
 	this.formatterPrefs.use_tabs_only_for_leading_indentations = false;
@@ -15505,14 +15525,14 @@ public void testBug547261() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155a() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	formatSourceInWorkspace("test553155", "in.java", "A_out.java");
 }
 /**
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155b() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.indent_body_declarations_compare_to_record_header = false;
 	formatSourceInWorkspace("test553155", "in.java", "B_out.java");
 }
@@ -15520,7 +15540,7 @@ public void testBug553155b() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155c() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.brace_position_for_record_declaration = DefaultCodeFormatterConstants.NEXT_LINE;
 	formatSourceInWorkspace("test553155", "in.java", "C_out.java");
 }
@@ -15528,7 +15548,7 @@ public void testBug553155c() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155d() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.brace_position_for_record_constructor = DefaultCodeFormatterConstants.NEXT_LINE;
 	formatSourceInWorkspace("test553155", "in.java", "D_out.java");
 }
@@ -15536,7 +15556,7 @@ public void testBug553155d() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155e() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.parenthesis_positions_in_record_declaration = DefaultCodeFormatterConstants.SEPARATE_LINES;
 	formatSourceInWorkspace("test553155", "in.java", "E_out.java");
 }
@@ -15544,7 +15564,7 @@ public void testBug553155e() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155f() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_after_comma_in_record_components = false;
 	formatSourceInWorkspace("test553155", "in.java", "F_out.java");
 }
@@ -15552,7 +15572,7 @@ public void testBug553155f() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155g() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_after_opening_paren_in_record_declaration = true;
 	formatSourceInWorkspace("test553155", "in.java", "G_out.java");
 }
@@ -15560,7 +15580,7 @@ public void testBug553155g() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155h() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_before_closing_paren_in_record_declaration = true;
 	formatSourceInWorkspace("test553155", "in.java", "H_out.java");
 }
@@ -15568,7 +15588,7 @@ public void testBug553155h() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155i() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_before_comma_in_record_components = true;
 	formatSourceInWorkspace("test553155", "in.java", "I_out.java");
 }
@@ -15576,7 +15596,7 @@ public void testBug553155i() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155j() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_before_opening_brace_in_record_constructor = false;
 	formatSourceInWorkspace("test553155", "in.java", "J_out.java");
 }
@@ -15584,7 +15604,7 @@ public void testBug553155j() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155k() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_before_opening_brace_in_record_declaration = false;
 	formatSourceInWorkspace("test553155", "in.java", "K_out.java");
 }
@@ -15592,7 +15612,7 @@ public void testBug553155k() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155l() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.insert_space_before_opening_paren_in_record_declaration = true;
 	formatSourceInWorkspace("test553155", "in.java", "L_out.java");
 }
@@ -15600,7 +15620,7 @@ public void testBug553155l() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155m() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.alignment_for_record_components = Alignment.M_ONE_PER_LINE_SPLIT + + Alignment.M_FORCE;
 	formatSourceInWorkspace("test553155", "in.java", "M_out.java");
 }
@@ -15608,7 +15628,7 @@ public void testBug553155m() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155n() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.alignment_for_superinterfaces_in_record_declaration = Alignment.M_ONE_PER_LINE_SPLIT + + Alignment.M_FORCE;
 	formatSourceInWorkspace("test553155", "in.java", "N_out.java");
 }
@@ -15616,7 +15636,7 @@ public void testBug553155n() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155o() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.keep_record_constructor_on_one_line = DefaultCodeFormatterConstants.ONE_LINE_ALWAYS;
 	String source = "record Range(int lo, int hi) {public Range {foo();}}";
 	formatSource(source,
@@ -15628,11 +15648,297 @@ public void testBug553155o() throws JavaModelException {
  * https://bugs.eclipse.org/553155 - [14] Records - Formatter Support
  */
 public void testBug553155p() throws JavaModelException {
-	setComplianceLevel(CompilerOptions.VERSION_14);
+	setComplianceLevel(CompilerOptions.VERSION_15);
 	this.formatterPrefs.keep_record_constructor_on_one_line = DefaultCodeFormatterConstants.ONE_LINE_ALWAYS;
 	this.formatterPrefs.keep_record_declaration_on_one_line = DefaultCodeFormatterConstants.ONE_LINE_ALWAYS;
 	String source = "record Range(int lo, int hi) {public Range {foo();}}";
 	formatSource(source,
 		"record Range(int lo, int hi) { public Range { foo(); } }");
+}
+/**
+ * https://bugs.eclipse.org/118641 - [formatter] Formatter does not break line on assert statement
+ *
+ * Check that assertions are not formatted without enabling the option.
+ */
+public void testBug118641a() throws JavaModelException {
+	this.formatterPrefs.alignment_for_assertion_message = Alignment.M_NO_ALIGNMENT;
+
+	String input =
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME).getLength() == 1 : \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}";
+	formatSource(input,
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME)\n" +
+		"				.getLength() == 1 : \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/118641 - [formatter] Formatter does not break line on assert statement
+ *
+ *
+ * Check that an assertion is formatted when it exceeds the page width.
+ */
+public void testBug118641b() throws JavaModelException {
+	this.formatterPrefs.wrap_before_assertion_message_operator = true;
+
+	String input =
+		"public class Test {\n" +
+		"	\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName( FIELD_NAME ).getLength() == 1 : \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}";
+	formatSource(input,
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME).getLength() == 1\n" +
+		"				: \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/118641 - [formatter] Formatter does not break line on assert statement
+ *
+ *
+ * Check that an assertion can be broken after the colon separator.
+ */
+public void testBug118641c() throws JavaModelException {
+	this.formatterPrefs.wrap_before_assertion_message_operator = false;
+
+	String input =
+		"public class Test {\n" +
+		"	\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName( FIELD_NAME ).getLength() == 1 : \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}";
+	formatSource(input,
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME).getLength() == 1 :\n" +
+		"				\"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/118641 - [formatter] Formatter does not break line on assert statement
+ *
+ * Check that assertion messages are formatted when the assertion expression exceeds the page width.
+ */
+public void testBug118641d() throws JavaModelException {
+	this.formatterPrefs.page_width = 65;
+
+	String input =
+		"public class Test {\n" +
+		"	\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName( FIELD_NAME ).getLength() == 1 : \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}";
+	formatSource(input,
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME)\n" +
+		"				.getLength() == 1\n" +
+		"				: \"XML malformed. No attribute name! Please talk to your sysadmin.\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/118641 - [formatter] Formatter does not break line on assert statement
+ *
+ * Check that an assertion message is wrapped when forced to do so.
+ */
+public void testBug118641e() throws JavaModelException {
+	this.formatterPrefs.alignment_for_assertion_message = Alignment.M_COMPACT_SPLIT | Alignment.M_FORCE;
+
+	String input =
+		"public class Test {\n" +
+		"	\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName( FIELD_NAME ).getLength() == 1 : \"XML malformed. No attribute name!\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}";
+	formatSource(input,
+		"public class Test {\n" +
+		"\n" +
+		"	public void f(int a, int b) {\n" +
+		"		assert childElement.getElementsByTagName(FIELD_NAME).getLength() == 1\n" +
+		"				: \"XML malformed. No attribute name!\";\n" +
+		"		return;\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078a() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	formatSourceInWorkspace("test545078", "in.java", "A_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078b() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.alignment_for_annotations_on_package = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_type = false;
+	formatSourceInWorkspace("test545078", "in.java", "B_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078c() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.alignment_for_annotations_on_package = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_type = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_method = false;
+	formatSourceInWorkspace("test545078", "in.java", "C_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078d() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.alignment_for_annotations_on_package = Alignment.M_NEXT_PER_LINE_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_type = Alignment.M_COMPACT_FIRST_BREAK_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_method = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_local_variable = false;
+	formatSourceInWorkspace("test545078", "in.java", "D_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078e() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.page_width = 105;
+	this.formatterPrefs.alignment_for_annotations_on_method = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_local_variable = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_field = false;
+	formatSourceInWorkspace("test545078", "in.java", "E_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078f() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.page_width= 95;
+	this.formatterPrefs.alignment_for_annotations_on_local_variable = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_field = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_parameter = true;
+	formatSourceInWorkspace("test545078", "in.java", "F_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078g() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.alignment_for_annotations_on_field = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_parameter = Alignment.M_ONE_PER_LINE_SPLIT;
+	this.formatterPrefs.insert_new_line_after_type_annotation = true;
+	formatSourceInWorkspace("test545078", "in.java", "G_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078h() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.page_width = 105;
+	this.formatterPrefs.alignment_for_annotations_on_parameter = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_type_annotations = Alignment.M_ONE_PER_LINE_SPLIT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_package = false;
+	formatSourceInWorkspace("test545078", "in.java", "H_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078i() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.page_width = 105;
+	this.formatterPrefs.alignment_for_type_annotations = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_enum_constant = Alignment.M_NO_ALIGNMENT;
+	this.formatterPrefs.insert_new_line_after_annotation_on_enum_constant = false;
+	formatSourceInWorkspace("test545078", "in.java", "I_out.java");
+}
+/**
+ * https://bugs.eclipse.org/545078 - [formatter] Wrapping settings for annotations
+ */
+public void testBug545078j() throws JavaModelException {
+	setComplianceLevel(CompilerOptions.VERSION_1_5);
+	this.formatterPrefs.page_width = 80;
+	this.formatterPrefs.alignment_for_annotations_on_package = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_type = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_method = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_field = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_parameter = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_local_variable = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_type_annotations = Alignment.M_COMPACT_SPLIT;
+	this.formatterPrefs.alignment_for_annotations_on_enum_constant = Alignment.M_COMPACT_SPLIT;
+	formatSourceInWorkspace("test545078", "in.java", "J_out.java");
+}
+
+/**
+ * https://bugs.eclipse.org/222083 - [formatter] Formatting bug for GWT code
+ */
+public void testBug222083() {
+	String source =
+		"class C {\n" +
+		"	private static native void redirect(String url)/*-{\n" +
+		"		$wnd.location = url;\n" +
+		"	}-*/;\n" +
+		"}";
+	formatSource(source);
+}
+
+/**
+ * Bug 567016 - [formatter] off/on tags: enable by default
+ */
+public void testBug567016() {
+	this.formatterPrefs.use_tags = false;
+	String source =
+		"public class X01 {\n" +
+		"\n" +
+		"/* @formatter:off */\n" +
+		"void     foo(    )      {	\n" +
+		"				//      unformatted       comment\n" +
+		"}\n" +
+		"/* @formatter:on */\n" +
+		"void     bar(    )      {	\n" +
+		"				//      formatted       comment\n" +
+		"}\n" +
+		"}\n";
+	formatSource(source,
+		"public class X01 {\n" +
+		"\n" +
+		"	/* @formatter:off */\n" +
+		"	void foo() {\n" +
+		"		// unformatted comment\n" +
+		"	}\n" +
+		"\n" +
+		"	/* @formatter:on */\n" +
+		"	void bar() {\n" +
+		"		// formatted comment\n" +
+		"	}\n" +
+		"}\n"
+	);
 }
 }

@@ -31,6 +31,7 @@ package org.eclipse.jdt.internal.compiler.parser;
 
 import org.eclipse.jdt.core.IAnnotatable;
 import org.eclipse.jdt.core.IAnnotation;
+import org.eclipse.jdt.core.IField;
 import org.eclipse.jdt.core.IImportDeclaration;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.ILocalVariable;
@@ -241,6 +242,30 @@ public class SourceTypeConverter extends TypeConverter {
 
 	/*
 	 * Convert a field source element into a parsed field declaration
+	 */
+	private RecordComponent convertRecordComponents(SourceField component,
+										TypeDeclaration type,
+										CompilationResult compilationResult) throws JavaModelException {
+
+		SourceFieldElementInfo compInfo = (SourceFieldElementInfo) component.getElementInfo();
+		RecordComponent comp = new RecordComponent(null, -1, -1);
+
+		int start = compInfo.getNameSourceStart();
+		int end = compInfo.getNameSourceEnd();
+
+		comp.name = component.getElementName().toCharArray();
+		comp.sourceStart = start;
+		comp.sourceEnd = end;
+		comp.declarationSourceStart = compInfo.getDeclarationSourceStart();
+		comp.declarationSourceEnd = compInfo.getDeclarationSourceEnd();
+		comp.type = createTypeReference(compInfo.getTypeName(), start, end);
+
+		/* convert annotations */
+		comp.annotations = convertAnnotations(component);
+		return comp;
+	}
+	/*
+	 * Convert a record component source element into a parsed record component declaration
 	 */
 	private FieldDeclaration convert(SourceField fieldHandle, TypeDeclaration type, CompilationResult compilationResult) throws JavaModelException {
 
@@ -480,7 +505,12 @@ public class SourceTypeConverter extends TypeConverter {
 		if ((TypeDeclaration.kind(typeInfo.getModifiers()) == TypeDeclaration.RECORD_DECL)) {
 			// The first choice constructor that takes CompilationResult as arg is not setting all the fields
 			// Hence, use the one that does
-			type = new RecordDeclaration(type);
+			type.modifiers |= ExtraCompilerModifiers.AccRecord;
+			IField[] recordComponents = typeHandle.getRecordComponents();
+			type.recordComponents = new RecordComponent[recordComponents.length];
+			for(int i = 0; i < recordComponents.length; i++) {
+				type.recordComponents[i] = convertRecordComponents((SourceField)recordComponents[i], type, compilationResult);
+			}
 		}
 		if (typeInfo.getEnclosingType() == null) {
 			if (typeHandle.isAnonymous()) {
@@ -538,6 +568,14 @@ public class SourceTypeConverter extends TypeConverter {
 			for (int i = 0; i < interfaceCount; i++) {
 				type.superInterfaces[i] = createTypeReference(interfaceNames[i], start, end, true /* include generics */);
 				type.superInterfaces[i].bits |= ASTNode.IsSuperType;
+			}
+		}
+		char[][] permittedSubtypeNames = typeInfo.getPermittedSubtypeNames();
+		int permittedSubtypeCount = permittedSubtypeNames == null ? 0 : permittedSubtypeNames.length;
+		if (permittedSubtypeCount > 0) {
+			type.permittedTypes = new TypeReference[permittedSubtypeCount];
+			for (int i = 0; i < permittedSubtypeCount; i++) {
+				type.permittedTypes[i] = createTypeReference(permittedSubtypeNames[i], start, end, true /* include generics */);
 			}
 		}
 		/* convert member types */

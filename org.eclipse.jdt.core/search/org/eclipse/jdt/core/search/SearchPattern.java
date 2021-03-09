@@ -253,7 +253,9 @@ public abstract class SearchPattern {
 		| R_PATTERN_MATCH
 		| R_REGEXP_MATCH
 		| R_CAMELCASE_MATCH
-		| R_CAMELCASE_SAME_PART_COUNT_MATCH;
+		| R_CAMELCASE_SAME_PART_COUNT_MATCH
+		| R_SUBSTRING_MATCH
+		| R_SUBWORD_MATCH;
 
 	private int matchRule;
 
@@ -1930,6 +1932,9 @@ public static SearchPattern createPattern(IJavaElement element, int limitTo) {
  *     			<tr>
  *         		<td>{@link IJavaSearchConstants#METHOD_REFERENCE_EXPRESSION METHOD_REFERENCE_EXPRESSION}
  *         		<td>Return only method reference expressions (e.g. <code>A :: foo</code>).
+ *         		<tr>
+ *         		<td>{@link IJavaSearchConstants#PERMITTYPE_TYPE_REFERENCE PERMITTYPE_TYPE_REFERENCE}
+ *         		<td>Return only type references used as a permit type.
  * 			</table>
  * 	</li>
  *	</ul>
@@ -2414,13 +2419,13 @@ public void findIndexMatches(Index index, IndexQueryRequestor requestor, SearchP
 		EntryResult[] entries = pattern.queryIn(index);
 		if (entries == null) return;
 
-		SearchPattern decodedResult = pattern.getBlankPattern();
 		String containerPath = index.containerPath;
 		char separator = index.separator;
 		for (int i = 0, l = entries.length; i < l; i++) {
 			if (monitor != null && monitor.isCanceled()) throw new OperationCanceledException();
 
 			EntryResult entry = entries[i];
+			SearchPattern decodedResult = pattern.getBlankPattern();
 			decodedResult.decodeIndexKey(entry.getWord());
 			if (pattern.matchesDecodedKey(decodedResult)) {
 				// TODO (kent) some clients may not need the document names
@@ -2527,6 +2532,18 @@ public boolean matchesName(char[] pattern, char[] name) {
 		boolean sameLength = pattern.length == name.length;
 		boolean canBePrefix = name.length >= pattern.length;
 		boolean matchFirstChar = !isCaseSensitive || emptyPattern || (name.length > 0 &&  pattern[0] == name[0]);
+
+		if ((matchMode & R_SUBSTRING_MATCH) != 0) {
+			if (CharOperation.substringMatch(pattern, name))
+				return true;
+			matchMode &= ~R_SUBSTRING_MATCH;
+		}
+		if ((matchMode & SearchPattern.R_SUBWORD_MATCH) != 0) {
+			if (CharOperation.subWordMatch(pattern, name))
+				return true;
+			matchMode &= ~SearchPattern.R_SUBWORD_MATCH;
+		}
+
 		switch (matchMode) {
 			case R_EXACT_MATCH :
 				if (sameLength && matchFirstChar) {
@@ -2720,5 +2737,13 @@ public EntryResult[] queryIn(Index index) throws IOException {
 @Override
 public String toString() {
 	return "SearchPattern"; //$NON-NLS-1$
+}
+
+/**
+ * @since 3.25
+ */
+@Override
+public SearchPattern clone() throws CloneNotSupportedException {
+	return (SearchPattern) super.clone();
 }
 }
