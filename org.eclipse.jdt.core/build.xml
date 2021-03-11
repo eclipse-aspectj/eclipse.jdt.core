@@ -164,7 +164,7 @@
     	     'big replace' and then do the pair of them with a less pervasive replace that will just do import and
     	     package statements.  -->
 	  	<replaceregexp byline="true" flags="g">
-	  		<regexp pattern="org.eclipse.jdt"/>
+	  		<regexp pattern="org[.]eclipse[.]jdt"/>
 			<substitution expression="org.aspectj.org.eclipse.jdt"/>
 			<fileset dir="src-temp">
 	  			<include name="**/*"/>
@@ -174,7 +174,7 @@
 	  	</replaceregexp>
 
     	<replaceregexp byline="true" flags="g">
-    		  		<regexp pattern=" org.eclipse.jdt"/>
+    		  		<regexp pattern=" org[.]eclipse[.]jdt"/>
     				<substitution expression=" org.aspectj.org.eclipse.jdt"/>
     				<fileset dir="src-temp">
     		  			<include name="**/AssistOptions.java"/>
@@ -222,7 +222,7 @@
 	  	<echo message="Modifying file contents to change refs from 'org.aspectj.org.eclipse' to 'org.eclipse.jdt'"/>
 
 	  	<replaceregexp byline="true" flags="g">
-	  		<regexp pattern="org.aspectj.org.eclipse.jdt"/>
+	  		<regexp pattern="org[.]aspectj[.]org[.]eclipse[.]jdt"/>
 			<substitution expression="org.eclipse.jdt"/>
 			<fileset dir="src-temp">
 	  			<include name="**/*"/>
