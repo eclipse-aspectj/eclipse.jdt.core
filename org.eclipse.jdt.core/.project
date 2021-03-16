@@ -32,4 +32,11 @@
 		<nature>org.eclipse.pde.PluginNature</nature>
 		<nature>org.eclipse.pde.api.tools.apiAnalysisNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>apt</name>
+			<type>2</type>
+			<locationURI>WORKSPACE_LOC/eclipse.jdt.core/org.eclipse.jdt.compiler.apt/src</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>

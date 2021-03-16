@@ -19,6 +19,3 @@ antbin/
 # IntelliJ IDEA
 .idea/
 *.iml
-
-# Symlink to ../org.eclipse.jdt.compiler.apt/src
-org.eclipse.jdt.core/apt
