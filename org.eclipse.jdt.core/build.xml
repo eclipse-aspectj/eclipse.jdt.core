@@ -1,241 +1,304 @@
 <project name="ShadowJdtCore" basedir="." default="make.jdtcore.jar">
 
-	<property name="eclipse.home" value="c:/Program Files/Eclipse/2019-12"/>
-    <property name="plugins.dir" value="${eclipse.home}/plugins"/>
-    <property name="plugins.src.dir" value="${plugins.dir}/org.eclipse.platform.source_${eclipse.version}/src"/>
-    <property name="aspectjtools.jar" value="c:/Program Files/Java/AspectJ/lib/aspectjtools.jar"/>
+  <property name="eclipse.home" value="c:/Program Files/Eclipse/2019-12"/>
+  <property name="plugins.dir" value="${eclipse.home}/plugins"/>
+  <property name="plugins.src.dir" value="${plugins.dir}/org.eclipse.platform.source_${eclipse.version}/src"/>
+  <property name="aspectjtools.jar" value="c:/Program Files/Java/AspectJ/lib/aspectjtools.jar"/>
 
-	<!-- build the jdtDepends.jar and jdtDepends-src.zip files -->
-    <target name="makeJdtDepends">
-        <delete file="lib/jdtDepends.jar"/>
-    	<mkdir dir="lib"/>
-        <jar destfile="lib/jdtDepends.jar">
+  <!-- build the jdtDepends.jar and jdtDepends-src.zip files -->
+  <target name="makeJdtDepends">
+    <delete file="lib/jdtDepends.jar"/>
+    <mkdir dir="lib"/>
+    <jar destfile="lib/jdtDepends.jar">
+      <!-- Eclipse 2019-12 -->
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.registry_3.8.600.v20191017-2055.jar"/>
+      <zipfileset src="lib/org.eclipse.equinox.common_3.14.100.v20210212-1143.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.osgi_3.15.100.v20191114-1701.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.jobs_3.10.600.v20191122-2104.jar"/>
+      <zipfileset src="lib/org.eclipse.core.resources_3.14.0.v20210215-0934.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.runtime_3.17.0.v20191122-2104.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.preferences_3.7.600.v20191017-2055.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.app_1.4.300.v20190815-1535.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.text_3.10.0.v20191122-2108.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.filesystem_1.7.600.v20191122-2104.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.contenttype_3.7.500.v20190916-2125.jar"/>
+    </jar>
+    <delete file="lib/jdtDepends-src.zip" failonerror="false"/>
 
-        	<!-- Eclipse 2019-12 -->
-        	<zipfileset src="${plugins.dir}/org.eclipse.equinox.registry_3.8.600.v20191017-2055.jar"/>
-        	<zipfileset src="lib/org.eclipse.equinox.common_3.14.100.v20210212-1143.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.osgi_3.15.100.v20191114-1701.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.jobs_3.10.600.v20191122-2104.jar"/>
-        	<zipfileset src="lib/org.eclipse.core.resources_3.14.0.v20210215-0934.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.runtime_3.17.0.v20191122-2104.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.equinox.preferences_3.7.600.v20191017-2055.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.equinox.app_1.4.300.v20190815-1535.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.text_3.10.0.v20191122-2108.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.filesystem_1.7.600.v20191122-2104.jar"/>
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.contenttype_3.7.500.v20190916-2125.jar"/>
+    <!-- Build the source for the included libraries -->
+    <!-- INCOMPLETE -->
+    <!--
+    <jar destfile="lib/jdtDepends-src.zip" update="true">
+      <zipfileset src="${plugins.src.dir}/org.eclipse.core.resources_${eclipse.version}/src.zip"/>
+    </jar>
+    -->
 
-        	<!-- gone in 4.7
-        	<zipfileset src="${plugins.dir}/org.eclipse.core.runtime.compatibility.registry_3.5.200.v20130514-1256/runtime_registry_compatibility.jar"/>
-        	-->
-     	    <!-- These are dependencies the original version 785 compiler had but we do not need because of how we use it -->
-        	<!--
-        	<zipfileset src="${plugins.dir}/org.eclipse.team.core_3.3.1.r33x_20070807.jar"/>
-            <zipfileset src="${plugins.dir}/org.apache.ant_1.7.0.v200706080842/lib/ant.jar"/>
-            -->
-        </jar>
-        <delete file="lib/jdtDepends-src.zip" failonerror="false"/>
-    	<!-- Build the source for the included libraries -->
+  </target>
 
-        <!-- incomplete... -->
-        <!--
-        <jar destfile="lib/jdtDepends-src.zip" update="true">
-	         <zipfileset src="${plugins.src.dir}/org.eclipse.core.resources_${eclipse.version}/src.zip"/>
-        </jar>
-        -->
-    </target>
+  <target name="make.jdtcore.jar">
+    <!-- Make sure to always build from project root directory -->
+    <property name="aj" value="../../AspectJ/org.eclipse.jdt.core"/>
 
+    <delete file="${aj}/jdtcore-for-aspectj.jar"/>
+    <jar destfile="${aj}/jdtcore-for-aspectj.jar">
+      <fileset dir="bin"/>
+    </jar>
+    <jar destfile="${aj}/jdtcore-for-aspectj.jar" update="true">
+      <!-- with the AST code now activated, we need text and jface... -->
+      <zipfileset
+        src="lib/jdtDepends.jar"
+        excludes="org/apache/**,org/w3c/**,org/xml/**,org/xml/**,org/eclipse/jface/**,META-INF/**"
+      />
+      <!--
+      <zipfileset
+        src="lib/jdtDepends.jar"
+        excludes="org/apache/**,org/w3c/**,org/xml/**,org/xml/**,org/eclipse/jface/**,org/eclipse/osgi/**,META-INF/**"
+      />
+      -->
+    </jar>
 
-    <target name="make.jdtcore.jar">
-			<!-- Make sure to always build from project root directory -->
-    	<property name="aj" value="../../AspectJ/org.eclipse.jdt.core"/>
-    	<delete file="${aj}/jdtcore-for-aspectj.jar"/>
-        <jar destfile="${aj}/jdtcore-for-aspectj.jar">
-            <fileset dir="bin"/>
-        </jar>
-        <jar destfile="${aj}/jdtcore-for-aspectj.jar" update="true">
-        	<!-- with the AST code now activated, we need text and jface... -->
-            <zipfileset src="lib/jdtDepends.jar" excludes="org/apache/**,org/w3c/**,org/xml/**,org/xml/**,org/eclipse/jface/**,META-INF/**"/>
-        	<!--
-            <zipfileset src="lib/jdtDepends.jar" excludes="org/apache/**,org/w3c/**,org/xml/**,org/xml/**,org/eclipse/jface/**,org/eclipse/osgi/**,META-INF/**"/>
-            -->
-        </jar>
-        <delete file="${aj}/jdtcore-for-aspectj-src.zip"/>
-        <jar destfile="${aj}/jdtcore-for-aspectj-src.zip">
-            <fileset dir="batch"/>
-            <fileset dir="compiler"/>
-            <fileset dir="antadapter"/>
-            <fileset dir="codeassist"/>
-            <fileset dir="dom"/>
-            <fileset dir="eval"/>
-            <fileset dir="formatter"/>
-            <fileset dir="model"/>
-            <fileset dir="search"/>
-        	<fileset dir="aspectj"/>
-            <fileset dir="../org.eclipse.jdt.compiler.apt/src"/>
-        </jar>
-    	<!--
-        <jar destfile="../org.eclipse.jdt.core/jdtcore-for-aspectj-src.zip" update="true">
-            <zipfileset src="lib/jdtDepends-src.zip" excludes="org/apache/**,org/w3c/**,org/xml/**,org/eclipse/jface/**,org/eclipse/text/**,org/eclipse/osgi/**"/>
-      	</jar>
-      	-->
-    </target>
+    <delete file="${aj}/jdtcore-for-aspectj-src.zip"/>
+    <jar destfile="${aj}/jdtcore-for-aspectj-src.zip">
+      <fileset dir="batch"/>
+      <fileset dir="compiler"/>
+      <fileset dir="antadapter"/>
+      <fileset dir="codeassist"/>
+      <fileset dir="dom"/>
+      <fileset dir="eval"/>
+      <fileset dir="formatter"/>
+      <fileset dir="model"/>
+      <fileset dir="search"/>
+      <fileset dir="aspectj"/>
+      <fileset dir="../org.eclipse.jdt.compiler.apt/src"/>
+    </jar>
+    <!--
+    <jar destfile="../org.eclipse.jdt.core/jdtcore-for-aspectj-src.zip" update="true">
+      <zipfileset
+        src="lib/jdtDepends-src.zip"
+        excludes="org/apache/**,org/w3c/**,org/xml/**,org/eclipse/jface/**,org/eclipse/text/**,org/eclipse/osgi/**"
+      />
+    </jar>
+    -->
 
-    <target name="make.ajdtcore.jar"
-            description="build the ajdtcore.jar and jdtcore.jar used by the org.eclipse.ajdt.core plugin">
-        <delete file="lib/ajdtcore.jar"/>
-        <jar destfile="lib/ajdtcore.jar">
-            <zipfileset src="${aspectjtools.jar}">
-              <include name = "org/aspectj/asm/**" />
-              <include name = "org/aspectj/bridge/**" />
-              <include name = "org/aspectj/ajdt/**" />
-              <include name = "org/aspectj/tools/**" />
-              <include name = "org/aspectj/lang/**" />
-              <include name = "org/aspectj/runtime/**" />
-              <include name = "org/aspectj/util/**" />
-              <include name = "org/aspectj/weaver/**" />
-            </zipfileset>
-            <fileset dir="bin"/>
-        </jar>
-    </target>
+  </target>
 
-	<target name="transformProjectToORGASPECTJ"
-		description="Transforms the contents of all source folders to use of an 'org.aspectj' prefix">
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="META-INF"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="antadapter"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="batch"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="codeassist"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="compiler"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="dom"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="eval"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="formatter"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="model"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="search"/></antcall>
-		<antcall target="transformOneFolderToAJ"><param name="srcfolder" value="aspectj"/></antcall>
-        <antcall target="transformOneFolderToAJ"><param name="srcfolder" value="../org.eclipse.jdt.compiler.apt/src"/></antcall>
-	</target>
+  <target
+    name="make.ajdtcore.jar"
+    description="build the ajdtcore.jar and jdtcore.jar used by the org.eclipse.ajdt.core plugin"
+  >
+    <delete file="lib/ajdtcore.jar"/>
+    <jar destfile="lib/ajdtcore.jar">
+      <zipfileset src="${aspectjtools.jar}">
+        <include name="org/aspectj/asm/**"/>
+        <include name="org/aspectj/bridge/**"/>
+        <include name="org/aspectj/ajdt/**"/>
+        <include name="org/aspectj/tools/**"/>
+        <include name="org/aspectj/lang/**"/>
+        <include name="org/aspectj/runtime/**"/>
+        <include name="org/aspectj/util/**"/>
+        <include name="org/aspectj/weaver/**"/>
+      </zipfileset>
+      <fileset dir="bin"/>
+    </jar>
+  </target>
 
-	<target name="transformProjectFromORGASPECTJ"
-		description="Transforms the contents of all source folders to remove 'org.aspectj' prefix on package names">
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="META-INF"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="antadapter"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="batch"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="codeassist"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="compiler"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="dom"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="eval"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="formatter"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="model"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="search"/></antcall>
-		<antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="aspectj"/></antcall>
-        <antcall target="transformOneFolderFromAJ"><param name="srcfolder" value="../org.eclipse.jdt.compiler.apt/src"/></antcall>
-	</target>
+  <target
+    name="transformProjectToORGASPECTJ"
+    description="Transforms the contents of all source folders to use of an 'org.aspectj' prefix"
+  >
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="META-INF"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="antadapter"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="batch"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="codeassist"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="compiler"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="dom"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="eval"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="formatter"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="model"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="search"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="aspectj"/>
+    </antcall>
+    <antcall target="transformOneFolderToAJ">
+      <param name="srcfolder" value="../org.eclipse.jdt.compiler.apt/src"/>
+    </antcall>
+  </target>
 
-    <target name="transformOneFolderToAJ" description="For source folder named in 'srcfolder' param, renames refs to org.aspectj.org.eclipse.jdt">
-	    <delete dir="src-temp" />
-        <mkdir dir="src-temp"/>
+  <target
+    name="transformProjectFromORGASPECTJ"
+    description="Transforms the contents of all source folders to remove 'org.aspectj' prefix on package names"
+  >
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="META-INF"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="antadapter"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="batch"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="codeassist"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="compiler"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="dom"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="eval"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="formatter"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="model"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="search"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="aspectj"/>
+    </antcall>
+    <antcall target="transformOneFolderFromAJ">
+      <param name="srcfolder" value="../org.eclipse.jdt.compiler.apt/src"/>
+    </antcall>
+  </target>
 
-		<echo message="Copying '${srcfolder}' to 'src-temp' and modifying file names to include aspectj"/>
+  <target
+    name="transformOneFolderToAJ"
+    description="For source folder named in 'srcfolder' param, renames refs to org.aspectj.org.eclipse.jdt"
+  >
+    <delete dir="src-temp"/>
+    <mkdir dir="src-temp"/>
 
-    	<!-- if the files don't match org.eclipse they won't be looked copied -->
-		<copy toDir="src-temp">
-		   <fileset dir="${srcfolder}"/>
-			<regexpmapper from="^(.*)org/eclipse/jdt(.*)$" to="\1org/aspectj/org/eclipse/jdt\2" handledirsep="yes"/>
-		</copy>
+    <echo message="Copying '${srcfolder}' to 'src-temp' and modifying file names to include aspectj"/>
 
-    	<!-- Copy across other stuff as is.. -->
-		<copy toDir="src-temp">
-		   <fileset dir="${srcfolder}"/>
-			<regexpmapper from="^(.*)org/aspectj/ajdt(.*)$" to="\1org/aspectj/ajdt\2" handledirsep="yes"/>
-		</copy>
+    <!-- if the files don't match org.eclipse they won't be looked copied -->
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}"/>
+      <regexpmapper from="^(.*)org/eclipse/jdt(.*)$" to="\1org/aspectj/org/eclipse/jdt\2" handledirsep="yes"/>
+    </copy>
 
-		<!-- Special rule for META-INF directory, replacing package names in MANIFEST.MF -->
-		<copy toDir="src-temp">
-		   <fileset dir="${srcfolder}">
-				 <include name="MANIFEST.MF"/>
-				 <include name="eclipse.inf"/>
-			 </fileset>
-		</copy>
+    <!-- Copy across other stuff as is -->
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}"/>
+      <regexpmapper from="^(.*)org/aspectj/ajdt(.*)$" to="\1org/aspectj/ajdt\2" handledirsep="yes"/>
+    </copy>
 
-	  	<echo message="Modifying file contents to change refs from 'org.eclipse.jdt' to 'org.aspectj.org.eclipse.jdt'"/>
+    <!-- Special rule for META-INF directory, replacing package names in MANIFEST.MF -->
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}">
+        <include name="MANIFEST.MF"/>
+        <include name="eclipse.inf"/>
+      </fileset>
+    </copy>
 
-    	<!-- This next bit of code replaces all the string references.  There are two files where
-    	     we have to be careful about.  Both AssistOptions and CompilerOptions include strings for options that we
-    	     must not change as AJDT will be working with them without the prefix.  We skip these two files on the
-    	     'big replace' and then do the pair of them with a less pervasive replace that will just do import and
-    	     package statements.  -->
-	  	<replaceregexp byline="true" flags="g">
-	  		<regexp pattern="org[.]eclipse[.]jdt"/>
-			<substitution expression="org.aspectj.org.eclipse.jdt"/>
-			<fileset dir="src-temp">
-	  			<include name="**/*"/>
-				<exclude name="**/AssistOptions.java"/>
-				<exclude name="**/CompilerOptions.java"/>
-	  		</fileset>
-	  	</replaceregexp>
+    <echo message="Modifying file contents to change refs from 'org.eclipse.jdt' to 'org.aspectj.org.eclipse.jdt'"/>
 
-    	<replaceregexp byline="true" flags="g">
-    		  		<regexp pattern=" org[.]eclipse[.]jdt"/>
-    				<substitution expression=" org.aspectj.org.eclipse.jdt"/>
-    				<fileset dir="src-temp">
-    		  			<include name="**/AssistOptions.java"/>
-    					<include name="**/CompilerOptions.java"/>
-    		  		</fileset>
-    	</replaceregexp>
+    <!--
+      This next bit of code replaces all the string references. There are two files we have to be careful about.
+      Both AssistOptions and CompilerOptions include strings for options that we must not change, as AJDT will be
+      working with them without the prefix. We skip these two files on the 'big replace' and then do the pair of
+      them with a less pervasive replace that will just do import and package statements.
+    -->
+    <replaceregexp byline="true" flags="g">
+      <regexp pattern="org[.]eclipse[.]jdt"/>
+      <substitution expression="org.aspectj.org.eclipse.jdt"/>
+      <fileset dir="src-temp">
+        <include name="**/*"/>
+        <exclude name="**/AssistOptions.java"/>
+        <exclude name="**/CompilerOptions.java"/>
+      </fileset>
+    </replaceregexp>
 
-    	<delete dir="${srcfolder}"/>
+    <replaceregexp byline="true" flags="g">
+      <regexp pattern=" org[.]eclipse[.]jdt"/>
+      <substitution expression=" org.aspectj.org.eclipse.jdt"/>
+      <fileset dir="src-temp">
+        <include name="**/AssistOptions.java"/>
+        <include name="**/CompilerOptions.java"/>
+      </fileset>
+    </replaceregexp>
 
-	  	<echo message="Copying from 'src-temp' back to '${srcfolder}'"/>
+    <delete dir="${srcfolder}"/>
 
-    	<copy toDir="${srcfolder}">
-		   <fileset dir="src-temp"/>
-	  	</copy>
+    <echo message="Copying from 'src-temp' back to '${srcfolder}'"/>
 
-	  	<delete dir="src-temp"/>
-	  </target>
+    <copy toDir="${srcfolder}">
+      <fileset dir="src-temp"/>
+    </copy>
 
-	  <target name="transformOneFolderFromAJ" description="For source folder named in 'srcfolder' param, renames refs to org.eclipse.jdt">
-	    <delete dir="src-temp" />
-        <mkdir dir="src-temp"/>
+    <delete dir="src-temp"/>
+  </target>
 
+  <target
+    name="transformOneFolderFromAJ"
+    description="For source folder named in 'srcfolder' param, renames refs to org.eclipse.jdt"
+  >
+    <delete dir="src-temp"/>
+    <mkdir dir="src-temp"/>
 
-	  	<echo message="Copying '${srcfolder}' to 'src-temp' and modifying file names to remove aspectj"/>
+    <echo message="Copying '${srcfolder}' to 'src-temp' and modifying file names to remove aspectj"/>
 
-	    <copy toDir="src-temp">
-	      <fileset dir="${srcfolder}"/>
-				<regexpmapper from="^(.*)org/aspectj/org/eclipse/jdt(.*)$" to="\1org/eclipse/jdt\2" handledirsep="yes"/>
-	    </copy>
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}"/>
+      <regexpmapper from="^(.*)org/aspectj/org/eclipse/jdt(.*)$" to="\1org/eclipse/jdt\2" handledirsep="yes"/>
+    </copy>
 
-	  	<!-- Copy across other stuff as is.. -->
-	  	<copy toDir="src-temp">
-	  		   <fileset dir="${srcfolder}"/>
-				<regexpmapper from="^(.*)org/aspectj/ajdt(.*)$" to="\1org/aspectj/ajdt\2" handledirsep="yes"/>
-	  	</copy>
+    <!-- Copy across other stuff as is.. -->
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}"/>
+      <regexpmapper from="^(.*)org/aspectj/ajdt(.*)$" to="\1org/aspectj/ajdt\2" handledirsep="yes"/>
+    </copy>
 
-			<!-- Special rule for META-INF directory, replacing package names in MANIFEST.MF -->
-			<copy toDir="src-temp">
-				<fileset dir="${srcfolder}">
-					<include name="MANIFEST.MF"/>
-					<include name="eclipse.inf"/>
-				</fileset>
-			</copy>
+    <!-- Special rule for META-INF directory, replacing package names in MANIFEST.MF -->
+    <copy toDir="src-temp">
+      <fileset dir="${srcfolder}">
+        <include name="MANIFEST.MF"/>
+        <include name="eclipse.inf"/>
+      </fileset>
+    </copy>
 
-	  	<echo message="Modifying file contents to change refs from 'org.aspectj.org.eclipse' to 'org.eclipse.jdt'"/>
+    <echo message="Modifying file contents to change refs from 'org.aspectj.org.eclipse' to 'org.eclipse.jdt'"/>
 
-	  	<replaceregexp byline="true" flags="g">
-	  		<regexp pattern="org[.]aspectj[.]org[.]eclipse[.]jdt"/>
-			<substitution expression="org.eclipse.jdt"/>
-			<fileset dir="src-temp">
-	  			<include name="**/*"/>
-	  		</fileset>
-	  	</replaceregexp>
+    <replaceregexp byline="true" flags="g">
+      <regexp pattern="org[.]aspectj[.]org[.]eclipse[.]jdt"/>
+      <substitution expression="org.eclipse.jdt"/>
+      <fileset dir="src-temp">
+        <include name="**/*"/>
+      </fileset>
+    </replaceregexp>
 
-	  	<delete dir="${srcfolder}"/>
+    <delete dir="${srcfolder}"/>
 
-	  	<echo message="Copying from 'src-temp' back to 'src'"/>
-	  	<copy toDir="${srcfolder}">
-		   <fileset dir="src-temp"/>
-	  	</copy>
-	  	<delete dir="src-temp"/>
-	  </target>
+    <echo message="Copying from 'src-temp' back to 'src'"/>
+
+    <copy toDir="${srcfolder}">
+      <fileset dir="src-temp"/>
+    </copy>
+    <delete dir="src-temp"/>
+  </target>
 
 </project>
