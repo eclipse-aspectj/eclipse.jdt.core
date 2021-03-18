@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2020 IBM Corporation and others.
+ * Copyright (c) 2003, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1101,6 +1101,9 @@ public void test019() {
 // http://bugs.eclipse.org/bugs/show_bug.cgi?id=154822
 // null is not a constant - again
 public void test020() {
+	if (this.complianceLevel >= ClassFileConstants.JDK16) {
+		return;
+	}
 	this.runNegativeTest(
 		new String[] {
 			"X.java",

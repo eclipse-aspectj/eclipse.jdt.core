@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -358,22 +358,42 @@ public class AST {
 	 * programs written in all versions of the Java language
 	 * up to and including Java SE 15(aka JDK 15).
 	 * </p>
-	 *
+	 * @deprecated Clients should use the {@link #JLS_Latest} AST API instead.
 	 * @since 3.24
 	 */
 	public static final int JLS15 = 15;
+	/**
+	 * Constant for indicating the AST API that handles JLS16.
+	 * <p>
+	 * This API is capable of handling all constructs in the
+	 * Java language as described in the Java Language
+	 * Specification, Java SE 15 Edition (JLS16).
+	 * JLS16 is a superset of all earlier versions of the
+	 * Java language, and the JLS16 API can be used to manipulate
+	 * programs written in all versions of the Java language
+	 * up to and including Java SE 16(aka JDK 16).
+	 * </p>
+	 *
+	 * @since 3.26
+	 */
+	public static final int JLS16 = 16;
 
 	/**
 	 * Internal synonym for {@link #JLS15}. Use to alleviate
 	 * deprecation warnings once JLS15 is deprecated
 	 */
 	static final int JLS15_INTERNAL = JLS15;
+	/**
+	 * Internal synonym for {@link #JLS16}. Use to alleviate
+	 * deprecation warnings once JLS16 is deprecated
+	 */
+	static final int JLS16_INTERNAL = JLS16;
 
 	/**
-	 * @since 3.24
+	 * @since 3.26
 	 * This provides the latest JLS level.
 	 */
-	public static final int JLS_Latest = JLS15;
+	public static final int JLS_Latest = JLS16;
 
 	/*
 	 * Must not collide with a value for ICompilationUnit constants
@@ -1087,6 +1107,21 @@ public class AST {
 						true/*taskCaseSensitive*/,
 						previewEnabled);
 				break;
+			case JLS16_INTERNAL :
+				this.apiLevel = level;
+				// initialize a scanner
+				compliance = ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_16);
+				this.scanner = new Scanner(
+						true /*comment*/,
+						true /*whitespace*/,
+						false /*nls*/,
+						compliance /*sourceLevel*/,
+						compliance /*complianceLevel*/,
+						null/*taskTag*/,
+						null/*taskPriorities*/,
+						true/*taskCaseSensitive*/,
+						previewEnabled);
+				break;
 			default:
 				throw new IllegalArgumentException("Unsupported JLS level"); //$NON-NLS-1$
 		}
@@ -1167,6 +1202,7 @@ public class AST {
         t.put(JavaCore.VERSION_13, ClassFileConstants.JDK13);
         t.put(JavaCore.VERSION_14, ClassFileConstants.JDK14);
         t.put(JavaCore.VERSION_15, ClassFileConstants.JDK15);
+        t.put(JavaCore.VERSION_16, ClassFileConstants.JDK16);
         return Collections.unmodifiableMap(t);
 	}
 	private static Map<String, Integer> getApiLevelMapTable() {
@@ -1186,6 +1222,7 @@ public class AST {
         t.put(JavaCore.VERSION_13, JLS13_INTERNAL);
         t.put(JavaCore.VERSION_14, JLS14_INTERNAL);
         t.put(JavaCore.VERSION_15, JLS15_INTERNAL);
+        t.put(JavaCore.VERSION_16, JLS16_INTERNAL);
         return Collections.unmodifiableMap(t);
 	}
 	/**
@@ -2555,6 +2592,19 @@ public class AST {
 	}
 
 	/**
+	 * Creates and returns a new unparented instanceof expression node
+	 * owned by this AST. By default, the operator and left and right
+	 * operand are unspecified (but legal).
+	 *
+	 * @return a new unparented instanceof expression node
+	 * @since 3.26
+	 */
+	public PatternInstanceofExpression newPatternInstanceofExpression() {
+		PatternInstanceofExpression result = new PatternInstanceofExpression(this);
+		return result;
+	}
+
+	/**
 	 * Creates and returns a new unparented postfix expression node
 	 * owned by this AST. By default, the operator and operand are
 	 * unspecified (but legal).
@@ -2659,7 +2709,7 @@ public class AST {
 	 * and an empty record body.
 	 *
 	 * @return a new unparented type declaration node
-	 * @exception UnsupportedOperationException if this operation is used in an AST with level less than JLS14
+	 * @exception UnsupportedOperationException if this operation is used in an AST with level less than JLS16
 	 * @since 3.23
 	 */
 	public RecordDeclaration newRecordDeclaration() {

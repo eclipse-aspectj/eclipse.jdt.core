@@ -1891,23 +1891,23 @@ CompactConstructorHeaderName ::= Modifiersopt TypeParameters JavaIdentifier -- A
 -- 14 preview feature : instanceof pattern matching
 -----------------------------------------------
 
-
 InstanceofExpression -> RelationalExpression
-InstanceofExpression ::= InstanceofExpression 'instanceof' TypeOrPattern
+InstanceofExpression ::= InstanceofExpression InstanceofRHS
 /.$putCase consumeInstanceOfExpression(); $break ./
 /:$readableName Expression:/
 
-TypeOrPattern -> Type
-TypeOrPattern -> Pattern
-Pattern -> TypeTestPattern
-TypeTestPattern ::= Type Identifier
-/.$putCase consumeTypeTestPattern(); $break ./
-/:$readableName TypeTestPattern:/
+InstanceofRHS -> InstanceofClassic
+InstanceofRHS -> InstanceofPattern
+/.$putCase consumeInstanceOfRHS(); $break ./
+/:$readableName Expression:/
 
---InstanceofExpression ::= InstanceofExpression 'instanceof' Type Identifier
---/.$putCase consumeInstanceOfExpressionPattern(); $break ./
---/:$readableName Expression:/
---/:$compliance 14:/
+InstanceofClassic ::= 'instanceof' Modifiersopt Type
+/.$putCase consumeInstanceOfClassic(); $break ./
+/:$readableName InstanceofClassic:/
+
+InstanceofPattern ::=  InstanceofClassic Identifier
+/.$putCase consumeInstanceofPattern(); $break ./
+/:$readableName InstanceofPattern:/
 
 -----------------------------------------------
 -- 14 preview feature : end of instanceof pattern matching
@@ -3399,9 +3399,9 @@ RelationalExpression_NotName ::= NameOrAj '>=' ShiftExpression -- AspectJ Extens
 /:$readableName Expression:/
 
 InstanceofExpression_NotName -> RelationalExpression_NotName
-InstanceofExpression_NotName ::= NameOrAj 'instanceof' ReferenceType -- AspectJ Extension was Name
+InstanceofExpression_NotName ::= NameOrAj InstanceofRHS -- AspectJ Extension was Name
 /.$putCase consumeInstanceOfExpressionWithName(); $break ./
-InstanceofExpression_NotName ::= InstanceofExpression_NotName 'instanceof' ReferenceType
+InstanceofExpression_NotName ::= InstanceofExpression_NotName InstanceofRHS
 /.$putCase consumeInstanceOfExpression(); $break ./
 /:$readableName Expression:/
 

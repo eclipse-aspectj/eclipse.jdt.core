@@ -1928,11 +1928,17 @@ public class Parser extends TheOriginalJDTParserClass {
 			case 545 : if (DEBUG) { System.out.println("CompactConstructorHeaderName ::= Modifiersopt..."); }  //$NON-NLS-1$
 				consumeCompactConstructorHeaderNameWithTypeParameters(); 			break;
 
-			case 547 : if (DEBUG) { System.out.println("InstanceofExpression ::= InstanceofExpression instanceof"); }  //$NON-NLS-1$
+			case 547 : if (DEBUG) { System.out.println("InstanceofExpression ::= InstanceofExpression..."); }  //$NON-NLS-1$
 				consumeInstanceOfExpression(); 			break;
 
-			case 551 : if (DEBUG) { System.out.println("TypeTestPattern ::= Type Identifier"); }  //$NON-NLS-1$
-				consumeTypeTestPattern(); 			break;
+			case 549 : if (DEBUG) { System.out.println("InstanceofRHS -> InstanceofPattern"); }  //$NON-NLS-1$
+				consumeInstanceOfRHS(); 			break;
+
+			case 550 : if (DEBUG) { System.out.println("InstanceofClassic ::= instanceof Modifiersopt Type"); }  //$NON-NLS-1$
+				consumeInstanceOfClassic(); 			break;
+
+			case 551 : if (DEBUG) { System.out.println("InstanceofPattern ::= InstanceofClassic Identifier"); }  //$NON-NLS-1$
+				consumeInstanceofPattern(); 			break;
 
 			case 553 : if (DEBUG) { System.out.println("PushLeftBrace ::="); }  //$NON-NLS-1$
 				consumePushLeftBrace(); 			break;
@@ -2882,7 +2888,7 @@ public class Parser extends TheOriginalJDTParserClass {
 			case 1033 : if (DEBUG) { System.out.println("RelationalExpression_NotName ::= NameOrAj GREATER_EQUAL"); }  //$NON-NLS-1$
 				consumeBinaryExpressionWithName(OperatorIds.GREATER_EQUAL); 			break;
 
-			case 1035 : if (DEBUG) { System.out.println("InstanceofExpression_NotName ::= NameOrAj instanceof..."); }  //$NON-NLS-1$
+			case 1035 : if (DEBUG) { System.out.println("InstanceofExpression_NotName ::= NameOrAj InstanceofRHS"); }  //$NON-NLS-1$
 				consumeInstanceOfExpressionWithName(); 			break;
 
 			case 1036 : if (DEBUG) { System.out.println("InstanceofExpression_NotName ::=..."); }  //$NON-NLS-1$

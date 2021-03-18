@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -189,8 +189,7 @@ public final class Flags {
 	 * Note that this flag's value is internal and is not defined in the
 	 * Virtual Machine specification.
 	 * </p>
-	 * @since 3.22
-	 * @noreference This field is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.26
 	 */
 	public static final int  AccRecord = ExtraCompilerModifiers.AccRecord;
 	/**
@@ -417,7 +416,7 @@ public final class Flags {
 	 * @param flags the flags
 	 * @return <code>true</code> if the <code>AccRecord</code> flag is included
 	 * @see #AccRecord
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.26
 	 */
 	public static boolean isRecord(int flags) {
 		return (flags & AccRecord) != 0;

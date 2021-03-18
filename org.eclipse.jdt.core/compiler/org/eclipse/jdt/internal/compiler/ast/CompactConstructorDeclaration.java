@@ -32,6 +32,7 @@ public class CompactConstructorDeclaration extends ConstructorDeclaration {
 	}
 	@Override
 	public void parseStatements(Parser parser, CompilationUnitDeclaration unit) {
+		this.constructorCall = SuperReference.implicitSuperConstructorCall();
 		parser.parse(this, unit, false);
 		this.containsSwitchWithTry = parser.switchWithTry;
 	}

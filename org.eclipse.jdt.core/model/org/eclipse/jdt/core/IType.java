@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -927,7 +927,7 @@ public interface IType extends IMember, IAnnotatable {
 	 *		exception occurs while accessing its corresponding resource.
 	 * @return true if this type represents a record class,
 	 * false otherwise
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.26
 	 */
 	boolean isRecord() throws JavaModelException;
 	/**
@@ -947,7 +947,7 @@ public interface IType extends IMember, IAnnotatable {
 	 * @exception JavaModelException if this element does not exist or if an
 	 *		exception occurs while accessing its corresponding resource.
 	 * @return record components declared by this record class
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.26
 	 */
 	default IField[] getRecordComponents() throws JavaModelException {
 		return new IField[0];
@@ -959,7 +959,7 @@ public interface IType extends IMember, IAnnotatable {
 	 *
 	 * @param name the given name
 	 * @return the record component with the specified name in this record
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.26
 	 */
 	IField getRecordComponent(String name);
 

@@ -7,7 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -2052,7 +2051,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_001() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2060,9 +2059,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 
 			StringBuffer buf= new StringBuffer();
 			buf.append("package test1;\n");
@@ -2109,7 +2108,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 
 	public void testSealedModifier_002() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2128,9 +2127,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 			CompilationUnit astRoot= createAST(cu);
 			ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
@@ -2164,7 +2163,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_003() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2214,7 +2213,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_004() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2228,9 +2227,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 			CompilationUnit astRoot= createAST(cu);
 			ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
@@ -2264,7 +2263,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_005() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2272,9 +2271,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 
 			StringBuffer buf= new StringBuffer();
 			buf.append("package test1;\n");
@@ -2331,7 +2330,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_006() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2339,9 +2338,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 
 			StringBuffer buf= new StringBuffer();
 			buf.append("package test1;\n");
@@ -2392,7 +2391,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	public void testSealedModifier_007() throws Exception {
 
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2400,9 +2399,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 			StringBuffer buf= new StringBuffer();
 			buf.append("package test1;\n");
 			buf.append("public sealed class C permits C1 //comment\n");
@@ -2446,7 +2445,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	public void testSealedModifier_008() throws Exception {
 
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -2454,9 +2453,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		try {
 			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 			this.project1.setOption(JavaCore.COMPILER_PB_REPORT_PREVIEW_FEATURES, JavaCore.IGNORE);
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 			StringBuffer buf= new StringBuffer();
 			buf.append("package test1;\n");
 			buf.append("public class C//comment\n");
@@ -2501,7 +2500,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	public void testSealedModifier_009() throws Exception {
-		if (checkAPILevel(15)) {
+		if (checkAPILevel(16)) {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);

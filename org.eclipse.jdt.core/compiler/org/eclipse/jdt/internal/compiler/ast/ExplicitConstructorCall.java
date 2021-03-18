@@ -320,6 +320,11 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		MethodScope methodScope = scope.methodScope();
 		try {
 			AbstractMethodDeclaration methodDeclaration = methodScope.referenceMethod();
+			if (methodDeclaration != null && methodDeclaration.binding != null
+					&& (methodDeclaration.binding.tagBits & TagBits.IsCanonicalConstructor) != 0) {
+				if (!checkAndFlagExplicitConstructorCallInCanonicalConstructor(methodDeclaration, scope))
+					return;
+			}
 			if (methodDeclaration == null
 					|| !methodDeclaration.isConstructor()
 					|| ((ConstructorDeclaration) methodDeclaration).constructorCall != this) {
@@ -491,6 +496,21 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		}
 	}
 
+	private boolean checkAndFlagExplicitConstructorCallInCanonicalConstructor(AbstractMethodDeclaration methodDecl, BlockScope scope) {
+
+		if (methodDecl.binding == null || methodDecl.binding.declaringClass == null
+				|| !methodDecl.binding.declaringClass.isRecord())
+			return true;
+		boolean isInsideCCD = methodDecl instanceof CompactConstructorDeclaration;
+		if (this.accessMode != ExplicitConstructorCall.ImplicitSuper) {
+			if (isInsideCCD)
+				scope.problemReporter().recordCompactConstructorHasExplicitConstructorCall(this);
+			else
+				scope.problemReporter().recordCanonicalConstructorHasExplicitConstructorCall(this);
+			return false;
+		}
+		return true;
+	}
 	@Override
 	public void setActualReceiverType(ReferenceBinding receiverType) {
 		// ignored

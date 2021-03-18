@@ -38,17 +38,17 @@ public enum JavaFeature {
 			new char[][] {},
 			false),
 
-	PATTERN_MATCHING_IN_INSTANCEOF(ClassFileConstants.JDK15,
+	PATTERN_MATCHING_IN_INSTANCEOF(ClassFileConstants.JDK16,
 			Messages.bind(Messages.pattern_matching_instanceof),
 			new char[][] {},
-			true),
+			false),
 
-	RECORDS(ClassFileConstants.JDK15,
+	RECORDS(ClassFileConstants.JDK16,
 			Messages.bind(Messages.records),
 			new char[][] {TypeConstants.RECORD_RESTRICTED_IDENTIFIER},
-			true),
+			false),
 
-	SEALED_CLASSES(ClassFileConstants.JDK15,
+	SEALED_CLASSES(ClassFileConstants.JDK16,
 			Messages.bind(Messages.sealed_types),
 			new char[][] {TypeConstants.SEALED, TypeConstants.PERMITS},
 			true),

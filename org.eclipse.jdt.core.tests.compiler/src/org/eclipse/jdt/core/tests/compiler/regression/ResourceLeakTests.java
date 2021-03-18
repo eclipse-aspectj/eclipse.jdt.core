@@ -5621,7 +5621,6 @@ public void testBug542707_002() {
 	Map options = getCompilerOptions();
 	options.put(JavaCore.COMPILER_PB_UNCLOSED_CLOSEABLE, CompilerOptions.ERROR);
 	options.put(JavaCore.COMPILER_PB_POTENTIALLY_UNCLOSED_CLOSEABLE, CompilerOptions.ERROR);
-	options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 	options.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 	runLeakTest(
 		new String[] {

@@ -40,7 +40,7 @@ public class ClassFileReaderTest_15 extends AbstractRegressionTest {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		this.complianceLevel = ClassFileConstants.JDK15;
+		this.complianceLevel = ClassFileConstants.JDK16;
 		this.enablePreview = true;
 	}
 

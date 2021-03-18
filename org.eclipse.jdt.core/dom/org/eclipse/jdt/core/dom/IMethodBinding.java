@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,7 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
@@ -72,7 +71,7 @@ public interface IMethodBinding extends IBinding {
 	 *
 	 * @return <code>true</code> if this is the binding for a compact constructor
 	 * in a source file and and <code>false</code> otherwise
-	 * @noreference
+	 * @since 3.26
 	 */
 	public boolean isCompactConstructor();
 
@@ -85,7 +84,7 @@ public interface IMethodBinding extends IBinding {
 	 *
 	 * @return <code>true</code> if this is the binding for a canonical constructor
 	 * and <code>false</code> otherwise
-	 * @noreference
+	 * @since 3.26
 	 */
 	public boolean isCanonicalConstructor();
 
@@ -448,7 +447,7 @@ public interface IMethodBinding extends IBinding {
 	 *
 	 * @return <code>true</code> for compiler generated  equals(), hashCode() and toString() or any
 	 * accessor method of a Record, else it returns <code>false</code>.
-	 * @noreference This method is not intended to be referenced by clients.
+	 * @since 3.26
 	 */
 	public boolean isSyntheticRecordMethod();
 

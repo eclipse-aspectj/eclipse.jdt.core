@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -95,7 +95,7 @@ boolean isResolved();
  *
  * @return whether this field represents a record component.
  * @throws JavaModelException
- * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+ * @since 3.26
  */
 boolean isRecordComponent() throws JavaModelException;
 

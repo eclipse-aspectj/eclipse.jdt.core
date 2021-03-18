@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -295,27 +295,11 @@ public class MethodDeclaration extends BodyDeclaration {
 	 * @since 3.0
 	 */
 	public static List propertyDescriptors(int apiLevel) {
-		return propertyDescriptors(apiLevel, false);
-	}
-
-	/**
-	 * Returns a list of structural property descriptors for this node type.
-	 * Clients must not modify the result.
-	 *
-	 * @param apiLevel the API level; one of the
-	 * <code>AST.JLS*</code> constants
-	 * @param previewEnabled the previewEnabled flag
-	 * @return a list of property descriptors (element type:
-	 * {@link StructuralPropertyDescriptor})
-	 * @noreference This method is not intended to be referenced by clients.
-	 * @since 3.22
-	 */
-	public static List propertyDescriptors(int apiLevel, boolean previewEnabled) {
 		if (apiLevel == AST.JLS2_INTERNAL) {
 			return PROPERTY_DESCRIPTORS_2_0;
 		} else if (apiLevel < AST.JLS8_INTERNAL) {
 			return PROPERTY_DESCRIPTORS_3_0;
-		} else if (DOMASTUtil.isRecordDeclarationSupported(apiLevel, previewEnabled)) {
+		} else if (DOMASTUtil.isRecordDeclarationSupported(apiLevel)) { // >= JLS 16
 			return PROPERTY_DESCRIPTORS_9_0;
 		} else {
 			return PROPERTY_DESCRIPTORS_8_0;
@@ -463,11 +447,6 @@ public class MethodDeclaration extends BodyDeclaration {
 	@Override
 	final List internalStructuralPropertiesForType(int apiLevel) {
 		return propertyDescriptors(apiLevel);
-	}
-
-	@Override
-	final List internalStructuralPropertiesForType(int apiLevel, boolean previewEnabled) {
-		return propertyDescriptors(apiLevel, previewEnabled);
 	}
 
 	@Override
@@ -729,15 +708,12 @@ public class MethodDeclaration extends BodyDeclaration {
 	 *
 	 * @return <code>true</code> if this is a compact constructor declaration in a record,
 	 *    and <code>false</code> if this is a method declaration
-	 * @since 3.22
-	 * @noreference This method is not intended to be referenced by clients.
-	 * @exception UnsupportedOperationException if this operation is not used in JLS15
-	 * @exception UnsupportedOperationException if this operation is used with previewEnabled flag as false
+	 * @since 3.26
+	 * @exception UnsupportedOperationException if this operation is used below JLS16
 	 */
 
 	public boolean isCompactConstructor() {
-		supportedOnlyIn15();
-		unsupportedWithoutPreviewError();
+		unsupportedBelow16();
 		return this.isCompactConstructor;
 	}
 
@@ -746,13 +722,12 @@ public class MethodDeclaration extends BodyDeclaration {
 	 *
 	 * @param isCompactConstructor <code>true</code> for a constructor declaration,
 	 *    and <code>false</code> for a method declaration
-	 * @since 3.22
-	 * @noreference This method is not intended to be referenced by clients.
-	 * @exception UnsupportedOperationException if this operation is not used in JLS14
-	 * @exception UnsupportedOperationException if this operation is used with previewEnabled flag as false
+	 * @since 3.26
+	 * @exception UnsupportedOperationException if this operation is used below JLS16
 	 */
 
 	public void setCompactConstructor(boolean isCompactConstructor) {
+		unsupportedBelow16();
 		preValueChange(COMPACT_CONSTRUCTOR_PROPERTY);
 		this.isCompactConstructor = isCompactConstructor;
 		postValueChange(COMPACT_CONSTRUCTOR_PROPERTY);

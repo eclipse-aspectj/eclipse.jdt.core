@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1221,7 +1221,7 @@ public abstract class Scope {
 	/**
 	 * For Java scopes, the invocationType is always the same as the enclosingSourceType
 	 * This distinction is important for AspectJ's inter-type declarations
-	 * 
+	 *
 	 * For inter-type declarations, the invocationType is the lexically enclosing type.
 	 */
 	public SourceTypeBinding invocationType() {
@@ -1389,8 +1389,8 @@ public abstract class Scope {
 		}
 		return null;
 	}
-	
-	//	AspectJ Extension	
+
+	//	AspectJ Extension
 	public static final IPrivilegedHandler findPrivilegedHandler(ReferenceBinding type) {
 		if (type == null) return null;
 		if (type instanceof SourceTypeBinding) {
@@ -1401,7 +1401,7 @@ public abstract class Scope {
 		return findPrivilegedHandler(type.enclosingType());
 	}
 	// End AspectJ Extension
-	
+
 	// Internal use only
 	/*	Answer the field binding that corresponds to fieldName.
 		Start the lookup at the receiverType.
@@ -3399,6 +3399,7 @@ public abstract class Scope {
 		MethodScope methodScope = null;
 		ReferenceBinding foundType = null;
 		boolean insideStaticContext = false;
+		boolean insideClassContext = false;
 		boolean insideTypeAnnotation = false;
 		if ((mask & Binding.TYPE) == 0) {
 			Scope next = scope;
@@ -3414,8 +3415,12 @@ public abstract class Scope {
 						if (methodDecl != null) {
 							if (methodDecl.binding != null) {
 								TypeVariableBinding typeVariable = methodDecl.binding.getTypeVariable(name);
-								if (typeVariable != null)
+								if (typeVariable != null) {
+									if (insideStaticContext && insideClassContext) {
+										return new ProblemReferenceBinding(new char[][]{name}, typeVariable, ProblemReasons.NonStaticReferenceInStaticContext);
+									}
 									return typeVariable;
+								}
 							} else {
 								// use the methodDecl's typeParameters to handle problem cases when the method binding doesn't exist
 								TypeParameter[] params = methodDecl.typeParameters();
@@ -3453,7 +3458,7 @@ public abstract class Scope {
 						if (!insideTypeAnnotation) {
 							// 6.5.5.1 - member types have precedence over top-level type in same unit
 							// ASPECTJ START
-							/* { 
+							/* {
 							ReferenceBinding memberType = findMemberType(name, sourceType);
 							}*/
 							ReferenceBinding memberType = sourceType==null?null:findMemberType(name,sourceType);
@@ -3497,6 +3502,7 @@ public abstract class Scope {
 						// ASPECTJ START
 						}
 						// ASPECTJ END
+						insideClassContext = true;
 						insideTypeAnnotation = false;
 						// ASPECTJ START
 						if (sourceType!=null) {
@@ -4863,7 +4869,7 @@ public abstract class Scope {
 					MethodBinding original2 = next.original();
 					// ASPECTJ EXTENSION
 //					if (TypeBinding.equalsEquals(original.declaringClass, original2.declaringClass))
-					if (TypeBinding.equalsEquals(original.getOwningClass(),original2.getOwningClass())) 
+					if (TypeBinding.equalsEquals(original.getOwningClass(),original2.getOwningClass()))
 						break nextSpecific; // duplicates thru substitution
 
 					if (!original.isAbstract()) {
@@ -5645,5 +5651,5 @@ public abstract class Scope {
 	}
 
 	// End AspectJ Extension
-	
+
 }

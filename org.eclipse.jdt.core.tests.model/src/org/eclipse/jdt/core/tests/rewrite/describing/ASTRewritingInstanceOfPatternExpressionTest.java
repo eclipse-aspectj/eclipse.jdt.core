@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,9 +23,10 @@ import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.IfStatement;
-import org.eclipse.jdt.core.dom.InstanceofExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.SimpleType;
+import org.eclipse.jdt.core.dom.PatternInstanceofExpression;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
@@ -35,7 +36,7 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 
 
 	public ASTRewritingInstanceOfPatternExpressionTest(String name) {
-		super(name, 15);
+		super(name, 16);
 	}
 
 	public ASTRewritingInstanceOfPatternExpressionTest(String name, int apiLevel) {
@@ -49,18 +50,17 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		if (this.apiLevel == AST.JLS15 ) {
-			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_15);
-			this.project1.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+		if (this.apiLevel == AST.JLS16 ) {
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
 		}
 	}
 
 	@SuppressWarnings({ "rawtypes", "deprecation" })
 	public void test001() throws Exception {
-		if (this.apiLevel != 15) {
-			System.err.println("Test "+getName()+" requires a JRE 15");
+		if (this.apiLevel != 16) {
+			System.err.println("Test "+getName()+" requires a JRE 16");
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -85,11 +85,12 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 		assertTrue("Number of statements not 0", blockStatements.size() == 0);
 		{ // add InstanceOfPattern expression
 			IfStatement ifStatement= ast.newIfStatement();
-			InstanceofExpression instanceOfExpression = ast.newInstanceofExpression();
+			PatternInstanceofExpression instanceOfExpression = ast.newPatternInstanceofExpression();
 			instanceOfExpression.setLeftOperand(ast.newSimpleName("o"));//$NON-NLS-1$
-			SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("String"));//$NON-NLS-1$
-			instanceOfExpression.setRightOperand(simpleType);
-			instanceOfExpression.setPatternVariable(ast.newSimpleName("s"));
+			SingleVariableDeclaration singleVariableDeclaration = ast.newSingleVariableDeclaration();
+			singleVariableDeclaration.setType(ast.newSimpleType(ast.newSimpleName("String")));//$NON-NLS-1$
+			singleVariableDeclaration.setName(ast.newSimpleName("s"));
+			instanceOfExpression.setRightOperand(singleVariableDeclaration);
 			ifStatement.setExpression(instanceOfExpression);
 			ifStatement.setThenStatement(ast.newEmptyStatement());
 			rewrite.getListRewrite(block, Block.STATEMENTS_PROPERTY).insertLast(ifStatement, null);
@@ -112,8 +113,8 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 
 	@SuppressWarnings({ "rawtypes", "deprecation" })
 	public void test002() throws Exception {
-		if (this.apiLevel != 15) {
-			System.err.println("Test "+getName()+" requires a JRE 15");
+		if (this.apiLevel != 16) {
+			System.err.println("Test "+getName()+" requires a JRE 16");
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -142,8 +143,11 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 		{ // add InstanceOfPattern expression
 
 			IfStatement ifStatement = (IfStatement)blockStatements.get(0);
-			InstanceofExpression instanceOfExpression = (InstanceofExpression)ifStatement.getExpression();
-			rewrite.set(instanceOfExpression, InstanceofExpression.PATTERN_VARIABLE_PROPERTY, ast.newSimpleName("str1"), null);
+			PatternInstanceofExpression instanceOfExpression = (PatternInstanceofExpression)ifStatement.getExpression();
+			SingleVariableDeclaration singleVariableDeclaration = ast.newSingleVariableDeclaration();
+			singleVariableDeclaration.setType(ast.newSimpleType(ast.newSimpleName("String")));//$NON-NLS-1$
+			singleVariableDeclaration.setName(ast.newSimpleName("str1"));
+			rewrite.set(instanceOfExpression, PatternInstanceofExpression.RIGHT_OPERAND_PROPERTY, singleVariableDeclaration, null);
 
 		}
 
@@ -154,6 +158,58 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
 		buf.append("        if (o instanceof String str1)\n");
+		buf.append("            ;\n");
+		buf.append(" 	}\n");
+		buf.append("}\n");
+
+		assertEqualString(preview, buf.toString());
+
+	}
+
+	@SuppressWarnings({ "rawtypes", "deprecation" })
+	public void test003() throws Exception {
+		if (this.apiLevel != 16) {
+			System.err.println("Test "+getName()+" requires a JRE 16");
+			return;
+		}
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class X {\n");
+		buf.append("    void foo(Object o) {\n");
+		buf.append("        if (o instanceof String s)\n");
+		buf.append("            ;\n");
+		buf.append(" 	}\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+
+		AST ast= astRoot.getAST();
+
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "X");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List blockStatements= block.statements();
+		assertTrue("Number of statements not 1", blockStatements.size() == 1);
+		{ // change left side
+			IfStatement ifStatement = (IfStatement)blockStatements.get(0);
+			PatternInstanceofExpression expr = (PatternInstanceofExpression)ifStatement.getExpression();
+
+			SimpleName name= ast.newSimpleName("x");
+			rewrite.replace(expr.getLeftOperand(), name, null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class X {\n");
+		buf.append("    void foo(Object o) {\n");
+		buf.append("        if (x instanceof String s)\n");
 		buf.append("            ;\n");
 		buf.append(" 	}\n");
 		buf.append("}\n");

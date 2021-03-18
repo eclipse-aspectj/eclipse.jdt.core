@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -289,7 +289,7 @@ public StringBuffer printStatement(int tab, StringBuffer output){
 @Override
 public void resolve(BlockScope scope) {
 	MethodScope methodScope = scope.methodScope();
-	MethodBinding methodBinding;
+	MethodBinding methodBinding = null;
 	LambdaExpression lambda = methodScope.referenceContext instanceof LambdaExpression ? (LambdaExpression) methodScope.referenceContext : null;
 	TypeBinding methodType =
 		lambda != null ? lambda.expectedResultType() :
@@ -299,6 +299,9 @@ public void resolve(BlockScope scope) {
 				: methodBinding.returnType)
 			: TypeBinding.VOID;
 	TypeBinding expressionType;
+
+	if (methodBinding != null && methodBinding.isCompactConstructor())
+		scope.problemReporter().recordCompactConstructorHasReturnStatement(this);
 
 	if (this.expression != null) {
 		this.expression.setExpressionContext(ASSIGNMENT_CONTEXT);

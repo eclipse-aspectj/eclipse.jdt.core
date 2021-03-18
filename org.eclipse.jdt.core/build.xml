@@ -10,18 +10,18 @@
     <delete file="lib/jdtDepends.jar"/>
     <mkdir dir="lib"/>
     <jar destfile="lib/jdtDepends.jar">
-      <!-- Eclipse 2019-12 -->
-      <zipfileset src="${plugins.dir}/org.eclipse.equinox.registry_3.8.600.v20191017-2055.jar"/>
-      <zipfileset src="lib/org.eclipse.equinox.common_3.14.100.v20210212-1143.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.osgi_3.15.100.v20191114-1701.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.core.jobs_3.10.600.v20191122-2104.jar"/>
-      <zipfileset src="lib/org.eclipse.core.resources_3.14.0.v20210215-0934.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.core.runtime_3.17.0.v20191122-2104.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.equinox.preferences_3.7.600.v20191017-2055.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.equinox.app_1.4.300.v20190815-1535.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.text_3.10.0.v20191122-2108.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.core.filesystem_1.7.600.v20191122-2104.jar"/>
-      <zipfileset src="${plugins.dir}/org.eclipse.core.contenttype_3.7.500.v20190916-2125.jar"/>
+      <!-- Eclipse 2020-03 + Java 16 support from Eclipse Marketplace -->
+      <zipfileset src="${plugins.dir}/org.eclipse.core.contenttype_3.7.900.v20210111-0918.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.filesystem_1.7.700.v20200110-1734.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.jobs_3.10.1100.v20210111-0815.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.resources_3.14.0.v20210215-0934.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.core.runtime_3.20.100.v20210111-0815.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.app_1.5.100.v20210212-1143.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.common_3.14.100.v20210212-1143.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.preferences_3.8.200.v20210212-1143.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.equinox.registry_3.10.100.v20210212-1143.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.osgi_3.16.200.v20210226-1447.jar"/>
+      <zipfileset src="${plugins.dir}/org.eclipse.text_3.11.0.v20210203-1022.jar"/>
     </jar>
     <delete file="lib/jdtDepends-src.zip" failonerror="false"/>
 

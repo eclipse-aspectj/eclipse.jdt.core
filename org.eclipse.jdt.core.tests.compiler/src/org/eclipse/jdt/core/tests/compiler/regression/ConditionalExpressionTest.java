@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2016 IBM Corporation and others.
+ * Copyright (c) 2005, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -534,7 +534,7 @@ public class ConditionalExpressionTest extends AbstractRegressionTest {
 						"public class X {\n" +
 						"	public void error(Collection<Object> c) {\n" +
 						"		boolean b  =true;\n" +
-						"		c.add(b ? new Integer(1)\n" +
+						"		c.add(b ? Integer.valueOf(1)\n" +
 						"		        : c==null ? null \n" +
 						"				  : c instanceof List ? Integer.valueOf(1) \n" +
 						"				                      : o()); \n" +

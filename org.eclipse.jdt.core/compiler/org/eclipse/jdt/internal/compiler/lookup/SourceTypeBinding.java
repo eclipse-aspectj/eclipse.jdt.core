@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -74,16 +74,12 @@ import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
-import org.eclipse.jdt.internal.compiler.ast.CompactConstructorDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
-import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
-import org.eclipse.jdt.internal.compiler.ast.SuperReference;
 import org.eclipse.jdt.internal.compiler.ast.SwitchStatement;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
@@ -920,7 +916,7 @@ public List<MethodBinding> checkAndAddSyntheticRecordOverrideMethods(MethodBindi
 	}
 	boolean isEqualsPresent = Arrays.stream(methodBindings)
 			.filter(m -> CharOperation.equals(TypeConstants.EQUALS, m.selector))
-			.anyMatch(m -> m.parameters != null || m.parameters.length == 1 &&
+			.anyMatch(m -> m.parameters != null && m.parameters.length == 1 &&
 				m.parameters[0].equals(this.scope.getJavaLangObject()));
 	if (!isEqualsPresent) {
 		MethodBinding m = addSyntheticRecordOverrideMethod(TypeConstants.EQUALS, implicitMethods.size());
@@ -1031,6 +1027,14 @@ public SyntheticMethodBinding addSyntheticRecordOverrideMethod(char[] selector, 
 	}
 	return accessMethod;
 }
+private void removeSyntheticRecordOverrideMethod(MethodBinding smb) {
+	if (this.synthetics == null)
+		return;
+	HashMap syntheticMethods = this.synthetics[SourceTypeBinding.METHOD_EMUL];
+	if (syntheticMethods == null)
+		return;
+	syntheticMethods.remove(smb.selector);
+}
 boolean areComponentsInitialized() {
 	if (!isPrototype())
 		return this.prototype.areComponentsInitialized();
@@ -1124,7 +1128,7 @@ void faultInTypesForFieldsAndMethods() {
 }
 
 private Map.Entry<TypeReference, ReferenceBinding> getFirstSealedSuperTypeOrInterface(TypeDeclaration typeDecl) {
-	boolean isAnySuperTypeSealed = this.superclass != null ? this.superclass.isSealed() : false;
+	boolean isAnySuperTypeSealed = typeDecl.superclass != null && this.superclass != null ? this.superclass.isSealed() : false;
 	if (isAnySuperTypeSealed)
 		return new AbstractMap.SimpleEntry<>(typeDecl.superclass, this.superclass);
 
@@ -1140,8 +1144,8 @@ private Map.Entry<TypeReference, ReferenceBinding> getFirstSealedSuperTypeOrInte
 }
 // TODO: Optimize the multiple loops - defer until the feature becomes standard.
 private void checkPermitsInType() {
-	if (this.isRecordDeclaration || this.isEnum())
-		return; // handled separately
+//	if (/* this.isRecordDeclaration || */this.isEnum())
+//		return; // handled separately
 	TypeDeclaration typeDecl = this.scope.referenceContext;
 	if (this.isInterface()) {
 		if (isSealed() && isNonSealed()) {
@@ -1170,7 +1174,7 @@ private void checkPermitsInType() {
 				ReferenceBinding permType = this.permittedTypes[i];
 				if (!permType.isValidBinding()) continue;
 				ModuleBinding permTypeModule = permType.module();
-				if (sourceModuleBinding != permTypeModule) {
+				if (permTypeModule != null && sourceModuleBinding != permTypeModule) {
 					TypeReference permittedTypeRef = typeDecl.permittedTypes[i];
 					this.scope.problemReporter().sealedPermittedTypeOutsideOfModule(permType, this, permittedTypeRef, sourceModuleBinding);
 				}
@@ -1190,7 +1194,7 @@ private void checkPermitsInType() {
 		}
 	} else if (this.isNonSealed()) {
 		if (!foundSealedSuperTypeOrInterface) {
-			if (this.isClass())
+			if (this.isClass() && !this.isRecord()) // record to give only illegal modifier error.
 				this.scope.problemReporter().sealedDisAllowedNonSealedModifierInClass(this, typeDecl);
 			else if (this.isInterface())
 				this.scope.problemReporter().sealedDisAllowedNonSealedModifierInInterface(this, typeDecl);
@@ -1204,7 +1208,7 @@ private void checkPermitsInType() {
 				this.scope.problemReporter().sealedMissingInterfaceModifier(this, typeDecl, sealedEntry.getValue());
 		}
 		List<SourceTypeBinding> typesInCU = collectAllTypeBindings(typeDecl, this.scope.compilationUnitScope());
-		if (typeDecl.superclass != null && !checkPermitsAndAdd(this.superclass, typesInCU))
+		if (!typeDecl.isRecord() && typeDecl.superclass != null && !checkPermitsAndAdd(this.superclass, typesInCU))
 			this.scope.problemReporter().sealedSuperClassDoesNotPermit(this, typeDecl.superclass, this.superclass);
 		for (int i = 0, l = this.superInterfaces.length; i < l; ++i) {
 			ReferenceBinding superInterface = this.superInterfaces[i];
@@ -1296,7 +1300,8 @@ public List<SourceTypeBinding> collectAllTypeBindings(TypeDeclaration typeDecl, 
 
 private boolean checkPermitsAndAdd(ReferenceBinding superType, List<SourceTypeBinding> types) {
 	if (superType == null
-			|| superType.equals(this.scope.getJavaLangObject()))
+			|| superType.equals(this.scope.getJavaLangObject())
+			|| !superType.isSealed())
 		return true;
 	if (superType.isSealed()) {
 		superType = getActualType(superType);
@@ -1348,8 +1353,8 @@ public RecordComponentBinding[] components() {
 				MethodBinding accessor = getRecordComponentAccessor(rcb.name);
 				if (accessor instanceof SyntheticMethodBinding) { // double checking
 					SyntheticMethodBinding smb = (SyntheticMethodBinding) accessor;
-					if (rcb.type instanceof TypeVariableBinding ||
-					rcb.type instanceof ParameterizedTypeBinding)
+					TypeBinding leafType = rcb.type.leafComponentType();
+					if (leafType instanceof ReferenceBinding && (((ReferenceBinding) leafType).modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0)
 						smb.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
 					// Don't copy the annotations to the accessor method's return type from record component
 					smb.returnType = rcb.type.unannotated();
@@ -2192,11 +2197,12 @@ private void checkAndGetExplicitCanonicalConstructors() {
 			}
 		}
 		if (isEC) {
-			checkRecordCanonicalConstructor(method);
+			explictCanConstr = checkRecordCanonicalConstructor(method);
 			// Just exit after sighting the first explicit canonical constructor,
 			// because there can only be one.
-			explictCanConstr = method;
-			break;
+			if (explictCanConstr != null)
+				break;
+			isEC = false; //error
 		}
 	}
 	if (explictCanConstr == null && implicitCanConstr != null) {
@@ -2204,12 +2210,12 @@ private void checkAndGetExplicitCanonicalConstructors() {
 	}
 }
 private int getImplicitMethod(char[] name) {
-	if (this.methods != null && this.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK14) {
+	if (this.methods != null && this.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK16) {
 		for (int i = 0, l = this.methods.length; i < l; ++i) {
 			MethodBinding method = this.methods[i];
 			if (!CharOperation.equals(method.selector, name))
 				continue;
-			if ((method.tagBits & TagBits.isImplicit) != 0)
+			if ((method.tagBits & TagBits.isImplicit) != 0 || method instanceof SyntheticMethodBinding)
 				return i;
 		}
 	}
@@ -2386,11 +2392,13 @@ public MethodBinding[] methodsBase() {  // AspectJ Extension - added Base suffix
 				}
 				if (recordEqualsIndex == i || recordEqualsIndex == j) {
 					methodDecl = this.methods[recordEqualsIndex].sourceMethod();
-					assert methodDecl != null;
-					methodDecl.binding = null;
+					if (methodDecl != null) {
+						methodDecl.binding = null;
+					}
 					// do not alter original method array until resolution is over, due to reentrance (143259)
 					if (resolvedMethods == this.methods)
 						System.arraycopy(this.methods, 0, resolvedMethods = new MethodBinding[length], 0, length);
+					removeSyntheticRecordOverrideMethod(resolvedMethods[recordEqualsIndex]);
 					resolvedMethods[recordEqualsIndex] = null;
 					failed++;
 					continue;
@@ -2506,10 +2514,11 @@ private void checkCanonicalConstructorParameterNames(MethodBinding explicitCanon
 	}
 }
 
-private void checkRecordCanonicalConstructor(MethodBinding explicitCanonicalConstructor) {
+private MethodBinding checkRecordCanonicalConstructor(MethodBinding explicitCanonicalConstructor) {
 
 	AbstractMethodDeclaration methodDecl = explicitCanonicalConstructor.sourceMethod();
-
+	if (methodDecl == null)
+		return null;
 	if (!SourceTypeBinding.isAtleastAsAccessibleAsRecord(explicitCanonicalConstructor))
 		this.scope.problemReporter().recordCanonicalConstructorVisibilityReduced(methodDecl);
 	TypeParameter[] typeParameters = methodDecl.typeParameters();
@@ -2519,42 +2528,8 @@ private void checkRecordCanonicalConstructor(MethodBinding explicitCanonicalCons
 		this.scope.problemReporter().recordCanonicalConstructorHasThrowsClause(methodDecl);
 	checkCanonicalConstructorParameterNames(explicitCanonicalConstructor, methodDecl);
 	explicitCanonicalConstructor.tagBits |= TagBits.IsCanonicalConstructor;
-	ASTVisitor visitor = new ASTVisitor() {
-		boolean isInsideCCD = methodDecl instanceof CompactConstructorDeclaration;
-		@Override
-		public boolean visit(ExplicitConstructorCall explicitConstructorCall, BlockScope skope) {
-			if (explicitConstructorCall.accessMode != ExplicitConstructorCall.ImplicitSuper) {
-				if (this.isInsideCCD)
-					skope.problemReporter().recordCompactConstructorHasExplicitConstructorCall(explicitConstructorCall);
-				else
-					skope.problemReporter().recordCanonicalConstructorHasExplicitConstructorCall(explicitConstructorCall);
-			}
-			return false;
-		}
-		@Override
-		public boolean visit(MethodDeclaration methodDeclaration, ClassScope skope) {
-			return false;
-		}
-		@Override
-		public boolean visit(LambdaExpression lambda, BlockScope skope) {
-			return false;
-		}
-		@Override
-		public boolean visit(ReturnStatement returnStatement, BlockScope skope) {
-			if (this.isInsideCCD) {
-				skope.problemReporter().recordCompactConstructorHasReturnStatement(returnStatement);
-				return false;
-			}
-			return true;
-		}
-	};
-	if ( methodDecl instanceof CompactConstructorDeclaration) {
-		CompactConstructorDeclaration ccd = (CompactConstructorDeclaration) methodDecl;
-		if (ccd.constructorCall == null) { // local traverse - super not set yet.
-			ccd.constructorCall = SuperReference.implicitSuperConstructorCall();
-		}
-	}
-	methodDecl.traverse(visitor, this.scope);
+//	checkAndFlagExplicitConstructorCallInCanonicalConstructor(methodDecl);
+	return explicitCanonicalConstructor;
 }
 
 @Override
