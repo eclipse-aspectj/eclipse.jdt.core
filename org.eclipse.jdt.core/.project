@@ -29,8 +29,6 @@
 	<natures>
 		<nature>org.eclipse.ajdt.ui.ajnature</nature>
 		<nature>org.eclipse.jdt.core.javanature</nature>
-		<nature>org.eclipse.pde.PluginNature</nature>
-		<nature>org.eclipse.pde.api.tools.apiAnalysisNature</nature>
 	</natures>
 	<linkedResources>
 		<link>
