@@ -2722,32 +2722,6 @@ public void configure(String[] argv) {
 					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_1);
 				} else if (currentArg.equals("1.2")) { //$NON-NLS-1$
 					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_2);
-				} else if (currentArg.equals("1.3")) { //$NON-NLS-1$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_3);
-				} else if (currentArg.equals("1.4")) { //$NON-NLS-1$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_4);
-				} else if (currentArg.equals("1.5") || currentArg.equals("5") || currentArg.equals("5.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_5);
-				} else if (currentArg.equals("1.6") || currentArg.equals("6") || currentArg.equals("6.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_6);
-				} else if (currentArg.equals("1.7") || currentArg.equals("7") || currentArg.equals("7.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_7);
-				} else if (currentArg.equals("1.8") || currentArg.equals("8") || currentArg.equals("8.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_8);
-				} else if (currentArg.equals("1.9") || currentArg.equals("9") || currentArg.equals("9.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_9);
-				} else if (currentArg.equals("10") || currentArg.equals("10.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_10);
-				} else if (currentArg.equals("11") || currentArg.equals("11.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_11);
-				} else if (currentArg.equals("12") || currentArg.equals("12.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_12);
-				} else if (currentArg.equals("13") || currentArg.equals("13.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_13);
-				} else if (currentArg.equals("14") ||  currentArg.equals("14.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
-				}
-				else if (currentArg.equals("jsr14")) { //$NON-NLS-1$
 				} else if (currentArg.equals("jsr14")) { //$NON-NLS-1$
 					this.options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_JSR14);
 				} else if (currentArg.equals("cldc1.1")) { //$NON-NLS-1$
@@ -2823,31 +2797,6 @@ public void configure(String[] argv) {
 							this.bind("configure.unsupportedWithRelease", "-source"));//$NON-NLS-1$ //$NON-NLS-2$
 				}
 				this.didSpecifySource = true;
-				if (currentArg.equals("1.3")) { //$NON-NLS-1$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_3);
-				} else if (currentArg.equals("1.4")) { //$NON-NLS-1$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_4);
-				} else if (currentArg.equals("1.5") || currentArg.equals("5") || currentArg.equals("5.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_5);
-				} else if (currentArg.equals("1.6") || currentArg.equals("6") || currentArg.equals("6.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_6);
-				} else if (currentArg.equals("1.7") || currentArg.equals("7") || currentArg.equals("7.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_7);
-				} else if (currentArg.equals("1.8") || currentArg.equals("8") || currentArg.equals("8.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_8);
-				} else if (currentArg.equals("1.9") || currentArg.equals("9") || currentArg.equals("9.0")) { //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_9);
-				} else if (currentArg.equals("10") ||  currentArg.equals("10.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_10);
-				} else if (currentArg.equals("11") ||  currentArg.equals("11.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_11);
-				} else if (currentArg.equals("12") ||  currentArg.equals("12.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_12);
-				} else if (currentArg.equals("13") ||  currentArg.equals("13.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_13);
-				} else if (currentArg.equals("14") ||  currentArg.equals("14.0")) { //$NON-NLS-1$//$NON-NLS-2$
-					this.options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
-				}
 				String version = optionStringToVersion(currentArg);
 				if (version != null) {
 					this.options.put(CompilerOptions.OPTION_Source, version);
@@ -3169,28 +3118,6 @@ public void configure(String[] argv) {
 			CompilerOptions.OPTION_ReportMissingJavadocTagsVisibility,
 			CompilerOptions.PRIVATE);
 	}
-//	// AspectJ Extension
-//    // old code:
-//    // if (printUsageRequired || (filesCount == 0 && classCount == 0)) {
-//    // new code:
-//	if (printUsageRequired || hasNoFiles(filesCount)) { // AspectJ Extension
-//    // End AspectJ Extension
-//			printUsage();
-//		if (usageSection ==  null) {
-//			printUsage(); // default
-//		} else {
-//			printUsage(usageSection);
-//		}
-//		this.proceed = false;
-//		return;
-//	}
-//	// AspectJ Extension
-//    // old code:
-//    // if (printUsageRequired || (filesCount == 0 && classCount == 0)) {
-//    // new code:
-//	if (printUsageRequired || hasNoFiles(filesCount)) { // AspectJ Extension
-//    // End AspectJ Extension
-
 	if (printUsageRequired) { // AspectJ Extension remove trailing condition || (filesCount == 0 && classCount == 0)) {
 		if (usageSection ==  null) {
 			printUsage(); // default
