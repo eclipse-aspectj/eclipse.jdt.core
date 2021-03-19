@@ -1477,8 +1477,17 @@ public class Main implements ProblemSeverities, SuffixConstants {
 	private PrintWriter err;
 
 	protected ArrayList<CategorizedProblem> extraProblems;
-	// AspectJ Extension - made non final
-	public static String bundleName = "org.eclipse.jdt.internal.compiler.batch.messages"; //$NON-NLS-1$
+
+	public final static String bundleName = "org.eclipse.jdt.internal.compiler.batch.messages"; //$NON-NLS-1$
+
+	// AspectJ Extension: Fictitious ISO country code 'aspectj' identifies a resource bundle 'messages_aspectj.properties'
+	// in the AspectJ code base. That file is meant to define a delta of AspectJ-specific properties not found in the
+	// original 'messages.properties' or overriding them, such as compiler name and version. This way we do not have to
+	// merge the two files all the time, keeping their contents in sync. Java will automatically handle the
+	// country-specific resource bundle with precedence over the unspecific one found in the Eclipse code base.
+	public static final Locale aspectjLocale = Locale.forLanguageTag("aspectj");
+	// End AspectJ Extension
+
 	// two uses: recognize 'none' in options; code the singleton none
 	// for the '-d none' option (wherever it may be found)
 	public static final int DEFAULT_SIZE_CLASSPATH = 4;
@@ -1712,12 +1721,12 @@ public String bind(String id) {
 public String bind(String id, String binding) {
 	return bind(id, new String[] { binding });
 }
-//AspectJ Extension - static form of bind that just uses the default locale
+// AspectJ Extension - static form of bind that uses the special 'aspectj' locale
 public static String _bind(String id,String []arguments) {
 	if (id==null) return "No message available"; //$NON-NLS-1$
 	String message = null;
 	try {
-	  message = ResourceBundleFactory.getBundle(Locale.getDefault()).getString(id);
+	  message = ResourceBundleFactory.getBundle(aspectjLocale).getString(id);
 	} catch (MissingResourceException mre) {
 		// If we got an exception looking for the message, fail gracefully by just returning
 		// the id we were looking for.  In most cases this is semi-informative so is not too bad.
@@ -1725,7 +1734,7 @@ public static String _bind(String id,String []arguments) {
 	}
 	return MessageFormat.format(message, arguments);
 }
-//End AspectJ Extension
+// End AspectJ Extension
 
 /*
  * Lookup the message with the given ID in this catalog and bind its
@@ -5276,6 +5285,7 @@ public void relocalize() {
 }
 
 private void relocalize(Locale locale) {
+	locale = aspectjLocale;  // AspectJ: Set fixed 'aspectj' locale
 	this.compilerLocale = locale;
 	try {
 		this.bundle = ResourceBundleFactory.getBundle(locale);
