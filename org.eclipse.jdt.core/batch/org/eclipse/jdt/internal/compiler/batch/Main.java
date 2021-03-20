@@ -2375,6 +2375,13 @@ public void configure(String[] argv) {
 					usageSection = "misc.usage.warn"; //$NON-NLS-1$
 					continue;
 				}
+				// AspectJ Extension: Print AspectJ -X options
+				if (currentArg.equals("-X")) { //$NON-NLS-1$
+					printUsageRequired = true;
+					usageSection = "xoption.usage"; //$NON-NLS-1$
+					continue;
+				}
+				// AspectJ Extension: End
 				if (currentArg.equals("-noExit")) { //$NON-NLS-1$
 					this.systemExitWhenFinished = false;
 					mode = DEFAULT;
