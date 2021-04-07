@@ -230,7 +230,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>3.25.0</version>
+  <version>3.25.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
@@ -243,11 +243,29 @@
 
   <distributionManagement>
     <repository>
+      <id>github-release</id>
+      <name>GitHub Packages Release</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <uniqueVersion>false</uniqueVersion>
+    </repository>
+    <snapshotRepository>
+      <id>github-snapshot</id>
+      <name>GitHub Packages Snapshot</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <uniqueVersion>true</uniqueVersion>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
       <id>github</id>
       <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/kriegaex/eclipse.jdt.core.git</url>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
-  </distributionManagement>
+  </repositories>
 
   <build>
 
@@ -334,19 +352,102 @@
       </resource>
     </resources>
 
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.1</version>
+        </plugin>
+        <plugin>
+          <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
+          <groupId>com.nickwongdev</groupId>
+          <artifactId>aspectj-maven-plugin</artifactId>
+          <version>1.12.6</version>
+          <configuration>
+            <!--<showWeaveInfo>true</showWeaveInfo>-->
+            <source>${maven.compiler.source}</source>
+            <target>${maven.compiler.target}</target>
+            <Xlint>ignore</Xlint>
+            <complianceLevel>${maven.compiler.target}</complianceLevel>
+            <encoding>${project.build.sourceEncoding}</encoding>
+            <!--<verbose>true</verbose>-->
+            <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
+          </configuration>
+          <executions>
+            <execution>
+              <!-- IMPORTANT -->
+              <phase>process-sources</phase>
+              <goals>
+                <goal>compile</goal>
+                <!--<goal>test-compile</goal>-->
+              </goals>
+            </execution>
+          </executions>
+          <dependencies>
+            <dependency>
+              <groupId>org.aspectj</groupId>
+              <artifactId>aspectjtools</artifactId>
+              <version>${aspectj.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <!--
+            FIXME: We only use this release to make GitHub Actions deploy work, it produces faulty source files.
+            The binaries should be OK, though.
+          -->
+          <version>3.2.4</version>
+          <!--
+            This version with my own fix produces correctly relocated sources, respecting exclusions too.
+            TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-252 is fixed
+          -->
+          <!--<version>3.3.0-SNAPSHOT</version>-->
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.0.0-M3</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
     <plugins>
 
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.2.0</version>
         <executions>
           <execution>
+            <id>add-source-dirs</id>
             <phase>generate-sources</phase>
             <goals>
               <goal>add-source</goal>
             </goals>
             <configuration>
+              <!-- The Eclipse JDT project definitely has a non-Maven directory layout with many source directories -->
               <sources>
                 <!-- We do not need 'antadapter' -->
                 <!--<source>${project.basedir}/antadapter</source>-->
@@ -370,11 +471,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.1</version>
-        <configuration>
-          <!-- Re-create original source JAR in order to avoid re-shading already shaded JAR in non-clean builds -->
-          <forceCreation>true</forceCreation>
-        </configuration>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -384,35 +480,63 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <!--
+            Avoid attaching the source JAR here, because Maven Shade will add the source uber JAR later. Because both
+            JARs have the same final name, Maven Install/Deploy would see two artifacts attached to the build, which
+            would lead to double deployment and hence to an error "Transfer failed for ...-sources.jar 409 Conflict".
+            See also https://issues.apache.org/jira/browse/MDEPLOY-254 and comments by Alexander Kriegisch.
+          -->
+          <attach>false</attach>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
+        </configuration>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.2.0</version>
         <configuration>
-          <!-- Re-create original JAR in order to avoid re-shading already shaded JAR in non-clean builds -->
-          <forceCreation>true</forceCreation>
           <archive>
             <addMavenDescriptor>false</addMavenDescriptor>
           </archive>
         </configuration>
-<!--
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
         <executions>
+          <!--
+            Delete target/*.jar before running Maven Shade. This avoids ugly warnings and duplicate JARs with different
+            names when re-shading existing JARs from previous builds.
+          -->
           <execution>
-            <id>test-jar</id>
+            <id>pre-shade-clean</id>
+            <phase>prepare-package</phase>
             <goals>
-              <goal>test-jar</goal>
+              <goal>clean</goal>
             </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>*.jar</include>
+                  </includes>
+                </fileset>
+              </filesets>
+            </configuration>
           </execution>
         </executions>
--->
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
+        <!-- Let the AspectJ compiler do the work -->
         <executions>
           <execution>
             <id>default-compile</id>
@@ -429,43 +553,11 @@
         <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
         <groupId>com.nickwongdev</groupId>
         <artifactId>aspectj-maven-plugin</artifactId>
-        <version>1.12.6</version>
-        <configuration>
-          <!--<showWeaveInfo>true</showWeaveInfo>-->
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
-          <Xlint>ignore</Xlint>
-          <complianceLevel>${maven.compiler.target}</complianceLevel>
-          <encoding>${project.build.sourceEncoding}</encoding>
-          <!--<verbose>true</verbose>-->
-          <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
-        </configuration>
-        <executions>
-          <execution>
-            <!-- IMPORTANT -->
-            <phase>process-sources</phase>
-            <goals>
-              <goal>compile</goal>
-              <!--<goal>test-compile</goal>-->
-            </goals>
-          </execution>
-        </executions>
-        <dependencies>
-          <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjtools</artifactId>
-            <version>${aspectj.version}</version>
-          </dependency>
-        </dependencies>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <!-- FIXME: We only use this release to make GitHub Actions deploy work, it produces faulty source files. The binaries should be OK, though. -->
-        <version>3.2.4</version>
-        <!-- TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-252 is fixed -->
-<!--        <version>3.3.0-SNAPSHOT</version>-->
         <executions>
           <execution>
             <id>shade-jdt-dependencies</id>
@@ -475,7 +567,6 @@
             </goals>
             <configuration>
               <minimizeJar>false</minimizeJar>
-<!--              <minimizeJar>true</minimizeJar>-->
               <createSourcesJar>true</createSourcesJar>
               <shadeSourcesContent>true</shadeSourcesContent>
               <createDependencyReducedPom>false</createDependencyReducedPom>
@@ -542,8 +633,6 @@
                     <exclude>org.eclipse.jdt.core.compiler.taskTags</exclude>
                     <exclude>org.eclipse.jdt.core.encoding</exclude>
                     <exclude>org.eclipse.jdt.core.formatter.comment.*</exclude>
-<!--                    <exclude>org.eclipse.jdt.core.formatter.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.core.index.messages</exclude>-->
                     <exclude>org.eclipse.jdt.core.javamodelcache.*</exclude>
                     <exclude>org.eclipse.jdt.core.parser.nd.chunks</exclude>
                     <exclude>org.eclipse.jdt.core.problem</exclude>
@@ -551,15 +640,20 @@
                     <exclude>org.eclipse.jdt.core.tests.model.JavaIndexTests</exclude>
                     <exclude>org.eclipse.jdt.disable_CTSYM_cache</exclude>
                     <exclude>org.eclipse.jdt.disable_JRT_cache</exclude>
-<!--                    <exclude>org.eclipse.jdt.internal.antadapter.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.internal.compiler.batch.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.internal.compiler.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.internal.compiler.problem.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.internal.core.nd.indexer.messages</exclude>-->
-<!--                    <exclude>org.eclipse.jdt.internal.core.util.messages</exclude>-->
                     <exclude>org.eclipse.jdt.internal.debug.*</exclude>
                     <exclude>org.eclipse.jdt.internal.debug.compile.mode</exclude>
                     <exclude>org.eclipse.jdt.internal.eval.target</exclude>
+                    <!-- Relocate message.properties, do NOT exclude -->
+                    <!--
+                    <exclude>org.eclipse.jdt.core.formatter.messages</exclude>
+                    <exclude>org.eclipse.jdt.core.index.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.antadapter.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.batch.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.problem.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.core.nd.indexer.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.core.util.messages</exclude>
+                    -->
                     <!--
                     TODO:
                       Always make sure that exclusions are up to date. Heuristicallly, you can find out like this:
@@ -599,7 +693,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.0.0-M3</version>
         <executions>
           <execution>
             <id>enforce-versions</id>
