@@ -469,6 +469,7 @@
 <!--              <minimizeJar>true</minimizeJar>-->
               <createSourcesJar>true</createSourcesJar>
               <shadeSourcesContent>true</shadeSourcesContent>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
               <artifactSet>
                 <excludes>
                   <exclude>org.aspectj:aspectjrt</exclude>
@@ -532,8 +533,8 @@
                     <exclude>org.eclipse.jdt.core.compiler.taskTags</exclude>
                     <exclude>org.eclipse.jdt.core.encoding</exclude>
                     <exclude>org.eclipse.jdt.core.formatter.comment.*</exclude>
-                    <exclude>org.eclipse.jdt.core.formatter.messages</exclude>
-                    <exclude>org.eclipse.jdt.core.index.messages</exclude>
+<!--                    <exclude>org.eclipse.jdt.core.formatter.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.core.index.messages</exclude>-->
                     <exclude>org.eclipse.jdt.core.javamodelcache.*</exclude>
                     <exclude>org.eclipse.jdt.core.parser.nd.chunks</exclude>
                     <exclude>org.eclipse.jdt.core.problem</exclude>
@@ -541,12 +542,12 @@
                     <exclude>org.eclipse.jdt.core.tests.model.JavaIndexTests</exclude>
                     <exclude>org.eclipse.jdt.disable_CTSYM_cache</exclude>
                     <exclude>org.eclipse.jdt.disable_JRT_cache</exclude>
-                    <exclude>org.eclipse.jdt.internal.antadapter.messages</exclude>
-                    <exclude>org.eclipse.jdt.internal.compiler.batch.messages</exclude>
-                    <exclude>org.eclipse.jdt.internal.compiler.messages</exclude>
-                    <exclude>org.eclipse.jdt.internal.compiler.problem.messages</exclude>
-                    <exclude>org.eclipse.jdt.internal.core.nd.indexer.messages</exclude>
-                    <exclude>org.eclipse.jdt.internal.core.util.messages</exclude>
+<!--                    <exclude>org.eclipse.jdt.internal.antadapter.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.internal.compiler.batch.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.internal.compiler.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.internal.compiler.problem.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.internal.core.nd.indexer.messages</exclude>-->
+<!--                    <exclude>org.eclipse.jdt.internal.core.util.messages</exclude>-->
                     <exclude>org.eclipse.jdt.internal.debug.*</exclude>
                     <exclude>org.eclipse.jdt.internal.debug.compile.mode</exclude>
                     <exclude>org.eclipse.jdt.internal.eval.target</exclude>
