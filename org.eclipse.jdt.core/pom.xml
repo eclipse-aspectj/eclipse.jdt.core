@@ -257,6 +257,7 @@
   </distributionManagement>
 
   <repositories>
+    <!-- Not strictly necessary, but can be copied to consuming projects -->
     <repository>
       <id>github</id>
       <name>GitHub Packages</name>
@@ -266,6 +267,18 @@
       </snapshots>
     </repository>
   </repositories>
+
+  <pluginRepositories>
+    <!-- TODO: Remove after upstream release for Maven Shade with fix for MSHADE-252 -->
+    <pluginRepository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
 
   <build>
 
@@ -388,16 +401,8 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <!--
-            FIXME: We only use this release to make GitHub Actions deploy work, it produces faulty source files.
-            The binaries should be OK, though.
-          -->
-          <version>3.2.4</version>
-          <!--
-            This version with my own fix produces correctly relocated sources, respecting exclusions too.
-            TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-252 is fixed
-          -->
-          <!--<version>3.3.0-SNAPSHOT</version>-->
+          <!-- TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-252 is fixed -->
+          <version>3.2.4.MSHADE-252</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
