@@ -368,6 +368,11 @@
     <pluginManagement>
       <plugins>
         <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.0.0-M3</version>
+        </plugin>
+        <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>3.2.0</version>
@@ -405,14 +410,35 @@
           <version>3.2.4.MSHADE-252</version>
         </plugin>
         <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>1.2.2</version>
         </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
+                  <version>14</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
@@ -695,21 +721,23 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
         <executions>
+          <!-- Remove shaded dependencies from uber JAR -->
           <execution>
-            <id>enforce-versions</id>
+            <id>flatten</id>
+            <phase>process-resources</phase>
             <goals>
-              <goal>enforce</goal>
+              <goal>flatten</goal>
             </goals>
             <configuration>
-              <rules>
-                <requireJavaVersion>
-                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
-                  <version>14</version>
-                </requireJavaVersion>
-              </rules>
+              <flattenMode>oss</flattenMode>
+              <pomElements>
+                <dependencies>remove</dependencies>
+              </pomElements>
+              <outputDirectory>${project.build.directory}</outputDirectory>
+              <flattenedPomFilename>flattened-pom.xml</flattenedPomFilename>
             </configuration>
           </execution>
         </executions>
