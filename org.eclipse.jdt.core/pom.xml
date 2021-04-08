@@ -384,33 +384,6 @@
           <groupId>com.nickwongdev</groupId>
           <artifactId>aspectj-maven-plugin</artifactId>
           <version>1.12.6</version>
-          <configuration>
-            <!--<showWeaveInfo>true</showWeaveInfo>-->
-            <source>${maven.compiler.source}</source>
-            <target>${maven.compiler.target}</target>
-            <Xlint>ignore</Xlint>
-            <complianceLevel>${maven.compiler.target}</complianceLevel>
-            <encoding>${project.build.sourceEncoding}</encoding>
-            <!--<verbose>true</verbose>-->
-            <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
-          </configuration>
-          <executions>
-            <execution>
-              <!-- IMPORTANT -->
-              <phase>process-sources</phase>
-              <goals>
-                <goal>compile</goal>
-                <!--<goal>test-compile</goal>-->
-              </goals>
-            </execution>
-          </executions>
-          <dependencies>
-            <dependency>
-              <groupId>org.aspectj</groupId>
-              <artifactId>aspectjtools</artifactId>
-              <version>${aspectj.version}</version>
-            </dependency>
-          </dependencies>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -550,9 +523,35 @@
       </plugin>
 
       <plugin>
-        <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
         <groupId>com.nickwongdev</groupId>
         <artifactId>aspectj-maven-plugin</artifactId>
+        <configuration>
+          <!--<showWeaveInfo>true</showWeaveInfo>-->
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <Xlint>ignore</Xlint>
+          <complianceLevel>${maven.compiler.target}</complianceLevel>
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <!--<verbose>true</verbose>-->
+          <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
+        </configuration>
+        <executions>
+          <execution>
+            <!-- IMPORTANT -->
+            <phase>process-sources</phase>
+            <goals>
+              <goal>compile</goal>
+              <!--<goal>test-compile</goal>-->
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjtools</artifactId>
+            <version>${aspectj.version}</version>
+          </dependency>
+        </dependencies>
       </plugin>
 
       <plugin>
