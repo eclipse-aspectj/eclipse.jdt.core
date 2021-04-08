@@ -243,13 +243,13 @@
 
   <distributionManagement>
     <repository>
-      <id>github-release</id>
+      <id>github</id>
       <name>GitHub Packages Release</name>
       <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
       <uniqueVersion>false</uniqueVersion>
     </repository>
     <snapshotRepository>
-      <id>github-snapshot</id>
+      <id>github</id>
       <name>GitHub Packages Snapshot</name>
       <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
       <uniqueVersion>true</uniqueVersion>
