@@ -4877,7 +4877,7 @@ public void printUsage() {
 	printUsage("misc.usage"); //$NON-NLS-1$
 }
 private void printUsage(String sectionID) {
-	this.logger.logUsage(
+	String usageMessage = ( // AspectJ: assign usage message to variable, so we can patch it
 		this.bind(
 			sectionID,
 			new String[] {
@@ -4886,6 +4886,24 @@ private void printUsage(String sectionID) {
 				this.bind("compiler.version"), //$NON-NLS-1$
 				this.bind("compiler.copyright") //$NON-NLS-1$
 			}));
+	// AspectJ Extension
+	if (sectionID.equals("misc.usage")) {
+		String aspectJSpecificOptions = this.bind("misc.usage.aspectj"); //$NON-NLS-1$
+		StringBuilder buffer = new StringBuilder(usageMessage.length() + aspectJSpecificOptions.length());
+		for (String line : usageMessage.split("\n")) {
+			// Patch AspectJ-specific compiler options into usage message
+			if (line.contains("Classpath options:"))
+				buffer.append(aspectJSpecificOptions);
+			// Remove information that "-X" is an ignored option
+			if (!line.contains("-X") && !line.contains("print non-standard options and exit (ignored)"))
+				buffer.append(line).append('\n');
+		}
+		usageMessage = buffer.toString();
+	}
+	// Remove repetitive whitespace lines, e.g. when the copyright is an empty string on a separate line
+	usageMessage = usageMessage.replaceAll("([ \t]*\r?\n){2,}", "\n\n");
+	this.logger.logUsage(usageMessage);
+	// End AspectJ Extension
 	this.logger.flush();
 }
 // AspectJ: from private to protected
