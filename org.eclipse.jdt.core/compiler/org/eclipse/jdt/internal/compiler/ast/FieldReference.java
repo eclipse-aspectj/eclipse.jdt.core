@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2018 IBM Corporation and others.
  *
@@ -10,6 +11,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Palo Alto Research Center, Incorporated - AspectJ adaptation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
  *								bug 185682 - Increment/decrement operators mark local variables as read
  *								bug 331649 - [compiler][null] consider null annotations for fields
@@ -52,6 +54,9 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
+/**
+ * AspectJ Extension - support for FieldBinding.alwaysNeedsAccessMethod
+ */
 public class FieldReference extends Reference implements InvocationSite {
 
 	public static final int READ = 0;
@@ -547,6 +552,17 @@ public FieldBinding lastFieldBinding() {
  * No need to emulate access to protected fields since not implicitly accessed
  */
 public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo, boolean isReadAccess) {
+	// AspectJ Extension
+	//System.err.println("manage synthetic: " + this + " with " + binding + ", " + binding.getClass());
+	if (binding.alwaysNeedsAccessMethod(false)) {
+		if (syntheticAccessors == null) syntheticAccessors = new MethodBinding[2];
+		syntheticAccessors[isReadAccess ? READ : WRITE] = 
+			binding.getAccessMethod(isReadAccess);
+//		this.codegenBinding = this.binding.original();
+		return;
+	}
+	// End AspectJ Extension
+	
 	if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) != 0)	return;
 
 	// if field from parameterized type got found, use the original field at codegen time

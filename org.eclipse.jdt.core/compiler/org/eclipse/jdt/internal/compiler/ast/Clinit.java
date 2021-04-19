@@ -1,3 +1,4 @@
+//AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -10,6 +11,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Palo Alto Research Center, Incorporated - AspectJ adaptation
  *     Patrick Wienands <pwienands@abit.de> - Contribution for bug 393749
  *     Stephan Herrmann - Contribution for
  *								bug 331649 - [compiler][null] consider null annotations for fields
@@ -37,6 +39,9 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 
+/**
+ * AspectJ Extension added template method for subclasses to insert more code.
+ */
 public class Clinit extends AbstractMethodDeclaration {
 	private static int ENUM_CONSTANTS_THRESHOLD = 2000;
 
@@ -198,6 +203,9 @@ public class Clinit extends AbstractMethodDeclaration {
 
 		// 1.4 feature
 		// This has to be done before any other initialization
+		// AspectJ Extension - move logic to helper method
+		// was:
+		/*
 		if (this.assertionSyntheticFieldBinding != null) {
 			// generate code related to the activation of assertion for this class
 			codeStream.generateClassLiteralAccessForType(
@@ -214,8 +222,11 @@ public class Clinit extends AbstractMethodDeclaration {
 			falseLabel.place();
 			codeStream.iconst_0();
 			jumpLabel.place();
-			codeStream.fieldAccess(Opcodes.OPC_putstatic, this.assertionSyntheticFieldBinding, null /* default declaringClass */);
+			codeStream.fieldAccess(Opcodes.OPC_putstatic, this.assertionSyntheticFieldBinding, null /* default declaringClass *\/);
 		}
+		*/
+		generateSyntheticCode(classScope, codeStream);
+		// End AspectJ Extension
 		boolean isJava9 = classScope.compilerOptions().complianceLevel >= ClassFileConstants.JDK9;
 		// generate static fields/initializers/enum constants
 		final FieldDeclaration[] fieldDeclarations = declaringType.fields;
@@ -336,6 +347,10 @@ public class Clinit extends AbstractMethodDeclaration {
 			}
 		}
 
+		// AspectJ Extension
+		generatePostSyntheticCode(classScope, codeStream);
+		// End AspectJ Extension
+
 		if (codeStream.position == 0) {
 			// do not need to output a Clinit if no bytecodes
 			// so we reset the offset inside the byte array contents.
@@ -358,6 +373,33 @@ public class Clinit extends AbstractMethodDeclaration {
 			classFile.completeCodeAttributeForClinit(codeAttributeOffset, classScope);
 		}
 	}
+
+	// AspectJ Extension
+	protected void generateSyntheticCode(ClassScope classScope, CodeStream codeStream) {
+		if (this.assertionSyntheticFieldBinding != null) {
+			// generate code related to the activation of assertion for this class
+			codeStream.generateClassLiteralAccessForType(classScope,
+					classScope.outerMostClassScope().enclosingSourceType(),
+				classLiteralSyntheticField);
+			codeStream.invokeJavaLangClassDesiredAssertionStatus();
+			BranchLabel falseLabel = new BranchLabel(codeStream);
+			codeStream.ifne(falseLabel);
+			codeStream.iconst_1();
+			BranchLabel jumpLabel = new BranchLabel(codeStream);
+			codeStream.decrStackSize(1);
+			codeStream.goto_(jumpLabel);
+			falseLabel.place();
+			codeStream.iconst_0();
+			jumpLabel.place();
+			codeStream.fieldAccess(Opcodes.OPC_putstatic, this.assertionSyntheticFieldBinding, null /* default declaringClass */);
+		}
+	}
+
+	protected void generatePostSyntheticCode(
+		ClassScope classScope,
+		CodeStream codeStream) {
+		}
+	// End AspectJ Extension
 
 	@Override
 	public boolean isClinit() {

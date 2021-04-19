@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -163,7 +164,8 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	protected Classpath[] classpaths;
 	// Used only in single-module mode when the module descriptor is
 	// provided via command line.
-	protected IModule module;
+	// AspectJ raised prot to public
+	public IModule module;
 	Set<String> knownFileNames;
 	protected boolean annotationsFromClasspath; // should annotation files be read from the classpath (vs. explicit separate path)?
 	private static HashMap<File, Classpath> JRT_CLASSPATH_CACHE = null;
@@ -187,16 +189,17 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	classPathNames is a collection is Strings representing the full path of each class path
 	initialFileNames is a collection is Strings, the trailing '.java' will be removed if its not already.
 */
-public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding) {
-	this(classpathNames, initialFileNames, encoding, null);
+public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, int mode, String release) {
+	this(classpathNames, initialFileNames, encoding, null, mode, release);
 }
-protected FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, Collection<String> limitModules) {
+public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, Collection<String> limitModules, int mode,String release) { // New AspectJ Extension - extra int flag for mode, was 'public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding) {'
 	final int classpathSize = classpathNames.length;
 	this.classpaths = new Classpath[classpathSize];
 	int counter = 0;
 	this.hasLimitModules = limitModules != null && !limitModules.isEmpty();
 	for (int i = 0; i < classpathSize; i++) {
-		Classpath classpath = getClasspath(classpathNames[i], encoding, null, null, null);
+		Classpath classpath = getClasspath(classpathNames[i], encoding, null, null, mode, release); // New AspectJ Extension - pass extra mode
+		if (classpath==null) continue; // AspectJ Extension
 		try {
 			classpath.initialize();
 			for (String moduleName : classpath.getModuleNames(limitModules))
@@ -211,7 +214,8 @@ protected FileSystem(String[] classpathNames, String[] initialFileNames, String 
 	}
 	initializeKnownFileNames(initialFileNames);
 }
-protected FileSystem(Classpath[] paths, String[] initialFileNames, boolean annotationsFromClasspath, Set<String> limitedModules) {
+// AspectJ raised to public from protected
+public FileSystem(Classpath[] paths, String[] initialFileNames, boolean annotationsFromClasspath, Set<String> limitedModules) {
 	final int length = paths.length;
 	int counter = 0;
 	this.classpaths = new FileSystem.Classpath[length];
@@ -269,24 +273,54 @@ public static Classpath getClasspath(String classpathName, String encoding, Acce
 public static Classpath getClasspath(String classpathName, String encoding, AccessRuleSet accessRuleSet, Map<String, String> options, String release) {
 	return getClasspath(classpathName, encoding, false, accessRuleSet, null, options, release);
 }
+//New AspectJ Extension
 public static Classpath getJrtClasspath(String jdkHome, String encoding, AccessRuleSet accessRuleSet, Map<String, String> options) {
 	return new ClasspathJrt(new File(convertPathSeparators(jdkHome)), true, accessRuleSet, null);
 }
+
+// Uses the mode rather than a boolean, so we can specify JUST binary (ClasspathLocation.BINARY)
+public static Classpath getClasspath(String classpathName, String encoding, AccessRuleSet accessRuleSet, int mode, String release) {
+//	return getClasspath(classpathName, encoding, mode, accessRuleSet, null, null);
+	return getClasspath(classpathName, encoding, mode, accessRuleSet, null, null, release);
+}
+// AspectJ - make this accessible from external consumers wanting to build classpath entry objects
+public static Classpath getClasspath(String classpathName, String encoding, AccessRuleSet accessRuleSet,Map options, int mode, String release) {
+	return getClasspath(classpathName, encoding, mode, accessRuleSet, null, options, release);
+}
+// End AspectJ
+
 public static Classpath getOlderSystemRelease(String jdkHome, String release, AccessRuleSet accessRuleSet) {
 	return isJRE12Plus ?
 			new ClasspathJep247Jdk12(new File(convertPathSeparators(jdkHome)), release, accessRuleSet) :
 			new ClasspathJep247(new File(convertPathSeparators(jdkHome)), release, accessRuleSet);
 }
+// Reworking of constructor, the original one that takes a boolean now delegates to the new one.
+// Original ctor declaration was:
+// public static Classpath getClasspath(String classpathName, String encoding,
+// 		boolean isSourceOnly, AccessRuleSet accessRuleSet,
+// 		String destinationPath) {
 public static Classpath getClasspath(String classpathName, String encoding,
 		boolean isSourceOnly, AccessRuleSet accessRuleSet,
 		String destinationPath, Map<String, String> options, String release) {
+	return getClasspath(classpathName,encoding,isSourceOnly ? ClasspathLocation.SOURCE :ClasspathLocation.SOURCE|ClasspathLocation.BINARY,accessRuleSet,destinationPath,options,release);
+}
+
+public static Classpath getClasspath(String classpathName, String encoding,
+		int mode, AccessRuleSet accessRuleSet,
+		String destinationPath, Map<String,String> options, String release) {
+	// End AspectJ Extension
 	Classpath result = null;
 	File file = new File(convertPathSeparators(classpathName));
 	if (file.isDirectory()) {
 		if (file.exists()) {
 			result = new ClasspathDirectory(file, encoding,
-					isSourceOnly ? ClasspathLocation.SOURCE :
-						ClasspathLocation.SOURCE | ClasspathLocation.BINARY,
+// New AspectJ Extension
+// old code:
+//					isSourceOnly ? ClasspathLocation.SOURCE :
+//						ClasspathLocation.SOURCE | ClasspathLocation.BINARY,
+// new code:
+					mode,
+// End AspectJ Extension
 					accessRuleSet,
 					destinationPath == null || destinationPath == Main.NONE ?
 						destinationPath : // keep == comparison valid
@@ -295,7 +329,29 @@ public static Classpath getClasspath(String classpathName, String encoding,
 	} else {
 		int format = Util.archiveFormat(classpathName);
 		if (format == Util.ZIP_FILE) {
-			if (isSourceOnly) {
+		// MERGECONFLICT: didn't have this call in our older version:
+//		if (Util.isPotentialZipArchive(classpathName)) {
+			String lowercaseClasspathName = classpathName.toLowerCase();
+			/// AspectJ Extension - check if the file is a zip rather than just using suffix (pr186673)
+			// old code:
+			// if (lowercaseClasspathName.endsWith(SUFFIX_STRING_jar)
+			//  || lowercaseClasspathName.endsWith(SUFFIX_STRING_zip)) {
+			// new code:
+//			boolean isZip = false;
+//			try {
+//				ZipFile zf = new ZipFile(file);
+//				zf.close();
+//				isZip = true;
+//			} catch (Exception e) {
+//				// this means it is not a valid Zip 
+//			}
+//			if (isZip) {
+			// New AspectJ Extension - use mode instead of flag
+			// old code:
+			//if (isSourceOnly) {
+			// new code:
+			if ((mode & ClasspathLocation.BINARY)==0) {
+			// End AspectJ Extension
 				// source only mode
 				result = new ClasspathSourceJar(file, true, accessRuleSet,
 					encoding,

@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -2536,6 +2537,11 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
     		for(int j = templateIndex; Parser.recovery_templates[j] != 0; j++) {
     			result[count++] = Parser.recovery_templates[j];
     		}
+			// AspectJ Extension - pr226163
+			if (count == 0) {
+				return null;
+			}
+			// End AspectJ Extension
     		System.arraycopy(result, 0, result = new int[count], 0, count);
     		return result;
     	} else {

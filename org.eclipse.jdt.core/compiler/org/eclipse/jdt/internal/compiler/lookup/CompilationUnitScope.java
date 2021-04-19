@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -98,7 +99,7 @@ public CompilationUnitScope(CompilationUnitDeclaration unit, CompilerOptions com
 	}
 	// client still needs to assign #environment
 }
-void buildFieldsAndMethods() {
+public void buildFieldsAndMethods() { // AspectJ Extension - raised to public
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.buildFieldsAndMethods();
 }
@@ -202,7 +203,7 @@ void buildTypeBindings(AccessRestriction accessRestriction) {
 		this.module().completeIfNeeded(IUpdatableModule.UpdateKind.PACKAGE);
 	}
 }
-void checkAndSetImports() {
+public void checkAndSetImports() { // AspectJ Extension - raised to public
 	// TODO(SHMOD): verify: this block moved here from buildTypeBindings.
 	// package resolving may require all modules to be known
 	TypeDeclaration[] types = this.referenceContext.types;
@@ -275,7 +276,7 @@ void checkAndSetImports() {
 /**
  * Perform deferred check specific to parameterized types: bound checks, supertype collisions
  */
-void checkParameterizedTypes() {
+public void checkParameterizedTypes() { // AspectJ Extension - raised to public
 	if (compilerOptions().sourceLevel < ClassFileConstants.JDK1_5) return;
 
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++) {
@@ -323,11 +324,29 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 			}
 		} else if (localType.isAnonymousType()){
 			if (isCompliant15) {
+				// AspectJ Extension start
+				char[] extraInsert = null;
+				if (outerMostEnclosingType instanceof SourceTypeBinding) {
+					SourceTypeBinding sourceTypeBinding = (SourceTypeBinding)outerMostEnclosingType;
+					ClassScope classScope = sourceTypeBinding.scope;
+					if (classScope!=null) {
+						TypeDeclaration typeDeclaration = classScope.referenceContext;
+						if (typeDeclaration!=null) {
+							extraInsert = typeDeclaration.getLocalTypeNameSuffix();
+						}
+					}
+				}
+				if (extraInsert!=null) {// AspectJ Extension end
+					candidateName = CharOperation.concat(
+							localType.enclosingType.constantPoolName(),
+							'$',extraInsert,'$',String.valueOf(index+1).toCharArray());
+				} else {
 				// from 1.5 on, use immediately enclosing type name
 				candidateName = CharOperation.concat(
 					localType.enclosingType.constantPoolName(),
 					String.valueOf(index+1).toCharArray(),
 					'$');
+				} // AspectJ extension, closing }
 			} else {
 				candidateName = CharOperation.concat(
 					outerMostEnclosingType.constantPoolName(),
@@ -362,9 +381,14 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 	return candidateName;
 }
 
-void connectTypeHierarchy() {
+public void connectTypeHierarchy() { // AspectJ Extension - raised to public
+	this.connectingHierarchy = true;
+	try {
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.connectTypeHierarchy();
+	} finally {
+		this.connectingHierarchy = false;
+	}
 	// Wait for all hierarchy information to be built before
 	// checking on permitted types
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
@@ -822,7 +846,7 @@ void recordSuperTypeReference(TypeBinding type) {
 public void recordTypeConversion(TypeBinding superType, TypeBinding subType) {
 	recordSuperTypeReference(subType); // must record the hierarchy of the subType that is converted to the superType
 }
-void recordTypeReference(TypeBinding type) {
+public void recordTypeReference(TypeBinding type) { // AspectJ Extension - raised to public
 	if (this.referencedTypes == null) return; // not recording dependencies
 
 	ReferenceBinding actualType = typeToRecord(type);

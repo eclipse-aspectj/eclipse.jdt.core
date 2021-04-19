@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2018 IBM Corporation and others.
  *
@@ -34,11 +35,12 @@ IProject currentProject;
 JavaProject javaProject;
 IWorkspaceRoot workspaceRoot;
 CompilationParticipant[] participants;
-NameEnvironment nameEnvironment;
-NameEnvironment testNameEnvironment;
+// AspectJ both made protected
+protected NameEnvironment nameEnvironment;
+protected NameEnvironment testNameEnvironment;
 SimpleLookupTable binaryLocationsPerProject; // maps a project to its binary resources (output folders, class folders, zip/jar files)
 public State lastState;
-BuildNotifier notifier;
+protected BuildNotifier notifier; // AspectJ Extension - made protected
 char[][] extraResourceFileFilters;
 String[] extraResourceFolderFilters;
 public static final String SOURCE_ID = "JDT"; //$NON-NLS-1$
@@ -173,7 +175,7 @@ protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) thro
 	if (DEBUG)
 		System.out.println("\nJavaBuilder: Starting build of " + this.currentProject.getName() //$NON-NLS-1$
 			+ " @ " + new Date(System.currentTimeMillis())); //$NON-NLS-1$
-	this.notifier = new BuildNotifier(monitor, this.currentProject);
+	this.notifier = createBuildNotifier(monitor, currentProject); // AspectJ Extension - use factory, was 'new BuildNotifier(monitor,currentProject)'
 	this.notifier.begin();
 	boolean ok = false;
 	try {
@@ -261,14 +263,20 @@ protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) thro
 	return requiredProjects;
 }
 
+// AspectJ Extension
+protected BuildNotifier createBuildNotifier(IProgressMonitor monitor, IProject currentProject) {
+	return new BuildNotifier(monitor, currentProject);
+}
+// End AspectJ Extension
+
 private void buildAll() {
 	this.notifier.checkCancel();
 	this.notifier.subTask(Messages.bind(Messages.build_preparingBuild, this.currentProject.getName()));
 	if (DEBUG && this.lastState != null)
 		System.out.println("JavaBuilder: Clearing last state : " + this.lastState); //$NON-NLS-1$
 	clearLastState();
-	BatchImageBuilder imageBuilder = new BatchImageBuilder(this, true, CompilationGroup.MAIN);
-	BatchImageBuilder testImageBuilder = new BatchImageBuilder(imageBuilder, true, CompilationGroup.TEST);
+	BatchImageBuilder imageBuilder = getBatchImageBuilder(this, true, CompilationGroup.MAIN); // AspectJ Extension - use factory, was 'new BatchImageBuilder(this,true)'
+	BatchImageBuilder testImageBuilder  = getBatchImageBuilder2(imageBuilder, true, CompilationGroup.TEST); // AspectJ Extension - use factory, was new BatchImageBuilder(imageBuilder, true, CompilationGroup.TEST);
 	imageBuilder.build();
 	if (testImageBuilder.sourceLocations.length > 0) {
 		// Note: testImageBuilder *MUST* have a separate output folder, or it will delete the files created by imageBuilder.build()
@@ -279,13 +287,22 @@ private void buildAll() {
 	recordNewState(imageBuilder.newState);
 }
 
+// AspectJ Extension
+protected BatchImageBuilder getBatchImageBuilder(JavaBuilder instance,boolean b, CompilationGroup compilationGroup) {
+	return new BatchImageBuilder(instance, b, compilationGroup);
+}
+protected BatchImageBuilder getBatchImageBuilder2(BatchImageBuilder instance,boolean b, CompilationGroup compilationGroup) {
+	return new BatchImageBuilder(instance, b, compilationGroup);
+}
+// End AspectJ Extension
+
 private void buildDeltas(SimpleLookupTable deltas) {
 	this.notifier.checkCancel();
 	this.notifier.subTask(Messages.bind(Messages.build_preparingBuild, this.currentProject.getName()));
 	if (DEBUG && this.lastState != null)
 		System.out.println("JavaBuilder: Clearing last state : " + this.lastState); //$NON-NLS-1$
 	clearLastState(); // clear the previously built state so if the build fails, a full build will occur next time
-	IncrementalImageBuilder imageBuilder = new IncrementalImageBuilder(this);
+	IncrementalImageBuilder imageBuilder = getIncrementalImageBuilder(); // AspectJ Extension - use factory, was 'new IncrementalImageBuilder(this)'
 	if (imageBuilder.build(deltas)) {
 		recordNewState(imageBuilder.newState);
 	} else {
@@ -294,6 +311,11 @@ private void buildDeltas(SimpleLookupTable deltas) {
 		buildAll();
 	}
 }
+// AspectJ Extension
+protected IncrementalImageBuilder getIncrementalImageBuilder() {
+	return new IncrementalImageBuilder(this);
+}
+// End AspectJ Extension
 
 @Override
 protected void clean(IProgressMonitor monitor) throws CoreException {

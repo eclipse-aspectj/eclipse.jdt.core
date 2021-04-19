@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -371,6 +372,11 @@ public static int getIrritant(int problemID) {
 
 		case IProblem.UndocumentedEmptyBlock:
 			return CompilerOptions.UndocumentedEmptyBlock;
+
+		/* AspectJ Extension */
+		case IProblem.SwallowedExceptionInCatchBlock:
+			return CompilerOptions.SwallowedExceptionInCatchBlock;
+		/* End AspectJ Extension */
 
 		case IProblem.UnnecessaryCast:
 		case IProblem.UnnecessaryInstanceof:
@@ -10085,6 +10091,17 @@ public void diamondNotWithAnoymousClasses(TypeReference type) {
 			type.sourceStart,
 			type.sourceEnd);
 }
+// AspectJ Extension
+public void swallowedException(int blockStart, int blockEnd) {
+	this.handle(
+			IProblem.SwallowedExceptionInCatchBlock,
+			NoArgument,
+			NoArgument,
+			blockStart,
+			blockEnd);
+}
+// End AspectJ Extension
+
 public void anonymousDiamondWithNonDenotableTypeArguments(TypeReference type, TypeBinding tb) {
 	this.handle(
 			IProblem.NonDenotableTypeArgumentForAnonymousDiamond,
@@ -11173,6 +11190,27 @@ public void invalidArrayConstructorReference(ReferenceExpression expression, Typ
 		expression.sourceStart,
 		expression.sourceEnd);
 }
+//AspectJ Extension
+/**
+* Signals an error with a string message for those errors that we don't know about
+*
+* This backdoor weakens NLS guarantees, but it makes life much easier for extensions.
+*/
+public void signalError(int start, int end, String msg) {
+	CompilationResult unitResult = referenceContext.compilationResult();
+	int lineNumber = start >= 0?Util.getLineNumber(start,unitResult.lineSeparatorPositions, 0, unitResult.lineSeparatorPositions.length-1):0;
+	int columnNumber = start >= 0?Util.searchColumnNumber(unitResult.getLineSeparatorPositions(), lineNumber, start): 0;
+	CategorizedProblem problem =
+		new DefaultProblem(unitResult.getFileName(), msg,
+						IProblem.ParsingError,  //??? would like IProblem.Unknown
+		                new String[0], ProblemSeverities.Error,
+		                start, end,
+		                lineNumber,columnNumber);
+	record(problem, unitResult, referenceContext,true);
+
+
+}
+//	End AspectJ Extension
 
 public void constructedArrayIncompatible(ReferenceExpression expression, TypeBinding receiverType, TypeBinding returnType) {
 	this.handle(

@@ -39,13 +39,11 @@ Export-Package: org.eclipse.jdt.core,
   x-friends:="org.eclipse.jdt.apt.pluggable.core,
    org.eclipse.jdt.compiler.tool,
    org.eclipse.pde.api.tools,
-   org.eclipse.jdt.apt.core,
-   org.eclipse.jdt.debug",
+   org.eclipse.jdt.apt.core",
  org.eclipse.jdt.internal.core;x-friends:="org.eclipse.jdt.apt.pluggable.core,org.eclipse.pde.api.tools,org.eclipse.jdt.launching",
  org.eclipse.jdt.internal.core.builder;x-friends:="org.eclipse.jdt.apt.pluggable.core,org.eclipse.pde.api.tools",
  org.eclipse.jdt.internal.core.dom;x-internal:=true,
  org.eclipse.jdt.internal.core.dom.rewrite;x-internal:=true,
- org.eclipse.jdt.internal.core.dom.util;x-internal:=true,
  org.eclipse.jdt.internal.core.eval;x-internal:=true,
  org.eclipse.jdt.internal.core.hierarchy;x-internal:=true,
  org.eclipse.jdt.internal.core.index;x-internal:=true,
@@ -70,7 +68,8 @@ Require-Bundle: org.eclipse.core.resources;bundle-version="[3.14.0,4.0.0)",
  org.eclipse.core.runtime;bundle-version="[3.13.0,4.0.0)",
  org.eclipse.core.filesystem;bundle-version="[1.7.0,2.0.0)",
  org.eclipse.text;bundle-version="[3.6.0,4.0.0)",
- org.eclipse.team.core;bundle-version="[3.1.0,4.0.0)";resolution:=optional
+ org.eclipse.team.core;bundle-version="[3.1.0,4.0.0)";resolution:=optional,
+ org.aspectj.runtime
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Eclipse-ExtensibleAPI: true
 Bundle-ActivationPolicy: lazy

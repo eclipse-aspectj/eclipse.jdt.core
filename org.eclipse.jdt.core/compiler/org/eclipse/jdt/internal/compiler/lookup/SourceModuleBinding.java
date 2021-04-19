@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2017, 2019 GK Software AG, and others.
  *
@@ -35,7 +36,11 @@ public class SourceModuleBinding extends ModuleBinding {
 	public SourceModuleBinding(char[] moduleName, CompilationUnitScope scope, LookupEnvironment rootEnv) {
 		super(moduleName);
 		rootEnv.knownModules.put(moduleName, this);
-		this.environment = new LookupEnvironment(rootEnv, this);
+		// AspectJ Extension - ask the lookup environment to wrap itself
+		this.environment = rootEnv.wrapInModuleEnvironment(this);
+		// was:
+		// this.environment = new LookupEnvironment(rootEnv, this);
+		// End AspectJ
 		this.scope = scope;
 		scope.environment = this.environment;
 	}

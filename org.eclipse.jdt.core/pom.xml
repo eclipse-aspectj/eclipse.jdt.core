@@ -9,6 +9,7 @@
   Contributors:
      Igor Fedorenko - initial implementation
 -->
+<!--
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -229,4 +230,582 @@
       </plugin>
     </plugins>
   </build>
+</project>
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.aspectj</groupId>
+  <artifactId>org.eclipse.jdt.core</artifactId>
+  <version>3.25.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <aspectj.version>1.9.6</aspectj.version>
+  </properties>
+
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages Release</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <uniqueVersion>false</uniqueVersion>
+    </repository>
+    <snapshotRepository>
+      <id>github</id>
+      <name>GitHub Packages Snapshot</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <uniqueVersion>true</uniqueVersion>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <!-- Not strictly necessary, but can be copied to consuming projects -->
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <!-- TODO: Remove after upstream release for Maven Shade with fix for MSHADE-252 -->
+    <pluginRepository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <build>
+
+    <resources>
+      <resource>
+        <directory>${project.basedir}/aspectj</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/batch</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/codeassist</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/compiler</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/dom</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/eval</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/formatter</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/model</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/search</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</directory>
+        <includes>
+          <include>**/*.rsc</include>
+          <include>**/*.properties</include>
+          <include>**/*.props</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.0.0-M3</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.1</version>
+        </plugin>
+        <plugin>
+          <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
+          <groupId>com.nickwongdev</groupId>
+          <artifactId>aspectj-maven-plugin</artifactId>
+          <version>1.12.6</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <!-- TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-252 is fixed -->
+          <version>3.2.4.MSHADE-252</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>1.2.2</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
+                  <version>14</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>add-source-dirs</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <!-- The Eclipse JDT project definitely has a non-Maven directory layout with many source directories -->
+              <sources>
+                <!-- We do not need 'antadapter' -->
+                <!--<source>${project.basedir}/antadapter</source>-->
+                <source>${project.basedir}/aspectj</source>
+                <source>${project.basedir}/batch</source>
+                <source>${project.basedir}/codeassist</source>
+                <source>${project.basedir}/compiler</source>
+                <source>${project.basedir}/dom</source>
+                <source>${project.basedir}/eval</source>
+                <source>${project.basedir}/formatter</source>
+                <source>${project.basedir}/model</source>
+                <source>${project.basedir}/search</source>
+                <!-- Add compiler APT support -->
+                <source>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>package</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!--
+            Avoid attaching the source JAR here, because Maven Shade will add the source uber JAR later. Because both
+            JARs have the same final name, Maven Install/Deploy would see two artifacts attached to the build, which
+            would lead to double deployment and hence to an error "Transfer failed for ...-sources.jar 409 Conflict".
+            See also https://issues.apache.org/jira/browse/MDEPLOY-254 and comments by Alexander Kriegisch.
+          -->
+          <attach>false</attach>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <executions>
+          <!--
+            Delete target/*.jar before running Maven Shade. This avoids ugly warnings and duplicate JARs with different
+            names when re-shading existing JARs from previous builds.
+          -->
+          <execution>
+            <id>pre-shade-clean</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>*.jar</include>
+                  </includes>
+                </fileset>
+              </filesets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <!-- Let the AspectJ compiler do the work -->
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.nickwongdev</groupId>
+        <artifactId>aspectj-maven-plugin</artifactId>
+        <configuration>
+          <!--<showWeaveInfo>true</showWeaveInfo>-->
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <Xlint>ignore</Xlint>
+          <complianceLevel>${maven.compiler.target}</complianceLevel>
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <!--<verbose>true</verbose>-->
+          <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
+        </configuration>
+        <executions>
+          <execution>
+            <!-- IMPORTANT -->
+            <phase>process-sources</phase>
+            <goals>
+              <goal>compile</goal>
+              <!--<goal>test-compile</goal>-->
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjtools</artifactId>
+            <version>${aspectj.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>shade-jdt-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <minimizeJar>false</minimizeJar>
+              <createSourcesJar>true</createSourcesJar>
+              <shadeSourcesContent>true</shadeSourcesContent>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <artifactSet>
+                <excludes>
+                  <exclude>org.aspectj:aspectjrt</exclude>
+                  <exclude>java:javax15api</exclude>
+                  <exclude>org.eclipse.platform:org.eclipse.core.expressions</exclude>
+                  <exclude>org.eclipse.platform:org.eclipse.core.commands</exclude>
+                </excludes>
+              </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>*</artifact>
+                  <excludes>
+                    <exclude>*</exclude>
+                    <exclude>META-INF/**</exclude>
+                    <exclude>OSGI-INF/**</exclude>
+                    <exclude>about_files/**</exclude>
+                    <exclude>natives/**</exclude>
+                    <exclude>schema/**</exclude>
+                    <exclude>ant_tasks/resources-ant.jar</exclude>
+                    <exclude>**/module-info.class</exclude>
+                    <exclude>**/plugin.properties</exclude>
+                    <exclude>**/.options</exclude>
+                    <exclude>**/.api_description</exclude>
+                    <exclude>**/*.html</exclude>
+                    <exclude>**/plugin.xml</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <relocations>
+                <relocation>
+                  <pattern>org.eclipse.jdt</pattern>
+                  <shadedPattern>org.aspectj.org.eclipse.jdt</shadedPattern>
+                  <excludes>
+                    <!--
+                      There are (at least) two files we have to be careful about: AssistOptions and CompilerOptions
+                      include option strings that we must not change, as AJDT will be working with them without the
+                      prefix. The following exclusions relate to the option prefixes used in these two and many more
+                      classes. We have to be careful to double-check for each exclusion to not intersect with actual
+                      package names. this is why sometimes we cannot use '.*' but must name the exact properties.
+                      Otherwise this would not work and we would end up with excluded classes.
+                    -->
+                    <exclude>org.eclipse.jdt.MODULE_PATH</exclude>
+                    <exclude>org.eclipse.jdt.USER_LIBRARY</exclude>
+                    <exclude>org.eclipse.jdt.annotation.*</exclude>
+                    <exclude>org.eclipse.jdt.core.codeComplete.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.annotation.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.codegen.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.compliance</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.debug.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.doc.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.emulateJavacBug8031744</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.generateClassFiles</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.maxProblemPerUnit</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.problem.*</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.processAnnotations</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.release</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.source</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.storeAnnotations</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.taskCaseSensitive</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.taskPriorities</exclude>
+                    <exclude>org.eclipse.jdt.core.compiler.taskTags</exclude>
+                    <exclude>org.eclipse.jdt.core.encoding</exclude>
+                    <exclude>org.eclipse.jdt.core.formatter.comment.*</exclude>
+                    <exclude>org.eclipse.jdt.core.javamodelcache.*</exclude>
+                    <exclude>org.eclipse.jdt.core.parser.nd.chunks</exclude>
+                    <exclude>org.eclipse.jdt.core.problem</exclude>
+                    <exclude>org.eclipse.jdt.core.task</exclude>
+                    <exclude>org.eclipse.jdt.core.tests.model.JavaIndexTests</exclude>
+                    <exclude>org.eclipse.jdt.disable_CTSYM_cache</exclude>
+                    <exclude>org.eclipse.jdt.disable_JRT_cache</exclude>
+                    <exclude>org.eclipse.jdt.internal.debug.*</exclude>
+                    <exclude>org.eclipse.jdt.internal.debug.compile.mode</exclude>
+                    <exclude>org.eclipse.jdt.internal.eval.target</exclude>
+                    <!-- Relocate message.properties, do NOT exclude -->
+                    <!--
+                    <exclude>org.eclipse.jdt.core.formatter.messages</exclude>
+                    <exclude>org.eclipse.jdt.core.index.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.antadapter.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.batch.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.compiler.problem.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.core.nd.indexer.messages</exclude>
+                    <exclude>org.eclipse.jdt.internal.core.util.messages</exclude>
+                    -->
+                    <!--
+                    TODO:
+                      Always make sure that exclusions are up to date. Heuristicallly, you can find out like this:
+                        find org.eclipse.jdt.core org.eclipse.jdt.compiler.apt -type f -name '*.java' |
+                          xargs grep -E '"org\.eclipse\.jdt\..*\$NON\-NLS-[0-9]+\$' |
+                          sed -E 's/.*"(org\.eclipse\.jdt\.[^"]*).*/\1/' |
+                          sort |
+                          uniq
+                      If you want to inspect the full matches, just remove '| sed ... | sort | uniq' from the command.
+                    -->
+                    <!--
+                    FIXME:
+                      Maven Shade's DefaultShader.RelocatorRemapper extends org.objectweb.asm.commons.Remapper which
+                      respects these inclusions in strings found inside class files. So far, so good. Its home-brew
+                      search + replace in source files is not so subtle, though: If the file itself is not excluded as a
+                      whole because its path matches <pattern>, the plugin will blindly apply the replace from
+                      <pattern> to <shadedPattern> in the whole file. I.e., those two files in the source JAR are
+                      incorrect and different from the actual class files which are indeed correct.
+                      .
+                      The problematic method in Maven Shade is SimpleRelocator::applyToSourceContent, the problematic
+                      command is 'sourceContent.replaceAll( "\\b" + pattern, shadedPattern )', because 'replaceAll' is
+                      not what we want here. See also on GitHub: https://bit.ly/39DNr8f
+                      .
+                      I (kriegaex) fixed this issue old https://issues.apache.org/jira/browse/MSHADE-252 myself, so it
+                      works for me locally with the long excludes list above, but it makes the shading step very slow.
+                      Correct results are more important, though. See also my PR
+                      https://github.com/apache/maven-shade-plugin/pull/88.
+                    -->
+                  </excludes>
+                </relocation>
+              </relocations>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <executions>
+          <!-- Remove shaded dependencies from uber JAR -->
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+            <configuration>
+              <flattenMode>oss</flattenMode>
+              <pomElements>
+                <dependencies>remove</dependencies>
+              </pomElements>
+              <outputDirectory>${project.build.directory}</outputDirectory>
+              <flattenedPomFilename>flattened-pom.xml</flattenedPomFilename>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <dependencies>
+    <!--
+      Taken from:
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.25.0/jar
+      Then click "Browse" (top right of the page) and you see all artifacts, among them the original POM:
+      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.25.0/org.eclipse.jdt.core-3.25.0.pom
+      Module 'org.eclipse.jdt.compiler.apt' only depends on this one, as you can see e.g. here:
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.3.1200/jar
+    -->
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.core.resources</artifactId>
+      <version>[3.14.0,4.0.0)</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.core.runtime</artifactId>
+      <version>[3.13.0,4.0.0)</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.core.filesystem</artifactId>
+      <version>[1.7.0,2.0.0)</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.text</artifactId>
+      <version>[3.6.0,4.0.0)</version>
+    </dependency>
+    <!-- Not this one, because optional=true -->
+    <!--
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.team.core</artifactId>
+      <version>[3.1.0,4.0.0)</version>
+      <optional>true</optional>
+    </dependency>
+    -->
+
+    <dependency>
+      <groupId>java</groupId>
+      <artifactId>javax15api</artifactId>
+      <version>1.0</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/../org.eclipse.jdt.compiler.apt/lib/javax15api.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>org.aspectj</groupId>
+      <artifactId>aspectjrt</artifactId>
+      <version>${aspectj.version}</version>
+    </dependency>
+  </dependencies>
+
 </project>

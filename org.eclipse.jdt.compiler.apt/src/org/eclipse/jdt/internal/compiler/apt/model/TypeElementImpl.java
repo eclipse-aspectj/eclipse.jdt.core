@@ -183,7 +183,7 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		return Collections.unmodifiableList(enclosed);
 	}
 
-	@Override
+	//@Override - AspectJ: does not compile with AspectJ Maven. This really is an Eclipse bug.
     public List<? extends RecordComponentElement> getRecordComponents() {
 		if (_binding instanceof SourceTypeBinding) {
 			SourceTypeBinding binding = (SourceTypeBinding) _binding;
@@ -199,7 +199,7 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		return Collections.emptyList();
     }
 
-	@Override
+	//@Override - AspectJ: does not compile with AspectJ Maven. This really is an Eclipse bug.
 	public List<? extends TypeMirror> getPermittedSubclasses() {
 		ReferenceBinding binding = (ReferenceBinding)_binding;
 		if (binding.isSealed()) {
@@ -290,7 +290,7 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 		if (refBinding.isInterface() && refBinding.isNestedType()) {
 			modifiers |= ClassFileConstants.AccStatic;
 		}
-		
+
 		return Factory.getModifiers(modifiers, getKind(), refBinding.isBinaryBinding());
 	}
 

@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2005, 2017 IBM Corporation and others.
  *
@@ -266,4 +267,24 @@ public class BatchAnnotationProcessorManager extends BaseAnnotationProcessorMana
 			}
 		}
 	}
+
+	@Override
+	public void reset() {
+		super.reset();
+		// AspectJ
+		// moved classloader closing out since it prevents the classloader being used again
+	}
+	
+	// AspectJ - start
+	@Override
+	protected void closeClassLoader() {
+		if (this._procLoader instanceof URLClassLoader) {
+			try {
+				((URLClassLoader) this._procLoader).close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	// AspectJ - end
 }

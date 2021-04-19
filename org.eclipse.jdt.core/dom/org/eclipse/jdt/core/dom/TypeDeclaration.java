@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -58,6 +59,40 @@ import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class TypeDeclaration extends AbstractTypeDeclaration {
 
+	// AspectJ Extension start
+	// We use a factory to build the type declaration, so we can return the subtype AjTypeDeclaration found in the
+	// org.aspectj.ajdt.core module.
+	private static final String AJ_TYPE_DECLARATION_FACTORY = "org.aspectj.ajdt.core.dom.AjTypeDeclFactory"; //$NON-NLS-1$
+	private static ITypeDeclFactory declarationFactory;
+	
+	static {
+		try{
+			declarationFactory = (ITypeDeclFactory) Class.forName(AJ_TYPE_DECLARATION_FACTORY).newInstance();
+		} catch (InstantiationException ex) {
+			throw new ExceptionInInitializerError(ex.getMessage());
+		} catch (IllegalAccessException ex) {
+			throw new ExceptionInInitializerError(ex.getMessage());
+		} catch (ClassNotFoundException ex) {
+			System.err.println("Warning: AspectJ type declaration factory class not found on classpath"); //$NON-NLS-1$
+			//throw new ExceptionInInitializerError(ex.getMessage());
+		}
+	}
+	
+	/**
+	 * @since 3.10
+	 */
+	public interface ITypeDeclFactory {
+		public TypeDeclaration createTypeFor(AST ast);
+	}
+	
+	/**
+	 * @since 3.10
+	 */
+	public static TypeDeclaration getTypeDeclaration(AST ast) {
+		return declarationFactory.createTypeFor(ast);
+	}
+	// AspectJ Extension end
+		
 	/**
 	 * The "javadoc" structural property of this node type (child type: {@link Javadoc}).
 	 * @since 3.0
@@ -151,17 +186,19 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	 * A list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor}),
 	 * or null if uninitialized.
-	 * @since 3.0
+	 * @since 3.10 // Up'd from 3.0 because of @since check due to raising visibility
 	 */
-	private static final List PROPERTY_DESCRIPTORS_2_0;
+	// AspectJ extension, modified not to be private or final
+	protected /*private*/ static /*final*/ List PROPERTY_DESCRIPTORS_2_0;
 
 	/**
 	 * A list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor}),
 	 * or null if uninitialized.
-	 * @since 3.1
+	 * @since 3.10 // Up'd from 3.1 because of @since check due to raising visibility
 	 */
-	private static final List PROPERTY_DESCRIPTORS_3_0;
+	// AspectJ extension, modified not to be private or final
+	protected /*private*/ static /*final*/ List PROPERTY_DESCRIPTORS_3_0;
 
 	/**
 	 * A list of property descriptors (element type:
@@ -259,9 +296,10 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	 * The type parameters (element type: {@link TypeParameter}).
 	 * Null in JLS2. Added in JLS3; defaults to an empty list
 	 * (see constructor).
-	 * @since 3.1
+	 * @since 3.10 // Up'd from 3.1 because of @since check due to raising visibility
 	 */
-	private ASTNode.NodeList typeParameters = null;
+    // AspectJ Extension, was private, now protected
+	protected ASTNode.NodeList typeParameters = null;
 
 	/**
 	 * The optional superclass name; <code>null</code> if none.
@@ -274,9 +312,10 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	 * The superinterface names (element type: {@link Name}).
 	 * JLS2 only; defaults to an empty list. Not used in JLS3.
 	 * (see constructor).
-	 *
+	 * @since 3.10 // Added because of @since check due to raising visibility
 	 */
-	private ASTNode.NodeList superInterfaceNames = null;
+    // AspectJ Extension, was private, now protected
+	protected ASTNode.NodeList superInterfaceNames = null;
 
 	/**
 	 * The optional superclass type; <code>null</code> if none.
@@ -290,9 +329,10 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	 * The superinterface types (element type: {@link Type}).
 	 * Null in JLS2. Added in JLS3; defaults to an empty list
 	 * (see constructor).
-	 * @since 3.1
+	 * @since 3.10 // Up'd from 3.1 because of @since check due to raising visibility
 	 */
-	private ASTNode.NodeList superInterfaceTypes = null;
+    // AspectJ Extension, was private, now protected
+	protected ASTNode.NodeList superInterfaceTypes = null;
 
 	/**
 	 * The permits types (element type: {@link Type}).
@@ -359,7 +399,8 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	}
 
 	@Override
-	final boolean internalGetSetBooleanProperty(SimplePropertyDescriptor property, boolean get, boolean value) {
+	// AspectJ extension, made non final so it can be overridden
+	/*final*/ boolean internalGetSetBooleanProperty(SimplePropertyDescriptor property, boolean get, boolean value) {
 		if (property == INTERFACE_PROPERTY) {
 			if (get) {
 				return isInterface();
@@ -373,7 +414,8 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	}
 
 	@Override
-	final ASTNode internalGetSetChildProperty(ChildPropertyDescriptor property, boolean get, ASTNode child) {
+	// AspectJ extension, made non final so it can be overridden
+	/*final*/ ASTNode internalGetSetChildProperty(ChildPropertyDescriptor property, boolean get, ASTNode child) {
 		if (property == JAVADOC_PROPERTY) {
 			if (get) {
 				return getJavadoc();

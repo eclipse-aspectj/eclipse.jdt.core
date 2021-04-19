@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -306,7 +307,23 @@ public boolean canBeSeenBy(PackageBinding invocationPackage) {
 /**
  * Answer true if the receiver is visible to the receiverType and the invocationType.
  */
+
+//AspectJ Extension - replace original impl with this one
 public boolean canBeSeenBy(ReferenceBinding receiverType, ReferenceBinding invocationType) {
+	boolean ret = innerCanBeSeenBy(receiverType, invocationType);
+	if (ret) return true;
+
+	//System.err.println("trying to see: " + new String(sourceName));
+
+	if (Scope.findPrivilegedHandler(invocationType) != null) {
+		Scope.findPrivilegedHandler(invocationType).notePrivilegedTypeAccess(this, null);
+		return true;
+	}
+	return false;
+}
+
+public final boolean innerCanBeSeenBy(ReferenceBinding receiverType, ReferenceBinding invocationType) {
+    // End AspectJ Extension - this is the original implementation
 	if (isPublic()) return true;
 
 	if (isStatic() && (receiverType.isRawType() || receiverType.isParameterizedType()))
@@ -391,11 +408,33 @@ public boolean canBeSeenBy(ReferenceBinding receiverType, ReferenceBinding invoc
 /**
  * Answer true if the receiver is visible to the type provided by the scope.
  */
+// AspectJ Extension: replace existing implementation with alternative that can access the privileged handler
 @Override
 public boolean canBeSeenBy(Scope scope) {
+	
+	boolean ret = innerCanBeSeenBy(scope);
+	if (ret) return true;
+	
+	SourceTypeBinding invocationType = scope.invocationType();
+//	System.err.println("trying to see (scope): " + new String(sourceName) + 
+//			" from " + new String(invocationType.sourceName));
+
+	if (Scope.findPrivilegedHandler(invocationType) != null) {
+		//System.err.println("    is privileged!");
+		Scope.findPrivilegedHandler(invocationType).notePrivilegedTypeAccess(this,null);
+		return true;
+	}
+	return false;
+}
+
+/*
+ * Answer true if the receiver is visible to the type provided by the scope.
+ */
+public final boolean innerCanBeSeenBy(Scope scope) {
+	// End AspectJ Extension
 	if (isPublic()) return true;
 
-	SourceTypeBinding invocationType = scope.enclosingSourceType();
+	SourceTypeBinding invocationType = scope.invocationType(); // AspectJ Extension - use invocationType() rather than enclosingSourceType()
 	if (TypeBinding.equalsEquals(invocationType, this)) return true;
 
 	if (invocationType == null) // static import call
@@ -1087,6 +1126,19 @@ public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes
 public FieldBinding getField(char[] fieldName, boolean needResolve) {
 	return null;
 }
+
+//AspectJ Extension
+/**
+ * Where multiple fields with the same name are defined, this will
+ * return the one most visible one...
+ * 
+ * Added for AspectJ to allow proper lookup with inter-type fields
+ */
+public FieldBinding getField(char[] fieldName, boolean resolve, InvocationSite site, Scope scope) {
+	return getField(fieldName, resolve);
+}
+// End AspectJ Extension
+
 /**
  * @see org.eclipse.jdt.internal.compiler.env.IDependent#getFileName()
  */
@@ -1760,13 +1812,27 @@ public final boolean isUsed() {
  * Answer true if the receiver is deprecated (or any of its enclosing types)
  */
 public final boolean isViewedAsDeprecated() {
-	if ((this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0)
-		return true;
+//	return (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0
+//			|| getPackage().isViewedAsDeprecated();
+	// AspectJ Extension - was
+	// return (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0
+	// || (this.getPackage().tagBits & TagBits.AnnotationDeprecated) != 0;
+	// replaced with this because the package has occasionally been null for some reason (pr249295)
+	boolean b = (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0;
+	if (b) {
+		return b;
+	}
+	if (this.getPackage() == null) {
+		System.err.println("Unexpectedly null package found for type " + debugName());
+		return b;
+	} else {
 	if (getPackage().isViewedAsDeprecated()) {
 		this.tagBits |= (getPackage().tagBits & TagBits.AnnotationTerminallyDeprecated);
 		return true;
 	}
 	return false;
+}
+	// End AspectJ Extension
 }
 
 /**

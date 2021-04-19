@@ -23,6 +23,7 @@ public class SourceJavadocParser extends JavadocParser {
 
 	// Store categories identifiers parsed in javadoc
 	int categoriesPtr = -1;
+	public // AspectJ Extension - made public
 	char[][] categories = CharOperation.NO_CHAR_CHAR;
 
 public SourceJavadocParser(Parser sourceParser) {

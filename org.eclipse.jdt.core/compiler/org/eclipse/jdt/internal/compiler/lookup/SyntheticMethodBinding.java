@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -679,6 +680,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 				return;
 		}
 	}
+
 	@Override
 	public void setAnnotations(AnnotationBinding[] annotations, Scope scope, boolean forceStore) {
 		if (this.declaringClass.isRecord() && (!this.isVarargs())) {
@@ -691,4 +693,11 @@ public class SyntheticMethodBinding extends MethodBinding {
 		setAnnotations(annotations, forceStore);
 	}
 
+	// AspectJ Extension
+	public SyntheticMethodBinding(MethodBinding myBinding) {
+		super(myBinding,null);
+		this.declaringClass = myBinding.declaringClass;
+		declaringClass.storeAnnotationHolder(this, myBinding.declaringClass.retrieveAnnotationHolder(myBinding, true)); // New AspectJ Extension - done after declaring class set and not in ctor
+    }
+	// End AspectJ Extension
 }

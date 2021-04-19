@@ -1,3 +1,4 @@
+//AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -184,7 +185,16 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 
 	int pc = codeStream.position;
 	MethodBinding codegenBinding = this.binding.original();
-	ReferenceBinding allocatedType = codegenBinding.declaringClass;
+	// AspectJ Extension
+	// was ReferenceBinding allocatedType = this.codegenBinding.declaringClass;
+	ReferenceBinding allocatedType;
+	if (syntheticAccessor != null) {
+		allocatedType = syntheticAccessor.declaringClass;
+	} else {
+		if (codegenBinding == null) codegenBinding = binding.original(); // just in case (see pr112783)
+		allocatedType = codegenBinding.declaringClass;
+	}
+	// End AspectJ Extension
 
 	codeStream.new_(this.type, allocatedType);
 	boolean isUnboxing = (this.implicitConversion & TypeIds.UNBOXING) != 0;
@@ -292,6 +302,15 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
 }
 
 public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo) {
+	// AspectJ Extension
+	if (binding.alwaysNeedsAccessMethod()) {
+//		MethodBinding codegenBinding = this.binding.original();
+		syntheticAccessor = binding.getAccessMethod(true);
+//		this.codegenBinding = binding.original();
+		return;
+	}
+	// End AspectJ Extension
+
 	if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) != 0) return;
 	// if constructor from parameterized type got found, use the original constructor at codegen time
 	MethodBinding codegenBinding = this.binding.original();

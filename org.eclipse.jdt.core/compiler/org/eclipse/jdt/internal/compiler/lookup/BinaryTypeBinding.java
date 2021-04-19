@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -88,27 +89,32 @@ null is NOT a valid value for a non-public field... it just means the field is n
 */
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
-public class BinaryTypeBinding extends ReferenceBinding {
+//AspectJ Extension - XXX extending SourceTypeBinding is a HORRIBLE hack, was 'extends ReferenceBinding'
+public class BinaryTypeBinding extends SourceTypeBinding {
 
 	public static final char[] TYPE_QUALIFIER_DEFAULT = "TypeQualifierDefault".toCharArray(); //$NON-NLS-1$
 
 	private static final IBinaryMethod[] NO_BINARY_METHODS = new IBinaryMethod[0];
 
 	// all of these fields are ONLY guaranteed to be initialized if accessed using their public accessor method
-	protected ReferenceBinding superclass;
+// AspectJ Extension - comment out some fields
+//	protected ReferenceBinding superclass;
 	protected ReferenceBinding enclosingType;
-	protected ReferenceBinding[] superInterfaces;
+//	protected ReferenceBinding[] superInterfaces;
+	// AspectJ - TODO kriegaex: Is there anything to be done if this new field is active?
 	protected ReferenceBinding[] permittedSubtypes;
-	protected FieldBinding[] fields;
-	protected RecordComponentBinding[] components;
-	protected MethodBinding[] methods;
-	protected ReferenceBinding[] memberTypes;
-	protected TypeVariableBinding[] typeVariables;
-	protected ModuleBinding module;
+//	protected FieldBinding[] fields;
+//	protected RecordComponentBinding[] components;
+//	protected MethodBinding[] methods;
+//	protected ReferenceBinding[] memberTypes;
+//	protected TypeVariableBinding[] typeVariables;
+//	protected ModuleBinding module;
+// End AspectJ Extension
 	private BinaryTypeBinding prototype;
 
 	// For the link with the principle structure
-	protected LookupEnvironment environment;
+	// AspectJ don't shadow SourceTypeBinding.environment
+//	protected LookupEnvironment environment;
 
 	protected SimpleLookupTable storedAnnotations = null; // keys are this ReferenceBinding & its fields and methods, value is an AnnotationHolder
 
@@ -296,7 +302,8 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 	this.compoundName = CharOperation.splitOn('/', binaryType.getName());
 	computeId();
 
-	this.tagBits |= TagBits.IsBinaryBinding;
+	this.tagBits |= TagBits.IsBinaryBinding
+					 |  TagBits.AnnotationResolved; // AspectJ extension - ensure we think we are resolved for getAnnotationTagBits() calls
 	this.environment = environment;
 	this.fPackage = packageBinding;
 	this.fileName = binaryType.getFileName();
@@ -853,6 +860,28 @@ private VariableBinding[] createFields(IBinaryField[] iFields, IBinaryType binar
 	return tFields;
 }
 
+//AspectJ Extension
+private static char[] ajcInterMethod = "ajc$interMethod$".toCharArray(); //$NON-NLS-1$
+private static char[] ajcInterField = "ajc$interFieldInit$".toCharArray(); //$NON-NLS-1$
+
+// Override super because scope not set in binary type binding
+@Override
+public boolean isNestmateOf(SourceTypeBinding other) {
+
+//	CompilerOptions options = this.scope.compilerOptions();
+	CompilerOptions options = this.environment.globalOptions;
+	if (options.targetJDK < ClassFileConstants.JDK11 ||
+		options.complianceLevel < ClassFileConstants.JDK11)
+		return false; // default false if level less than 11
+
+	SourceTypeBinding otherHost = other.getNestHost();
+	return TypeBinding.equalsEquals(this, other) ||
+			TypeBinding.equalsEquals(this.nestHost == null ? this : this.nestHost,
+					otherHost == null ? other : otherHost);
+}
+//End AspectJ Extension
+
+
 private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType, long sourceLevel, char[][][] missingTypeNames) {
 	if (!isPrototype()) throw new IllegalStateException();
 	int methodModifiers = method.getModifiers() | ExtraCompilerModifiers.AccUnresolved;
@@ -975,6 +1004,51 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 			typeVars = createTypeVariables(wrapper, false, missingTypeNames, walker, false/*class*/);
 			wrapper.start++; // skip '>'
 		}
+		// AspectJ Extension - pr242797
+		// Aim here is to say: we might have just hit an ITD that is declared to share a type variable with
+		// some target generic type.  In that case we try to sneak a type variable entry into the
+		// typeVars map so that it will be found when the wrapper signature is processed, rather than
+		// an error being thrown because the type variable cannot be found against the method declaration
+		// or in the containing type for the declaration.  For example, the method might be
+		// "ajc$interMethod$X$I$foo" indicating that it targets I, and I may define type variables.
+		// Restrictions with this change:
+		// - if the type variable on the target type of the ITD clashes with a type variable declared on the method (if it is a generic method)
+        //   the ITD will fail to use the right type variable.
+		// - due to always replacing _ with / to discover the type name, types with real _ in their name will go wrong
+
+		// had to extend this to also work for ITD fields (see 242797 c41)
+		if (CharOperation.prefixEquals(ajcInterMethod,method.getSelector()) ||
+			CharOperation.prefixEquals(ajcInterField, method.getSelector())) {
+			try {
+				char[] sel = method.getSelector();
+				int dollar2 = CharOperation.indexOf('$',sel,4);
+				int dollar3 = CharOperation.indexOf('$',sel,dollar2+1);
+				int dollar4 = CharOperation.indexOf('$',sel,dollar3+1);
+				char[] targetType = CharOperation.subarray(sel, dollar3+1, dollar4);
+				targetType = CharOperation.replaceOnCopy(targetType, '_', '/');
+				ReferenceBinding binding = environment.getTypeFromConstantPoolName(targetType,0,targetType.length,false,missingTypeNames); // skip leading 'L' or 'T'
+				TypeVariableBinding[] tvb = binding.typeVariables();
+				if (tvb!=null && tvb.length>0) {
+					for (int i=0;i<tvb.length;i++) {
+						// Look for clashes with type variables on the generic method
+						for (int j=0;j<typeVars.length;j++) {
+							if (CharOperation.equals(tvb[i].sourceName,typeVars[j].sourceName)) {
+								// this is gonna get UGLY - warn the user?
+								System.err.println("Type variable for name '"+new String(tvb[i].sourceName)+"' clash on generic ITD "+this.toString());
+							}
+						}
+					}
+					TypeVariableBinding[] newTypeVars = new TypeVariableBinding[(typeVars==null?0:typeVars.length)+tvb.length];
+					System.arraycopy(typeVars, 0, newTypeVars, 0, typeVars.length);
+					System.arraycopy(tvb,0,newTypeVars,typeVars.length,tvb.length);
+					typeVars = newTypeVars;
+				}
+			} catch (Exception e) {
+				System.err.println("Unexpected problem in code that fixes 242797 - please raise an AspectJ bug.");
+				e.printStackTrace();
+			}
+		}
+		// End AspectJ Extension
 
 		if (wrapper.signature[wrapper.start] == Util.C_PARAM_START) {
 			wrapper.start++; // skip '('
@@ -1406,8 +1480,7 @@ public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes
 }
 //NOTE: the type of a field of a binary type is resolved when needed
 @Override
-public FieldBinding getField(char[] fieldName, boolean needResolve) {
-
+public FieldBinding getFieldBase(char[] fieldName, boolean needResolve) { // AspectJ Extension - added Base to name
 	if (!isPrototype())
 		return this.prototype.getField(fieldName, needResolve);
 
@@ -1458,7 +1531,7 @@ public ReferenceBinding getMemberType(char[] typeName) {
 
 // NOTE: the return type, arg & exception types of each method of a binary type are resolved when needed
 @Override
-public MethodBinding[] getMethods(char[] selector) {
+public MethodBinding[] getMethodsBase(char[] selector) { // AspectJ Extension - added Base to name
 
 	if (!isPrototype())
 		return this.prototype.getMethods(selector);
@@ -1498,8 +1571,7 @@ public MethodBinding[] getMethods(char[] selector) {
 }
 // Answer methods named selector, which take no more than the suggestedParameterLength.
 // The suggested parameter length is optional and may not be guaranteed by every type.
-@Override
-public MethodBinding[] getMethods(char[] selector, int suggestedParameterLength) {
+public MethodBinding[] getMethodsBase(char[] selector, int suggestedParameterLength) {  // AspectJ Extension - added Base to name
 
 	if (!isPrototype())
 		return this.prototype.getMethods(selector, suggestedParameterLength);
@@ -1554,7 +1626,7 @@ public TypeVariableBinding getTypeVariable(char[] variableName) {
 		return this.prototype.getTypeVariable(variableName);
 
 	TypeVariableBinding variable = super.getTypeVariable(variableName);
-	variable.resolve();
+	if (variable!=null) variable.resolve(); // AspectJ Extension - guard added
 	return variable;
 }
 @Override
@@ -1724,7 +1796,7 @@ private ReferenceBinding[] maybeSortedMemberTypes() {
 
 // NOTE: the return type, arg & exception types of each method of a binary type are resolved when needed
 @Override
-public MethodBinding[] methods() {
+public MethodBinding[] methodsBase() { // AspectJ Extension - added Base suffix
 
 	if (!isPrototype()) {
 		return this.methods = this.prototype.methods();
@@ -1755,7 +1827,9 @@ public TypeBinding prototype() {
 	return this.prototype;
 }
 
-private boolean isPrototype() {
+// AspectJ Extension: made public not private
+@Override
+public boolean isPrototype() {
 	return this == this.prototype; //$IDENTITY-COMPARISON$
 }
 @Override
@@ -1778,6 +1852,7 @@ private RecordComponentBinding resolveTypeFor(RecordComponentBinding component) 
 	if ((component.modifiers & ExtraCompilerModifiers.AccUnresolved) == 0)
 		return component;
 
+<<<<<<< HEAD
 	TypeBinding resolvedType = resolveType(component.type, this.environment, true /* raw conversion */);
 	component.type = resolvedType;
 	if ((resolvedType.tagBits & TagBits.HasMissingType) != 0) {
@@ -1787,6 +1862,11 @@ private RecordComponentBinding resolveTypeFor(RecordComponentBinding component) 
 	return component;
 }
 private FieldBinding resolveTypeFor(FieldBinding field) {
+=======
+// AspectJ extension - raised to public from private
+@Override
+public FieldBinding resolveTypeFor(FieldBinding field) {
+>>>>>>> alex/aj_19-java16
 
 	if (!isPrototype())
 		return this.prototype.resolveTypeFor(field);
@@ -1802,7 +1882,8 @@ private FieldBinding resolveTypeFor(FieldBinding field) {
 	field.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
 	return field;
 }
-MethodBinding resolveTypesFor(MethodBinding method) {
+@Override
+public MethodBinding resolveTypesFor(MethodBinding method) { // AspectJ Extension - raised to public
 
 	if (!isPrototype())
 		return this.prototype.resolveTypesFor(method);
@@ -1872,6 +1953,12 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize, boolean forceStore)
 	}
 	return this.storedAnnotations;
 }
+// AspectJ Extension - empty implementation here to stop super implementation running
+@Override
+public void initializeDeprecatedAnnotationTagBits() {
+	// this method intentionally left empty
+}
+// End AspectJ Extension
 
 //pre: null annotation analysis is enabled
 private void scanFieldForNullAnnotation(IBinaryField field, VariableBinding fieldBinding, boolean isEnum, ITypeAnnotationWalker externalAnnotationWalker) {
@@ -2515,4 +2602,23 @@ public ModuleBinding module() {
 		return this.prototype.module;
 	return this.module;
 }
+
+//AspectJ Extension
+@Override
+public MethodBinding[] methods() {
+	   if (memberFinder!=null) return memberFinder.methods(this);
+	   else return methodsBase();
+}
+
+@Override
+public int sourceStart() {
+	return 0;
+}
+
+@Override
+public int sourceEnd() {
+	return 0;
+}
+
+//End AspectJ Extension
 }
