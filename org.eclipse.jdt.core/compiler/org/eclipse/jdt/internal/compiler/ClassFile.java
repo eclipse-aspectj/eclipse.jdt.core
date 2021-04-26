@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -404,7 +405,13 @@ public class ClassFile implements TypeConstants, TypeIds {
 		if (this.targetJDK >= ClassFileConstants.JDK1_4) {
 			TypeDeclaration typeDeclaration = this.referenceBinding.scope.referenceContext;
 			if (typeDeclaration != null) {
-				final Annotation[] annotations = typeDeclaration.annotations;
+				// AspectJ Extension - use the original array if its set
+				// original code:
+				// final Annotation[] annotations = typeDeclaration.annotations;
+				// new code:
+				Annotation[] annotations = typeDeclaration.originalAnnotations;
+				if (annotations == null) annotations = typeDeclaration.annotations;
+				// End AspectJ Extension
 				if (annotations != null) {
 					long targetMask;
 					if (typeDeclaration.isPackageInfo())
@@ -468,6 +475,17 @@ public class ClassFile implements TypeConstants, TypeIds {
 
 		attributesNumber += generateTypeAnnotationAttributeForTypeDeclaration();
 
+		// AspectJ Extension
+	    // write any "extraAttributes"
+	    if (this.extraAttributes != null) {
+	        for (int i=0, len=this.extraAttributes.size(); i < len; i++) {
+	            IAttribute attribute = (IAttribute)this.extraAttributes.get(i);
+	            short nameIndex = (short)constantPool.literalIndex(attribute.getNameChars());
+	            writeToContents(attribute.getAllBytes(nameIndex,constantPool));
+	            attributesNumber++;
+	        }
+	    }
+	    //  End AspectJ Extension
 		if (this.targetJDK >= ClassFileConstants.JDK11) {
 			// add nestMember and nestHost attributes
 			attributesNumber += generateNestAttributes();
@@ -667,6 +685,10 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 		return attributesNumber;
 	}
+
+	//  AspectJ Extension
+	public List/*<IAttribute>*/ extraAttributes = new ArrayList(1);
+	//  End AspectJ Extension
 
 	private void addComponentInfo(RecordComponentBinding recordComponentBinding) {
 		// check that there is enough space to write all the bytes for the field info corresponding
@@ -2614,6 +2636,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 								// ignore all annotation values
 								this.contents[this.contentsOffset++] = 0;
 								this.contents[this.contentsOffset++] = 0;
+								//AspectJ patch for bug 507232
+								memberValuePairsCount = 0;
+								//AspectJ end
 								break loop;
 							}
 							memberValuePairsCount++;
@@ -4065,7 +4090,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 	 * @param methodBinding org.eclipse.jdt.internal.compiler.lookup.MethodBinding
 	 * @return <CODE>int</CODE>
 	 */
-	public int generateMethodInfoAttributes(MethodBinding methodBinding) {
+	public int generateMethodInfoAttributes(MethodBinding methodBinding, List extraAttributes) { // AspectJ: extra parameter
 		// leave two bytes for the attribute_number
 		this.contentsOffset += 2;
 		if (this.contentsOffset + 2 >= this.contents.length) {
@@ -4174,8 +4199,25 @@ public class ClassFile implements TypeConstants, TypeIds {
 		if ((methodBinding.tagBits & TagBits.HasMissingType) != 0) {
 			this.missingTypes = methodBinding.collectMissingTypes(this.missingTypes);
 		}
+		// AspectJ Extension
+	    if (extraAttributes != null) {
+	      for (int i=0, len = extraAttributes.size(); i < len; i++) {
+	          IAttribute attribute = (IAttribute)extraAttributes.get(i);
+	          short nameIndex = (short)constantPool.literalIndex(attribute.getNameChars());
+	          writeToContents(attribute.getAllBytes(nameIndex,constantPool));
+	          attributesNumber++;
+	      }
+	    }
+	    // End AspectJ Extension
 		return attributesNumber;
 	}
+
+	// AspectJ Extension - new method stub that can pass 3rd param
+	public int generateMethodInfoAttributes(MethodBinding methodBinding) {
+		return generateMethodInfoAttributes(methodBinding,(List)null);
+	}
+	// End AspectJ Extension
+
 	private int completeRuntimeTypeAnnotations(int attributesNumber,
 			ASTNode node,
 			Predicate<ASTNode> condition,
@@ -4442,9 +4484,12 @@ public class ClassFile implements TypeConstants, TypeIds {
 			Annotation annotation;
 			if ((annotation = annotations[i].getPersistibleAnnotation()) == null) continue; // already packaged into container.
 			long annotationMask = annotation.resolvedType != null ? annotation.resolvedType.getAnnotationTagBits() & TagBits.AnnotationTargetMASK : 0;
-			if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
-				if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
-			}
+			// AspectJ Extension: this prevents a Type targeting annotation being stashed on a
+			// method representing an 'declare @type'. So don't enforce this restriction
+//			if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
+//				if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
+//			}
+			// AspectJ Extension: End
 			if (annotation.isRuntimeInvisible() || annotation.isRuntimeTypeInvisible()) {
 				invisibleAnnotationsCounter++;
 			} else if (annotation.isRuntimeVisible() || annotation.isRuntimeTypeVisible()) {
@@ -4473,9 +4518,12 @@ public class ClassFile implements TypeConstants, TypeIds {
 				Annotation annotation;
 				if ((annotation = annotations[i].getPersistibleAnnotation()) == null) continue; // already packaged into container.
 				long annotationMask = annotation.resolvedType != null ? annotation.resolvedType.getAnnotationTagBits() & TagBits.AnnotationTargetMASK : 0;
-				if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
-					if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
-				}
+				// AspectJ Extension: this prevents a Type targeting annotation being stashed on a
+				// method representing an 'declare @type'. So don't enforce this restriction
+//				if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
+//					if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
+//				}
+				// AspectJ Extension: end
 				if (annotation.isRuntimeInvisible() || annotation.isRuntimeTypeInvisible()) {
 					int currentAnnotationOffset = this.contentsOffset;
 					generateAnnotation(annotation, currentAnnotationOffset);
@@ -4521,9 +4569,12 @@ public class ClassFile implements TypeConstants, TypeIds {
 				Annotation annotation;
 				if ((annotation = annotations[i].getPersistibleAnnotation()) == null) continue; // already packaged into container.
 				long annotationMask = annotation.resolvedType != null ? annotation.resolvedType.getAnnotationTagBits() & TagBits.AnnotationTargetMASK : 0;
-				if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
-					if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
-				}
+				// AspectJ Extension: this prevents a Type targeting annotation being stashed on a
+				// method representing an 'declare @type'. So don't enforce this restriction
+//				if (annotationMask != 0 && (annotationMask & targetMask) == 0) {
+//					if (!jdk16packageInfoAnnotation(annotationMask, targetMask)) continue;
+//				}
+				// AspectJ Extension: end
 				if (annotation.isRuntimeVisible() || annotation.isRuntimeTypeVisible()) {
 					visibleAnnotationsCounter--;
 					int currentAnnotationOffset = this.contentsOffset;
@@ -5763,10 +5814,11 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 		initializeHeader(parentClassFile, accessFlags);
 		// innerclasses get their names computed at code gen time
-
 		int classNameIndex = this.constantPool.literalIndexForType(aType);
 		this.contents[this.contentsOffset++] = (byte) (classNameIndex >> 8);
 		this.contents[this.contentsOffset++] = (byte) classNameIndex;
+		// AspectJ Extension - don't include result of decp weaving in the class created by compilation
+		/*old{
 		int superclassNameIndex;
 		if (aType.isInterface()) {
 			superclassNameIndex = this.constantPool.literalIndexForType(ConstantPool.JavaLangObjectConstantPoolName);
@@ -5781,9 +5833,34 @@ public class ClassFile implements TypeConstants, TypeIds {
 				superclassNameIndex = 0;
 			}
 		}
+		}new:*/
+		ReferenceBinding superclass = aType.superclass;
+		int superclassNameIndex;
+		if (aType.originalSuperclass!=null) {
+			superclass = aType.originalSuperclass;
+		}
+		if (aType.isInterface()) {
+			superclassNameIndex = this.constantPool.literalIndexForType(ConstantPool.JavaLangObjectConstantPoolName);
+		} else {
+			if (superclass != null) {
+				 if ((superclass.tagBits & TagBits.HasMissingType) != 0) {
+						superclassNameIndex = this.constantPool.literalIndexForType(ConstantPool.JavaLangObjectConstantPoolName);
+				 } else {
+						superclassNameIndex = this.constantPool.literalIndexForType(superclass);
+				 }
+			} else {
+				superclassNameIndex = 0;
+			}
+		}
+		// AspectJ Extension end
 		this.contents[this.contentsOffset++] = (byte) (superclassNameIndex >> 8);
 		this.contents[this.contentsOffset++] = (byte) superclassNameIndex;
 		ReferenceBinding[] superInterfacesBinding = aType.superInterfaces();
+		// AspectJ Extension - don't include result of decp weaving in the class created by compilaton
+		if (aType.originalSuperInterfaces!=null) {
+			superInterfacesBinding = aType.originalSuperInterfaces;
+		}
+		// AspectJ Extension end
 		int interfacesCount = superInterfacesBinding.length;
 		int interfacesCountPosition = this.contentsOffset;
 		this.contentsOffset += 2;
@@ -7527,6 +7604,16 @@ public class ClassFile implements TypeConstants, TypeIds {
 				+ ((reference[position++] & 0xFF) << 16)
 				+ ((reference[position++] & 0xFF) << 8) + (reference[position] & 0xFF));
 	}
+	// AspectJ Extension
+    void writeToContents(byte[] data) {
+      int N = data.length;
+	  if (contentsOffset + N >= this.contents.length) {
+			resizeContents(N);
+	  }
+      System.arraycopy(data,0,contents,contentsOffset,N);
+      contentsOffset += N;
+    }
+    // End AspectJ Extension
 
 	private final int i2At(byte[] reference, int relativeOffset, int structOffset) {
 		int position = relativeOffset + structOffset;

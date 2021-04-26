@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2016 IBM Corporation and others.
  *
@@ -25,6 +26,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public class QualifiedSuperReference extends QualifiedThisReference {
@@ -98,7 +100,8 @@ int findCompatibleEnclosing(ReferenceBinding enclosingType, TypeBinding type, Bl
 				// keep looking to ensure we always find the referenced type (even if illegal)
 			}
 		}
-		if (!isLegal || !isJava8) {
+		// AspectJ
+		if (!isLegal || (!isJava8 && !isWithinInterTypeScope(scope))) {
 			this.currentCompatibleType = null;
 			// Please note the slightly unconventional use of the ProblemReferenceBinding:
 			// we use the problem's compoundName to report the type being illegally bypassed,
@@ -107,10 +110,30 @@ int findCompatibleEnclosing(ReferenceBinding enclosingType, TypeBinding type, Bl
 			this.resolvedType =  new ProblemReferenceBinding(compoundName,
 					closestMatch, isJava8 ? ProblemReasons.AttemptToBypassDirectSuper : ProblemReasons.InterfaceMethodInvocationNotBelow18);
 		}
+		// AspectJ: Conditional. Remove 'return 0' and Interface.super refs fail, leave it in and ITD super refs fail
+		if (this.currentCompatibleType != null)
+		// End AspectJ extension
 		return 0; // never an outer enclosing type
 	}
 	return super.findCompatibleEnclosing(enclosingType, type, scope);
 }
+
+// AspectJ - start
+/**
+ * @param scope the scope to check
+ * @return true if the specified scope is nested within an inter type declaration scope
+ */
+private boolean isWithinInterTypeScope(Scope scope) {
+	Scope s = scope;
+	while (s != null) {
+		if (s.isInterTypeScope()) {
+			return true;
+		}
+		s = s.parent;
+	}
+	return false;
+}
+//AspectJ - end
 
 @Override
 public void traverse(

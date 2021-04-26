@@ -1,3 +1,4 @@
+//AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2017 IBM Corporation and others.
  *
@@ -40,7 +41,7 @@ public class ClassLiteralAccess extends Expression {
 		FlowInfo flowInfo) {
 
 		// if reachable, request the addition of a synthetic field for caching the class descriptor
-		SourceTypeBinding sourceType = currentScope.outerMostClassScope().enclosingSourceType();
+		SourceTypeBinding sourceType = currentScope.outerMostClassScope().invocationType(); // AspectJ Extension - was .enclosingSourceType()
 		// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=22334
 		if (!sourceType.isInterface()
 				&& !this.targetType.isBaseType()

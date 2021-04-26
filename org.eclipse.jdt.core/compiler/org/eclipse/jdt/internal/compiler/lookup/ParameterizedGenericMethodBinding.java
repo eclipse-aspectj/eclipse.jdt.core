@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2019 IBM Corporation and others.
  *
@@ -851,4 +852,15 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			return this; // -> prefer traditional comparison using the substituted method
 		return this.originalMethod;
 	}
+	
+	// AspectJ Extension
+	// delegate to the original method since it might be an intertypemethodbinding ...
+	@Override
+	public boolean alwaysNeedsAccessMethod() { return this.originalMethod.alwaysNeedsAccessMethod(); }
+	
+	@Override
+	public MethodBinding getAccessMethod(boolean staticReference) {
+		return this.originalMethod.getAccessMethod(staticReference);
+    }
+	// End AspectJ Extension
 }

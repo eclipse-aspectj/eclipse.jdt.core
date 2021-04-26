@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -101,7 +102,8 @@ import org.eclipse.text.edits.TextEdit;
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
-public final class AST {
+// AspectJ Extension - made non-final
+public class AST {
 	/**
 	 * new Class[] {AST.class}
 	 * @since 3.0
@@ -460,7 +462,12 @@ public final class AST {
 		int reconcileFlags,
 		IProgressMonitor monitor) {
 
-		ASTConverter converter = new ASTConverter(options, isResolved, monitor);
+		// AspectJ extension - use the factory
+		// old code:
+		// ASTConverter converter = new ASTConverter(options, isResolved, monitor);
+		// new code:
+		ASTConverter converter = ASTConverter.getASTConverter(options,isResolved,monitor);
+		// End AspectJ Extension
 		AST ast = AST.newAST(level, JavaCore.ENABLED.equals(options.get(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES)));
 		String sourceModeSetting = (String) options.get(JavaCore.COMPILER_SOURCE);
 		long sourceLevel = CompilerOptions.versionToJdkLevel(sourceModeSetting);
@@ -951,7 +958,7 @@ public final class AST {
  	 * @param level the API level; one of the <code>JLS*</code> level constants
      * @since 3.0
 	 */
-	private AST(int level, boolean previewEnabled) {
+	protected AST(int level, boolean previewEnabled) {  // AspectJ - raised to protected
 		this.previewEnabled = previewEnabled;
 		switch(level) {
 			case JLS2_INTERNAL :
@@ -3002,7 +3009,12 @@ public final class AST {
 	 * @return a new unparented type declaration node
 	 */
 	public TypeDeclaration newTypeDeclaration() {
-		TypeDeclaration result = new TypeDeclaration(this);
+		// AspectJ Extension - use factory rather than ctor
+		// old code:
+		// TypeDeclaration result = new TypeDeclaration(this);
+		// new code:
+		TypeDeclaration result = TypeDeclaration.getTypeDeclaration(this);
+		// End AspectJ Extension
 		result.setInterface(false);
 		return result;
 	}

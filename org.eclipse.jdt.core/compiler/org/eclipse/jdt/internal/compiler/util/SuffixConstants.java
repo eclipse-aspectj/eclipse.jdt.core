@@ -30,4 +30,13 @@ public interface SuffixConstants {
 	public final static char[] SUFFIX_CLASS = SUFFIX_STRING_CLASS.toCharArray();
 	public final static char[] SUFFIX_java = SUFFIX_STRING_java.toCharArray();
 	public final static char[] SUFFIX_JAVA = SUFFIX_STRING_JAVA.toCharArray();
+	
+	// AspectJ Extension
+	public final static String EXTENSION_aj = "aj"; //$NON-NLS-1$
+	public final static String EXTENSION_AJ = "AJ"; //$NON-NLS-1$
+	public final static String SUFFIX_STRING_aj = "." + EXTENSION_aj; //$NON-NLS-1$
+	public final static String SUFFIX_STRING_AJ = "." + EXTENSION_AJ; //$NON-NLS-1$
+	public final static char[] SUFFIX_aj = SUFFIX_STRING_aj.toCharArray();
+	public final static char[] SUFFIX_AJ = SUFFIX_STRING_AJ.toCharArray();
+	// End AspectJ Extension
 }

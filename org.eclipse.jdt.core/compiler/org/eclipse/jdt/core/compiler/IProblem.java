@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
@@ -350,6 +351,25 @@ void setSourceLineNumber(int lineNumber);
 void setSourceStart(int sourceStart);
 
 
+	// AspectJ Extension
+    /**
+     * @since 3.10
+     */
+	void setSeeAlsoProblems(IProblem[] problems);
+    /**
+     * @since 3.10
+     */
+	IProblem[] seeAlso();
+    /**
+     * @since 3.10
+     */
+	void setSupplementaryMessageInfo(String msg);
+    /**
+     * @since 3.10
+     */
+	String getSupplementaryMessageInfo();
+	// End AspectJ Extension
+	
 	/**
 	 * Problem Categories
 	 * The high bits of a problem ID contains information about the category of a problem.
@@ -1045,6 +1065,13 @@ void setSourceStart(int sourceStart);
 	/** @since 3.0 */
 	int UndocumentedEmptyBlock = Internal + 460;
 
+	/* AspectJ Extension */
+	/**
+	 * @since 3.10
+	 */
+	int SwallowedExceptionInCatchBlock = Internal + 699; 
+	/* End AspectJ Extension */
+	
 	/*
 	 * Javadoc comments
 	 */

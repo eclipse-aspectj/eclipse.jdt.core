@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -506,6 +507,14 @@ public abstract char[] getLastToken();
 public char [][] getParameterizedTypeName(){
 	return getTypeName();
 }
+
+// AspectJ Extension
+// raise visibility without upsetting rest of hierarchy
+public TypeBinding getTypeBindingPublic(Scope scope) {
+	return getTypeBinding(scope);
+}
+// End AspectJ Extension
+
 protected abstract TypeBinding getTypeBinding(Scope scope);
 /**
  * @return char[][]

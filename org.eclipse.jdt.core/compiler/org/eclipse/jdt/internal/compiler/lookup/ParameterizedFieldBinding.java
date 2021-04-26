@@ -65,4 +65,25 @@ public FieldBinding original() {
 public void setConstant(Constant constant) {
 	this.originalField.setConstant(constant);
 }
+	
+	// AspectJ Extension - delegate to the original method
+	
+	@Override
+	public boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSite, Scope scope) {
+		if (alwaysNeedsAccessMethod(true)) 	return originalField.canBeSeenBy(receiverType, invocationSite, scope);
+		else                               return super.canBeSeenBy(receiverType,invocationSite,scope);
+	}
+	
+	@Override
+	public boolean alwaysNeedsAccessMethod(boolean isReadAccess) {
+		return originalField.alwaysNeedsAccessMethod(isReadAccess);
+	}		
+	
+	@Override
+	public SyntheticMethodBinding getAccessMethod(boolean isReadAccess) {
+		return originalField.getAccessMethod(isReadAccess);
+	}
+	
+	// End AspectJ Extension
+	
 }

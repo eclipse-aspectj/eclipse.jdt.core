@@ -1,4 +1,4 @@
-/*/bin/
+bin/
 *~
 *.rej
 *.bak
@@ -7,11 +7,15 @@ javacore.*
 heapdump.*
 core.*
 Snap.*
-/*/bin-resources/
-/*/binext/
-/*/binprocessors/
-/*/antbin/
+bin-resources/
+binext/
+binprocessors/
+antbin/
 
 # maven
 /*/target/
 /target/
+
+# IntelliJ IDEA
+.idea/
+*.iml

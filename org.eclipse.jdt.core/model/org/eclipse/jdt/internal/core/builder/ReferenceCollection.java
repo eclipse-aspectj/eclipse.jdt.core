@@ -1,3 +1,4 @@
+// AspectJ
 /*******************************************************************************
  * Copyright (c) 2000, 2010 IBM Corporation and others.
  *
@@ -26,6 +27,7 @@ import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.SortedCharArrays;
 
+// AspectJ Extension increased member visibilities for AspectJ
 public class ReferenceCollection {
 
 // contains no simple names as in just 'a' which is kept in simpleNameReferences instead
@@ -34,7 +36,8 @@ char[][][] qualifiedNameReferences;
 char[][] simpleNameReferences;
 char[][] rootReferences;
 
-protected ReferenceCollection(char[][][] qualifiedNameReferences, char[][] simpleNameReferences, char[][] rootReferences) {
+//AspectJ Extension - raised visibility
+public  ReferenceCollection(char[][][] qualifiedNameReferences, char[][] simpleNameReferences, char[][] rootReferences) {
 	this.qualifiedNameReferences = internQualifiedNames(qualifiedNameReferences, false);
 	this.simpleNameReferences = internSimpleNames(simpleNameReferences, true);
 	this.rootReferences = internSimpleNames(rootReferences, false);

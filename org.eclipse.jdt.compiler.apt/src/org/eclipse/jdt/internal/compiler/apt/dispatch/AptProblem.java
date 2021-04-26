@@ -10,6 +10,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Sergey Stupin - contributions for adding annotation processing support to ajc
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.apt.dispatch;
 

@@ -1,3 +1,4 @@
+// ASPECTJ
 /*******************************************************************************
  * Copyright (c) 2000, 2020 IBM Corporation and others.
  *
@@ -679,4 +680,12 @@ public class SyntheticMethodBinding extends MethodBinding {
 				return;
 		}
 	}
+
+	// AspectJ Extension
+	public SyntheticMethodBinding(MethodBinding myBinding) {
+		super(myBinding,null);
+		this.declaringClass = myBinding.declaringClass;
+		declaringClass.storeAnnotationHolder(this, myBinding.declaringClass.retrieveAnnotationHolder(myBinding, true)); // New AspectJ Extension - done after declaring class set and not in ctor
+    }
+	// End AspectJ Extension
 }
