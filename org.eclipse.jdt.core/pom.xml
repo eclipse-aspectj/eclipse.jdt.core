@@ -419,27 +419,7 @@
 
     <plugins>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>enforce-versions</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <requireJavaVersion>
-                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
-                  <version>14</version>
-                </requireJavaVersion>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
+      <!-- Build Helper must run *before* Enforcer, because the latter uses a property defined by the former -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -467,6 +447,67 @@
                 <!-- Add compiler APT support -->
                 <source>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</source>
               </sources>
+            </configuration>
+          </execution>
+          <!--
+            Replace '\' Windows file separators by '/' in order to expand the new property 'compiler-message-properties'
+            into a string literal in Maven Enforcer rule 'evaluateBeanshell' further below.
+          -->
+          <execution>
+            <id>compiler-message-properties</id>
+            <goals>
+              <goal>regex-property</goal>
+            </goals>
+            <configuration>
+              <name>compiler-message-properties</name>
+              <value>${project.basedir}/batch/org/eclipse/jdt/internal/compiler/batch/messages.properties</value>
+              <regex>\\</regex>
+              <replacement>/</replacement>
+              <failIfNoMatch>false</failIfNoMatch>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-rules</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
+                  <version>14</version>
+                </requireJavaVersion>
+                <evaluateBeanshell>
+                  <message>
+                    Compiler message resource file ${compiler-message-properties} must not contain tab characters, please use spaces instead!
+                  </message>
+                  <condition><![CDATA[
+                    FileReader fileReader = new FileReader("${compiler-message-properties}");
+                    BufferedReader bufferReader = new BufferedReader(fileReader);
+                    boolean containsTab = false;
+                    String line;
+                    while((line = bufferReader.readLine()) != null) {
+                      if (line.contains("\t")) {
+                        if (!containsTab) {
+                          System.out.println("Lines containing tab characters detected in resource file:");
+                          containsTab = true;
+                        }
+                        System.out.println(line);
+                      }
+                    }
+                    fileReader.close();
+                    bufferReader.close();
+                    !containsTab
+                  ]]></condition>
+                </evaluateBeanshell>
+              </rules>
             </configuration>
           </execution>
         </executions>
