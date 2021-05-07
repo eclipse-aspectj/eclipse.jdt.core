@@ -653,8 +653,14 @@
                 <filter>
                   <artifact>*</artifact>
                   <excludes>
-                    <exclude>*</exclude>
+                    <!-- These are from org.eclipse.jdt.core/build.xml -->
                     <exclude>META-INF/**</exclude>
+                    <exclude>org/apache/**</exclude>
+                    <exclude>org/w3c/**</exclude>
+                    <exclude>org/xml/**</exclude>
+                    <exclude>org/eclipse/jface/**</exclude>
+                    <!-- These seem to be unnecessary without OSGi, too -->
+                    <exclude>*</exclude>
                     <exclude>OSGI-INF/**</exclude>
                     <exclude>about_files/**</exclude>
                     <exclude>natives/**</exclude>
