@@ -243,40 +243,90 @@
 
   <distributionManagement>
     <repository>
-      <id>github</id>
-      <name>GitHub Packages Release</name>
-      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <id>aspectj-dev-deploy</id>
+      <name>AspectJ.dev WebDAV Releases</name>
+      <!-- Please specify the local mount point for the WebDAV share in your settings.xml -->
+      <url>${aspectj.dev.webdav.share}</url>
       <uniqueVersion>false</uniqueVersion>
     </repository>
     <snapshotRepository>
-      <id>github</id>
-      <name>GitHub Packages Snapshot</name>
-      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <id>aspectj-dev-deploy</id>
+      <name>AspectJ.dev WebDAV Snapshots</name>
+      <!-- Please specify the local mount point for the WebDAV share in your settings.xml -->
+      <url>${aspectj.dev.webdav.share}</url>
       <uniqueVersion>true</uniqueVersion>
     </snapshotRepository>
   </distributionManagement>
 
   <repositories>
-    <!-- Not strictly necessary, but can be copied to consuming projects -->
+    <!--
+      Repeat Central definition from super POM https://maven.apache.org/ref/3.6.3/maven-model-builder/super-pom.html.
+      Define it as the first repository to search at, otherwise Maven would always search any other repositories defined
+      in the POM or in settings.xml first, slowing down the build, because most artifacts reside at Maven Central. See
+      https://maven.apache.org/guides/mini/guide-multiple-repositories.html#repository-order for more details.
+    -->
     <repository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <id>central</id>
+      <name>Central Repository</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+      <layout>default</layout>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+    </repository>
+    <repository>
+      <id>aspectj-dev</id>
+      <name>AspectJ artifacts on aspectj.dev</name>
+      <url>https://aspectj.dev/maven</url>
+      <layout>default</layout>
       <snapshots>
         <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
       </snapshots>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
     </repository>
   </repositories>
 
   <pluginRepositories>
-    <!-- TODO: Remove after upstream release for Maven Shade with fix for MSHADE-252 -->
+    <!--
+      Repeat Central definition from super POM https://maven.apache.org/ref/3.6.3/maven-model-builder/super-pom.html.
+      Define it as the first repository to search at, otherwise Maven would always search any other repositories defined
+      in the POM or in settings.xml first, slowing down the build, because most artifacts reside at Maven Central. See
+      https://maven.apache.org/guides/mini/guide-multiple-repositories.html#repository-order for more details.
+    -->
     <pluginRepository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/kriegaex/aspectj-packages</url>
+      <id>central</id>
+      <name>Central Repository</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+      <layout>default</layout>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+    </pluginRepository>
+    <pluginRepository>
+      <id>aspectj-dev</id>
+      <name>AspectJ artifacts on aspectj.dev</name>
+      <url>https://aspectj.dev/maven</url>
+      <layout>default</layout>
       <snapshots>
         <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
       </snapshots>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
     </pluginRepository>
   </pluginRepositories>
 
