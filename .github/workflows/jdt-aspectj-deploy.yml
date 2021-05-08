@@ -23,6 +23,10 @@ jobs:
           settings-path: ${{ github.workspace }}
 
       - name: Publish to GitHub Packages
-        run: mvn -B deploy -s $GITHUB_WORKSPACE/settings.xml --file org.eclipse.jdt.core/pom.xml
-        env:
-          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        # TODO: Settle issue with ISP concerning direct HTTP write access to WebDAV on aspects.dev without mounting
+        # share first, then migrate deployment action
+        run: |
+          echo "Deployment skipped! TODO: Migrate from GitHub Packages to aspectj.dev repository."
+#        run: mvn -B deploy -s $GITHUB_WORKSPACE/settings.xml --file org.eclipse.jdt.core/pom.xml
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
