@@ -708,8 +708,10 @@
                     <exclude>org/apache/**</exclude>
                     <exclude>org/w3c/**</exclude>
                     <exclude>org/xml/**</exclude>
-                    <exclude>org/eclipse/jface/**</exclude>
-                    <!-- These seem to be unnecessary without OSGi, too -->
+                    <!-- Excluding JFace breaks javadoc generation in AspectJ due to missing classes -->
+                    <!--<exclude>org/eclipse/jface/**</exclude>-->
+
+                    <!-- These seem to be unnecessary for AspectJ, because it is ignorant of OSGi  -->
                     <exclude>*</exclude>
                     <exclude>OSGI-INF/**</exclude>
                     <exclude>about_files/**</exclude>
