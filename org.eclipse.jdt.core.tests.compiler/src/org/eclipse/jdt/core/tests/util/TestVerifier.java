@@ -387,7 +387,7 @@ private void launchAndRun(String className, String[] classpaths, String[] progra
 
 	// launch a new one
 	LocalVMLauncher launcher = LocalVMLauncher.getLauncher();
-	launcher.setClassPath(getMinimalClassPath(classpaths));
+	launcher.setClassPath(classpaths);
 	launcher.setVMPath(Util.getJREDirectory());
 	if (vmArguments != null) {
 		String[] completeVmArguments = new String[vmArguments.length + 1];
