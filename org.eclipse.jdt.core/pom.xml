@@ -230,7 +230,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>3.25.0-SNAPSHOT</version>
+  <version>1.9.7-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
