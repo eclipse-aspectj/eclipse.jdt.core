@@ -240,9 +240,16 @@
   <url>https://www.eclipse.org/aspectj/</url>
 
   <licenses>
+    <!-- Eclipse JDT original licence -->
     <license>
       <name>Eclipse Public License - v 2.0</name>
       <url>https://www.eclipse.org/legal/epl-v20.html</url>
+      <distribution>repo</distribution>
+    </license>
+    <!-- AspectJ licence -->
+    <license>
+      <name>Eclipse Public License - v 1.0</name>
+      <url>https://www.eclipse.org/legal/epl-v10.html</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
