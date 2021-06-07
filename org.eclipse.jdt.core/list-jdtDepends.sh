@@ -1,5 +1,12 @@
 #!/usr/bin/bash
 
+# Copyright (c) 2021 Contributors.
+# All rights reserved.
+# This program and the accompanying materials are made available
+# under the terms of the Eclipse Public License v 2.0
+# which accompanies this distribution, and is available at
+# https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt
+
 # List all 'jdtDepends' JARs used by build.xml.
 #
 # Caveat: There might be multiple versions per JAR.
@@ -9,7 +16,7 @@
 # ./list-jdtDepends.sh /c/Program\ Files/Eclipse/2019-12
 #
 # Then open the file and copy the '<zipfileset .../>' lines to build.xml
-
+#
 # Can be something like "/c/Program\ Files/Eclipse/2019-12" or,
 # if using Eclipse Installer (by Oomph), something like "/c/Users/me/.p2/pool"
 export eclipseHome="$1"
