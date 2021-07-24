@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -29,6 +29,10 @@ public class RecordComponentBinding extends VariableBinding {
 		this.declaringRecord = declaringRecord;
 		declaration.binding = this;
 	}
+	public RecordComponentBinding(char[] name, TypeBinding type, int modifiers, ReferenceBinding declaringClass) {
+		super(name, type, modifiers, null);
+		this.declaringRecord = declaringClass;
+	}
 
 	/* API
 	* Answer the receiver's binding type from Binding.BindingID.
@@ -44,7 +48,7 @@ public class RecordComponentBinding extends VariableBinding {
 	 */
 	@Override
 	public char[] computeUniqueKey(boolean isLeaf) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append(this.declaringRecord.computeUniqueKey(false/*not a leaf*/));
 		// variable name
 		buffer.append('#');

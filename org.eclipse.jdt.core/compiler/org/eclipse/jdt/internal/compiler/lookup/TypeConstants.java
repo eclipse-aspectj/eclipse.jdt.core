@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -46,6 +46,7 @@ public interface TypeConstants {
 	char[] NIO = "nio".toCharArray(); //$NON-NLS-1$
 	char[] UTIL = "util".toCharArray(); //$NON-NLS-1$
 	char[] ZIP = "zip".toCharArray(); //$NON-NLS-1$
+	char[] JDK = "jdk".toCharArray(); //$NON-NLS-1$
 	char[] ANNOTATION = "annotation".toCharArray(); //$NON-NLS-1$
 	char[] REFLECT = "reflect".toCharArray(); //$NON-NLS-1$
 	char[] LENGTH = "length".toCharArray(); //$NON-NLS-1$
@@ -114,6 +115,7 @@ public interface TypeConstants {
     char[] LAMBDA_TYPE = "<lambda>".toCharArray(); //$NON-NLS-1$
     char[] UPPER_MODULE = "MODULE".toCharArray(); //$NON-NLS-1$
     char[] UPPER_RECORD_COMPONENT = "RECORD_COMPONENT".toCharArray(); //$NON-NLS-1$
+    char[] YIELD = "yield".toCharArray(); //$NON-NLS-1$
 
     // JEP 286
 	char[] VAR = "var".toCharArray(); //$NON-NLS-1$
@@ -194,6 +196,7 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_DEPRECATED = {JAVA, LANG, "Deprecated".toCharArray()}; //$NON-NLS-1$
 	char[] FOR_REMOVAL = "forRemoval".toCharArray(); //$NON-NLS-1$
 	char[] SINCE = "since".toCharArray(); //$NON-NLS-1$
+	char[] ESSENTIAL_API = "essentialAPI".toCharArray(); //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_DOCUMENTED = {JAVA, LANG, ANNOTATION, "Documented".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_INHERITED = {JAVA, LANG, ANNOTATION, "Inherited".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_REPEATABLE = {JAVA, LANG, ANNOTATION, "Repeatable".toCharArray()}; //$NON-NLS-1$
@@ -204,6 +207,7 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_ANNOTATION_TARGET = {JAVA, LANG, ANNOTATION, "Target".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_RETENTIONPOLICY = {JAVA, LANG, ANNOTATION, "RetentionPolicy".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_ELEMENTTYPE = {JAVA, LANG, ANNOTATION, "ElementType".toCharArray()}; //$NON-NLS-1$
+	char[][] JDK_INTERNAL_PREVIEW_FEATURE = {JDK, INTERNAL, "PreviewFeature".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_REFLECT_FIELD = new char[][] {JAVA, LANG, REFLECT, "Field".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_REFLECT_METHOD = new char[][] {JAVA, LANG, REFLECT, "Method".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_IO_CLOSEABLE = new char[][] { JAVA, IO, "Closeable".toCharArray()};//$NON-NLS-1$
@@ -327,6 +331,14 @@ public interface TypeConstants {
 		"LongStream".toCharArray(), //$NON-NLS-1$
 		"IntStream".toCharArray() //$NON-NLS-1$
 	};
+	char[][] ONE_UTIL_STREAMEX = { "one".toCharArray(), UTIL, "streamex".toCharArray() }; //$NON-NLS-1$ //$NON-NLS-2$
+	char[][] RESOURCE_FREE_CLOSEABLE_STREAMEX = {
+		"StreamEx".toCharArray(), //$NON-NLS-1$
+		"IntStreamEx".toCharArray(), //$NON-NLS-1$
+		"DoubleStreamEx".toCharArray(), //$NON-NLS-1$
+		"LongStreamEx".toCharArray(), //$NON-NLS-1$
+		"EntryStream".toCharArray() //$NON-NLS-1$
+	};
 
 	// closeable classes containing one or more 'fluent' methods (returning 'this'):
 	char[] CHANNELS = "channels".toCharArray(); //$NON-NLS-1$
@@ -351,6 +363,7 @@ public interface TypeConstants {
 
 	// different assertion utilities:
 	char[] ASSERT_CLASS = "Assert".toCharArray(); //$NON-NLS-1$
+	char[] ASSERTIONS_CLASS = "Assertions".toCharArray(); //$NON-NLS-1$
 	char[][] ORG_ECLIPSE_CORE_RUNTIME_ASSERT = new char[][] { ORG, ECLIPSE, CORE, RUNTIME, ASSERT_CLASS };
 	// ... methods:
 	char[] IS_NOTNULL = "isNotNull".toCharArray(); //$NON-NLS-1$
@@ -360,8 +373,10 @@ public interface TypeConstants {
 	char[] JUPITER = "jupiter".toCharArray(); //$NON-NLS-1$
 	char[] PARAMS = "params".toCharArray(); //$NON-NLS-1$
 	char[] PROVIDER = "provider".toCharArray(); //$NON-NLS-1$
+	char[] API = "api".toCharArray(); //$NON-NLS-1$
 	char[][] JUNIT_FRAMEWORK_ASSERT = new char[][] { JUNIT, FRAMEWORK, ASSERT_CLASS };
 	char[][] ORG_JUNIT_ASSERT = new char[][] { ORG, JUNIT, ASSERT_CLASS };
+	char[][] ORG_JUNIT_JUPITER_API_ASSERTIONS = new char[][] { ORG, JUNIT, JUPITER, API, ASSERTIONS_CLASS };
 	// ... methods:
 	char[] ASSERT_NULL = "assertNull".toCharArray(); //$NON-NLS-1$
 	char[] ASSERT_NOTNULL = "assertNotNull".toCharArray(); //$NON-NLS-1$
@@ -542,4 +557,5 @@ public interface TypeConstants {
 	char[] JAVA_BASE = "java.base".toCharArray(); //$NON-NLS-1$
 	String META_INF_MANIFEST_MF = "META-INF/MANIFEST.MF"; //$NON-NLS-1$
 	String AUTOMATIC_MODULE_NAME = "Automatic-Module-Name";  //$NON-NLS-1$
+	char[][] JDK_INTERNAL_VALUEBASED = {"jdk".toCharArray(), "internal".toCharArray(), "ValueBased".toCharArray()}; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 }

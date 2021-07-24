@@ -2221,7 +2221,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					name);
 				 break;
 			case SCOPE_CODE:
-				StringBuffer buf = new StringBuffer();
+				StringBuilder buf = new StringBuilder();
 
 				int[] addedTokens = null;
 	            int addedTokenCount = 0;
@@ -2408,7 +2408,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				// error start is on the last token start
 				errorStart = this.lexStream.start(rightToken);
 
-	            StringBuffer buf = new StringBuffer();
+	            StringBuilder buf = new StringBuilder();
 
 	            int[] addedTokens = null;
 	            int addedTokenCount = 0;
@@ -2551,7 +2551,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 	@Override
 	public String toString() {
-		StringBuffer res = new StringBuffer();
+		StringBuilder res = new StringBuilder();
 
 		res.append(this.lexStream.toString());
 

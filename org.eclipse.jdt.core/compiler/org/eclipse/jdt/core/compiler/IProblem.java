@@ -2152,6 +2152,8 @@ void setSourceStart(int sourceStart);
 	int PreviewFeaturesNotAllowed = PreviewRelated + 1106;
 	/** @since 3.24*/
 	int FeatureNotSupported = Compliance + 1107;
+	/** @since 3.26*/
+	int PreviewAPIUsed = Compliance + 1108;
 
 	/** @since 3.13 */
 	int UnlikelyCollectionMethodArgumentType = 1200;
@@ -2388,6 +2390,10 @@ void setSourceStart(int sourceStart);
 	/** @since 3.26
 	 */
 	int RecordIllegalExtendedDimensionsForRecordComponent = Syntax + Internal + 1763;
+	/** @since 3.26
+	 */
+	int SafeVarargsOnSyntheticRecordAccessor = TypeRelated + 1764;
+
 
 	/* records - end */
 	/* Local and Nested Static Declarations - Begin */
@@ -2417,6 +2423,9 @@ void setSourceStart(int sourceStart);
 	 */
 	int PatternVariableRedeclared = Internal + 1784;
 
+	/** @since 3.26
+	 * @noreference */
+	int DiscouragedValueBasedTypeSynchronization = Internal + 1820;
 
 	/** @since 3.24
 	 * @noreference preview feature error */
@@ -2466,6 +2475,12 @@ void setSourceStart(int sourceStart);
 	/** @since 3.24
 	 * @noreference preview feature error */
 	int SealedAnonymousClassCannotExtendSealedType = PreviewRelated + 1865;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int SealedSuperTypeInDifferentPackage = PreviewRelated + 1866;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int SealedSuperTypeDisallowed = PreviewRelated + 1867;
 	/* Java15 errors - end */
 
 	}

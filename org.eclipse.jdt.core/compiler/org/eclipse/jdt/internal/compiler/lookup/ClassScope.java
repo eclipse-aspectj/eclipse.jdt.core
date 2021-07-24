@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -97,6 +97,10 @@ public class ClassScope extends Scope {
 				this.referenceContext.superInterfaces = new TypeReference[] { typeReference };
 				if ((supertype.tagBits & TagBits.HasDirectWildcard) != 0) {
 					problemReporter().superTypeCannotUseWildcard(anonymousType, typeReference, supertype);
+					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
+					anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
+				} if (supertype.isSealed()) {
+					problemReporter().sealedAnonymousClassCannotExtendSealedType(typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
 					anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 				}
@@ -217,6 +221,9 @@ public class ClassScope extends Scope {
 		if (count != componentBindings.length)
 			System.arraycopy(componentBindings, 0, componentBindings = new RecordComponentBinding[count], 0, count);
 		sourceType.setComponents(componentBindings);
+		if (size > 0) {
+			sourceType.isVarArgs = recComps[size-1].isVarArgs();
+		}
 	}
 	private void checkAndSetModifiersForComponents(RecordComponentBinding compBinding, RecordComponent comp) {
 		int modifiers = compBinding.modifiers;
@@ -497,6 +504,9 @@ public class ClassScope extends Scope {
 						methodBindings[count++] = methodBinding;
 						hasAbstractMethods = hasAbstractMethods || methodBinding.isAbstract();
 						hasNativeMethods = hasNativeMethods || methodBinding.isNative();
+						if (methods[i].isCanonicalConstructor()) {
+							methodBinding.tagBits |= TagBits.IsCanonicalConstructor;
+						}
 					}
 				}
 			}
@@ -1482,18 +1492,18 @@ public class ClassScope extends Scope {
 
 	void connectTypeHierarchy() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
-		CompilationUnitScope compilationUnitScope = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScope.connectingHierarchy;
-		compilationUnitScope.connectingHierarchy = true;
+		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
+		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
+		compilationUnitScopeLocal.connectingHierarchy = true;
 		try {
 			if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) == 0) {
 				sourceType.tagBits |= TagBits.BeginHierarchyCheck;
 				environment().typesBeingConnected.add(sourceType);
 				boolean noProblems = connectSuperclass();
 				noProblems &= connectSuperInterfaces();
-				connectPermittedTypes();
 				environment().typesBeingConnected.remove(sourceType);
 				sourceType.tagBits |= TagBits.EndHierarchyCheck;
+				connectPermittedTypes();
 				noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
 				sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
 				if (noProblems && sourceType.isHierarchyInconsistent())
@@ -1501,7 +1511,7 @@ public class ClassScope extends Scope {
 			}
 			connectMemberTypes();
 		} finally {
-			compilationUnitScope.connectingHierarchy = wasAlreadyConnecting;
+			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
 		}
 		LookupEnvironment env = environment();
 		try {
@@ -1542,23 +1552,23 @@ public class ClassScope extends Scope {
 		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) != 0)
 			return;
 
-		CompilationUnitScope compilationUnitScope = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScope.connectingHierarchy;
-		compilationUnitScope.connectingHierarchy = true;
+		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
+		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
+		compilationUnitScopeLocal.connectingHierarchy = true;
 		try {
 			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
 			environment().typesBeingConnected.add(sourceType);
 			boolean noProblems = connectSuperclass();
 			noProblems &= connectSuperInterfaces();
-			connectPermittedTypes();
 			environment().typesBeingConnected.remove(sourceType);
 			sourceType.tagBits |= TagBits.EndHierarchyCheck;
+			connectPermittedTypes();
 			noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
 			sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
 			if (noProblems && sourceType.isHierarchyInconsistent())
 				problemReporter().hierarchyHasProblems(sourceType);
 		} finally {
-			compilationUnitScope.connectingHierarchy = wasAlreadyConnecting;
+			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
 		}
 	}
 

@@ -79,6 +79,7 @@ public class BatchAnnotationProcessorManager extends BaseAnnotationProcessorMana
 		}
 		BatchProcessingEnvImpl processingEnv = new BatchProcessingEnvImpl(this, (Main) batchCompiler, commandLineArguments);
 		_processingEnv = processingEnv;
+		@SuppressWarnings("resource") // fileManager is not opened here
 		JavaFileManager fileManager = processingEnv.getFileManager();
 		if (fileManager instanceof StandardJavaFileManager) {
 			Iterable<? extends File> location = null;
@@ -151,7 +152,7 @@ public class BatchAnnotationProcessorManager extends BaseAnnotationProcessorMana
 				String proc = _commandLineProcessorIter.next();
 				try {
 					Class<?> clazz = _procLoader.loadClass(proc);
-					Object o = clazz.newInstance();
+					Object o = clazz.getDeclaredConstructor().newInstance();
 					Processor p = (Processor) o;
 					p.init(_processingEnv);
 					ProcessorInfo pi = new ProcessorInfo(p);

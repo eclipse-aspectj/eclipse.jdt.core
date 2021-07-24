@@ -2150,17 +2150,12 @@ public class CompilerOptions {
 
 	String nameListToString(String[] names) {
 		if (names == null) return ""; //$NON-NLS-1$
-		StringBuilder buf = new StringBuilder();
-		for (int i = 0; i < names.length; i++) {
-			if (i > 0) buf.append(',');
-			buf.append(names[i]);
-		}
-		return buf.toString();
+		return String.join(String.valueOf(','), names);
 	}
 
 	@Override
 	public String toString() {
-		StringBuffer buf = new StringBuffer("CompilerOptions:"); //$NON-NLS-1$
+		StringBuilder buf = new StringBuilder("CompilerOptions:"); //$NON-NLS-1$
 		buf.append("\n\t- local variables debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_VARS) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- line number debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- source debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

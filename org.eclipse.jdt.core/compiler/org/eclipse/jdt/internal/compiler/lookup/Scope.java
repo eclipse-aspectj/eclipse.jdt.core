@@ -116,7 +116,8 @@ public abstract class Scope {
 	public static final int MORE_GENERIC = 1;
 
 	public int kind;
-	public Scope parent;
+	public final Scope parent;
+	public final CompilationUnitScope compilationUnitScope;
 	private Map<String, Supplier<ReferenceBinding>> commonTypeBindings = null;
 
 	private static class NullDefaultRange {
@@ -156,6 +157,7 @@ public abstract class Scope {
 		this.kind = kind;
 		this.parent = parent;
 		this.commonTypeBindings = null;
+		this.compilationUnitScope = (CompilationUnitScope) (parent == null ? this : parent.compilationUnitScope());
 	}
 
 	/* Answer an int describing the relationship between the given types.
@@ -540,6 +542,7 @@ public abstract class Scope {
 	/** Bridge to non-static implementation in {@link Substitutor}, to make methods overridable. */
 	private static Substitutor defaultSubstitutor = new Substitutor();
 	public static class Substitutor {
+		protected ReferenceBinding staticContext;
 		/**
 		 * Returns an array of types, where original types got substituted given a substitution.
 		 * Only allocate an array if anything is different.
@@ -688,7 +691,9 @@ public abstract class Scope {
 					if (substitution.isRawSubstitution()) {
 						return substitution.environment().createRawType(originalReferenceType, substitutedEnclosing, originalType.getTypeAnnotations());
 					}
-				    // treat as if parameterized with its type variables (non generic type gets 'null' arguments)
+				    // potentially treat as if parameterized with its type variables (non generic type gets 'null' arguments)
+					if (TypeBinding.equalsEquals(this.staticContext, originalType))
+						return originalType; // substitution happens on a static member of the generic type, where its type variables are not available
 					originalArguments = originalReferenceType.typeVariables();
 					substitutedArguments = substitute(substitution, originalArguments);
 					return substitution.environment().createParameterizedType(originalReferenceType, substitutedArguments, substitutedEnclosing, originalType.getTypeAnnotations());
@@ -752,14 +757,9 @@ public abstract class Scope {
 	}
 
 	public final CompilationUnitScope compilationUnitScope() {
-		Scope lastScope = null;
-		Scope scope = this;
-		do {
-			lastScope = scope;
-			scope = scope.parent;
-		} while (scope != null);
-		return (CompilationUnitScope) lastScope;
+		return this.compilationUnitScope;
 	}
+
 	public ModuleBinding module() {
 		return environment().module;
 	}
@@ -1237,10 +1237,7 @@ public abstract class Scope {
 	//	End AspectJ Extension
 
 	public final LookupEnvironment environment() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).environment;
+		return this.compilationUnitScope.environment;
 	}
 
 	/* Abstract method lookup (since maybe missing default abstract methods). "Default abstract methods" are methods that used to be emitted into
@@ -2389,7 +2386,7 @@ public abstract class Scope {
 		}
 	}
 
-	class MethodClashException extends RuntimeException {
+	static class MethodClashException extends RuntimeException {
 		private static final long serialVersionUID = -7996779527641476028L;
 	}
 
@@ -2608,10 +2605,7 @@ public abstract class Scope {
 	}
 
 	public final PackageBinding getCurrentPackage() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).fPackage;
+		return this.compilationUnitScope.fPackage;
 	}
 
 	/**
@@ -3402,9 +3396,7 @@ public abstract class Scope {
 		boolean insideClassContext = false;
 		boolean insideTypeAnnotation = false;
 		if ((mask & Binding.TYPE) == 0) {
-			Scope next = scope;
-			while ((next = scope.parent) != null)
-				scope = next;
+			scope = this.compilationUnitScope;
 		} else {
 			boolean inheritedHasPrecedence = compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4;
 			done : while (true) { // done when a COMPILATION_UNIT_SCOPE is found
@@ -3502,7 +3494,7 @@ public abstract class Scope {
 						// ASPECTJ START
 						}
 						// ASPECTJ END
-						insideClassContext = true;
+						insideClassContext = !sourceType.isAnonymousType();;
 						insideTypeAnnotation = false;
 						// ASPECTJ START
 						if (sourceType!=null) {
@@ -3920,13 +3912,8 @@ public abstract class Scope {
 		while ((type = enclosingType.enclosingType()) != null)
 			enclosingType = type;
 
-		// find the compilation unit scope
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-
 		// test that the enclosingType is not part of the compilation unit
-		SourceTypeBinding[] topLevelTypes = ((CompilationUnitScope) unitScope).topLevelTypes;
+		SourceTypeBinding[] topLevelTypes = this.compilationUnitScope.topLevelTypes;
 		for (int i = topLevelTypes.length; --i >= 0;)
 			if (TypeBinding.equalsEquals(topLevelTypes[i], enclosingType.original()))
 				return true;
@@ -5216,10 +5203,7 @@ public abstract class Scope {
 	public abstract ProblemReporter problemReporter();
 
 	public final CompilationUnitDeclaration referenceCompilationUnit() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).referenceContext;
+		return this.compilationUnitScope.referenceContext;
 	}
 
 	/**

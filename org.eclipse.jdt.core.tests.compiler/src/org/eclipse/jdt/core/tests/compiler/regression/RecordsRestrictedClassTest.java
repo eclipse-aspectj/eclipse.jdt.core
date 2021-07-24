@@ -29,7 +29,7 @@ public class RecordsRestrictedClassTest extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug571905"};
+//		TESTS_NAMES = new String[] { "testBug574284"};
 	}
 
 	public static Class<?> testClass() {
@@ -5217,12 +5217,7 @@ public void testBug564672_022() {
 		"	              ^\n" +
 		"Syntax error, insert \")\" to complete MethodDeclaration\n" +
 		"----------\n" +
-		"7. ERROR in X.java (at line 11)\n" +
-		"	Point record=new Point(i,j);\n" +
-		"	             ^^^^^^^^^^^^^^\n" +
-		"The constructor X.Point(int, int) is undefined\n" +
-		"----------\n" +
-		"8. ERROR in X.java (at line 12)\n" +
+		"7. ERROR in X.java (at line 12)\n" +
 		"	record.a(1);\n" +
 		"	       ^\n" +
 		"The method a(int) is undefined for the type X.Point\n" +
@@ -8440,6 +8435,43 @@ public void testBug571454() {
 	        + "The body of a compact constructor must not contain an explicit constructor call\n"
 	        + "----------\n");
 }
+public void testBug570399_001() throws Exception {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n"+
+			" public static void main(String[] args) {\n"+
+			"    R r1 = new R( 2, 3); // Wrong error: The constructor MyRecord(int, int) is undefined\n"+
+			"    R r2 = new R();      // works\n"+
+			"    int total = r1.x()+r2.x()+r1.y()+r2.y();\n"+
+			"    System.out.println(\"Hi\"+total);\n"+
+			"  }\n"+
+			"}",
+			"R.java",
+			"public record R(int x, int y) {\n"+
+			"    R() {\n"+
+			"        this(0, 0);\n"+
+			"    }\n"+
+			"}",
+		},
+	 "Hi5");
+}
+public void testBug570399_002() throws Exception {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"record R(int x) {\n"+
+			"}\n" +
+			"public class X {\n"+
+			" public static void main(String[] args) {\n"+
+			"    R r2 = new R(5);      // works\n"+
+			"    int total = r2.x();\n"+
+			"    System.out.println(\"Hi\"+total);\n"+
+			"  }\n"+
+			"}",
+		},
+	 "Hi5");
+}
 public void testBug571141_1() {
 	runConformTest(new String[] { "X.java",
 			"public class X {\n" +
@@ -8493,6 +8525,88 @@ public void testBug571141_3() throws IOException, ClassFormatException {
 			 + "";
 	String rFile = getClassFileContents("MyRecord.class", ClassFileBytesDisassembler.SYSTEM);
 	verifyOutputNegative(rFile, unExpectedOutput);
+}
+public void testBugLazyCanon_001() throws IOException, ClassFormatException {
+	runConformTest(new String[] { "X.java",
+			"record X(int xyz, int y2k) {\n"+
+					" public X(int xyz, int y2k) {\n"+
+					"     this.xyz = xyz;\n"+
+					"     this.y2k = y2k;\n"+
+					"   }\n"+
+					" public static void main(String[] args) {\n"+
+					"   System.out.println(new X(33,1).xyz());\n"+
+					" }\n"+
+					"}"
+	},
+		"33");
+}
+public void testBugLazyCanon_002() throws IOException, ClassFormatException {
+	runConformTest(new String[] { "X.java",
+			"record X(int xyz, int y2k) {\n"+
+					" public static void main(String[] args) {\n"+
+					"   System.out.println(new X(33,1).xyz());\n"+
+					" }\n"+
+					"}"
+	},
+		"33");
+}
+public void testBugLazyCanon_003() throws IOException, ClassFormatException {
+	runConformTest(new String[] { "X.java",
+			"class X {\n"+
+					"  record Point (int  args) {\n"+
+					"    Point (String s, int t) {\n"+
+					"      this(t);\n"+
+					"    }\n"+
+					"  }\n"+
+					"   public static void main(String[] args) {\n"+
+					"    System.out.println(new X.Point(null, 33).args());\n"+
+					"    \n"+
+					"   }\n"+
+					"}"
+	},
+	"33");
+}
+public void testBugLazyCanon_004() throws IOException, ClassFormatException {
+	runConformTest(new String[] {
+			"X.java",
+			"record X<T> (T args) {\n"+
+			" public static void main(String[] args) {\n"+
+			"   System.out.println(new X<Integer>(100).args());\n"+
+			"   \n"+
+			" }\n"+
+			"}"
+	},
+	"100");
+}
+public void testBugLazyCanon_005() throws IOException, ClassFormatException {
+	runConformTest(new String[] {
+			"X.java",
+			"record X<T> (T args) {\n"+
+			" X(String s, T t) {\n"+
+			"   this(t);\n"+
+			" }\n"+
+			" public static void main(String[] args) {\n"+
+			"   System.out.println(100);\n"+
+			"   \n"+
+			" }\n"+
+			"}"
+	},
+	"100");
+}
+public void testBugLazyCanon_006() throws IOException, ClassFormatException {
+	runConformTest(new String[] {
+			"X.java",
+			"record X<T> (T args) {\n"+
+			" X(String s, T t) {\n"+
+			"   this(t);\n"+
+			" }\n"+
+			" public static void main(String[] args) {\n"+
+			"   System.out.println(new X<Integer>(100).args());\n"+
+			"   \n"+
+			" }\n"+
+			"}"
+	},
+	"100");
 }
 public void testBug571765_001() {
 	this.runNegativeTest(
@@ -8611,4 +8725,358 @@ public void testBug571905_02() throws Exception {
 			"      )\n" ;
 	RecordsRestrictedClassTest.verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
 }
+public void testBug572204_001() {
+	runNegativeTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {}\n"
+				},
+				"----------\n" +
+				"1. ERROR in R.java (at line 1)\n" +
+				"	record R (@SafeVarargs String... s) {}\n" +
+				"	                                 ^\n" +
+				"@SafeVarargs annotation cannot be applied to record component without explicit accessor method s\n" +
+				"----------\n");
+}
+public void testBug572204_002() {
+	runConformTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {\n" +
+					" public static void main(String[] args) {\n" +
+					"   System.out.println(\"helo\");\n" +
+					" }\n" +
+					" public String[] s() {\n" +
+					"  return this.s;\n" +
+					" }\n" +
+					"}\n"
+				},
+				"helo");
+}
+public void testBug572204_003() {
+	runNegativeTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {\n" +
+					" public static void main(String[] args) {\n" +
+					"   System.out.println(\"helo\");\n" +
+					" }\n" +
+					" R (@SafeVarargs String... s) {\n" +
+					"   this.s=s;\n" +
+					" }\n" +
+					"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in R.java (at line 1)\n" +
+				"	record R (@SafeVarargs String... s) {\n" +
+				"	                                 ^\n" +
+				"@SafeVarargs annotation cannot be applied to record component without explicit accessor method s\n" +
+				"----------\n" +
+				"2. ERROR in R.java (at line 5)\n" +
+				"	R (@SafeVarargs String... s) {\n" +
+				"	   ^^^^^^^^^^^^\n" +
+				"The annotation @SafeVarargs is disallowed for this location\n" +
+				"----------\n");
+}
+public void testBug572204_004() {
+	runNegativeTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {\n" +
+					" public static void main(String[] args) {\n" +
+					"   System.out.println(\"helo\");\n" +
+					" }\n" +
+					" R (@SafeVarargs String... s) {\n" +
+					"   this.s=s;\n" +
+					" }\n" +
+					" public String[] s() {\n" +
+					"  return this.s;\n" +
+					" }\n" +
+					"}\n"
+				},
+			"----------\n" +
+			"1. ERROR in R.java (at line 5)\n" +
+			"	R (@SafeVarargs String... s) {\n" +
+			"	   ^^^^^^^^^^^^\n" +
+			"The annotation @SafeVarargs is disallowed for this location\n" +
+			"----------\n");
+}
+public void testBug572204_005() {
+	runNegativeTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {\n" +
+					"@SafeVarargs" +
+					" R (String... s) {\n" +
+					"   this.s = s;\n" +
+					" }\n" +
+					"}\n"
+				},
+				"----------\n" +
+				"1. ERROR in R.java (at line 1)\n" +
+				"	record R (@SafeVarargs String... s) {\n" +
+				"	                                 ^\n" +
+				"@SafeVarargs annotation cannot be applied to record component without explicit accessor method s\n" +
+				"----------\n");
+}
+public void testBug572204_006() {
+	runConformTest(
+			new String[] {
+					"R.java",
+					"record R (@SafeVarargs String... s) {\n" +
+					" public static void main(String[] args) {\n" +
+					"   System.out.println(\"helo\");\n" +
+					" }\n" +
+					"@SafeVarargs" +
+					" R (String... s) {\n" +
+					"   this.s = s;\n" +
+					" }\n" +
+					" public String[] s() {\n" +
+					"  return this.s;\n" +
+					" }\n" +
+					"}\n"
+				},
+			"helo");
+}
+public void testBug572204_007() throws Exception {
+	runConformTest(
+			new String[] {
+					"R.java",
+					"import java.lang.annotation.*;\n" +
+					"@Target(ElementType.PARAMETER) \n" +
+					"@Retention(RetentionPolicy.RUNTIME)\n" +
+					"@interface I {}\r\n" +
+					"record R(@I String... s) {\n" +
+					" public static void main(String[] args) {\n" +
+					"   System.out.println(\"helo\");\n" +
+					" }\n" +
+					"}\n"
+				},
+				"helo");
+	String expectedOutput = // constructor
+			"  \n"	+
+			"  // Method descriptor #8 ([Ljava/lang/String;)V\n" +
+			"  // Stack: 2, Locals: 2\n" +
+			"  R(java.lang.String... s);\n" +
+			"     0  aload_0 [this]\n" +
+			"     1  invokespecial java.lang.Record() [12]\n" +
+			"     4  aload_0 [this]\n" +
+			"     5  aload_1 [s]\n" +
+			"     6  putfield R.s : java.lang.String[] [15]\n" +
+			"     9  return\n" +
+			"      Line numbers:\n" +
+			"        [pc: 0, line: 5]\n" +
+			"      Local variable table:\n" +
+			"        [pc: 0, pc: 10] local: this index: 0 type: R\n" +
+			"        [pc: 0, pc: 10] local: s index: 1 type: java.lang.String[]\n" +
+			"      Method Parameters:\n" +
+			"        s\n" +
+			"    RuntimeVisibleParameterAnnotations: \n" +
+			"      Number of annotations for parameter 0: 1\n" +
+			"        #10 @I(\n" +
+			"        )\n";
+	RecordsRestrictedClassTest.verifyClassFile(expectedOutput, "R.class", ClassFileBytesDisassembler.SYSTEM);
+	expectedOutput = // accessor
+			"  \n" +
+			"  // Method descriptor #38 ()[Ljava/lang/String;\n" +
+	 		"  // Stack: 1, Locals: 1\n" +
+			"  public java.lang.String[] s();\n" +
+			"    0  aload_0 [this]\n" +
+			"    1  getfield R.s : java.lang.String[] [15]\n" +
+			"    4  areturn\n" +
+			"      Line numbers:\n" +
+			"        [pc: 0, line: 5]\n";
+	RecordsRestrictedClassTest.verifyClassFile(expectedOutput, "R.class", ClassFileBytesDisassembler.SYSTEM);
+}
+public void testBug572934_001() {
+	Map<String, String> options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.ENABLED);
+	//This test should not report any error
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public record X(int param) {\n" +
+			"	public X(int param) {\n" +
+			"		this.param = param;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		X abc= new X(10);\n" +
+			"		System.out.println(abc.param());\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"10",
+		options
+	);
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.IGNORE);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.DISABLED);
+}
+public void testBug572934_002() {
+	Map<String, String> options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.ENABLED);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public record X(int param) {\n" +
+			"	public X(int param) {\n" +
+			"		this.param = param;\n" +
+			"	}\n" +
+			"	public void main(int param) {\n" +
+			"		System.out.println(param);\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 5)\n" +
+		"	public void main(int param) {\n" +
+		"	                     ^^^^^\n" +
+		"The parameter param is hiding a field from type X\n" +
+		"----------\n",
+		null,
+		true,
+		options
+	);
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.IGNORE);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.DISABLED);
+}
+public void testBug572934_003() {
+	Map<String, String> options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.ENABLED);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public record X(int param) {\n" +
+			"	public X(int param) {\n" +
+			"		this.param = param;\n" +
+			"	}" +
+			"	public void setParam(int param) {\n" +
+			"		\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 4)\n" +
+		"	}	public void setParam(int param) {\n" +
+		"	 	                         ^^^^^\n" +
+		"The parameter param is hiding a field from type X\n" +
+		"----------\n",
+		null,
+		true,
+		options
+	);
+	options.put(CompilerOptions.OPTION_ReportLocalVariableHiding, CompilerOptions.IGNORE);
+	options.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, CompilerOptions.DISABLED);
+}
+public void testBug573195_001() throws Exception {
+	runConformTest(
+			new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    protected record R(int i) {\n"+
+					"        public R(int i, int j) {\n"+
+					"            this(i);\n"+
+					"        }\n"+
+					"    }\n"+
+					"    public static void main(String[] args) {\n"+
+					"   R r = new R(1, 2);\n"+
+					"   System.out.println(r.i());\n"+
+					" }\n"+
+					"}"
+				},
+				"1");
+	String expectedOutput = // constructor
+			"  // Method descriptor #12 (I)V\n" +
+			"  // Stack: 2, Locals: 2\n" +
+			"  protected X$R(int arg0);\n" +
+			"     0  aload_0 [this]\n" +
+			"     1  invokespecial java.lang.Record() [36]\n" +
+			"     4  aload_0 [this]\n" +
+			"     5  iload_1 [arg0]\n" +
+			"     6  putfield X$R.i : int [20]\n" +
+			"     9  return\n";
+	RecordsRestrictedClassTest.verifyClassFile(expectedOutput, "X$R.class", ClassFileBytesDisassembler.SYSTEM);
+}
+
+public void testBug574284_001() throws Exception {
+	runConformTest(
+			new String[] {
+					"X.java",
+					"public class X {\n" +
+					"\n" +
+					"    public static void main(String[] args) {\n" +
+					"        new X.Rec(false); // fails\n" +
+					"        new X.Rec(false, new int[0]);\n" +
+					"        System.out.println(0);\n" +
+					"    }\n" +
+					"\n" +
+					"    record Rec(boolean isHidden, int... indexes) {\n" +
+					"        Rec(int... indexes) {\n" +
+					"            this(false, indexes);\n" +
+					"        }\n" +
+					"    }\n" +
+					"}"
+			},
+		"0");
+	String expectedOutput = // constructor
+			"  // Method descriptor #14 (Z[I)V\n" +
+			"  // Stack: 2, Locals: 3\n" +
+			"  X$Rec(boolean arg0, int... arg1);\n" +
+			"     0  aload_0 [this]\n" +
+			"     1  invokespecial java.lang.Record() [41]\n" +
+			"     4  aload_0 [this]\n" +
+			"     5  iload_1 [arg0]\n" +
+			"     6  putfield X$Rec.isHidden : boolean [21]\n" +
+			"     9  aload_0 [this]\n" +
+			"    10  aload_2 [arg1]\n" +
+			"    11  putfield X$Rec.indexes : int[] [24]\n" +
+			"    14  return\n";
+	RecordsRestrictedClassTest.verifyClassFile(expectedOutput, "X$Rec.class", ClassFileBytesDisassembler.SYSTEM);
+
+}
+public void testBug574284_002() {
+	runConformTest(
+			new String[] {
+					"X.java",
+					"public class X {\n" +
+					"\n" +
+					"    public static void main(String[] args) {\n" +
+					"        new X.Rec(false); // fails\n" +
+					"        new X.Rec(false, new int[0]);\n" +
+					"        System.out.println(0);\n" +
+					"    }\n" +
+					"\n" +
+					"    record Rec(boolean isHidden, int... indexes) {\n" +
+					"    }\n" +
+					"}"
+			},
+		"0");
+}
+
+public void testBug574282_001() {
+	runConformTest(
+			new String[] {
+					"X.java",
+					"record Rec(String name) {\n" +
+					"\n" +
+					"    Rec() {\n" +
+					"        this(\"\");\n" +
+					"    }\n" +
+					"\n" +
+					"    @Override\n" +
+					"    public boolean equals(Object obj) {\n" +
+					"        return false;\n" +
+					"    }\n" +
+					"}\n" +
+					"public class X {\n"+
+					"  public static void main(String[] args){\n"+
+					"     System.out.println(0);\n" +
+					"  }\n"+
+					"}\n"
+			},
+		"0");
+}
+
 }

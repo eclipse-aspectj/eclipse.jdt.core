@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2019 IBM Corporation and others.
+ * Copyright (c) 2016, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -290,7 +290,7 @@ public class ModuleCompilationTests extends AbstractBatchCompilerTest {
 	 */
 	String adjustForJavac(String commandLine, String versionOptions) {
 		String[] tokens = commandLine.split(" ");
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		boolean skipNext = false;
 		for (int i = 0; i < tokens.length; i++) {
 			if (skipNext) {
@@ -714,7 +714,7 @@ public class ModuleCompilationTests extends AbstractBatchCompilerTest {
 				"public class Tester {\n" +
 				"}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + unnamedBin)
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -767,7 +767,7 @@ public class ModuleCompilationTests extends AbstractBatchCompilerTest {
 						"   java.sql.Connection con = p.X.getConnection();\n" +
 						"}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 			buffer.append("-d " + outDir )
 			.append(" -9 ")
 			.append(" --module-path \"")
@@ -3376,7 +3376,7 @@ public class ModuleCompilationTests extends AbstractBatchCompilerTest {
 						"	requires mod.two;\n" +
 						"}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + outDir )
 		.append(" -9 ")
 		.append(" -p \"")
@@ -3407,7 +3407,7 @@ public class ModuleCompilationTests extends AbstractBatchCompilerTest {
 						"	requires mod.two;\n" +
 						"}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + outDir )
 		.append(" -9 ")
 		.append(" -p \"")
@@ -3784,7 +3784,7 @@ public void testBug521362_emptyFile() {
 						"module mod.one { \n" +
 						"	requires java.sql;\n" +
 						"}");
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -4050,6 +4050,16 @@ public void testBug521362_emptyFile() {
 		     true);
 	}
 	public void testReleaseOption8() throws Exception {
+
+		String output =
+				isJRE12Plus ?
+						"	public java.util.stream.Stream<String> emptyStream() {\n" +
+						"	       ^^^^^^^^^^^^^^^^\n" +
+						"java.util.stream cannot be resolved to a type\n" :
+							"	public java.util.stream.Stream<String> emptyStream() {\n" +
+							"	       ^^^^^^^^^^^^^^^^^^^^^^^\n" +
+							"java.util.stream.Stream cannot be resolved to a type\n";
+
 		this.runNegativeTest(
 				new String[] {
 					"X.java",
@@ -4065,9 +4075,7 @@ public void testBug521362_emptyFile() {
 		     "",
 		     "----------\n" +
     		 "1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 3)\n" +
-    		 "	public java.util.stream.Stream<String> emptyStream() {\n" +
-    		 "	       ^^^^^^^^^^^^^^^^^^^^^^^\n" +
-    		 "java.util.stream.Stream cannot be resolved to a type\n" +
+    		 output +
     		 "----------\n" +
     		 "1 problem (1 error)\n",
 		     true);
@@ -4746,7 +4754,7 @@ public void testBug521362_emptyFile() {
 				"package pack5;\n" +
 				"public class X51 {\n" +
 				"}");
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5082,7 +5090,7 @@ public void testBug521362_emptyFile() {
 				"	java.sql.Connection conn = null;\n" +
 				"}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5140,7 +5148,7 @@ public void testBug521362_emptyFile() {
 		writeFileCollecting(files, moduleLoc + File.separator + "p" + File.separator + "q", "Test.java",
 				"/*nothing in it */");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5176,7 +5184,7 @@ public void testBug521362_emptyFile() {
 		writeFileCollecting(files, moduleLoc + File.separator + "p" + File.separator + "q", "Test.java",
 				"package p.q;");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5213,7 +5221,7 @@ public void testBug521362_emptyFile() {
 				"package p.q;\n"
 				+ "class Test {}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5249,7 +5257,7 @@ public void testBug521362_emptyFile() {
 		writeFileCollecting(files, moduleLoc + File.separator + "p" + File.separator + "q", "Test.java",
 				"class Test {}");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5292,7 +5300,7 @@ public void testBug521362_emptyFile() {
 		writeFileCollecting(files, moduleLoc + File.separator + "p" + File.separator + "q", "Test.java",
 				"import java.lang.*;");
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		buffer.append("-d " + OUTPUT_DIR + File.separator + out )
 			.append(" -9 ")
 			.append(" -classpath \"")
@@ -5512,5 +5520,21 @@ public void testBug521362_emptyFile() {
     		 "----------\n" +
     		 "1 problem (1 warning)\n",
 		     true);
+	}
+	public void testBug571363() throws Exception {
+		if (!isJRE12Plus) return;
+		this.runConformTest(
+			new String[] {
+				"A.java",
+				"public final class A {\n"
+				+ "    org.w3c.dom.Element list;\n"
+				+ "}",
+			},
+	     "\"" + OUTPUT_DIR +  File.separator + "A.java\""
+	     + " -classpath " + "\"" + this.getCompilerTestsPluginDirectoryPath() + File.separator + "workspace" + File.separator + "Test571363.jar\""
+	     + " --release 11 -d \"" + OUTPUT_DIR + "\"",
+	     "",
+	     "",
+	     true);
 	}
 }

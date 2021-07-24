@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -237,13 +237,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			setUpJavaProject("Converter14", "14"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_15", "15"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_15_1", "15"); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter_16", "16"); //$NON-NLS-1$ //$NON-NLS-2$
 			waitUntilIndexesReady(); // needed to find secondary types
 			PROJECT_SETUP = true;
 		}
 	}
 
 	protected void assertExtraDimensionsEqual(String message, List dimensions, String expected) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		Iterator iter = dimensions.iterator();
 		while(iter.hasNext()) {
 			Dimension dim = (Dimension) iter.next();
@@ -258,7 +259,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 	}
 
 	protected String convertAnnotationsList(List annotations) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		Iterator iter = annotations.iterator();
 		while (iter.hasNext()) {
 			buffer.append('@');
@@ -757,6 +758,8 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			Initializer initializer = (Initializer) bodyDeclaration;
 			Block block = initializer.getBody();
 			return (ASTNode) block.statements().get(statementIndex);
+		} else if (bodyDeclaration instanceof FieldDeclaration) {
+			return bodyDeclaration;
 		}
 		return null;
 	}

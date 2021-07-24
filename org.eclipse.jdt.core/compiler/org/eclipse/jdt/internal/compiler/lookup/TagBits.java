@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -190,6 +190,9 @@ public interface TagBits {
 	long HasTypeAnnotations = ASTNode.Bit22;
 
 	long DefaultValueResolved = ASTNode.Bit60L;
+
+	long AnnotationPreviewFeature = ASTNode.Bit32L | ASTNode.Bit33L;
+	long EssentialAPI = ASTNode.Bit11;
 
 	// set when type contains non-private constructor(s)
 	long HasNonPrivateConstructor = ASTNode.Bit61L;

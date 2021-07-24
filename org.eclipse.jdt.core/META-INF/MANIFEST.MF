@@ -3,7 +3,7 @@ Main-Class: org.eclipse.jdt.internal.compiler.batch.Main
 Bundle-ManifestVersion: 2
 Bundle-Name: %pluginName
 Bundle-SymbolicName: org.eclipse.jdt.core; singleton:=true
-Bundle-Version: 3.26.0.qualifier
+Bundle-Version: 3.27.0.qualifier
 Bundle-Activator: org.eclipse.jdt.core.JavaCore
 Bundle-Vendor: %providerName
 Bundle-Localization: plugin
@@ -39,22 +39,18 @@ Export-Package: org.eclipse.jdt.core,
   x-friends:="org.eclipse.jdt.apt.pluggable.core,
    org.eclipse.jdt.compiler.tool,
    org.eclipse.pde.api.tools,
-   org.eclipse.jdt.apt.core",
+   org.eclipse.jdt.apt.core,
+   org.eclipse.jdt.debug",
  org.eclipse.jdt.internal.core;x-friends:="org.eclipse.jdt.apt.pluggable.core,org.eclipse.pde.api.tools,org.eclipse.jdt.launching",
  org.eclipse.jdt.internal.core.builder;x-friends:="org.eclipse.jdt.apt.pluggable.core,org.eclipse.pde.api.tools",
  org.eclipse.jdt.internal.core.dom;x-internal:=true,
  org.eclipse.jdt.internal.core.dom.rewrite;x-internal:=true,
+ org.eclipse.jdt.internal.core.dom.util;x-internal:=true,
  org.eclipse.jdt.internal.core.eval;x-internal:=true,
  org.eclipse.jdt.internal.core.hierarchy;x-internal:=true,
  org.eclipse.jdt.internal.core.index;x-internal:=true,
  org.eclipse.jdt.internal.core.jdom;x-internal:=true,
- org.eclipse.jdt.internal.core.nd;x-internal:=true,
- org.eclipse.jdt.internal.core.nd.db;x-internal:=true,
- org.eclipse.jdt.internal.core.nd.field;x-internal:=true,
- org.eclipse.jdt.internal.core.nd.indexer;x-internal:=true,
- org.eclipse.jdt.internal.core.nd.java;x-internal:=true,
  org.eclipse.jdt.internal.core.nd.java.model;x-internal:=true,
- org.eclipse.jdt.internal.core.nd.util;x-internal:=true,
  org.eclipse.jdt.internal.core.search;x-internal:=true,
  org.eclipse.jdt.internal.core.search.indexing;x-internal:=true,
  org.eclipse.jdt.internal.core.search.matching;x-internal:=true,
@@ -70,7 +66,7 @@ Require-Bundle: org.eclipse.core.resources;bundle-version="[3.14.0,4.0.0)",
  org.eclipse.text;bundle-version="[3.6.0,4.0.0)",
  org.eclipse.team.core;bundle-version="[3.1.0,4.0.0)";resolution:=optional,
  org.aspectj.runtime
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-RequiredExecutionEnvironment: JavaSE-11
 Eclipse-ExtensibleAPI: true
 Bundle-ActivationPolicy: lazy
 Automatic-Module-Name: org.eclipse.jdt.core

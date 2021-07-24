@@ -31,7 +31,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug570218"};
+//		TESTS_NAMES = new String[] { "testBug573450"};
 	}
 
 	public static Class<?> testClass() {
@@ -61,9 +61,8 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 		runConformTest(testFiles, expectedOutput, getCompilerOptions());
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
-	protected void runConformTest(String[] testFiles, String expectedOutput, Map customOptions) {
+	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
 		Runner runner = new Runner();
 		runner.testFiles = testFiles;
 		runner.expectedOutputString = expectedOutput;
@@ -74,7 +73,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 	}
 	@Override
 	protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
-		runNegativeTest(testFiles, expectedCompilerLog, JavacTestOptions.forReleaseWithPreview("15"));
+		runNegativeTest(testFiles, expectedCompilerLog, JavacTestOptions.forReleaseWithPreview("16"));
 	}
 	protected void runWarningTest(String[] testFiles, String expectedCompilerLog) {
 		runWarningTest(testFiles, expectedCompilerLog, null);
@@ -90,8 +89,8 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 		runner.expectedCompilerLog = expectedCompilerLog;
 		runner.customOptions = customOptions;
 		runner.vmArguments = new String[] {"--enable-preview"};
-		runner.javacTestOptions = javacAdditionalTestOptions == null ? JavacTestOptions.forReleaseWithPreview("15") :
-			JavacTestOptions.forReleaseWithPreview("15", javacAdditionalTestOptions);
+		runner.javacTestOptions = javacAdditionalTestOptions == null ? JavacTestOptions.forReleaseWithPreview("16") :
+			JavacTestOptions.forReleaseWithPreview("16", javacAdditionalTestOptions);
 		runner.runWarningTest();
 	}
 
@@ -617,7 +616,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public final class Y extends p1.X{}\n" +
 			"	                             ^^^^\n" +
-			"The type Y extending a sealed class X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_011() {
@@ -651,7 +650,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public final class Y implements p1.X{}\n" +
 			"	                                ^^^^\n" +
-			"The type Y that implements a sealed interface X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_013() {
@@ -696,7 +695,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"2. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public interface Y extends p1.X{}\n" +
 			"	                           ^^^^\n" +
-			"The type Y that extends a sealed interface X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_015() {
@@ -1452,7 +1451,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 3)\n" +
 			"	IY y = new IY(){};\n" +
 			"	           ^^\n" +
-			"A local class new IY(){} cannot have a sealed direct superclass or a sealed direct superinterface IY\n" +
+			"An anonymous class cannot subclass a sealed type IY\n" +
 			"----------\n");
 	}
 	public void testBug564492_003() {
@@ -1497,7 +1496,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 3)\n" +
 			"	new A.IY() {};\n" +
 			"	    ^^^^\n" +
-			"A local class new IY(){} cannot have a sealed direct superclass or a sealed direct superinterface A.IY\n" +
+			"An anonymous class cannot subclass a sealed type A.IY\n" +
 			"----------\n");
 	}
 	public void testBug564498_1() throws IOException, ClassFormatException {
@@ -5844,5 +5843,120 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"0");
+	}
+	public void testBug572205_001() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X{\n" +
+				"  public static void main(String[] args) {\n" +
+				"	 class Circle implements Shape{}\n" +
+				"  }\n" +
+				"  sealed interface Shape {}\n" +
+				"}",
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 3)\n" +
+			"	class Circle implements Shape{}\n" +
+			"	                        ^^^^^\n" +
+			"A local class Circle cannot have a sealed direct superclass or a sealed direct superinterface X.Shape\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	sealed interface Shape {}\n" +
+			"	                 ^^^^^\n" +
+			"Sealed class or interface lacks the permits clause and no class or interface from the same compilation unit declares Shape as its direct superclass or superinterface\n" +
+			"----------\n");
+	}
+	public void testBug573450_001() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"sealed interface Foo permits Foo.Bar {\n" +
+					"	interface Interface {}\n" +
+					"	record Bar() implements Foo, Interface { }\n" +
+					"}\n" +
+					"public class X { \n" +
+					"  public static void main(String[] args){\n"+
+					"     System.out.println(0);\n" +
+					"  }\n"+
+					"}",
+				},
+				"0");
+	}
+
+	public void testBug573450_002() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"interface Interface {}\n" +
+					"sealed interface Foo extends Interface permits Foo.Bar {\n" +
+					"	record Bar() implements Foo, Interface {}\n" +
+					"}\n" +
+					"public class X { \n" +
+					"  public static void main(String[] args){\n"+
+					"     System.out.println(0);\n" +
+					"  }\n"+
+					"}"
+				},
+				"0");
+	}
+	public void testBug573450_003() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"sealed interface Interface extends Foo{}\n" +
+					"sealed interface Foo extends Interface permits Foo.Bar, Interface {\n" +
+					"	record Bar() implements Foo, Interface {} \n" +
+					"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 1)\n" +
+				"	sealed interface Interface extends Foo{}\n" +
+				"	                 ^^^^^^^^^\n" +
+				"The hierarchy of the type Interface is inconsistent\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 2)\n" +
+				"	sealed interface Foo extends Interface permits Foo.Bar, Interface {\n" +
+				"	                             ^^^^^^^^^\n" +
+				"Cycle detected: a cycle exists in the type hierarchy between Foo and Interface\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 3)\n" +
+				"	record Bar() implements Foo, Interface {} \n" +
+				"	       ^^^\n" +
+				"The hierarchy of the type Bar is inconsistent\n" +
+				"----------\n");
+	}
+	public void testBug573450_004() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public sealed class X permits X.Y {\n" +
+					"	final class Y extends X {}\n" +
+					"	public static void main(String[] args){\n"+
+					"		System.out.println(0);\n" +
+					"	}\n"+
+					"}"
+				},
+				"0");
+	}
+	public void testBug573450_005() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"public sealed class X permits Y {\n" +
+					"	final class Y extends X {}\n" +
+					"}"
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 1)\n"
+				+ "	public sealed class X permits Y {\n"
+				+ "	                              ^\n"
+				+ "Y cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 2)\n"
+				+ "	final class Y extends X {}\n"
+				+ "	                      ^\n"
+				+ "The type Y extending a sealed class X should be a permitted subtype of X\n"
+				+ "----------\n");
 	}
 }

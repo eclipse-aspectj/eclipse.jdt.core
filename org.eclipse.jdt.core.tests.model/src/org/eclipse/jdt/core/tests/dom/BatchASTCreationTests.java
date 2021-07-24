@@ -49,7 +49,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	 */
 	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
 
-	public class TestASTRequestor extends ASTRequestor {
+	public static class TestASTRequestor extends ASTRequestor {
 		public ArrayList asts = new ArrayList();
 		public void acceptAST(ICompilationUnit source, CompilationUnit ast) {
 			this.asts.add(ast);
@@ -183,7 +183,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 						this.createdBindingKeys.add(bindings[0].getKey());
 				}
 				public String getCreatedKeys() {
-					StringBuffer buffer = new StringBuffer();
+					StringBuilder buffer = new StringBuilder();
 					for (int i = 0, length = this.createdBindingKeys.size(); i < length; i++) {
 						buffer.append(this.createdBindingKeys.get(i));
 						if (i < length - 1)

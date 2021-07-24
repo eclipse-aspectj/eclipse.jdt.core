@@ -302,7 +302,7 @@ public class Util {
 		return compoundChars;
 	}
 	public static String concatenateName(String name1, String name2, char separator) {
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		if (name1 != null && name1.length() > 0) {
 			buf.append(name1);
 		}
@@ -338,7 +338,7 @@ public class Util {
 	 * @return the concatenation of the given array parts using the given separator between each part
 	 */
 	public static final String concatWith(String[] array, char separator) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0, length = array.length; i < length; i++) {
 			buffer.append(array[i]);
 			if (i < length - 1)
@@ -388,7 +388,7 @@ public class Util {
 
 		if (array == null || array.length == 0) return name;
 		if (name == null || name.length() == 0) return concatWith(array, separator);
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0, length = array.length; i < length; i++) {
 			buffer.append(array[i]);
 			buffer.append(separator);
@@ -397,6 +397,21 @@ public class Util {
 		return buffer.toString();
 
 	}
+
+	public static final char[] concat(char[] first, char[] second) {
+		if (first == null)
+			return second;
+		if (second == null)
+			return first;
+
+		int length1 = first.length;
+		int length2 = second.length;
+		char[] result = new char[length1 + length2];
+		System.arraycopy(first, 0, result, 0, length1);
+		System.arraycopy(second, 0, result, length1, length2);
+		return result;
+	}
+
 	/**
 	 * Converts a type signature from the IBinaryType representation to the DC representation.
 	 */
@@ -1159,7 +1174,7 @@ public class Util {
 			throw new JavaModelException(e);
 		}
 		try {
-			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsByteArray(stream, -1);
+			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsByteArray(stream);
 		} catch (IOException e) {
 			throw new JavaModelException(e, IJavaModelStatusConstants.IO_EXCEPTION);
 		} finally {
@@ -1187,25 +1202,6 @@ public class Util {
 	}
 
 	public static char[] getResourceContentsAsCharArray(IFile file, String encoding) throws JavaModelException {
-		// Get file length
-		// workaround https://bugs.eclipse.org/bugs/show_bug.cgi?id=130736 by using java.io.File if possible
-		IPath location = file.getLocation();
-		long length;
-		if (location == null) {
-			// non local file
-			try {
-				URI locationURI = file.getLocationURI();
-				if (locationURI == null)
-					throw new CoreException(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, Messages.bind(Messages.file_notFound, file.getFullPath().toString())));
-				length = EFS.getStore(locationURI).fetchInfo().getLength();
-			} catch (CoreException e) {
-				throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
-			}
-		} else {
-			// local file
-			length = location.toFile().length();
-		}
-
 		// Get resource contents
 		InputStream stream= null;
 		try {
@@ -1214,7 +1210,7 @@ public class Util {
 			throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
 		}
 		try {
-			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsCharArray(stream, (int) length, encoding);
+			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsCharArray(stream, encoding);
 		} catch (IOException e) {
 			throw new JavaModelException(e, IJavaModelStatusConstants.IO_EXCEPTION);
 		} finally {
@@ -1991,7 +1987,7 @@ public class Util {
 	 * @param complianceLevel the compliance level
 	 */
 	public static String packageName(IPath pkgPath, String sourceLevel, String complianceLevel) {
-		StringBuffer pkgName = new StringBuffer(IPackageFragment.DEFAULT_PACKAGE_NAME);
+		StringBuilder pkgName = new StringBuilder(IPackageFragment.DEFAULT_PACKAGE_NAME);
 		for (int j = 0, max = pkgPath.segmentCount(); j < max; j++) {
 			String segment = pkgPath.segment(j);
 			if (!isValidFolderNameForPackage(segment, sourceLevel, complianceLevel)) {
@@ -2463,7 +2459,7 @@ public class Util {
 	 * Converts a char[][] to String, where segments are separated by '.'.
 	 */
 	public static String toString(char[][] c) {
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		for (int i = 0, max = c.length; i < max; ++i) {
 			if (i != 0) sb.append('.');
 			sb.append(c[i]);
@@ -2476,7 +2472,7 @@ public class Util {
 	 */
 	public static String toString(char[][] c, char[] d) {
 		if (c == null) return new String(d);
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		for (int i = 0, max = c.length; i < max; ++i) {
 			sb.append(c[i]);
 			sb.append('.');

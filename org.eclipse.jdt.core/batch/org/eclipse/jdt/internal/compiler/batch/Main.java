@@ -229,7 +229,7 @@ public class Main implements ProblemSeverities, SuffixConstants {
 
 			outputPath = outputPath.replace('/', fileSeparatorChar);
 			// To be able to pass the mkdirs() method we need to remove the extra file separator at the end of the outDir name
-			StringBuffer outDir = new StringBuffer(outputPath);
+			StringBuilder outDir = new StringBuilder(outputPath);
 			if (!outputPath.endsWith(fileSeparator)) {
 				outDir.append(fileSeparator);
 			}
@@ -318,7 +318,7 @@ public class Main implements ProblemSeverities, SuffixConstants {
 				|| (length = unitSource.length) == 0)
 				return Messages.problem_noSourceInformation;
 
-			StringBuffer errorBuffer = new StringBuffer();
+			StringBuilder errorBuffer = new StringBuilder();
 			if ((bits & Main.Logger.EMACS) == 0) {
 				errorBuffer.append(' ').append(Messages.bind(Messages.problem_atLine, String.valueOf(problem.getSourceLineNumber())));
 				errorBuffer.append(Util.LINE_SEPARATOR);
@@ -585,7 +585,7 @@ public class Main implements ProblemSeverities, SuffixConstants {
 				LineNumberReader reader = new LineNumberReader(new StringReader(stackTrace));
 				String line;
 				int i = 0;
-				StringBuffer buffer = new StringBuffer();
+				StringBuilder buffer = new StringBuilder();
 				String message = e.getMessage();
 				if (message != null) {
 					buffer.append(message).append(Util.LINE_SEPARATOR);
@@ -1967,7 +1967,7 @@ public void configure(String[] argv) {
 			if (arg.startsWith("@")) { //$NON-NLS-1$
 				try {
 					LineNumberReader reader = new LineNumberReader(new StringReader(new String(Util.getFileCharContent(new File(arg.substring(1)), null))));
-					StringBuffer buffer = new StringBuffer();
+					StringBuilder buffer = new StringBuilder();
 					String line;
 					while((line = reader.readLine()) != null) {
 						line = line.trim();
@@ -2195,7 +2195,7 @@ public void configure(String[] argv) {
 				}
 				if (currentArg.equals("-d")) { //$NON-NLS-1$
 					if (this.destinationPath != null) {
-						StringBuffer errorMessage = new StringBuffer();
+						StringBuilder errorMessage = new StringBuilder();
 						errorMessage.append(currentArg);
 						if ((index + 1) < argCount) {
 							errorMessage.append(' ');
@@ -2214,7 +2214,7 @@ public void configure(String[] argv) {
 				}
 				if (currentArg.equals("-bootclasspath")) {//$NON-NLS-1$
 					if (bootclasspaths.size() > 0) {
-						StringBuffer errorMessage = new StringBuffer();
+						StringBuilder errorMessage = new StringBuilder();
 						errorMessage.append(currentArg);
 						if ((index + 1) < argCount) {
 							errorMessage.append(' ');
@@ -2268,7 +2268,7 @@ public void configure(String[] argv) {
 				}
 				if (currentArg.equals("-sourcepath")) {//$NON-NLS-1$
 					if (sourcepathClasspathArg != null) {
-						StringBuffer errorMessage = new StringBuffer();
+						StringBuilder errorMessage = new StringBuilder();
 						errorMessage.append(currentArg);
 						if ((index + 1) < argCount) {
 							errorMessage.append(' ');
@@ -2285,7 +2285,7 @@ public void configure(String[] argv) {
 				}
 				if (currentArg.equals("-extdirs")) {//$NON-NLS-1$
 					if (extdirsClasspaths != null) {
-						StringBuffer errorMessage = new StringBuffer();
+						StringBuilder errorMessage = new StringBuilder();
 						errorMessage.append(currentArg);
 						if ((index + 1) < argCount) {
 							errorMessage.append(' ');
@@ -2299,7 +2299,7 @@ public void configure(String[] argv) {
 				}
 				if (currentArg.equals("-endorseddirs")) { //$NON-NLS-1$
 					if (endorsedDirClasspaths != null) {
-						StringBuffer errorMessage = new StringBuffer();
+						StringBuilder errorMessage = new StringBuilder();
 						errorMessage.append(currentArg);
 						if ((index + 1) < argCount) {
 							errorMessage.append(' ');
@@ -3212,51 +3212,50 @@ public void configure(String[] argv) {
 	}
 }
 /** Translates any supported standard version starting at 1.3 up-to latest into the corresponding constant from CompilerOptions */
-@SuppressWarnings("nls")
 private String optionStringToVersion(String currentArg) {
 	switch (currentArg) {
-		case "1.3": return CompilerOptions.VERSION_1_3;
-		case "1.4": return CompilerOptions.VERSION_1_4;
-		case "1.5":
-		case "5":
-		case "5.0":
+		case "1.3": return CompilerOptions.VERSION_1_3; //$NON-NLS-1$
+		case "1.4": return CompilerOptions.VERSION_1_4; //$NON-NLS-1$
+		case "1.5": //$NON-NLS-1$
+		case "5": //$NON-NLS-1$
+		case "5.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_1_5;
-		case "1.6":
-		case "6":
-		case "6.0":
+		case "1.6": //$NON-NLS-1$
+		case "6": //$NON-NLS-1$
+		case "6.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_1_6;
-		case "1.7":
-		case "7":
-		case "7.0":
+		case "1.7": //$NON-NLS-1$
+		case "7": //$NON-NLS-1$
+		case "7.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_1_7;
-		case "1.8":
-		case "8":
-		case "8.0":
+		case "1.8": //$NON-NLS-1$
+		case "8": //$NON-NLS-1$
+		case "8.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_1_8;
-		case "1.9":
-		case "9":
-		case "9.0":
+		case "1.9": //$NON-NLS-1$
+		case "9": //$NON-NLS-1$
+		case "9.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_9;
-		case "10":
-		case "10.0":
+		case "10": //$NON-NLS-1$
+		case "10.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_10;
-		case "11":
-		case "11.0":
+		case "11": //$NON-NLS-1$
+		case "11.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_11;
-		case "12":
-		case "12.0":
+		case "12": //$NON-NLS-1$
+		case "12.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_12;
-		case "13":
-		case "13.0":
+		case "13": //$NON-NLS-1$
+		case "13.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_13;
-		case "14":
-		case "14.0":
+		case "14": //$NON-NLS-1$
+		case "14.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_14;
-		case "15":
-		case "15.0":
+		case "15": //$NON-NLS-1$
+		case "15.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_15;
-		case "16":
-		case "16.0":
+		case "16": //$NON-NLS-1$
+		case "16.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_16;
 		default:
 			return null;
@@ -4716,12 +4715,12 @@ protected void initializeAnnotationProcessorManager() {
 	String className = "org.eclipse.jdt.internal.compiler.apt.dispatch.BatchAnnotationProcessorManager"; //$NON-NLS-1$
 	try {
 		Class<?> c = Class.forName(className);
-		AbstractAnnotationProcessorManager annotationManager = (AbstractAnnotationProcessorManager) c.newInstance();
+		AbstractAnnotationProcessorManager annotationManager = (AbstractAnnotationProcessorManager) c.getDeclaredConstructor().newInstance();
 		annotationManager.configure(this, this.expandedCommandLine);
 		annotationManager.setErr(this.err);
 		annotationManager.setOut(this.out);
 		this.batchCompiler.annotationProcessorManager = annotationManager;
-	} catch (ClassNotFoundException | InstantiationException e) {
+	} catch (ClassNotFoundException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {
 		this.logger.logUnavaibleAPT(className);
 		throw new org.eclipse.jdt.internal.compiler.problem.AbortCompilation();
 	} catch (IllegalAccessException e) {
@@ -5202,7 +5201,7 @@ private int processPaths(String[] args, int index, String currentArg, ArrayList<
 				this.bind("configure.unexpectedBracket", //$NON-NLS-1$
 							currentArg));
 	} else {
-		StringBuffer currentPath = new StringBuffer(currentArg);
+		StringBuilder currentPath = new StringBuilder(currentArg);
 		while (true) {
 			if (localIndex >= args.length) {
 				throw new IllegalArgumentException(
@@ -5260,7 +5259,7 @@ private int processPaths(String[] args, int index, String currentArg, String[] p
 	if (count == 0) {
 		paths[0] = currentArg;
 	} else {
-		StringBuffer currentPath = new StringBuffer(currentArg);
+		StringBuilder currentPath = new StringBuilder(currentArg);
 		while (true) {
 			localIndex++;
 			if (localIndex >= args.length) {

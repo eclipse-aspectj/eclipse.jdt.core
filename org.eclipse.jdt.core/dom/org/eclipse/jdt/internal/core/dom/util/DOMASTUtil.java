@@ -14,6 +14,7 @@
 
 package org.eclipse.jdt.internal.core.dom.util;
 
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Modifier;
@@ -86,6 +87,8 @@ public class DOMASTUtil {
 		switch (featureName) {
 			case Modifier.SEALED:
 				return isPreviewEnabled(ast.apiLevel(), ast.isPreviewEnabledSet());
+			case Modifier.NON_SEALED:
+				return isPreviewEnabled(ast.apiLevel(), ast.isPreviewEnabledSet());
 		}
 		return false;
 	}
@@ -109,6 +112,8 @@ public class DOMASTUtil {
 	public static boolean isFeatureSupportedinAST(int apiLevel, boolean previewEnabled, int featureName) {
 		switch (featureName) {
 			case Modifier.SEALED:
+				return isPreviewEnabled(apiLevel, previewEnabled);
+			case Modifier.NON_SEALED:
 				return isPreviewEnabled(apiLevel, previewEnabled);
 		}
 		return false;
@@ -142,29 +147,35 @@ public class DOMASTUtil {
 		return isNodeTypeSupportedinAST(ast, ASTNode.PATTERN_INSTANCEOF_EXPRESSION);
 	}
 
-	public static boolean isSealedTypeSupported(AST ast) {
-		return isNodeTypeSupportedinAST(ast, ASTNode.INSTANCEOF_EXPRESSION);
-	}
-
 	@SuppressWarnings("deprecation")
 	public static void checkASTLevel(int level) {
+		// Clients can use AST.getJLSLatest()
+		if(level >=AST.JLS8 && level <= AST.getJLSLatest() )
+			return;
 		switch (level) {
 	        case AST.JLS2 :
 	        case AST.JLS3 :
 	        case AST.JLS4 :
-	        case AST.JLS8 :
-	        case AST.JLS9 :
-	        case AST.JLS10 :
-	        case AST.JLS11 :
-	        case AST.JLS12 :
-	        case AST.JLS13 :
-	        case AST.JLS14 :
-	        case AST.JLS15 :
-	        case AST.JLS16 :
 	        	return;
 		}
-		throw new IllegalArgumentException();
+		throw new IllegalArgumentException(Integer.toString(level));
+	}
 
+	private static final String[] AST_COMPLIANCE_MAP = {"-1","-1",JavaCore.VERSION_1_2, JavaCore.VERSION_1_3, JavaCore.VERSION_1_7, //$NON-NLS-1$ //$NON-NLS-2$
+			JavaCore.VERSION_1_7, JavaCore.VERSION_1_7, JavaCore.VERSION_1_7, JavaCore.VERSION_1_8, JavaCore.VERSION_9, JavaCore.VERSION_10,
+			JavaCore.VERSION_11, JavaCore.VERSION_12, JavaCore.VERSION_13, JavaCore.VERSION_14, JavaCore.VERSION_15, JavaCore.VERSION_16};
+
+	/**
+	 * Calculates the JavaCore Option value string corresponding to the input ast level.
+	 * AST Level 4 is used for Java versions 1.4 to 1.7 and is converted to compliance level 7
+	 * if input ast level is out of boundary, latest compliance will be returned
+	 * @param astLevel
+	 * @return JavaCore Option value string corresponding to the ast level
+	 */
+	@SuppressWarnings("deprecation")
+	public static String getCompliance(int astLevel) {
+		if (astLevel < AST.JLS2 && astLevel > AST.getJLSLatest()) return JavaCore.latestSupportedJavaVersion();
+		return AST_COMPLIANCE_MAP[astLevel];
 	}
 
 }

@@ -1741,10 +1741,10 @@ public void testBug427164() {
 			"}\n"
 		},
 		"----------\n" +
-		"1. ERROR in NNLambda.java (at line 1)\n" +
+		"1. ERROR in NNLambda.java (at line 12)\n" +
 		"	printem((i) -> {\n" +
 		"	^^^^^^^\n" +
-		"The method printem(FInter, INP) in the type NNLambda is not applicable for the arguments (FInter, String)\n" +
+		"The method printem(FInter, INP) in the type NNLambda is not applicable for the arguments ((<no type> i) -> {}, String)\n" +
 		"----------\n" +
 		"2. ERROR in NNLambda.java (at line 13)\n" +
 		"	Collections.<String>singletonList(\"const\")\n" +
@@ -2938,7 +2938,7 @@ public void testBug430296() {
 		"1. ERROR in AnnotationCollector.java (at line 9)\n" +
 		"	return persons.collect(Collectors.toMap((Person p) -> p.getLastName(),\n" +
 		"	                                  ^^^^^\n" +
-		"The method toMap(Function<? super T,? extends K>, Function<? super T,? extends U>, BinaryOperator<U>) in the type Collectors is not applicable for the arguments ((Person p) -> {}, Function::identity, BinaryOperator<U>)\n" +
+		"The method toMap(Function<? super T,? extends K>, Function<? super T,? extends U>, BinaryOperator<U>) in the type Collectors is not applicable for the arguments ((Person p) -> {}, Function::identity, (<no type> p1, <no type> p2) -> {})\n" +
 		"----------\n" +
 		"2. ERROR in AnnotationCollector.java (at line 9)\n" +
 		"	return persons.collect(Collectors.toMap((Person p) -> p.getLastName(),\n" +
@@ -10204,5 +10204,125 @@ public void testBug508834_comment0() {
 				"	           ^^^^^^^^^^\n" +
 				"Main.Inner cannot be resolved to a type\n" +
 				"----------\n");
+	}
+	public void testBug562324comment31() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"import static java.util.stream.Collectors.*;\n" +
+				"import static java.util.stream.Stream.*;\n" +
+				"\n" +
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class X {\n" +
+				"\n" +
+				"    public void hello() {\n" +
+				"    	Runnable r = new Runnable () {\n" +
+				"    		@Override\n" +
+				"    		public void run() {\n" +
+				"    		}\n" +
+				"    	};\n" +
+				"    	r.run();\n" +
+				"    }\n" +
+				"\n" +
+				"    static void bug() {\n" +
+				"        Stream<String> stream = of(\"\"); // error here\n" +
+				"    }\n" +
+				"}\n"
+			});
+	}
+	public void testBug573933() {
+		runConformTest(
+			new String[] {
+				"B.java",
+				"import java.util.List;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.stream.Collectors;\n" +
+				"public class B {\n" +
+				 "   List<M> r;\n" +
+				  "  B(final RC c) {\n" +
+				  "  	r = m(c.getRI(), i -> t(i, x -> new M(x))); // no error\n" +
+				  "  	r = m(c.getRI(), i -> t(i, M::new)); \n" +
+				  "  } \n" +
+				  "  static <T, U> U m(T t, Function<T, U> f) {\n" +
+				  "      return f.apply(t);\n" +
+				  "  }\n" +
+				  "  static <T, R> List<R> t(final List<T> list, final Function<T, R> function) {\n" +
+				  "      return list.stream().map(function).collect(Collectors.toList());\n" +
+				  "  }\n" +
+				"}\n" +
+				"class RC {\n" +
+				"    List<Integer> getRI() { return null; }\n" +
+				"}\n" +
+				"class M {\n" +
+				 "   Integer r;\n" +
+				 "   public M(final Integer r) {\n" +
+				  "  	this.r = r;\n" +
+				  "  }\n" +
+
+				    // Removing this constructor makes the problem go away
+				  "  public M(final RC i) {\n" +
+				  "  	this.r = 3;\n" +
+				  "  }\n" +
+				  "}"
+			});
+
+	}
+
+	public void testBug573378() {
+		runNegativeTest(
+			new String[] {
+				"TypeInferenceError.java",
+				"import java.util.*;\n" +
+				"import java.util.function.*;\n" +
+				"import java.util.stream.*;\n" +
+				"\n" +
+				"public class TypeInferenceError {\n" +
+				"  void test() {\n" +
+				"    Optional<Stream<Object>> s = Optional.empty();\n" +
+				"    map(s, Stream::count);\n" +
+				"    assertThat(map(s, Stream::count));\n" +
+				"  }\n" +
+				"  private <T> OptionalInt map(Optional<T> o, ToIntFunction<T> mapper) {\n" +
+				"    return OptionalInt.empty();\n" +
+				"  }\n" +
+				"  private void assertThat(OptionalInt o) {}\n" +
+				"}\n"
+			},
+			"----------\n" +
+			"1. ERROR in TypeInferenceError.java (at line 8)\n" +
+			"	map(s, Stream::count);\n" +
+			"	       ^^^^^^^^^^^^^\n" +
+			"The type of count() from the type Stream<Object> is long, this is incompatible with the descriptor\'s return type: int\n" +
+			"----------\n" +
+			"2. ERROR in TypeInferenceError.java (at line 9)\n" +
+			"	assertThat(map(s, Stream::count));\n" +
+			"	                  ^^^^^^^^^^^^^\n" +
+			"The type of count() from the type Stream<Object> is long, this is incompatible with the descriptor\'s return type: int\n" +
+			"----------\n");
+	}
+	public void testBug549446() {
+		if (this.complianceLevel < ClassFileConstants.JDK12)
+			return; // uses interface Constable
+		runConformTest(
+			new String[] {
+				"TestFile.java",
+				"import java.lang.constant.Constable;\n" +
+				"public class TestFile {\n" +
+				"\n" +
+				"  @SafeVarargs\n" +
+				"  public final <E> E elements(E... args) {\n" +
+				"    return null;\n" +
+				"  }\n" +
+				"\n" +
+				"  public void test1() {\n" +
+				"    var v = elements(\"a\", 1);\n" +
+				"  }\n" +
+				"\n" +
+				"  public void test2() {\n" +
+				"    var v = elements(\"a\", (Comparable<String> & Constable) null);\n" +
+				"  }\n" +
+				"}\n"
+			});
 	}
 }

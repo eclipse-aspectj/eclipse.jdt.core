@@ -1243,20 +1243,23 @@ public class ASTConverter {
 		return assignment;
 	}
 
-	/*
-	 * Internal use only
-	 * Used to convert class body declarations
-	 */
-	public TypeDeclaration convert(org.eclipse.jdt.internal.compiler.ast.ASTNode[] nodes) {
-		// AspectJ Extension - use factory method and not ctor
-		// old code:
-		// final TypeDeclaration typeDecl = new TypeDeclaration(this.ast);
-		// new code:
-		final TypeDeclaration typeDecl = TypeDeclaration.getTypeDeclaration(this.ast);
-		// End AspectJ ExtensiontypeDecl.setInterface(false);
+	public RecordDeclaration convertToRecord(org.eclipse.jdt.internal.compiler.ast.ASTNode[] nodes) {
+	  // TODO: Do we need something similar to like TypeDeclaration.getTypeDeclaration(this.ast) here?
+    // AspectJ Extension - use factory method and not ctor
+    // old code:
+    // ### final TypeDeclaration typeDecl = new TypeDeclaration(this.ast);
+    // new code:
+		final RecordDeclaration typeDecl = new RecordDeclaration(this.ast);
+    // End AspectJ Extension
 		ASTNode oldReferenceContext = this.referenceContext;
 		this.referenceContext = typeDecl;
-		typeDecl.setInterface(false);
+		getAbstractTypeDeclarationDetails(nodes, typeDecl);
+		this.referenceContext = oldReferenceContext;
+		return typeDecl;
+	}
+
+	private void getAbstractTypeDeclarationDetails(org.eclipse.jdt.internal.compiler.ast.ASTNode[] nodes,
+			final AbstractTypeDeclaration typeDecl) {
 		int nodesLength = nodes.length;
 		for (int i = 0; i < nodesLength; i++) {
 			org.eclipse.jdt.internal.compiler.ast.ASTNode node = nodes[i];
@@ -1266,8 +1269,6 @@ public class ASTConverter {
 				initializer.setBody(convert(oldInitializer.block));
 				setModifiers(initializer, oldInitializer);
 				initializer.setSourceRange(oldInitializer.declarationSourceStart, oldInitializer.sourceEnd - oldInitializer.declarationSourceStart + 1);
-//				setJavaDocComment(initializer);
-//				initializer.setJavadoc(convert(oldInitializer.javadoc));
 				convert(oldInitializer.javadoc, initializer);
 				typeDecl.bodyDeclarations().add(initializer);
 			} else if (node instanceof org.eclipse.jdt.internal.compiler.ast.FieldDeclaration) {
@@ -1298,6 +1299,22 @@ public class ASTConverter {
 				}
 			}
 		}
+	}
+	/*
+	 * Internal use only
+	 * Used to convert class body declarations
+	 */
+	public TypeDeclaration convert(org.eclipse.jdt.internal.compiler.ast.ASTNode[] nodes) {
+    // AspectJ Extension - use factory method and not ctor
+    // old code:
+    // final TypeDeclaration typeDecl = new TypeDeclaration(this.ast);
+    // new code:
+    final TypeDeclaration typeDecl = TypeDeclaration.getTypeDeclaration(this.ast);
+    // End AspectJ
+		ASTNode oldReferenceContext = this.referenceContext;
+		this.referenceContext = typeDecl;
+		typeDecl.setInterface(false);
+		getAbstractTypeDeclarationDetails(nodes, typeDecl);
 		this.referenceContext = oldReferenceContext;
 		return typeDecl;
 	}
@@ -1439,7 +1456,9 @@ public class ASTConverter {
 				}
 			}
 		} else {
-			org.eclipse.jdt.internal.compiler.ast.Expression constantExpression = statement.constantExpression;
+			org.eclipse.jdt.internal.compiler.ast.Expression[] constantExpressions = statement.constantExpressions;
+			org.eclipse.jdt.internal.compiler.ast.Expression constantExpression =
+					constantExpressions != null && constantExpressions.length > 0 ? constantExpressions[0] : null;
 			if (constantExpression == null) {
 				internalSetExpression(switchCase, null);
 			} else {
@@ -1584,7 +1603,7 @@ public class ASTConverter {
 			if (SourceRangeVerifier.DEBUG) {
 				String bugs = new SourceRangeVerifier().process(compilationUnit);
 				if (bugs != null) {
-					StringBuffer message = new StringBuffer("Bad AST node structure:");  //$NON-NLS-1$
+					StringBuilder message = new StringBuilder("Bad AST node structure:");  //$NON-NLS-1$
 					String lineDelimiter = Util.findLineSeparator(source);
 					if (lineDelimiter == null) lineDelimiter = System.getProperty("line.separator");//$NON-NLS-1$
 					message.append(lineDelimiter);
@@ -1603,7 +1622,7 @@ public class ASTConverter {
 			}
 			return compilationUnit;
 		} catch(IllegalArgumentException e) {
-			StringBuffer message = new StringBuffer("Exception occurred during compilation unit conversion:");  //$NON-NLS-1$
+			StringBuilder message = new StringBuilder("Exception occurred during compilation unit conversion:");  //$NON-NLS-1$
 			String lineDelimiter = Util.findLineSeparator(source);
 			if (lineDelimiter == null) lineDelimiter = System.getProperty("line.separator");//$NON-NLS-1$
 			message.append(lineDelimiter);
@@ -3166,7 +3185,9 @@ public class ASTConverter {
 		if (this.resolveBindings) {
 			this.recordNodes(literal, expression);
 		}
-		literal.internalSetEscapedValue(new String(this.compilationUnitSource, sourceStart, length));
+		literal.internalSetEscapedValue(
+				new String(this.compilationUnitSource, sourceStart, length),
+				new String(expression.source()));
 		literal.setSourceRange(expression.sourceStart, expression.sourceEnd - expression.sourceStart + 1);
 		return literal;
 	}

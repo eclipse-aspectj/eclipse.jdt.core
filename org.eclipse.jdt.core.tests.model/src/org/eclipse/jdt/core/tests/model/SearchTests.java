@@ -55,7 +55,7 @@ public class SearchTests extends ModifyingResourceTests implements IJavaSearchCo
 		System.out.print("}");
 	 */
 	static final byte[] EMPTY_JAR = {80, 75, 3, 4, 20, 0, 8, 0, 8, 0, 106, -100, 116, 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 4, 0, 77, 69, 84, 65, 45, 73, 78, 70, 47, 77, 65, 78, 73, 70, 69, 83, 84, 46, 77, 70, -2, -54, 0, 0, -29, -27, 2, 0, 80, 75, 7, 8, -84, -123, -94, 20, 4, 0, 0, 0, 2, 0, 0, 0, 80, 75, 1, 2, 20, 0, 20, 0, 8, 0, 8, 0, 106, -100, 116, 46, -84, -123, -94, 20, 4, 0, 0, 0, 2, 0, 0, 0, 20, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77, 69, 84, 65, 45, 73, 78, 70, 47, 77, 65, 78, 73, 70, 69, 83, 84, 46, 77, 70, -2, -54, 0, 0, 80, 75, 5, 6, 0, 0, 0, 0, 1, 0, 1, 0, 70, 0, 0, 0, 74, 0, 0, 0, 0, 0, };
-	class WaitUntilReadyMonitor implements IProgressMonitor {
+	static class WaitUntilReadyMonitor implements IProgressMonitor {
 		public Semaphore sem = new Semaphore();
 		public void beginTask(String name, int totalWork) {
 		}
@@ -148,7 +148,7 @@ public class SearchTests extends ModifyingResourceTests implements IJavaSearchCo
 			String[] strings = new String[length];
 			this.results.toArray(strings);
 			org.eclipse.jdt.internal.core.util.Util.sort(strings);
-			StringBuffer buffer = new StringBuffer(100);
+			StringBuilder buffer = new StringBuilder(100);
 			for (int i = 0; i < length; i++){
 				buffer.append(strings[i]);
 				if (i != length-1) {
@@ -176,7 +176,7 @@ public class SearchTests extends ModifyingResourceTests implements IJavaSearchCo
 			String[] strings = new String[length];
 			this.results.toArray(strings);
 			org.eclipse.jdt.internal.core.util.Util.sort(strings);
-			StringBuffer buffer = new StringBuffer(100);
+			StringBuilder buffer = new StringBuilder(100);
 			for (int i = 0; i < length; i++){
 				buffer.append(strings[i]);
 				if (i != length-1) {
@@ -189,7 +189,7 @@ public class SearchTests extends ModifyingResourceTests implements IJavaSearchCo
 			int length = this.results.size();
 			String[] strings = new String[length];
 			this.results.toArray(strings);
-			StringBuffer buffer = new StringBuffer(100);
+			StringBuilder buffer = new StringBuilder(100);
 			for (int i = 0; i < length; i++){
 				buffer.append(strings[i]);
 				if (i != length-1) {
@@ -356,6 +356,10 @@ public void tearDownSuite() throws Exception {
  * a project causes another request to reindex.
  */
 public void testChangeClasspath() throws CoreException, TimeOutException {
+	boolean indexDisabled = isIndexDisabledForTest();
+	if(indexDisabled) {
+		JavaModelManager.getIndexManager().enable();
+	}
 	WaitingJob job = new WaitingJob();
 	try {
 		// setup: suspend indexing and create a project (prj=src) with one cu
@@ -391,6 +395,9 @@ public void testChangeClasspath() throws CoreException, TimeOutException {
 	} finally {
 		job.resume();
 		deleteProject("P1");
+		if(indexDisabled) {
+			JavaModelManager.getIndexManager().disable();
+		}
 	}
 }
 /*

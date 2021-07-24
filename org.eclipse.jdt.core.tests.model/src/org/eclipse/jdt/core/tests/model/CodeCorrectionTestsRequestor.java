@@ -19,7 +19,7 @@ import org.eclipse.jdt.core.ICorrectionRequestor;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class CodeCorrectionTestsRequestor implements ICorrectionRequestor {
-	private class Suggestion {
+	private static class Suggestion {
 		public String text;
 		public int start;
 		public int end;
@@ -30,7 +30,7 @@ public class CodeCorrectionTestsRequestor implements ICorrectionRequestor {
 		}
 	}
 
-	class SuggestionComparator implements Comparator {
+	static class SuggestionComparator implements Comparator {
 		@Override
 		public int compare(Object o1,Object o2) {
 			Suggestion s1 = (Suggestion)o1;
@@ -77,7 +77,7 @@ public class CodeCorrectionTestsRequestor implements ICorrectionRequestor {
 	public String getSuggestions(){
 		Suggestion[] sortedSuggestions = getSortedSuggestions();
 
-		StringBuffer result = new StringBuffer();
+		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < sortedSuggestions.length; i++) {
 			if(i != 0)
 				result.append('\n');
@@ -90,7 +90,7 @@ public class CodeCorrectionTestsRequestor implements ICorrectionRequestor {
 	public String getStarts(){
 		Suggestion[] sortedSuggestions = getSortedSuggestions();
 
-		StringBuffer result = new StringBuffer();
+		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < sortedSuggestions.length; i++) {
 			if(i != 0)
 				result.append('\n');
@@ -103,7 +103,7 @@ public class CodeCorrectionTestsRequestor implements ICorrectionRequestor {
 	public String getEnds(){
 		Suggestion[] sortedSuggestions = getSortedSuggestions();
 
-		StringBuffer result = new StringBuffer();
+		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < sortedSuggestions.length; i++) {
 			if(i != 0)
 				result.append('\n');

@@ -150,6 +150,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		  suite.addTest(ASTRewritingLambdaExpressionTest.suite());
 		  suite.addTest(ASTRewritingReferenceExpressionTest.suite());
 		  suite.addTest(ASTRewritingRecordDeclarationTest.suite());
+		  suite.addTest(ASTRewritingInstanceOfPatternExpressionTest.suite());
 		  suite.addTest(SourceModifierTest.suite());
 		  suite.addTest(ImportRewriteTest.suite());
 		  suite.addTest(ImportRewrite18Test.suite());
@@ -278,6 +279,15 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	}
 	protected CompilationUnit createAST(ICompilationUnit cu, boolean resolveBindings, boolean statementsRecovery) {
 		return createAST(this.apiLevel, cu, resolveBindings, statementsRecovery);
+	}
+
+
+	protected CompilationUnit createAST(int JLSLevel, ICompilationUnit cu) {
+		ASTParser parser= ASTParser.newParser(JLSLevel);
+		parser.setSource(cu, JLSLevel);
+		parser.setResolveBindings(false);
+		parser.setStatementsRecovery(false);
+		return (CompilationUnit) parser.createAST(null);
 	}
 
 	protected CompilationUnit createAST(int JLSLevel, ICompilationUnit cu, boolean resolveBindings, boolean statementsRecovery) {

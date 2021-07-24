@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2020 IBM Corporation and others.
+ * Copyright (c) 2005, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -38,6 +38,9 @@ public void setUpSuite() throws Exception {
 
 public static Test suite() {
 	return buildModelTestSuite(CompletionContextTests.class);
+}
+static {
+			//TESTS_NAMES = new String[]{"testBug553097"};
 }
 public void test0001() throws JavaModelException {
 	this.workingCopies = new ICompilationUnit[1];
@@ -5223,9 +5226,9 @@ public void test0172() throws JavaModelException {
 		"completion range=["+(tokenStart)+", "+(tokenEnd)+"]\n" +
 		"completion token=\"format\"\n" +
 		"completion token kind=TOKEN_KIND_NAME\n" +
-		"expectedTypesSignatures=null\n" +
-		"expectedTypesKeys=null\n" +
-		"completion token location={STATEMENT_START}\n" +
+		"expectedTypesSignatures={Ljava.lang.String;}\n" +
+		"expectedTypesKeys={Ljava/lang/String;}\n" +
+		"completion token location=UNKNOWN\n" +
 		"enclosingElement=foo() {key=Ltest/X;.foo()V} [in X [in [Working copy] X.java [in test [in src3 [in Completion]]]]]\n" +
 		"visibleElements={\n" +
 		"	fooBar [in foo() [in X [in [Working copy] X.java [in test [in src3 [in Completion]]]]]],\n" +
@@ -5476,6 +5479,80 @@ public void test0177() throws JavaModelException {
 		"	equals(java.lang.Object) {key=Ljava/lang/Object;.equals(Ljava/lang/Object;)Z} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
 		"	clone() {key=Ljava/lang/Object;.clone()Ljava/lang/Object;|Ljava/lang/CloneNotSupportedException;} [in Object [in Object.class [in java.lang [in " + jclPath +"]]]],\n" +
 		"}",
+		result.context);
+}
+public void testRegressionBug574267() throws Exception {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/Sample.java",
+			"class Sample {\n" +
+			"	void sample(String foo) {\n" +
+			"		if (foo != null) {\n" +
+			"			sys // content assist here\n" +
+			"			System.out.println();\n" +
+			"		}\n" +
+			"	}\n" +
+			"}");
+
+	String str = this.workingCopies[0].getSource();
+	String completeAfter = "sys";
+	int tokenStart = str.indexOf(completeAfter);
+	int tokenEnd = tokenStart + completeAfter.length() - 1;
+	int cursorLocation = tokenStart + completeAfter.length();
+
+	CompletionResult result = contextComplete(this.workingCopies[0], cursorLocation, true, true);
+	String jclPath = getExternalJCLPathString();
+	assertResults("completion offset="+(cursorLocation)+"\n" +
+			"completion range=["+(tokenStart)+", "+(tokenEnd)+"]\n" +
+			"completion token=\"sys\"\n" +
+			"completion token kind=TOKEN_KIND_NAME\n" +
+			"expectedTypesSignatures=null\n" +
+			"expectedTypesKeys=null\n" +
+			"completion token location={STATEMENT_START}\n" +
+			"enclosingElement=sample(String) {key=LSample;.sample(Ljava/lang/String;)V} [in Sample [in [Working copy] Sample.java [in <default> [in src [in Completion]]]]]\n" +
+			"visibleElements={\n" +
+			"	foo [in sample(String) [in Sample [in [Working copy] Sample.java [in <default> [in src [in Completion]]]]]],\n" +
+			"	sample(String) {key=LSample;.sample(Ljava/lang/String;)V} [in Sample [in [Working copy] Sample.java [in <default> [in src [in Completion]]]]],\n" +
+			"	wait(long, int) {key=Ljava/lang/Object;.wait(JI)V|Ljava/lang/IllegalMonitorStateException;|Ljava/lang/InterruptedException;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	wait(long) {key=Ljava/lang/Object;.wait(J)V|Ljava/lang/IllegalMonitorStateException;|Ljava/lang/InterruptedException;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	wait() {key=Ljava/lang/Object;.wait()V|Ljava/lang/IllegalMonitorStateException;|Ljava/lang/InterruptedException;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	toString() {key=Ljava/lang/Object;.toString()Ljava/lang/String;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	notifyAll() {key=Ljava/lang/Object;.notifyAll()V|Ljava/lang/IllegalMonitorStateException;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	notify() {key=Ljava/lang/Object;.notify()V|Ljava/lang/IllegalMonitorStateException;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	hashCode() {key=Ljava/lang/Object;.hashCode()I} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	getClass() {key=Ljava/lang/Object;.getClass()Ljava/lang/Class;} [in Object [in Object.class [in java.lang [in " + jclPath +"]]]],\n" +
+			"	finalize() {key=Ljava/lang/Object;.finalize()V|Ljava/lang/Throwable;} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	equals(java.lang.Object) {key=Ljava/lang/Object;.equals(Ljava/lang/Object;)Z} [in Object [in Object.class [in java.lang [in " + jclPath + "]]]],\n" +
+			"	clone() {key=Ljava/lang/Object;.clone()Ljava/lang/Object;|Ljava/lang/CloneNotSupportedException;} [in Object [in Object.class [in java.lang [in " + jclPath +"]]]],\n" +
+			"}"
+			, result.context);
+}
+public void testBug553097_1() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+		"/Completion/src3/test0123/X.java",
+		"package test0123;\n" +
+		"public class X {\n" +
+		"  String s = \"\"\"\n" +
+		"ZZZZ\n" +
+		"}");
+
+	String str = this.workingCopies[0].getSource();
+	String token = "\"\"\"\nZZZZ";
+	int tokenStart = str.lastIndexOf(token);
+	int tokenEnd = tokenStart + token.length() - 1;
+	int cursorLocation = str.lastIndexOf("ZZZZ") + "ZZZZ".length();
+
+	CompletionResult result = contextComplete(this.workingCopies[0], cursorLocation);
+	assertResults(
+		"completion offset="+(cursorLocation)+"\n" +
+		"completion range=["+(tokenStart)+", "+(tokenEnd)+"]\n" +
+		"completion token=\"\"\"\n" +
+		"ZZZZ\"\n" +
+		"completion token kind=TOKEN_KIND_STRING_LITERAL\n" +
+		"expectedTypesSignatures={Ljava.lang.String;}\n" +
+		"expectedTypesKeys={Ljava/lang/String;}\n"+
+		"completion token location=UNKNOWN",
 		result.context);
 }
 }

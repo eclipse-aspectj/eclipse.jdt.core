@@ -43,6 +43,11 @@ public void setUpSuite() throws Exception {
 	}
 	super.setUpSuite();
 }
+@Override
+protected void setUp() throws Exception {
+	this.indexDisabledForTest = false;
+	super.setUp();
+}
 public static Test suite() {
 	return buildModelTestSuite(CompletionTests_1_5.class);
 }
@@ -8691,7 +8696,8 @@ public void test0279() throws JavaModelException {
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 	assertResults(
-			"zzz2[METHOD_REF]{zzz2(), Ltest.TestCollections;, (Ljava.lang.Object;)V, zzz2, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_INHERITED + R_NON_RESTRICTED) + "}",
+			"zzz2[METHOD_REF]{zzz2(), Ltest.TestCollections;, (Ljava.lang.Object;)V, zzz2, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED) + "}\n" +
+			"zzz1[METHOD_REF]{zzz1(), Ltest.TestCollections;, (Ljava.lang.Object;)V, zzz1, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=106450
@@ -9274,7 +9280,7 @@ public void test0295() throws JavaModelException {
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 	assertResults(
-			"compareTo[METHOD_REF]{compareTo, Ltest.ComparableTest<Ljava.lang.Object;>;, (Ljava.lang.Object;)I, compareTo, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}",
+			"compareTo[METHOD_REF]{compareTo(), Ltest.ComparableTest<Ljava.lang.Object;>;, (Ljava.lang.Object;)I, compareTo, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=99928
@@ -13280,9 +13286,9 @@ public void testFavoriteImports032() throws JavaModelException {
 				"package test;\n" +
 				"public class Test extends Test2 {\n" +
 				"    public void method() {\n" +
-				"        int zelement1\n" +
-				"        float zelement2\n" +
-				"        double zelement3\n" +
+				"        int zelement1;\n" +
+				"        float zelement2;\n" +
+				"        double zelement3;\n" +
 				"        foo(0, zelement);\n" +
 				"    }\n" +
 				"}");
@@ -14645,5 +14651,73 @@ public void test565386() throws JavaModelException {
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertTrue(requestor.getResults().equals(""));
 
+}
+public void testBug532366() throws Exception {
+	this.workingCopies = new ICompilationUnit[2];
+	this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/test/Color.java",
+			"package test;\n" +
+			"public enum Color {\n" +
+			"	GREEN, BLUE;\n" +
+			"}"
+			);
+	this.workingCopies[1] = getWorkingCopy(
+			"/Completion/src/test/Foo.java",
+			"package test;\n" +
+	 		"public enum Foo {\n" +
+	 		"	Bar(Color.G /* Ctrl+space and nothing happens here */);\n" +
+	 		"	Foo(Color color) {}\n" +
+	 		"}\n");
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, true, true, true, true, true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[1].getSource();
+	String completeBehind = "Color.G";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[1].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertEquals("GREEN[FIELD_REF]{GREEN, Ltest.Color;, Ltest.Color;, null, null, GREEN, null, replace[43, 44], token[43, 44], 81}",
+			requestor.getResults());
+}
+public void testBug573279() throws Exception {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/App.java",
+			"class MyArrayList<T> {\n" +
+			"	boolean add(T t) {}\n" +
+			"	boolean remove(Object o) {}\n" +
+			"	int size() { return 0; }\n" +
+			"}\n" +
+			"\n" +
+			"public class App {\n" +
+			"  MyArrayList<String> list = new MyArrayList<String>();\n" +
+			"  public static void main(String[] args) {}\n" +
+			"\n" +
+			"  private void foo() {\n" +
+			"    String template = \"temp\";\n" +
+			"    this.list.add(template.concat(\"late\"));\n" +
+			"  }\n" +
+			"}"
+			);
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, true, true, true, true, true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "this.list.";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	int relevance = R_DEFAULT + R_INTERESTING + R_RESOLVED + R_CASE + R_NON_STATIC + R_NON_RESTRICTED;
+	assertEquals("add[METHOD_REF]{add(), LMyArrayList<Ljava.lang.String;>;, (Ljava.lang.String;)Z, null, null, add, (t), replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, null, null, clone, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, null, null, equals, (obj), replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, null, null, finalize, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, null, null, getClass, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, null, null, hashCode, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, null, null, notify, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, null, null, notifyAll, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"remove[METHOD_REF]{remove(), LMyArrayList<Ljava.lang.String;>;, (Ljava.lang.Object;)Z, null, null, remove, (o), replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"size[METHOD_REF]{size(), LMyArrayList<Ljava.lang.String;>;, ()I, null, null, size, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, null, null, toString, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, null, null, wait, null, replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, null, null, wait, (millis), replace[289, 318], token[289, 292], "+relevance+"}\n" +
+			"wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, null, null, wait, (millis, nanos), replace[289, 318], token[289, 292], "+relevance+"}",
+			requestor.getResults());
 }
 }

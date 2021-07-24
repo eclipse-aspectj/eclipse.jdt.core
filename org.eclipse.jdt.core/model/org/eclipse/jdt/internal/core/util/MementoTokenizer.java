@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2018 IBM Corporation and others.
+ * Copyright (c) 2004, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -53,10 +53,10 @@ public class MementoTokenizer {
 
 	public String nextToken() {
 		int start = this.index;
-		StringBuffer buffer = null;
+		StringBuilder buffer = null;
 		switch (this.memento[this.index++]) {
 			case JavaElement.JEM_ESCAPE:
-				buffer = new StringBuffer();
+				buffer = new StringBuilder();
 				buffer.append(this.memento[this.index]);
 				start = ++this.index;
 				break;
@@ -118,11 +118,9 @@ public class MementoTokenizer {
 		loop: while (this.index < this.length) {
 			switch (this.memento[this.index]) {
 				case JavaElement.JEM_ESCAPE:
-					if (buffer == null) buffer = new StringBuffer();
+					if (buffer == null) buffer = new StringBuilder();
 					buffer.append(this.memento, start, this.index - start);
 					start = ++this.index;
-					if (this.memento[this.index] == JavaElement.JEM_MODULE)
-						return buffer.toString();
 					break;
 				case JavaElement.JEM_COUNT:
 				case JavaElement.JEM_JAVAPROJECT:

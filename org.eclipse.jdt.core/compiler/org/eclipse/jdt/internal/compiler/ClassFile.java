@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -163,6 +164,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 	// that collection contains all the remaining bytes of the .class file
 	public int headerOffset;
 	public Map<TypeBinding, Boolean> innerClassesBindings;
+	public Set<SourceTypeBinding> nestMembers;
 	public List<ASTNode> bootstrapMethods = null;
 	public int methodCount;
 	public int methodCountOffset;
@@ -817,7 +819,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 
 		int codeAttributeOffset = this.contentsOffset;
 		generateCodeAttributeHeader();
-		StringBuffer buffer = new StringBuffer(25);
+		StringBuilder buffer = new StringBuilder(25);
 		buffer.append("\t"  + problem.getMessage() + "\n" ); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.insert(0, Messages.compilation_unresolvedProblem);
 		String problemString = buffer.toString();
@@ -859,7 +861,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -925,7 +927,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -1009,7 +1011,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -1161,6 +1163,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 						case SyntheticMethodBinding.SerializableMethodReference:
 							// Nothing to be done
 							break;
+						case SyntheticMethodBinding.RecordCanonicalConstructor:
+							addSyntheticRecordCanonicalConstructor(typeDecl, syntheticMethod);
+							break;
 						case SyntheticMethodBinding.RecordOverrideEquals:
 						case SyntheticMethodBinding.RecordOverrideHashCode:
 						case SyntheticMethodBinding.RecordOverrideToString:
@@ -1196,6 +1201,30 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 	}
 
+	private void addSyntheticRecordCanonicalConstructor(TypeDeclaration typeDecl, SyntheticMethodBinding methodBinding) {
+		generateMethodInfoHeader(methodBinding);
+		int methodAttributeOffset = this.contentsOffset;
+		// this will add exception attribute, synthetic attribute, deprecated attribute,...
+		int attributeNumber = generateMethodInfoAttributes(methodBinding);
+		// Code attribute
+		int codeAttributeOffset = this.contentsOffset;
+		attributeNumber++; // add code attribute
+		generateCodeAttributeHeader();
+		this.codeStream.init(this);
+		this.codeStream.generateSyntheticBodyForRecordCanonicalConstructor(methodBinding);
+		completeCodeAttributeForSyntheticMethod(
+			methodBinding,
+			codeAttributeOffset,
+			((SourceTypeBinding) methodBinding.declaringClass)
+				.scope
+				.referenceCompilationUnit()
+				.compilationResult
+				.getLineSeparatorPositions());
+		// update the number of attributes
+		this.contents[methodAttributeOffset++] = (byte) (attributeNumber >> 8);
+		this.contents[methodAttributeOffset] = (byte) attributeNumber;
+	}
+
 	private void addSyntheticRecordOverrideMethods(TypeDeclaration typeDecl, SyntheticMethodBinding methodBinding, int purpose) {
 		if (this.bootstrapMethods == null)
 			this.bootstrapMethods = new ArrayList<>(3);
@@ -1212,6 +1241,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 		generateCodeAttributeHeader();
 		this.codeStream.init(this);
 		switch (purpose) {
+			case SyntheticMethodBinding.RecordCanonicalConstructor:
+				this.codeStream.generateSyntheticBodyForRecordCanonicalConstructor(methodBinding);
+				break;
 			case SyntheticMethodBinding.RecordOverrideEquals:
 				this.codeStream.generateSyntheticBodyForRecordEquals(methodBinding, index);
 				break;
@@ -2854,7 +2886,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 	private int generateNestMembersAttribute() {
 
 		int localContentsOffset = this.contentsOffset;
-		List<String> nestedMembers = this.referenceBinding.getNestMembers();
+		List<String> nestedMembers = getNestMembers();
 		int numberOfNestedMembers = nestedMembers != null ? nestedMembers.size() : 0;
 		if (numberOfNestedMembers == 0) // JVMS 11 4.7.29 says "at most one" NestMembers attribute - return if none.
 			return 0;
@@ -6114,6 +6146,25 @@ public class ClassFile implements TypeConstants, TypeIds {
 			enclosingType = enclosingType.enclosingType();
 		}
 	}
+	public void recordNestMember(SourceTypeBinding binding) {
+		SourceTypeBinding nestHost = binding != null ? binding.getNestHost() : null;
+		if (nestHost != null && !binding.equals(nestHost)) {// member
+			if (this.nestMembers == null) {
+				this.nestMembers = new HashSet<>(NESTED_MEMBER_SIZE);
+			}
+			this.nestMembers.add(binding);
+		}
+	}
+	public List<String> getNestMembers() {
+		if (this.nestMembers == null)
+			return null;
+		List<String> list = this.nestMembers
+								.stream()
+								.map(s -> new String(s.constantPoolName()))
+								.sorted()
+								.collect(Collectors.toList());
+		return list;
+	}
 
 	public int recordBootstrapMethod(FunctionalExpression expression) {
 		if (this.bootstrapMethods == null) {
@@ -6172,6 +6223,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 		this.methodCountOffset = 0;
 		if (this.innerClassesBindings != null) {
 			this.innerClassesBindings.clear();
+		}
+		if (this.nestMembers != null) {
+			this.nestMembers.clear();
 		}
 		if (this.bootstrapMethods != null) {
 			this.bootstrapMethods.clear();

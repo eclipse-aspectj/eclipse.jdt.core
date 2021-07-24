@@ -207,7 +207,7 @@ public class JavaProject
 		super(null);
 	}
 
-	public JavaProject(IProject project, JavaElement parent) {
+	public JavaProject(IProject project, JavaModel parent) {
 		super(parent);
 		this.project = project;
 	}
@@ -2394,6 +2394,20 @@ public class JavaProject
 		return this.project;
 	}
 
+	@Override
+	public JavaProject getJavaProject() {
+		return this;
+	}
+
+	/**
+	 * @see IJavaElement#getJavaModel
+	 * returns null for dummy projects
+	 */
+	@Override
+	public JavaModel getJavaModel() {
+		return (JavaModel) getParent();
+	}
+
 	@Deprecated
 	public ProjectCache getProjectCache() throws JavaModelException {
 		return getProjectCache(false);
@@ -3535,7 +3549,8 @@ public class JavaProject
 	public void setProject(IProject project) {
 
 		this.project = project;
-		this.parent = JavaModelManager.getJavaModelManager().getJavaModel();
+		setParent(JavaModelManager.getJavaModelManager().getJavaModel());
+
 	}
 
 	/**

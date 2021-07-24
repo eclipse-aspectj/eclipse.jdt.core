@@ -151,7 +151,7 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 			zipFile = new ZipFile(fileName);
 			ZipEntry zipEntry = zipFile.getEntry(zipEntryName);
 			inputStream = new BufferedInputStream(zipFile.getInputStream(zipEntry));
-			return new String(org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsCharArray(inputStream, -1, null));
+			return new String(org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsCharArray(inputStream, null));
 		} catch (IOException e) {
 		} finally {
 			try {
@@ -310,7 +310,7 @@ public class FormatterRegressionTests extends AbstractJavaModelTests {
 			ArrayList<IRegion> regions =  new ArrayList<>();
 			int start = 0;
 			int delta = 0;
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			while (regionStart != -1) {
 				buffer.append(source.substring(start, regionStart));
 				int regionEnd = source.indexOf("#]", regionStart+2);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -124,7 +124,7 @@ public class BuilderTests extends TestCase {
 
 	protected void expectingParticipantProblems(IPath path, String expected) {
 		Problem[] problems = env.getProblemsFor(path, "org.eclipse.jdt.core.tests.compile.problem");
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		for (int i = 0, length = problems.length; i < length; i++) {
 			Problem problem = problems[i];
 			buf.append(problem.getMessage());
@@ -208,7 +208,7 @@ public class BuilderTests extends TestCase {
 			for (int i = 0; i < actual.length; i++)
 				System.out.println(actual[i]);
 
-		StringBuffer actualBuffer = new StringBuffer("{ "); //$NON-NLS-1$
+		StringBuilder actualBuffer = new StringBuilder("{ "); //$NON-NLS-1$
 		for (int i = 0; i < actual.length; i++) {
 			if (i > 0)
 				actualBuffer.append(", "); //$NON-NLS-1$
@@ -217,7 +217,7 @@ public class BuilderTests extends TestCase {
 			actualBuffer.append("\"");
 		}
 		actualBuffer.append(" }");
-		StringBuffer expectedBuffer = new StringBuffer("{ "); //$NON-NLS-1$
+		StringBuilder expectedBuffer = new StringBuilder("{ "); //$NON-NLS-1$
 		for (int i = 0; i < expected.length; i++) {
 			if (i > 0)
 				expectedBuffer.append(", "); //$NON-NLS-1$
@@ -244,7 +244,7 @@ public class BuilderTests extends TestCase {
 	/** Verifies that the given elements have no problems.
 	 */
 	protected void expectingNoProblemsFor(IPath[] roots) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		Problem[] allProblems = allSortedProblems(roots);
 		if (allProblems != null) {
 			for (int i=0, length=allProblems.length; i<length; i++) {
@@ -461,7 +461,7 @@ public class BuilderTests extends TestCase {
 	}
 
 	protected String arrayToString(Object[] array) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		int length = array == null ? 0 : array.length;
 		for (int i = 0; i < length; i++) {
 			if (array[i] != null) {
@@ -565,6 +565,9 @@ public class BuilderTests extends TestCase {
 		if (matchesCompliance(F_9)) {
 			list.add(LeakTestsAfter9.class);
 			list.add(Bug549646Test.class);
+		}
+		if (matchesCompliance(F_12)) {
+			list.add(Bug571363Test.class);
 		}
 		return list.toArray(new Class[0]);
 	}

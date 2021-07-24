@@ -58,6 +58,7 @@ import org.eclipse.jdt.core.Signature;
 import org.eclipse.jdt.core.SourceRange;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.codeassist.impl.Keywords;
 import org.eclipse.jdt.internal.compiler.IProblemFactory;
 import org.eclipse.jdt.internal.compiler.ISourceElementRequestor;
 import org.eclipse.jdt.internal.compiler.SourceElementParser;
@@ -348,6 +349,9 @@ public class SourceMapper
 			name[nameLength] = '.';
 			name[nameLength + 1] = '*';
 		}
+		if(Flags.isStatic(modifiers)) {
+			name = CharOperation.concatAll(Keywords.STATIC, name, ' ');
+		}
 		imports[importsCounter++] = name;
 		this.importsTable.put(this.binaryTypeOrModule, imports);
 		this.importsCounterTable.put(this.binaryTypeOrModule, Integer.valueOf(importsCounter));
@@ -478,7 +482,7 @@ public class SourceMapper
 		return -1;
 	}
 
-	class JrtPackageNamesAdderVisitor implements JRTUtil.JrtFileVisitor<java.nio.file.Path> {
+	static class JrtPackageNamesAdderVisitor implements JRTUtil.JrtFileVisitor<java.nio.file.Path> {
 
 		public final HashSet firstLevelPackageNames;
 		final IPackageFragmentRoot root;
@@ -1411,7 +1415,7 @@ public class SourceMapper
 		if (typeName.length() == 0) {
 			IJavaElement classFile = type.getParent();
 			String classFileName = classFile.getElementName();
-			StringBuffer newClassFileName = new StringBuffer();
+			StringBuilder newClassFileName = new StringBuilder();
 			int lastDollar = classFileName.lastIndexOf('$');
 			for (int i = 0; i <= lastDollar; i++)
 				newClassFileName.append(classFileName.charAt(i));

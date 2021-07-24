@@ -21,23 +21,46 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
-import org.eclipse.jdt.core.*;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.ISafeRunnable;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.SafeRunner;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IElementChangedListener;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaModel;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.internal.core.DeltaProcessor.RootInfo;
 import org.eclipse.jdt.internal.core.JavaModelManager.PerProjectInfo;
-import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
-import org.eclipse.jdt.internal.core.nd.indexer.IndexerEvent;
-import org.eclipse.jdt.internal.core.nd.java.JavaIndex;
 import org.eclipse.jdt.internal.core.util.Util;
 
 /**
  * Keep the global states used during Java element delta processing.
  */
-public class DeltaProcessingState implements IResourceChangeListener, Indexer.Listener {
+public class DeltaProcessingState implements IResourceChangeListener {
 
 	/*
 	 * Collection of listeners for Java element deltas
@@ -122,6 +145,7 @@ public class DeltaProcessingState implements IResourceChangeListener, Indexer.Li
 	 * This is null if no refresh is needed.
 	 */
 	private Set<IJavaElement> externalElementsToRefresh;
+	private final Object mutex = new Object();
 
 	/*
 	 * Need to clone defensively the listener information, in case some listener is reacting to some notification iteration by adding/changing/removing
@@ -187,7 +211,7 @@ public class DeltaProcessingState implements IResourceChangeListener, Indexer.Li
 	}
 
 	public ClasspathChange addClasspathChange(IProject project, IClasspathEntry[] oldRawClasspath, IPath oldOutputLocation, IClasspathEntry[] oldResolvedClasspath) {
-		synchronized (this.classpathChanges) {
+		synchronized (this.mutex) {
 			ClasspathChange change = this.classpathChanges.get(project);
 			if (change == null) {
 				change = new ClasspathChange((JavaProject) JavaModelManager.getJavaModelManager().getJavaModel().getJavaProject(project), oldRawClasspath, oldOutputLocation, oldResolvedClasspath);
@@ -205,13 +229,13 @@ public class DeltaProcessingState implements IResourceChangeListener, Indexer.Li
 	}
 
 	public ClasspathChange getClasspathChange(IProject project) {
-		synchronized (this.classpathChanges) {
+		synchronized (this.mutex) {
 			return this.classpathChanges.get(project);
 		}
 	}
 
 	public Map<IProject, ClasspathChange> removeAllClasspathChanges() {
-		synchronized (this.classpathChanges) {
+		synchronized (this.mutex) {
 			Map<IProject, ClasspathChange> result = this.classpathChanges;
 			this.classpathChanges = new LinkedHashMap<>(result.size());
 			return result;
@@ -640,17 +664,6 @@ public class DeltaProcessingState implements IResourceChangeListener, Indexer.Li
 					}
 				}
 			}
-		}
-	}
-
-	@Override
-	public void consume(IndexerEvent event) {
-		if (JavaIndex.isEnabled()) {
-			DeltaProcessor processor = getDeltaProcessor();
-			JavaElementDelta delta = (JavaElementDelta) event.getDelta();
-			delta.ignoreFromTests = true;
-			processor.notifyAndFire(delta);
-			this.deltaProcessors.set(null);
 		}
 	}
 

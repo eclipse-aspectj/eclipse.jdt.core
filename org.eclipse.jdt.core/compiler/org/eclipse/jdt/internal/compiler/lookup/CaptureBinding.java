@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -108,7 +108,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	 */
 	@Override
 	public char[] computeUniqueKey(boolean isLeaf) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		if (isLeaf) {
 			buffer.append(this.sourceType.computeUniqueKey(false/*not a leaf*/));
 			buffer.append('&');
@@ -127,7 +127,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	public String debugName() {
 
 		if (this.wildcard != null) {
-			StringBuffer buffer = new StringBuffer(10);
+			StringBuilder buffer = new StringBuilder(10);
 			AnnotationBinding [] annotations = getTypeAnnotations();
 			for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
 				buffer.append(annotations[i]);
@@ -384,7 +384,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	@Override
 	public char[] readableName() {
 		if (this.wildcard != null) {
-			StringBuffer buffer = new StringBuffer(10);
+			StringBuilder buffer = new StringBuilder(10);
 			buffer
 				.append(TypeConstants.WILDCARD_CAPTURE_NAME_PREFIX)
 				.append(this.captureID)
@@ -401,7 +401,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	@Override
 	public char[] signableName() {
 		if (this.wildcard != null) {
-			StringBuffer buffer = new StringBuffer(10);
+			StringBuilder buffer = new StringBuilder(10);
 			buffer
 				.append(TypeConstants.WILDCARD_CAPTURE_SIGNABLE_NAME_SUFFIX)
 				.append(this.wildcard.readableName());
@@ -416,7 +416,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	@Override
 	public char[] shortReadableName() {
 		if (this.wildcard != null) {
-			StringBuffer buffer = new StringBuffer(10);
+			StringBuilder buffer = new StringBuilder(10);
 			buffer
 				.append(TypeConstants.WILDCARD_CAPTURE_NAME_PREFIX)
 				.append(this.captureID)
@@ -569,7 +569,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	@Override
 	public String toString() {
 		if (this.wildcard != null) {
-			StringBuffer buffer = new StringBuffer(10);
+			StringBuilder buffer = new StringBuilder(10);
 			AnnotationBinding [] annotations = getTypeAnnotations();
 			for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
 				buffer.append(annotations[i]);
@@ -584,4 +584,20 @@ public class CaptureBinding extends TypeVariableBinding {
 		}
 		return super.toString();
 	}
+
+
+	@Override
+	public char[] signature() /* Ljava/lang/Object; */ {
+		if (this.signature != null)
+			return this.signature;
+
+		if (this.firstBound instanceof ArrayBinding) {
+			this.signature = constantPoolName();
+		} else {
+			this.signature = CharOperation.concat('L', constantPoolName(), ';');
+		}
+		return this.signature;
+
+	}
+
 }

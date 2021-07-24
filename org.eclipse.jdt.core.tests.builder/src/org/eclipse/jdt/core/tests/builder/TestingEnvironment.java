@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,8 +23,8 @@ import org.eclipse.jdt.core.tests.util.Util;
 
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.JavaProject;
-import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 
 import java.io.*;
 import java.util.*;
@@ -221,6 +221,10 @@ public void addClassFolder(IPath projectPath, IPath classFolderPath, boolean isE
 		else if ("11".equals(compliance)) {
 			requiredComplianceFlag = AbstractCompilerTest.F_11;
 			compilerVersion = CompilerOptions.VERSION_11;
+		}
+		else if ("12".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_12;
+			compilerVersion = CompilerOptions.VERSION_12;
 		}
 		else if (!"1.4".equals(compliance) && !"1.3".equals(compliance)) {
 			throw new UnsupportedOperationException("Test framework doesn't support compliance level: " + compliance);
@@ -825,7 +829,7 @@ public void cleanBuild(String projectName) {
 		if (status.isMultiStatus()) {
 			MultiStatus multiStatus = (MultiStatus) status;
 			IStatus[] children = multiStatus.getChildren();
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			for (int i = 0, max = children.length; i < max; i++) {
 				IStatus child = children[i];
 				if (child != null) {
@@ -1192,7 +1196,8 @@ public void cleanBuild(String projectName) {
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_BUILD, null);
-				Indexer.getInstance().waitForIndex(null);
+				boolean enableIndex = true;
+				JavaModelManager.getIndexManager().waitForIndex(enableIndex, null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				handle(e);
@@ -1208,7 +1213,8 @@ public void cleanBuild(String projectName) {
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_MANUAL_REFRESH, null);
-				Indexer.getInstance().waitForIndex(null);
+				boolean enableIndex = true;
+				JavaModelManager.getIndexManager().waitForIndex(enableIndex, null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				handle(e);

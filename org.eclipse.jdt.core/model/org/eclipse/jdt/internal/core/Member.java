@@ -144,8 +144,8 @@ public String[] getCategories() throws JavaModelException {
  */
 @Override
 public IClassFile getClassFile() {
-	IJavaElement element = getParent();
-	while (element instanceof IMember) {
+	JavaElement element = getParent();
+	while (element instanceof Member) {
 		element= element.getParent();
 	}
 	if (element instanceof IClassFile) {
@@ -158,7 +158,7 @@ public IClassFile getClassFile() {
  */
 @Override
 public IType getDeclaringType() {
-	JavaElement parentElement = (JavaElement)getParent();
+	JavaElement parentElement = getParent();
 	if (parentElement.getElementType() == TYPE) {
 		return (IType) parentElement;
 	}
@@ -247,7 +247,7 @@ public IJavaElement getHandleFromMemento(String token, MementoTokenizer memento,
 			int flags = Integer.parseInt(memento.nextToken());
 			memento.nextToken(); // JEM_COUNT
 			if (!memento.hasMoreTokens()) return this;
-			boolean isParameter = Boolean.valueOf(memento.nextToken()).booleanValue();
+			boolean isParameter = Boolean.parseBoolean(memento.nextToken());
 			return new LocalVariable(this, varName, declarationStart, declarationEnd, nameStart, nameEnd, typeSignature, null, flags, isParameter);
 		case JEM_TYPE_PARAMETER:
 			if (!memento.hasMoreTokens()) return this;
@@ -415,7 +415,7 @@ public String readableName() {
 	IJavaElement declaringType = getDeclaringType();
 	if (declaringType != null) {
 		String declaringName = ((JavaElement) getDeclaringType()).readableName();
-		StringBuffer buffer = new StringBuffer(declaringName);
+		StringBuilder buffer = new StringBuilder(declaringName);
 		buffer.append('.');
 		buffer.append(getElementName());
 		return buffer.toString();

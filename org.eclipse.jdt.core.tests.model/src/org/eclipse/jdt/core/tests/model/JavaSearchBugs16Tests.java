@@ -18,13 +18,18 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.ILocalVariable;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.ReferenceMatch;
 import org.eclipse.jdt.core.search.SearchEngine;
 import org.eclipse.jdt.core.search.SearchMatch;
+import org.eclipse.jdt.core.search.SearchParticipant;
+import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.TypeReferenceMatch;
+import org.eclipse.jdt.internal.core.SourceType;
+import org.eclipse.jdt.internal.core.search.matching.DeclarationOfAccessedFieldsPattern;
 
 import junit.framework.Test;
 
@@ -422,6 +427,199 @@ public class JavaSearchBugs16Tests extends AbstractJavaSearchTests {
 						+ "src/X.java void X.foo():C#1 [Inter] EXACT_MATCH");
 
 			}
+		public void testBug572100 () throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/Bug572100/X.java",
+					"public interface X {\n"+
+				 " interface inter1  {\n"+
+				   " record record1(Class<?> type) implements inter1 {\n"+
+				  "    public record1 {\n"+
+				   "     if (!type.isPrimitive()) {\n"+
+				   "    }\n"+
+				    "  }\n"+
+				   " }\n"+
+				 " }\n"+
+				"}\n"
+				);
+			String str = this.workingCopies[0].getSource();
+			String selection = "inter1";
+			int start = str.indexOf(selection);
+			int length = selection.length();
+			IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+			SourceType st = (SourceType)elements[0];
+			SearchPattern pattern = new DeclarationOfAccessedFieldsPattern(st);
+			new SearchEngine(this.workingCopies).search(pattern,
+			new SearchParticipant[] {SearchEngine.getDefaultSearchParticipant()},
+			getJavaSearchWorkingCopiesScope(),
+			this.resultCollector,
+			null);
+			assertSearchResults(
+					""
+			);
+		}
+		public void testBug573388 () throws CoreException {
+			this.workingCopies = new ICompilationUnit[3];
+			this.workingCopies[2] = getWorkingCopy("/JavaSearchBugs/src/b573388/X.java",
+				"package b573388;\n\n" +
+				"public class X {\n"+
+					"public static void main() {\n" +
+					"		R r= new R(7);\n"+
+					"		C c= new C();\n"+
+					"}\n"+
+				"}\n"
+				);
+			this.workingCopies[1] = getWorkingCopy("/JavaSearchBugs/src/b573388/C.java",
+					"package b573388;\n\n" +
+					"public class C {\n"+
+					"}\n"
+					);
+			this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/b573388/R.java",
+				"package b573388;\n\n" +
+				"public record R(int a) {\n"+
+				"}\n"
+				);
+			String str = this.workingCopies[2].getSource();
+			String selection = "X";
+			int start = str.indexOf(selection);
+			int length = selection.length();
+			IJavaElement[] elements = this.workingCopies[2].codeSelect(start, length);
+			SourceType st = (SourceType)elements[0];
+			new SearchEngine(this.workingCopies).searchDeclarationsOfReferencedTypes(st, this.resultCollector, null);
+			assertSearchResults(
+					"src/b573388/R.java b573388.R [R] EXACT_MATCH\n" +
+					"src/b573388/C.java b573388.C [C] EXACT_MATCH"
+			);
+		}
+		public void testBug574870_1() throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy(
+					"/JavaSearchBugs/src/X.java",
+					"public class X {\n" +
+							"private void method(Object o) {\n" +
+							"if ((o instanceof String xvar )) \n" +
+							"{\n" +
+							" System.out.println(/*here*/xvar);\n" +
+							"}\n" +
+
+							"}\n" +
+
+					"}");
+
+			// working copies
+			try {
+
+				String str = this.workingCopies[0].getSource();
+				String selection = "/*here*/xvar";
+				int start = str.indexOf(selection);
+				int length = selection.length();
+
+				IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+				ILocalVariable local = (ILocalVariable) elements[0];
+				search(local, DECLARATIONS, EXACT_RULE);
+				assertSearchResults("src/X.java void X.method(Object).xvar [xvar] EXACT_MATCH");
+
+			} finally {
+
+			}
+		}
+		public void testBug574870_2() throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy(
+					"/JavaSearchBugs/src/X.java",
+					"public class X {\n" +
+							"private void method(Object o) {\n" +
+							"if ((o instanceof String /*here*/xvar )) \n" +
+							"{\n" +
+							" System.out.println(xvar+xvar);\n" +
+							"}\n" +
+
+							"}\n" +
+
+					"}");
+
+			// working copies
+			try {
+
+				String str = this.workingCopies[0].getSource();
+				String selection = "/*here*/xvar";
+				int start = str.indexOf(selection);
+				int length = selection.length();
+
+				IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+				ILocalVariable local = (ILocalVariable) elements[0];
+				search(local, REFERENCES, EXACT_RULE);
+				assertSearchResults("src/X.java void X.method(Object) [xvar] EXACT_MATCH\n"
+						+ "src/X.java void X.method(Object) [xvar] EXACT_MATCH");
+
+			} finally {
+
+			}
+		}
+		public void testBug574870_3() throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy(
+					"/JavaSearchBugs/src/X.java",
+					"public class X {\n" +
+							"private void method(Object o) {\n" +
+							"if ((o instanceof String /*here*/xvar )) \n" +
+							"{\n" +
+							" System.out.println(xvar+xvar);\n" +
+							"}\n" +
+
+							"}\n" +
+
+					"}");
+
+			// working copies
+			try {
+
+				String str = this.workingCopies[0].getSource();
+				String selection = "/*here*/xvar";
+				int start = str.indexOf(selection);
+				int length = selection.length();
+
+				IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+				ILocalVariable local = (ILocalVariable) elements[0];
+				search(local, ALL_OCCURRENCES, EXACT_RULE);
+				assertSearchResults("src/X.java void X.method(Object).xvar [xvar] EXACT_MATCH\n"
+						+ "src/X.java void X.method(Object) [xvar] EXACT_MATCH\n"
+						+ "src/X.java void X.method(Object) [xvar] EXACT_MATCH");
+
+			} finally {
+
+			}
+		}
+		public void testBug574870_4() throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy(
+					"/JavaSearchBugs/src/X.java",
+					"public class X {\n" +
+							"private void method(Object o) {\n" +
+							"if (o instanceof String xvar ) \n" +
+							"{\n" +
+							" System.out.println(/*here*/xvar);\n" +
+							"}\n" +
+
+							"}\n" +
+
+					"}");
+
+			// working copies
+			try {
+
+				String str = this.workingCopies[0].getSource();
+				String selection = "/*here*/xvar";
+				int start = str.indexOf(selection);
+				int length = selection.length();
+				IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+				ILocalVariable local = (ILocalVariable) elements[0];
+				search(local, DECLARATIONS, EXACT_RULE);
+				assertSearchResults("src/X.java void X.method(Object).xvar [xvar] EXACT_MATCH");
+
+			} finally {
+
+			}
+		}
 }
 
 

@@ -716,7 +716,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 						doTextInsert(prevEnd, getSeparatorString(i - 1), editGroup);
 						doTextInsert(prevEnd, node, getNodeIndent(i), true, editGroup);
 					}
-					if (insertNew) {
+					if (insertNew && i == lastNonDelete) {
 						if (endKeyword != null && endKeyword.length() > 0) {
 							doTextInsert(currPos, endKeyword, editGroup);
 						}
@@ -1163,7 +1163,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			int newLines= this.separatorLines == -1 ? getNewLines(nodeIndex) : this.separatorLines;
 
 			String lineDelim= getLineDelimiter();
-			StringBuffer buf= new StringBuffer(lineDelim);
+			StringBuilder buf= new StringBuilder(lineDelim);
 			for (int i= 0; i < newLines; i++) {
 				buf.append(lineDelim);
 			}
@@ -1280,7 +1280,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 		RewriteEvent[] events= event.getChildren();
 		ParagraphListRewriter listRewriter= new ParagraphListRewriter(insertIndent, separator);
-		StringBuffer leadString= new StringBuffer();
+		StringBuilder leadString= new StringBuilder();
 		if (isAllOfKind(events, RewriteEvent.INSERTED)) {
 			for (int i= 0; i < lead; i++) {
 				leadString.append(getLineDelimiter());
@@ -3683,7 +3683,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		    String spaceDelim = JavaCore.INSERT.equals(ASTRewriteAnalyzer.this.options.get(DefaultCodeFormatterConstants.FORMATTER_INSERT_SPACE_AFTER_ARROW_IN_SWITCH_CASE))? " ":""; //$NON-NLS-1$ //$NON-NLS-2$
 		    String lineDelim = isSwitchLabelRule ? spaceDelim : getLineDelimiter();
 
-			StringBuffer buf= new StringBuffer(lineDelim);
+			StringBuilder buf= new StringBuilder(lineDelim);
 			buf.append(createIndentString(getNodeIndent(nextNodeIndex)));
 			return buf.toString();
 		}
@@ -3835,7 +3835,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 				}
 
 				ParagraphListRewriter listRewriter= new SwitchListLabeledRuleRewriter(insertIndent);
-				StringBuffer leadString= new StringBuffer();
+				StringBuilder leadString= new StringBuilder();
 				leadString.append(getLineDelimiter());
 				leadString.append(createIndentString(insertIndent));
 				listRewriter.rewriteList(node, property, pos, leadString.toString());
@@ -3870,7 +3870,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 				} else {
 					listRewriter= new SwitchListRewriter(insertIndent);
 				}
-				StringBuffer leadString= new StringBuffer();
+				StringBuilder leadString= new StringBuilder();
 				leadString.append(getLineDelimiter());
 				leadString.append(createIndentString(insertIndent));
 				listRewriter.rewriteList(node, property, pos, leadString.toString());
@@ -3936,6 +3936,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 				String prefix= this.formatter.TRY_RESOURCES.getPrefix(indent);
 				String newParen = this.formatter.TRY_RESOURCES_PAREN.getPrefix(indent) + "("; //$NON-NLS-1$
 				pos= rewriteNodeList(node, desc, getPosAfterTry(pos), newParen, ")", ";" + prefix); //$NON-NLS-1$ //$NON-NLS-2$
+
 			} else {
 				pos= doVisit(node, desc, pos);
 			}

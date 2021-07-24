@@ -1046,7 +1046,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X20.java (at line 6)\n" +
 				"	boolean b = (o instanceof String[] s) && s instanceof CharSequence[] s2;\n" +
 				"	                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"Pattern type cannot be a subtype of the expression type\n" +
+				"Expression type cannot be a subtype of the Pattern type\n" +
 				"----------\n",
 				"",
 				null,
@@ -2422,7 +2422,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 					"1. ERROR in X.java (at line 4)\n" +
 					"	if (null instanceof T t) {\n" +
 					"	    ^^^^^^^^^^^^^^^^^^^\n" +
-					"Pattern type cannot be a subtype of the expression type\n" +
+					"Expression type cannot be a subtype of the Pattern type\n" +
 					"----------\n",
 				"",
 				null,
@@ -3656,4 +3656,224 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				true,
 				compilerOptions);
 	}
+	public void testBug572380_1() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X1.java",
+						"\n"
+						+ "public class X1 {\n"
+						+ "    boolean b1, b2, b3;\n"
+						+ "\n"
+						+ "    static boolean bubbleOut(Object obj) {\n"
+						+ "	       return obj instanceof X1 that && that.b1 && that.b2 && that.b3;\n"
+						+ "    }\n"
+						+ "\n"
+						+ "    static boolean propagateTrueIn(Object obj) {\n"
+						+ "        return obj instanceof X1 that && (that.b1 && that.b2 && that.b3);\n"
+						+ "    }\n"
+						+ "\n"
+						+ "    public static void main(String[] obj) {\n"
+						+ "        var ip = new X1();\n"
+						+ "        ip.b1 = ip.b2 = ip.b3 = true;\n"
+						+ "        System.out.println(bubbleOut(ip) && propagateTrueIn(ip));\n"
+						+ "    }\n"
+						+ "\n"
+						+ "}\n",
+				},
+				"true",
+				options);
+	}
+	public void testBug572380_2() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X1.java",
+						"\n"
+						+ "public class X1 {\n"
+						+ "    boolean b1, b2, b3;\n"
+						+ "    static boolean testErrorOr(Object obj) {\n"
+						+ "        return (!(obj instanceof X1 that)) || that.b1 && that.b2;\n"
+						+ "    }\n"
+						+ "    \n"
+						+ "    public static void main(String[] obj) {\n"
+						+ "        var ip = new X1();\n"
+						+ "        ip.b1 = ip.b2 = ip.b3 = true;\n"
+						+ "        System.out.println(testErrorOr(ip));\n"
+						+ "    }\n"
+						+ "\n"
+						+ "}\n",
+				},
+				"true",
+				options);
+	}
+    public void testBug574892() {
+        Map<String, String> options = getCompilerOptions(false);
+        runConformTest(
+                new String[] {
+                        "X1.java",
+                        "\n"
+                        + "public class X1 {\n"
+                        + "    static boolean testConditional(Object obj) {\n"
+                        + "        return obj instanceof Integer other\n"
+                        + "                && ( other.intValue() > 100\n"
+                        + "                   ? other.intValue() < 200 : other.intValue() < 50);\n"
+                        + "    }\n"
+                        + "    public static void main(String[] obj) {\n"
+                        + "        System.out.println(testConditional(101));\n"
+                        + "    }\n"
+                        + "}\n",
+                },
+                "true",
+                options);
+    }
+	public void testBug572431_1() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "			   static public void something () {\n"
+						+ "			      boolean bool = true;\n"
+						+ "			      Object object = null;\n"
+						+ "			      if (object instanceof String string) {\n"
+						+ "			      } else if (bool && object instanceof Integer integer) {\n"
+						+ "			      }\n"
+						+ "			   }\n"
+						+ "			   static public void main (String[] args) throws Exception {\n"
+						+ "			   }\n"
+						+ "			}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_2() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (object instanceof String string) {\n"
+						+ "    } else if (bool) {\n"
+						+ "      if (object instanceof Integer integer) {\n"
+						+ "      }\n"
+						+ "    }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_3() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (bool && object instanceof Integer i) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_4() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (!(object instanceof Integer i)) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_5() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (false) {\n"
+						+ "	   } else if (!(object instanceof Integer i)) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_6() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "		Object object = null;\n"
+						+ "		for (int i = 0; i < 10; i++) {\n"
+						+ "			if (object instanceof String string) {\n"
+						+ "				System.out.println(i);\n"
+						+ "			} else if (bool) {\n"
+						+ "				if (i == 4) continue;\n"
+						+ "				System.out.println(i);\n"
+						+ "			}\n"
+						+ "		}\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+    public void testBug574906() {
+        Map<String, String> options = getCompilerOptions(false);
+        runConformTest(
+                new String[] {
+                        "X1.java",
+                        "\n"
+                        + "public class X1 {\n"
+                        + "    static boolean testConditional(Object obj) {\n"
+                        + "        return obj instanceof Number oNum && oNum.intValue() < 0 && !(oNum instanceof Integer);\n"
+                        + "    }\n"
+                        + "    public static void main(String[] obj) {\n"
+                        + "        System.out.println(testConditional(-2f));\n"
+                        + "    }\n"
+                        + "}\n",
+                },
+                "true",
+                options);
+    }
 }

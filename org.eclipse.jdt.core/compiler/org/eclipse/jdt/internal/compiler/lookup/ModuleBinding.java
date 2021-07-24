@@ -65,7 +65,6 @@ public class ModuleBinding extends Binding implements IUpdatableModule {
 
 		private static final char[] UNNAMED_READABLE_NAME = "<unnamed>".toCharArray(); //$NON-NLS-1$
 
-		@SuppressWarnings("synthetic-access")
 		UnNamedModule(LookupEnvironment env) {
 			super(env);
 		}
@@ -167,7 +166,7 @@ public class ModuleBinding extends Binding implements IUpdatableModule {
 	public HashtableOfPackage<PlainPackageBinding> declaredPackages;
 
 	/** Constructor for the unnamed module. */
-	private ModuleBinding(LookupEnvironment env) {
+	ModuleBinding(LookupEnvironment env) {
 		this.moduleName = ModuleBinding.UNNAMED;
 		this.environment = env;
 		this.requires = Binding.NO_MODULES;
@@ -727,7 +726,7 @@ public class ModuleBinding extends Binding implements IUpdatableModule {
 
 	@Override
 	public String toString() {
-		StringBuffer buffer = new StringBuffer(30);
+		StringBuilder buffer = new StringBuilder(30);
 		if (isOpen())
 			buffer.append("open "); //$NON-NLS-1$
 		buffer.append("module " + new String(readableName())); //$NON-NLS-1$

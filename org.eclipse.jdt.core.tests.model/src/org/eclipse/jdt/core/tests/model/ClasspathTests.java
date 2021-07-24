@@ -85,7 +85,7 @@ public class ClasspathTests extends ModifyingResourceTests {
 	private static final IClasspathAttribute ATTR_IGNORE_OPTIONAL_PROBLEMS_TRUE = JavaCore.newClasspathAttribute(IClasspathAttribute.IGNORE_OPTIONAL_PROBLEMS, "true");
 	private static final IClasspathAttribute ATTR_IGNORE_OPTIONAL_PROBLEMS_FALSE = JavaCore.newClasspathAttribute(IClasspathAttribute.IGNORE_OPTIONAL_PROBLEMS, "false");
 
-	public class TestContainer implements IClasspathContainer {
+	public static class TestContainer implements IClasspathContainer {
 		IPath path;
 		IClasspathEntry[] entries;
 		TestContainer(IPath path, IClasspathEntry[] entries){
@@ -119,11 +119,26 @@ public void setUpSuite() throws Exception {
 	setupExternalJCL("jclMin");
 	setupExternalJCL("jclMin1.5");
 }
+
+void restoreAutobuild(IWorkspaceDescription preferences, boolean autoBuild) throws CoreException {
+	preferences.setAutoBuilding(autoBuild);
+	getWorkspace().setDescription(preferences);
+	if(autoBuild) {
+		try {
+			// wait before autobuild job will be scheduled
+			Thread.sleep(100);
+		} catch (InterruptedException e) {
+			// ignore
+		}
+	}
+	waitForAutoBuild();
+}
+
 protected void assertCycleMarkers(IJavaProject project, IJavaProject[] p, int[] expectedCycleParticipants, boolean includeAffected) throws CoreException {
 	waitForAutoBuild();
-	StringBuffer expected = new StringBuffer("{");
+	StringBuilder expected = new StringBuilder("{");
 	int expectedCount = 0;
-	StringBuffer computed = new StringBuffer("{");
+	StringBuilder computed = new StringBuilder("{");
 	int computedCount = 0;
 	int mask = includeAffected ? 3 : 1;
 	for (int j = 0; j < p.length; j++){
@@ -312,7 +327,7 @@ public void test232816b() throws Exception {
 		// Modify user library
 		IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(JavaCore.PLUGIN_ID);
 		String propertyName = JavaModelManager.CP_USERLIBRARY_PREFERENCES_PREFIX+"SomeUserLibrary";
-		StringBuffer propertyValue = new StringBuffer("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<userlibrary systemlibrary=\"false\" version=\"1\">\r\n<archive");
+		StringBuilder propertyValue = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<userlibrary systemlibrary=\"false\" version=\"1\">\r\n<archive");
 		//String jarFullPath = getWorkspaceRoot().getLocation().append(jarFile.getFullPath()).toString();
 		propertyValue.append(" path=\"" + getExternalResourcePath("idontexistthereforeiamnot.jar"));
 		propertyValue.append("\"/>\r\n</userlibrary>\r\n");
@@ -5912,8 +5927,11 @@ public void testBug55992b() throws CoreException {
 			"Source attachment path \'tmp.zip\' for IClasspathEntry must be absolute",
 			javaProject);
 	} finally {
-		this.deleteProject("P");
-		preferences.setAutoBuilding(autoBuild);
+		try {
+			this.deleteProject("P");
+		} finally {
+			restoreAutobuild(preferences, autoBuild);
+		}
 	}
 }
 /*
@@ -6037,7 +6055,7 @@ public void testBug276373() throws Exception {
 
 		IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(JavaCore.PLUGIN_ID);
 		String propertyName = JavaModelManager.CP_USERLIBRARY_PREFERENCES_PREFIX+"TestUserLibrary";
-		StringBuffer propertyValue = new StringBuffer("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<userlibrary systemlibrary=\"false\" version=\"1\">\r\n<archive");
+		StringBuilder propertyValue = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<userlibrary systemlibrary=\"false\" version=\"1\">\r\n<archive");
 		propertyValue.append(" path=\"" + libJar.getAbsolutePath());
 		propertyValue.append("\"/>\r\n</userlibrary>\r\n");
 		preferences.put(propertyName, propertyValue.toString());
@@ -6124,7 +6142,7 @@ public void testBug300136() throws Exception {
 				new IPath[] {new Path("/lib/tmp.jar")},
 				null);
 
-		StringBuffer buffer = new StringBuffer(
+		StringBuilder buffer = new StringBuilder(
 				"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 				"<classpath>\n" +
 				"   <classpathentry  kind=\"var\" path=\"INVALID_LIB\">\n" +
@@ -6154,9 +6172,12 @@ public void testBug300136() throws Exception {
 				"",
 				project);
 	} finally {
-		preferences.setAutoBuilding(autoBuild);
-		deleteProject("P");
-		JavaCore.removeClasspathVariable("INVALID_LIB", null);
+		try {
+			deleteProject("P");
+			JavaCore.removeClasspathVariable("INVALID_LIB", null);
+		} finally {
+			restoreAutobuild(preferences, autoBuild);
+		}
 	}
 }
 /**
@@ -6177,7 +6198,7 @@ public void testBug300136a() throws Exception {
 				new IPath[] {libPath},
 				null);
 
-		StringBuffer buffer = new StringBuffer(
+		StringBuilder buffer = new StringBuilder(
 				"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 				"<classpath>\n" +
 				"    <classpathentry  kind=\"var\" path=\"INVALID_LIB\" />\n" +
@@ -6198,9 +6219,12 @@ public void testBug300136a() throws Exception {
 				"Unbound classpath variable: \'UNBOUND_VAR\' in project \'P\'",
 				project);
 	} finally {
-		preferences.setAutoBuilding(autoBuild);
-		deleteProject("P");
-		JavaCore.removeClasspathVariable("INVALID_LIB", null);
+		try {
+			deleteProject("P");
+			JavaCore.removeClasspathVariable("INVALID_LIB", null);
+		} finally {
+			restoreAutobuild(preferences, autoBuild);
+		}
 	}
 }
 /**
@@ -6225,7 +6249,7 @@ public void testBug294360a() throws Exception {
 		classpath[1] = JavaCore.newContainerEntry(new Path("org.eclipse.jdt.core.tests.model.TEST_CONTAINER"));
 		setClasspath(p, classpath);
 
-		StringBuffer buffer = new StringBuffer(
+		StringBuilder buffer = new StringBuilder(
 						"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 						"<classpath>\n" +
 						"	<classpathentry kind=\"con\" path=\"org.eclipse.jdt.core.tests.model.TEST_CONTAINER\"/>\n" +
@@ -7205,9 +7229,11 @@ public void testBug220928b() throws CoreException {
 		state = (State) JavaModelManager.getJavaModelManager().getLastBuiltState(getJavaProject("P").getProject(), null);
 		assertFalse(state.sourceLocations[0].ignoreOptionalProblems);
 	} finally {
-		preferences.setAutoBuilding(autoBuild);
-		getWorkspace().setDescription(preferences);
-		deleteProject("P");
+		try {
+			deleteProject("P");
+		} finally {
+			restoreAutobuild(preferences, autoBuild);
+		}
 	}
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=396299
@@ -7244,9 +7270,11 @@ public void testBug396299() throws Exception {
 				"Incompatible .class files version in required binaries. Project \'P1\' is targeting a 1.1 runtime, but is compiled against \'P1/abc.jar\' which requires a 1.4 runtime", proj1);
 		 eclipsePreferences.removePreferenceChangeListener(prefListener);
 	} finally {
-		preferences.setAutoBuilding(autoBuild);
-		getWorkspace().setDescription(preferences);
-		deleteProject("P1");
+		try {
+			deleteProject("P1");
+		} finally {
+			restoreAutobuild(preferences, autoBuild);
+		}
 	}
 }
 /**

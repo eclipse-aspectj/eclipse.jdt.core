@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -46,10 +46,8 @@ import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IField;
 import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaModel;
 import org.eclipse.jdt.core.IJavaModelStatus;
 import org.eclipse.jdt.core.IJavaModelStatusConstants;
-import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMember;
 import org.eclipse.jdt.core.IOpenable;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
@@ -123,7 +121,10 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * This element's parent, or <code>null</code> if this
 	 * element does not have a parent.
 	 */
-	protected JavaElement parent;
+	private JavaElement parent;
+
+	/* cached result */
+	private JavaProject project;
 
 	protected static final String[] NO_STRINGS = new String[0];
 	protected static final JavaElement[] NO_ELEMENTS = new JavaElement[0];
@@ -143,7 +144,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 *
 	 */
 	protected JavaElement(JavaElement parent) throws IllegalArgumentException {
-		this.parent = parent;
+		this.setParent(parent);
 	}
 	/**
 	 * @see IOpenable
@@ -181,7 +182,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 		// assume instanceof check is done in subclass
 		JavaElement other = (JavaElement) o;
 		return getElementName().equals(other.getElementName()) &&
-				this.parent.equals(other.parent);
+				this.parent.equals(other.getParent());
 	}
 	/**
 	 * @see #JEM_DELIMITER_ESCAPE
@@ -197,6 +198,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 		for (int i = 0, length = mementoName.length(); i < length; i++) {
 			char character = mementoName.charAt(i);
 			switch (character) {
+				case JEM_MODULE:
 				case JEM_ESCAPE:
 				case JEM_COUNT:
 				case JEM_JAVAPROJECT:
@@ -363,7 +365,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 		return buff.toString();
 	}
 	protected void getHandleMemento(StringBuffer buff) {
-		((JavaElement)getParent()).getHandleMemento(buff);
+		getParent().getHandleMemento(buff);
 		buff.append(getHandleMementoDelimiter());
 		escapeMementoName(buff, getElementName());
 	}
@@ -376,24 +378,16 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * @see IJavaElement
 	 */
 	@Override
-	public IJavaModel getJavaModel() {
-		IJavaElement current = this;
-		do {
-			if (current instanceof IJavaModel) return (IJavaModel) current;
-		} while ((current = current.getParent()) != null);
-		return null;
+	public JavaModel getJavaModel() {
+		return getJavaProject().getJavaModel();
 	}
 
 	/**
 	 * @see IJavaElement
 	 */
 	@Override
-	public IJavaProject getJavaProject() {
-		IJavaElement current = this;
-		do {
-			if (current instanceof IJavaProject) return (IJavaProject) current;
-		} while ((current = current.getParent()) != null);
-		return null;
+	public JavaProject getJavaProject() {
+		return this.project;
 	}
 
 	@Override
@@ -413,19 +407,26 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * @see IJavaElement
 	 */
 	@Override
-	public IJavaElement getParent() {
+	public JavaElement getParent() {
 		return this.parent;
 	}
 
+	protected void setParent(JavaElement parent) {
+		// invalidate caches:
+		this.project = parent==null?null:parent.getJavaProject();
+		// now the real task:
+		this.parent = parent;
+	}
+
 	@Override
-	public IJavaElement getPrimaryElement() {
+	public JavaElement getPrimaryElement() {
 		return getPrimaryElement(true);
 	}
 	/*
 	 * Returns the primary element. If checkOwner, and the cu owner is primary,
 	 * return this element.
 	 */
-	public IJavaElement getPrimaryElement(boolean checkOwner) {
+	public JavaElement getPrimaryElement(boolean checkOwner) {
 		return this;
 	}
 	@Override
@@ -487,7 +488,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * SourceMapper.
 	 */
 	public SourceMapper getSourceMapper() {
-		return ((JavaElement)getParent()).getSourceMapper();
+		return getParent().getSourceMapper();
 	}
 
 	@Override
@@ -637,7 +638,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 		return this;
 	}
 	protected String tabString(int tab) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = tab; i > 0; i--)
 			buffer.append("  "); //$NON-NLS-1$
 		return buffer.toString();
@@ -688,7 +689,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 *  Debugging purposes
 	 */
 	protected void toStringAncestors(StringBuffer buffer) {
-		JavaElement parentElement = (JavaElement)getParent();
+		JavaElement parentElement = getParent();
 		if (parentElement != null && parentElement.getParent() != null) {
 			buffer.append(" [in "); //$NON-NLS-1$
 			parentElement.toStringInfo(0, buffer, NO_INFO, false/*don't show resolved info*/);
@@ -887,7 +888,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 			stream = new BufferedInputStream(connection.getInputStream());
 
 			String encoding = connection.getContentEncoding();
-			byte[] contents = org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsByteArray(stream, connection.getContentLength());
+			byte[] contents = org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsByteArray(stream);
 			if (encoding == null) {
 				int index = getIndexOf(contents, META_START, 0, -1);
 				if (index != -1) {
