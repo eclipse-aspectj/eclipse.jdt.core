@@ -48,6 +48,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Stack;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.InvalidInputException;
@@ -164,6 +166,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected static final int HALT = 0;     // halt and throw up hands.
 	protected static final int RESTART = 1;  // stacks adjusted, alternate goal from check point.
 	protected static final int RESUME = 2;   // stacks untouched, just continue from where left off.
+	private static final short TYPE_CLASS =1;
+	private static final short TYPE_RECORD =2;
 
 	public Scanner scanner;
 	public int currentToken;
@@ -264,7 +268,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		result[0] = null;
 		int resultCount = 1;
 
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 
 		int start = contents.indexOf("name[]"); //$NON-NLS-1$
 		start = contents.indexOf('\"', start);
@@ -274,7 +278,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 
 		boolean addLineSeparator = false;
 		int tokenStart = -1;
-		StringBuffer currentToken = new StringBuffer();
+		StringBuilder currentToken = new StringBuilder();
 		for (int i = 0; i < contents.length(); i++) {
 			char c = contents.charAt(i);
 			if(c == '\"') {
@@ -284,7 +288,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 					if(addLineSeparator) {
 						buffer.append('\n');
 						result[resultCount++] = currentToken.toString();
-						currentToken = new StringBuffer();
+						currentToken = new StringBuilder();
 					}
 					String token = contents.substring(tokenStart, i);
 					if(token.equals(ERROR_TOKEN)){
@@ -713,7 +717,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		byte[] bytes = null;
 		try {
 			stream = new BufferedInputStream(stream);
-			bytes = Util.getInputStreamAsByteArray(stream, -1);
+			bytes = Util.getInputStreamAsByteArray(stream);
 		} finally {
 			try {
 				stream.close();
@@ -734,7 +738,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		byte[] bytes = null;
 		try {
 			stream = new BufferedInputStream(stream);
-			bytes = Util.getInputStreamAsByteArray(stream, -1);
+			bytes = Util.getInputStreamAsByteArray(stream);
 		} finally {
 			try {
 				stream.close();
@@ -814,7 +818,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		byte[] bytes = null;
 		try {
 			stream = new BufferedInputStream(stream);
-			bytes = Util.getInputStreamAsByteArray(stream, -1);
+			bytes = Util.getInputStreamAsByteArray(stream);
 		} finally {
 			try {
 				stream.close();
@@ -1314,11 +1318,7 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 			&& (this.astStack[this.astPtr] == null)) {
 			//NO ClassBody
 			this.astPtr--;
-			if (isQualified) {
-				alloc = new QualifiedAllocationExpression();
-			} else {
-				alloc = new AllocationExpression();
-			}
+		alloc = newAllocationExpression(isQualified);
 			alloc.sourceEnd = this.endPosition; //the position has been stored explicitly
 
 			if ((length = this.expressionLengthStack[this.expressionLengthPtr--]) != 0) {
@@ -1341,6 +1341,7 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 			dispatchDeclarationInto(length);
 			TypeDeclaration anonymousTypeDeclaration = (TypeDeclaration)this.astStack[this.astPtr];
 			anonymousTypeDeclaration.declarationSourceEnd = this.endStatementPosition;
+			anonymousTypeDeclaration.addClinit();
 			anonymousTypeDeclaration.bodyEnd = this.endStatementPosition;
 			if (anonymousTypeDeclaration.allocation != null) {
 				anonymousTypeDeclaration.allocation.sourceEnd = this.endStatementPosition;
@@ -1353,6 +1354,15 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 			this.astLengthPtr--;
 		}
 	}
+protected AllocationExpression newAllocationExpression(boolean isQualified) {
+	AllocationExpression alloc;
+	if (isQualified) {
+		alloc = new QualifiedAllocationExpression();
+	} else {
+		alloc = new AllocationExpression();
+	}
+	return alloc;
+}
 	protected void checkForDiamond(TypeReference allocType) {
 		if (allocType instanceof ParameterizedSingleTypeReference) {
 			ParameterizedSingleTypeReference type = (ParameterizedSingleTypeReference) allocType;
@@ -2252,6 +2262,10 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 			block.sourceStart = this.intStack[this.intPtr--];
 			block.sourceEnd = this.endStatementPosition;
 		}
+	if (this.currentElement instanceof RecoveredBlock && this.currentElement.getLastStart() == block.sourceStart) {
+		// in assist scenarii we cannot guarantee uniqueness of equal blocks, so simply update the duplicate, too:
+		this.currentElement.updateSourceEndIfNecessary(block.sourceEnd);
+	}
 		pushOnAstStack(block);
 	}
 	protected void consumeBlockStatement() {
@@ -2284,13 +2298,12 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 		} else {
 			// TODO : ERROR
 		}
-		CaseStatement caseStatement = new CaseStatement(constantExpressions[0], constantExpressions[length - 1].sourceEnd, this.intStack[this.intPtr--]);
+	CaseStatement caseStatement = new CaseStatement(constantExpressions[length - 1].sourceEnd, this.intStack[this.intPtr--], constantExpressions);
 		if (constantExpressions.length > 1) {
 			if (!this.parsingJava14Plus) {
 				problemReporter().multiConstantCaseLabelsNotSupported(caseStatement);
 			}
 		}
-		caseStatement.constantExpressions = constantExpressions;
 		// Look for $fall-through$ tag in leading comment for case statement
 		if (hasLeadingTagComment(FALL_THROUGH_TAG, caseStatement.sourceStart)) {
 			caseStatement.bits |= ASTNode.DocumentedFallthrough;
@@ -3885,6 +3898,7 @@ populatePermittedTypes();
 		dispatchDeclarationInto(this.astLengthStack[this.astLengthPtr--]);
 		TypeDeclaration anonymousType = (TypeDeclaration) this.astStack[this.astPtr--]; // pop type
 		this.astLengthPtr--;
+		anonymousType.addClinit();
 		anonymousType.bodyEnd = this.endPosition;
 		anonymousType.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
 		final FieldDeclaration fieldDeclaration = ((FieldDeclaration) this.astStack[this.astPtr]);
@@ -7894,6 +7908,7 @@ private void populatePermittedTypes() {
 	protected void consumeSwitchLabeledExpression() {
 		consumeExpressionStatement();
 		Expression expr = (Expression) this.astStack[this.astPtr];
+		expr.bits &= ~ASTNode.InsideExpressionStatement;
 		YieldStatement yieldStatement = new YieldStatement(
 			expr,
 			expr.sourceStart,
@@ -8770,13 +8785,17 @@ private void populatePermittedTypes() {
 	this.recordNestedMethodLevels.remove(typeDecl);
 	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORDS, typeDecl.sourceStart, typeDecl.sourceEnd);
 		//convert constructor that do not have the type's name into methods
-	ConstructorDeclaration cd = typeDecl.getConstructor((Parser) this);
+	ConstructorDeclaration cd = typeDecl.getConstructor((Parser) this);  // AspectJ
 		if (cd == null) {
 			/* create canonical constructor - check for the clash later at binding time */
 		cd = typeDecl.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);
 		} else {
+		if (cd instanceof CompactConstructorDeclaration
+			|| ((typeDecl.recordComponents == null || typeDecl.recordComponents.length == 0)
+			&& (cd.arguments == null || cd.arguments.length == 0))) {
 			cd.bits |= ASTNode.IsCanonicalConstructor;
 		}
+	}
 
 		if (this.scanner.containsAssertKeyword) {
 		typeDecl.bits |= ASTNode.ContainsAssertion;
@@ -10116,6 +10135,12 @@ private void checkForRecordMemberErrors(TypeDeclaration typeDecl, int nCreatedFi
 		this.firstToken = TokenNameQUESTION;
 		this.scanner.recordLineSeparator = recordLineSeparators;
 	}
+public void goForRecordBodyDeclarations() {
+	//tells the scanner to go for any record body declarations parsing
+
+	this.firstToken = TokenNameMINUS;
+	this.scanner.recordLineSeparator = true;
+}
 	public void goForTypeDeclaration() {
 		//tells the scanner to go for type (interface or class) declaration parsing
 
@@ -10665,7 +10690,7 @@ called in order to remember (when needed) the consumed token */
 						this.recordStringLiterals = oldValue;
 					}
 					try {
-						this.currentToken = this.scanner.getNextToken();
+				this.currentToken = fetchNextToken();
 					} catch(InvalidInputException e){
 						if (!this.hasReportedError){
 							// AspectJ Extension: cast first param to parser
@@ -10695,7 +10720,7 @@ called in order to remember (when needed) the consumed token */
 							this.recordStringLiterals = oldValue;
 						}
 						try{
-							this.currentToken = this.scanner.getNextToken();
+					this.currentToken = fetchNextToken();
 						} catch(InvalidInputException e){
 							if (!this.hasReportedError){
 								// AspectJ Extension: cast first param to parser
@@ -10803,6 +10828,9 @@ called in order to remember (when needed) the consumed token */
 		this.problemReporter.referenceContext = null; // Null this so we won't escalate problems needlessly (bug 393192)
 		if (DEBUG) System.out.println("-- EXIT FROM PARSE METHOD --");  //$NON-NLS-1$
 	}
+protected int fetchNextToken() throws InvalidInputException {
+	return this.scanner.getNextToken();
+}
 	public void parse(ConstructorDeclaration cd, CompilationUnitDeclaration unit, boolean recordLineSeparator) {
 		//only parse the method body of cd
 		//fill out its statements
@@ -11118,12 +11146,23 @@ called in order to remember (when needed) the consumed token */
 		}
 	}
 	public ASTNode[] parseClassBodyDeclarations(char[] source, int offset, int length, CompilationUnitDeclaration unit) {
+	/* automaton initialization */
+	initialize();
+	goForClassBodyDeclarations();
+	return parseBodyDeclarations(source, offset, length, unit, TYPE_CLASS);
+}
+
+public ASTNode[] parseRecordBodyDeclarations(char[] source, int offset, int length, CompilationUnitDeclaration unit) {
+	/* automaton initialization */
+	initialize();
+	goForRecordBodyDeclarations();
+	return parseBodyDeclarations(source, offset, length, unit, TYPE_RECORD);
+}
+
+private ASTNode[] parseBodyDeclarations(char[] source, int offset, int length, CompilationUnitDeclaration unit, short classRecordType) {
 		boolean oldDiet = this.diet;
 		int oldInt = this.dietInt;
 		boolean oldTolerateDefaultClassMethods = this.tolerateDefaultClassMethods;
-		/* automaton initialization */
-		initialize();
-		goForClassBodyDeclarations();
 		/* scanner initialization */
 		this.scanner.setSource(source);
 		this.scanner.resetTo(offset, offset + length - 1);
@@ -11163,19 +11202,26 @@ called in order to remember (when needed) the consumed token */
 			if (!this.options.performMethodsFullRecovery && !this.options.performStatementsRecovery) {
 				return null;
 			}
-			// collect all body declaration inside the compilation unit except the default constructor
+		// collect all body declaration inside the compilation unit except the default constructor and implicit  methods and fields for records
 			final List bodyDeclarations = new ArrayList();
+
+		unit.ignoreFurtherInvestigation = false;
+		Predicate<MethodDeclaration> methodPred = classRecordType == TYPE_CLASS ?
+				mD -> !mD.isDefaultConstructor() : mD -> (mD.bits & ASTNode.IsImplicit) == 0;
+		Consumer<FieldDeclaration> fieldAction = classRecordType == TYPE_CLASS ?
+				fD -> bodyDeclarations.add(fD) : fD -> { if ((fD.bits & ASTNode.IsImplicit) == 0 ) bodyDeclarations.add(fD);} ;
+
 			ASTVisitor visitor = new ASTVisitor() {
 				@Override
 				public boolean visit(MethodDeclaration methodDeclaration, ClassScope scope) {
-					if (!methodDeclaration.isDefaultConstructor()) {
+				if (methodPred.test(methodDeclaration)) {
 						bodyDeclarations.add(methodDeclaration);
 					}
 					return false;
 				}
 				@Override
 				public boolean visit(FieldDeclaration fieldDeclaration, MethodScope scope) {
-					bodyDeclarations.add(fieldDeclaration);
+				fieldAction.accept(fieldDeclaration);
 					return false;
 				}
 				@Override
@@ -11184,7 +11230,6 @@ called in order to remember (when needed) the consumed token */
 					return false;
 				}
 			};
-			unit.ignoreFurtherInvestigation = false;
 			unit.traverse(visitor, unit.scope);
 			unit.ignoreFurtherInvestigation = true;
 			result = (ASTNode[]) bodyDeclarations.toArray(new ASTNode[bodyDeclarations.size()]);
@@ -11202,7 +11247,7 @@ called in order to remember (when needed) the consumed token */
 		boolean containsInitializers = false;
 		TypeDeclaration typeDeclaration = null;
 		for (int i = 0, max = result.length; i < max; i++) {
-			// parse each class body declaration
+		// parse each class or record body declaration
 			ASTNode node = result[i];
 			if (node instanceof TypeDeclaration) {
 				// AspectJ Extension: cast first param to parser

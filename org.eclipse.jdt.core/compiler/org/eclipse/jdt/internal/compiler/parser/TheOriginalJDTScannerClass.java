@@ -245,7 +245,7 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 	public static final int LOW_SURROGATE_MAX_VALUE = 0xDFFF;
 
 	// text block support - 13
-	/* package */ int rawStart = -1;
+	protected int rawStart = -1;
 
 	//Java 15 - first _ keyword appears
 	Map<String, Integer> _Keywords = null;
@@ -2054,124 +2054,13 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 	}
 	private int scanForStringLiteral() throws InvalidInputException {
 		boolean isTextBlock = false;
-		int lastQuotePos = 0;
 
 		// consume next character
 		this.unicodeAsBackSlash = false;
 		boolean isUnicode = false;
 		isTextBlock = scanForTextBlockBeginning();
 		if (isTextBlock) {
-			try {
-				this.rawStart = this.currentPosition - this.startPosition;
-				while (this.currentPosition <= this.eofPosition) {
-					if (this.currentCharacter == '"') {
-						lastQuotePos = this.currentPosition;
-						// look for text block delimiter
-						if (scanForTextBlockClose()) {
-								this.currentPosition += 2;
-								return TerminalTokens.TokenNameTextBlock;
-							}
-						if (this.withoutUnicodePtr != 0) {
-							unicodeStore();
-						}
-					} else {
-					if ((this.currentCharacter == '\r') || (this.currentCharacter == '\n')) {
-						if (this.recordLineSeparator) {
-							pushLineSeparator();
-						}
-					}
-					}
-					outer: if (this.currentCharacter == '\\') {
-						switch(this.source[this.currentPosition]) {
-							case 'n' :
-							case 'r' :
-							case 'f' :
-								break outer;
-							case '\n' :
-							case '\r' :
-								this.currentCharacter = '\\';
-								this.currentPosition++;
-								break;
-							case '\\' :
-								this.currentPosition++;
-								break;
-							default :
-								if (this.unicodeAsBackSlash) {
-									this.withoutUnicodePtr--;
-									// consume next character
-									if (this.currentPosition >= this.eofPosition) {
-										break;
-									}
-									this.unicodeAsBackSlash = false;
-									if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
-										&& (this.source[this.currentPosition] == 'u')) {
-										getNextUnicodeChar();
-										isUnicode = true;
-										this.withoutUnicodePtr--;
-									} else {
-										isUnicode = false;
-									}
-								} else {
-									if (this.withoutUnicodePtr == 0) {
-										unicodeInitializeBuffer(this.currentPosition - this.startPosition);
-									}
-									this.withoutUnicodePtr --;
-									this.currentCharacter = this.source[this.currentPosition++];
-								}
-								int oldPos = this.currentPosition - 1;
-								scanEscapeCharacter();
-								switch (this.currentCharacter) {
-//								case ' ':
-//									if (this.withoutUnicodePtr == 0) {
-//										unicodeInitializeBuffer(this.currentPosition - this.startPosition);
-//									}
-//									// Kludge, retain the '\' and also
-//									// when scanEscapeCharacter reads space in form of \040 and
-//									// set the next character to 's'
-//									// so, we get an escaped scape, i.e. \s, which will later be
-//									// replaced by space
-//									unicodeStore('\\');
-//									this.currentCharacter = 's';
-//									break;
-								default:
-									if (ScannerHelper.isWhitespace(this.currentCharacter)) {
-										if (this.withoutUnicodePtr == 0) {
-											unicodeInitializeBuffer(this.currentPosition - this.startPosition);
-										}
-										unicodeStore('\\');
-										this.currentPosition = oldPos;
-										this.currentCharacter = this.source[this.currentPosition];
-										break outer;
-									}
-								}
-						}
-						if (this.withoutUnicodePtr != 0) {
-							unicodeStore();
-						}
-					}
-					// consume next character
-					this.unicodeAsBackSlash = false;
-					if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
-						&& (this.source[this.currentPosition] == 'u')) {
-						getNextUnicodeChar();
-						isUnicode = true;
-					} else {
-						isUnicode = false;
-						if (this.currentCharacter == '"'/* || skipWhitespace*/)
-							continue;
-						if (this.withoutUnicodePtr != 0) {
-							unicodeStore();
-						}
-					}
-				}
-				if (lastQuotePos > 0)
-					this.currentPosition = lastQuotePos;
-				this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
-				throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
-			} catch (IndexOutOfBoundsException e) {
-				this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
-				throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
-			}
+		return scanForTextBlock();
 		} else {
 			try {
 				// consume next character
@@ -2282,6 +2171,101 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 			return TokenNameStringLiteral;
 		}
 	}
+
+protected int scanForTextBlock() throws InvalidInputException {
+	int lastQuotePos = 0;
+	try {
+		this.rawStart = this.currentPosition - this.startPosition;
+		while (this.currentPosition <= this.eofPosition) {
+			if (this.currentCharacter == '"') {
+				lastQuotePos = this.currentPosition;
+				// look for text block delimiter
+				if (scanForTextBlockClose()) {
+					this.currentPosition += 2;
+					return TerminalTokens.TokenNameTextBlock;
+				}
+				if (this.withoutUnicodePtr != 0) {
+					unicodeStore();
+				}
+			} else {
+				if ((this.currentCharacter == '\r') || (this.currentCharacter == '\n')) {
+					if (this.recordLineSeparator) {
+						pushLineSeparator();
+					}
+				}
+			}
+			outer: if (this.currentCharacter == '\\') {
+				switch(this.source[this.currentPosition]) {
+					case 'n' :
+					case 'r' :
+					case 'f' :
+						break outer;
+					case '\n' :
+					case '\r' :
+						this.currentCharacter = '\\';
+						this.currentPosition++;
+						break;
+					case '\\' :
+						this.currentPosition++;
+						break;
+					default :
+						if (this.unicodeAsBackSlash) {
+							this.withoutUnicodePtr--;
+							// consume next character
+							if (this.currentPosition >= this.eofPosition) {
+								break;
+							}
+							this.unicodeAsBackSlash = false;
+							if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
+									&& (this.source[this.currentPosition] == 'u')) {
+								getNextUnicodeChar();
+								this.withoutUnicodePtr--;
+							}
+						} else {
+							if (this.withoutUnicodePtr == 0) {
+								unicodeInitializeBuffer(this.currentPosition - this.startPosition);
+							}
+							this.withoutUnicodePtr --;
+							this.currentCharacter = this.source[this.currentPosition++];
+						}
+						int oldPos = this.currentPosition - 1;
+						scanEscapeCharacter();
+						if (ScannerHelper.isWhitespace(this.currentCharacter)) {
+							if (this.withoutUnicodePtr == 0) {
+								unicodeInitializeBuffer(this.currentPosition - this.startPosition);
+							}
+							unicodeStore('\\');
+							this.currentPosition = oldPos;
+							this.currentCharacter = this.source[this.currentPosition];
+							break outer;
+						}
+				}
+				if (this.withoutUnicodePtr != 0) {
+					unicodeStore();
+				}
+			}
+			// consume next character
+			this.unicodeAsBackSlash = false;
+			if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
+					&& (this.source[this.currentPosition] == 'u')) {
+				getNextUnicodeChar();
+			} else {
+				if (this.currentCharacter == '"'/* || skipWhitespace*/)
+					continue;
+				if (this.withoutUnicodePtr != 0) {
+					unicodeStore();
+				}
+			}
+		}
+		if (lastQuotePos > 0)
+			this.currentPosition = lastQuotePos;
+		this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
+		throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
+	} catch (IndexOutOfBoundsException e) {
+		this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
+		throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
+	}
+}
 	public void getNextUnicodeChar()
 		throws InvalidInputException {
 		//VOID
@@ -3314,7 +3298,6 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 		ScanContextDetector parser = new ScanContextDetector(options);
 		return parser.getScanContext(this.source, begin - 1);
 	}
-
 	protected final void scanEscapeCharacter() throws InvalidInputException {
 		// the string with "\\u" is a legal string of two chars \ and u
 		//thus we use a direct access to the source (for regular cases).
@@ -4585,7 +4568,7 @@ private int checkFor_KeyWord(int index, int length, char[] data) {
 		if (this.currentPosition <= 0)
 			return "NOT started!\n\n"+ (this.source != null ? new String(this.source) : ""); //$NON-NLS-1$ //$NON-NLS-2$
 
-		StringBuffer buffer = new StringBuffer();
+	StringBuilder buffer = new StringBuilder();
 		if (this.startPosition < 1000) {
 			buffer.append(this.source, 0, this.startPosition);
 		} else {
