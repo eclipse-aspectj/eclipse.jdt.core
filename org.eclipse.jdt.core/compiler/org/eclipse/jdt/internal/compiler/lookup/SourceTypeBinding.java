@@ -158,7 +158,8 @@ public class SourceTypeBinding extends ReferenceBinding {
 	public HashSet<SourceTypeBinding> nestMembers;
 
 	private boolean isRecordDeclaration = false;
-	private RecordComponentBinding[] components; // for Java 14 record declaration - preview
+	// AspectJ - raise visibility from private to protected, because BinaryTypeBinding references it
+	protected RecordComponentBinding[] components; // for Java 14 record declaration - preview
 	public boolean isVarArgs =  false; // for record declaration
 	private FieldBinding[] implicitComponentFields; // cache
 	private MethodBinding[] recordComponentAccessors = null; // hash maybe an overkill

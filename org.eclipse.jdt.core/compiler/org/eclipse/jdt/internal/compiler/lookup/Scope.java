@@ -116,8 +116,8 @@ public abstract class Scope {
 	public static final int MORE_GENERIC = 1;
 
 	public int kind;
-	public final Scope parent;
-	public final CompilationUnitScope compilationUnitScope;
+	public Scope parent;  // AspectJ: make non-final (write access from AspectJ AJDT Core)
+	public CompilationUnitScope compilationUnitScope;
 	private Map<String, Supplier<ReferenceBinding>> commonTypeBindings = null;
 
 	private static class NullDefaultRange {
@@ -153,14 +153,21 @@ public abstract class Scope {
 
 	private /* @Nullable */ ArrayList<NullDefaultRange> nullDefaultRanges;
 
-	protected Scope(int kind, Scope parent) {
+  protected Scope(int kind, Scope parent) {
 		this.kind = kind;
 		this.parent = parent;
 		this.commonTypeBindings = null;
 		this.compilationUnitScope = (CompilationUnitScope) (parent == null ? this : parent.compilationUnitScope());
 	}
 
-	/* Answer an int describing the relationship between the given types.
+	// AspectJ extension: When parent is updated, also update compilationUnitScope
+	public void setParent(Scope parent) {
+		this.parent = parent;
+		this.compilationUnitScope = (CompilationUnitScope) (parent == null ? this : parent.compilationUnitScope());
+	}
+	// End AspectJ extension
+
+  /* Answer an int describing the relationship between the given types.
 	*
 	* 		NOT_RELATED
 	* 		EQUAL_OR_MORE_SPECIFIC : left is compatible with right
@@ -1518,9 +1525,9 @@ public abstract class Scope {
 					return field;
 				}
 				keepLooking = false;
-                //      AspectJ Extension
-                field = field.getVisibleBinding(receiverType, invocationSite, this);
-                if (field != null) {
+				// AspectJ Extension
+				field = field.getVisibleBinding(receiverType, invocationSite, this);
+				if (field != null) {
 				// End AspectJ Extension
 				if (field.canBeSeenBy(receiverType, invocationSite, this)) {
 					if (visibleField == null)
@@ -1543,10 +1550,10 @@ public abstract class Scope {
 				unitScope.recordTypeReference(anInterface);
 				// no need to capture rcv interface, since member field is going to be static anyway
 				if ((field = anInterface.getField(fieldName, true /*resolve*/, invocationSite, this)) != null) { // AspectJ Extension - was getField(fieldName,true/*resolve*/)
-					//      AspectJ Extension
-                    field = field.getVisibleBinding(receiverType, invocationSite, this);
-                    if (field != null) {
-                    //  End AspectJ Extension
+					// AspectJ Extension
+					field = field.getVisibleBinding(receiverType, invocationSite, this);
+					if (field != null) {
+					//  End AspectJ Extension
 					if (invisibleFieldsOk) {
 						return field;
 					}
@@ -3491,10 +3498,10 @@ public abstract class Scope {
 						if (sourceType!=null) {
 						// ASPECTJ END
 						insideStaticContext |= sourceType.isStatic();
+						insideClassContext = !sourceType.isAnonymousType();
 						// ASPECTJ START
 						}
 						// ASPECTJ END
-						insideClassContext = !sourceType.isAnonymousType();;
 						insideTypeAnnotation = false;
 						// ASPECTJ START
 						if (sourceType!=null) {
