@@ -233,10 +233,10 @@
         <artifactId>build-helper-maven-plugin</artifactId>
         <version>3.2.0</version>
         <executions>
-          <!--
+          <!### AspectJ
             Replace '\' Windows file separators by '/' in order to expand the new property 'compiler-message-properties'
             into a string literal in Maven Enforcer rule 'evaluateBeanshell' further below
-          --> 
+          AspectJ ###>
           <execution>
             <id>compiler-message-properties</id>
             <goals>
@@ -1176,17 +1176,17 @@
       |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.9.800:compile (version selected from constraint [3.5.0,4.0.0))
       +- java:javax15api:jar:1.0:system
       \- org.aspectj:aspectjrt:jar:1.9.6:compile
-      
+
       Repeat the same procedure again whenever you upgrade JDT Core via merge from upstream. Then update direct and
       transitive dependencies (maybe there are new or absolete ones) and fix their versions in this dependency
       management section. Otherwise, AspectJ JDT Core builds would not be repeatable, pulling updated dependency class
       files into the uber JAR whenever a dependency version is upgraded within its version number range.
-      
+
       After dependency-managing all ranges to fixed version in the tree above, running 'mvn dependency:tree' again
       should yield a clean dependency tree without any "version selected from constraint" sections.
     -->
     <dependencies>
-      
+
       <!-- Direct dependencies (use below in 'dependencies' section) -->
       <dependency>
         <groupId>org.eclipse.platform</groupId>
@@ -1217,7 +1217,7 @@
         <optional>true</optional>
       </dependency>
       -->
-      
+
       <!-- Transitive dependencies from dependency tree -->
       <dependency>
         <groupId>org.eclipse.platform</groupId>
