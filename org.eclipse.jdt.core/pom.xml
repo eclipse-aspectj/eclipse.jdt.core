@@ -741,8 +741,8 @@
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
-                  <version>14</version>
+                  <!-- We need the most recent JDK module 'java.compiler' in order to compile some APT classes -->
+                  <version>16</version>
                 </requireJavaVersion>
                 <evaluateBeanshell>
                   <message>
@@ -899,7 +899,6 @@
               <artifactSet>
                 <excludes>
                   <exclude>org.aspectj:aspectjrt</exclude>
-                  <exclude>java:javax15api</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.expressions</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.commands</exclude>
                 </excludes>
@@ -1292,13 +1291,6 @@
     <dependency>
       <groupId>org.eclipse.platform</groupId>
       <artifactId>org.eclipse.text</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>java</groupId>
-      <artifactId>javax15api</artifactId>
-      <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${project.basedir}/../org.eclipse.jdt.compiler.apt/lib/javax15api.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.aspectj</groupId>
