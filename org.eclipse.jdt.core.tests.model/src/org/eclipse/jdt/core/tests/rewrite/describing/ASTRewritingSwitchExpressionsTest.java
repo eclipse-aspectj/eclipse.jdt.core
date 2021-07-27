@@ -7,6 +7,9 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -53,7 +56,8 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		//super.setUpProjectAbove14();
+		super.setUpProjectAbove14();
+		setUpProjectAbove17();
 
 	}
 
@@ -90,7 +94,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -191,7 +195,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -263,7 +267,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -309,7 +313,9 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		buf.append(" 				int z = 100;\n");
 		buf.append(" 				yield z;\n");
 		buf.append("			}\n");
-		buf.append("			case 100, 200 -> {yield 2048;}\n");
+		buf.append("			case 100, 200 -> {\n");
+		buf.append("    yield 2048;\n");
+		buf.append("}\n");
 		buf.append("            default -> {\n");
 		buf.append("				yield 12;\n");
 		buf.append("			}\n");
@@ -352,7 +358,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -436,7 +442,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -515,7 +521,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -596,7 +602,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -676,7 +682,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -758,7 +764,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -825,7 +831,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		builder.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", builder.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -899,7 +905,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", builder.toString(), false, null);
 
-		CompilationUnit astRoot= createAST(this.apiLevel, cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);

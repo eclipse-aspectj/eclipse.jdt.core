@@ -1,10 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * SPDX-License-Identifier: EPL-2.0
  * Contributors:
@@ -157,6 +161,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE14 = false;
 	protected static boolean isJRE15 = false;
 	protected static boolean isJRE16 = false;
+	protected static boolean isJRE17 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -169,6 +174,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK17) {
+			isJRE17 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK16) {
 			isJRE16 = true;
 		}
@@ -244,8 +252,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	/**
 	 * Internal synonym for constant AST.JSL16
 	 * to alleviate deprecation warnings once AST.JLS16 is deprecated in future.
+	 * @deprecated
 	 */
 	protected static final int AST_INTERNAL_JLS16 = AST.JLS16;
+
+	/**
+	 * Internal synonym for constant AST.JSL17
+	 */
+	protected static final int AST_INTERNAL_JLS17 = AST.JLS17;
 
 	/**
 	 * Internal synonym for the latest AST level.
@@ -2249,6 +2263,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_16);
 					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
 					javaProject.setOptions(options);
+				} else if ("17".equals(compliance)) {
+					Map options = new HashMap();
+					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_17);
+					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
+					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_17);
+					javaProject.setOptions(options);
 				}
 
 				result[0] = javaProject;
@@ -3567,6 +3587,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					null);
 			}
 		} else if ("16".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("JCL14_LIB") == null) {
+				setupExternalJCL("jclMin14");
+				JavaCore.setClasspathVariables(
+					new String[] {"JCL14_LIB", "JCL14_SRC", "JCL_SRCROOT"},
+					new IPath[] {getExternalJCLPath("14"), getExternalJCLSourcePath("14"), getExternalJCLRootSourcePath()},
+					null);
+			}
+		} else if ("17".equals(compliance)) {
 			if (JavaCore.getClasspathVariable("JCL14_LIB") == null) {
 				setupExternalJCL("jclMin14");
 				JavaCore.setClasspathVariables(

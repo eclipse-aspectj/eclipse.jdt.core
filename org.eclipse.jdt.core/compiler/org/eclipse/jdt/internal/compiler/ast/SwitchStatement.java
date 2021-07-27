@@ -20,7 +20,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Function;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -34,6 +36,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.flow.SwitchFlowContext;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
@@ -55,6 +58,7 @@ public class SwitchStatement extends Expression {
 	public BranchLabel breakLabel;
 	public CaseStatement[] cases;
 	public CaseStatement defaultCase;
+	public CaseStatement nullCase; // convenience pointer for pattern switches
 	public int blockStart;
 	public int caseCount;
 	int[] constants;
@@ -62,6 +66,10 @@ public class SwitchStatement extends Expression {
 	String[] stringConstants;
 	public boolean switchLabeledRules = false; // true if case ->, false if case :
 	public int nConstants;
+
+	public boolean containsPatterns = false;
+	/* package */ boolean containsCaseNull = false;
+	private BranchLabel switchPatternRestartTarget;
 
 	// fallthrough
 	public final static int CASE = 0;
@@ -72,6 +80,9 @@ public class SwitchStatement extends Expression {
 	// for switch on strings
 	private static final char[] SecretStringVariableName = " switchDispatchString".toCharArray(); //$NON-NLS-1$
 
+	// for patterns in switch
+	/* package */ static final char[] SecretPatternVariableName = " switchDispatchPattern".toCharArray(); //$NON-NLS-1$
+	private static final char[] SecretPatternRestartIndexName = " switchPatternRestartIndex".toCharArray(); //$NON-NLS-1$
 
 	public SyntheticMethodBinding synthetic; // use for switch on enums types
 
@@ -82,6 +93,12 @@ public class SwitchStatement extends Expression {
 	CaseStatement[] duplicateCaseStatements = null;
 	int duplicateCaseStatementsCounter = 0;
 	private LocalVariableBinding dispatchStringCopy = null;
+	private LocalVariableBinding dispatchPatternCopy = null;
+	private LocalVariableBinding restartIndexLocal = null;
+
+	/* package */ boolean isNonTraditional = false;
+	/* package */ List<Expression> caseLabelElements = new ArrayList<>(0);//TODO: can we remove this?
+	public List<TypeBinding> caseLabelElementTypes = new ArrayList<>(0);
 
 	protected int getFallThroughState(Statement stmt, BlockScope blockScope) {
 		if (this.switchLabeledRules) {
@@ -145,13 +162,16 @@ public class SwitchStatement extends Expression {
 					if ((caseIndex < this.caseCount) && (statement == this.cases[caseIndex])) { // statement is a case
 						this.scope.enclosingCase = this.cases[caseIndex]; // record entering in a switch case block
 						caseIndex++;
-						if (fallThroughState == FALLTHROUGH
-								&& (statement.bits & ASTNode.DocumentedFallthrough) == 0) { // the case is not fall-through protected by a line comment
-							this.scope.problemReporter().possibleFallThroughCase(this.scope.enclosingCase);
+						if (fallThroughState == FALLTHROUGH) {
+							if (this.containsPatterns)
+								this.scope.problemReporter().IllegalFallThroughToPattern(this.scope.enclosingCase);
+							else if ((statement.bits & ASTNode.DocumentedFallthrough) == 0) { // the case is not fall-through protected by a line comment
+								this.scope.problemReporter().possibleFallThroughCase(this.scope.enclosingCase);
+							}
 						}
 						caseInits = caseInits.mergedWith(flowInfo.unconditionalInits());
 						complaintLevel = initialComplaintLevel; // reset complaint
-						fallThroughState = CASE;
+						fallThroughState = this.containsPatterns ? FALLTHROUGH : CASE;
 					} else if (statement == this.defaultCase) { // statement is the default case
 						this.scope.enclosingCase = this.defaultCase; // record entering in a switch case block
 						if (fallThroughState == FALLTHROUGH
@@ -416,11 +436,15 @@ public class SwitchStatement extends Expression {
 		for (int i = 0, j = 0, max = this.caseCount; i < max; i++) {
 			CaseStatement stmt = this.cases[i];
 			int l = stmt.constantExpressions.length;
-			stmt.targetLabels = new BranchLabel[l];
+			BranchLabel[] targetLabels = new BranchLabel[l];
+			int count = 0;
 			for (int k = 0; k < l; ++k) {
-				stmt.targetLabels[k] = (caseLabels[j] = newLabel.apply(codeStream));
+				Expression e = stmt.constantExpressions[k];
+				if (e instanceof FakeDefaultLiteral) continue;
+				targetLabels[count++] = (caseLabels[j] = newLabel.apply(codeStream));
 				caseLabels[j++].tagBits |= BranchLabel.USED;
 			}
+			System.arraycopy(targetLabels, 0, stmt.targetLabels = new BranchLabel[count], 0, count);
 		}
 		return caseLabels;
 	}
@@ -456,7 +480,10 @@ public class SwitchStatement extends Expression {
 
 			final TypeBinding resolvedType1 = this.expression.resolvedType;
 			boolean valueRequired = false;
-			if (resolvedType1.isEnum()) {
+			if (this.containsPatterns) {
+				generateCodeSwitchPatternPrologue(currentScope, codeStream);
+				valueRequired = true;
+			} else if (resolvedType1.isEnum()) {
 				// go through the translation table
 				codeStream.invoke(Opcodes.OPC_invokestatic, this.synthetic, null /* default declaringClass */);
 				this.expression.generateCode(currentScope, codeStream, true);
@@ -516,11 +543,14 @@ public class SwitchStatement extends Expression {
 			if (this.statements != null) {
 				for (int i = 0, maxCases = this.statements.length; i < maxCases; i++) {
 					Statement statement = this.statements[i];
+					CaseStatement caseStatement = null;
 					if ((caseIndex < constantCount) && (statement == this.cases[caseIndex])) { // statements[i] is a case
 						this.scope.enclosingCase = this.cases[caseIndex]; // record entering in a switch case block
 						if (this.preSwitchInitStateIndex != -1) {
 							codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.preSwitchInitStateIndex);
 						}
+						caseStatement = (CaseStatement) statement;
+						patternCaseExitPreviousCaseScope(codeStream, caseIndex);
 						caseIndex++;
 					} else {
 						if (statement == this.defaultCase) { // statements[i] is a case or a default case
@@ -531,6 +561,7 @@ public class SwitchStatement extends Expression {
 						}
 					}
 					statementGenerateCode(currentScope, codeStream, statement);
+					generateCodePatternCaseEpilogue(codeStream, caseIndex, caseStatement);
 				}
 			}
 			boolean enumInSwitchExpression =  resolvedType1.isEnum() && this instanceof SwitchExpression;
@@ -559,6 +590,7 @@ public class SwitchStatement extends Expression {
 				codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.mergedInitStateIndex);
 				codeStream.addDefinitelyAssignedVariables(currentScope, this.mergedInitStateIndex);
 			}
+			generateCodeSwitchPatternEpilogue(codeStream);
 			if (this.scope != currentScope) {
 				codeStream.exitUserScope(this.scope);
 			}
@@ -583,6 +615,65 @@ public class SwitchStatement extends Expression {
 		} finally {
 			if (this.scope != null) this.scope.enclosingCase = null; // no longer inside switch case block
 		}
+	}
+	private void generateCodeSwitchPatternEpilogue(CodeStream codeStream) {
+		if (this.containsPatterns && this.caseLabelElements.size() > 0) {
+			codeStream.removeVariable(this.dispatchPatternCopy);
+			codeStream.removeVariable(this.restartIndexLocal);
+		}
+	}
+	private void patternCaseExitPreviousCaseScope(CodeStream codeStream, int caseIndex) {
+		if (caseIndex > 0) {
+			CaseStatement caseStatement = this.cases[caseIndex];
+			if (caseStatement.containsPatternVariable()) {
+				caseStatement.patternCaseRemovePatternLocals(codeStream);
+			}
+		}
+	}
+	private void generateCodePatternCaseEpilogue(CodeStream codeStream, int caseIndex, CaseStatement caseStatement) {
+		if (this.switchPatternRestartTarget != null && caseStatement != null
+				&& caseStatement.patternIndex != -1 // for null
+				) {
+			Pattern pattern = (Pattern) caseStatement.constantExpressions[caseStatement.patternIndex];
+			if (pattern instanceof GuardedPattern) {
+				codeStream.loadInt(caseIndex);
+				codeStream.store(this.restartIndexLocal, false);
+				codeStream.goto_(this.switchPatternRestartTarget);
+				((GuardedPattern) pattern).thenTarget.place();
+			}
+		}
+	}
+	private void generateCodeSwitchPatternPrologue(BlockScope currentScope, CodeStream codeStream) {
+		this.expression.generateCode(currentScope, codeStream, true);
+		if (!this.containsCaseNull) {
+			codeStream.dup();
+			codeStream.invokeJavaUtilObjectsrequireNonNull();
+			codeStream.pop();
+
+		}
+
+		codeStream.store(this.dispatchPatternCopy, false);
+		codeStream.addVariable(this.dispatchPatternCopy);
+
+		int restartIndex = 0;
+		codeStream.loadInt(restartIndex);
+		codeStream.store(this.restartIndexLocal, false);
+		codeStream.addVariable(this.restartIndexLocal);
+
+		this.switchPatternRestartTarget = new BranchLabel(codeStream);
+		this.switchPatternRestartTarget.place();
+
+		codeStream.load(this.dispatchPatternCopy);
+		codeStream.load(this.restartIndexLocal);
+		int invokeDynamicNumber = codeStream.classFile.recordBootstrapMethod(this);
+		//TODO: replace this POC code with properly defined constants
+		codeStream.invokeDynamic(invokeDynamicNumber,
+				this.caseLabelElements.size(),
+				1,
+				"typeSwitch".toCharArray(), //$NON-NLS-1$
+				"(Ljava/lang/Object;I)I".toCharArray(), //$NON-NLS-1$
+				TypeIds.T_int,
+				TypeBinding.INT);
 	}
 	protected void statementGenerateCode(BlockScope currentScope, CodeStream codeStream, Statement statement) {
 		statement.generateCode(this.scope, codeStream);
@@ -617,13 +708,37 @@ public class SwitchStatement extends Expression {
 			final Statement statement = this.statements[i];
 			if (statement instanceof CaseStatement)  {
 				Expression[] exprs = ((CaseStatement) statement).constantExpressions;
-				n += exprs != null ? exprs.length : 0;
+				int count = 0;
+				if (exprs != null) {
+					for (Expression e : exprs) {
+						if (e instanceof FakeDefaultLiteral) continue;
+						++count;
+					}
+				}
+				n += count;
 			}
 		}
 		return n;
 	}
 	protected void addSecretTryResultVariable() {
 		// do nothing
+	}
+	/* package */ boolean isAllowedType(TypeBinding type) {
+		if (type == null)
+			return false;
+		switch (type.id) {
+			case TypeIds.T_char:
+			case TypeIds.T_byte:
+			case TypeIds.T_short:
+			case TypeIds.T_int:
+			case TypeIds.T_JavaLangCharacter :
+			case TypeIds.T_JavaLangByte :
+			case TypeIds.T_JavaLangShort :
+			case TypeIds.T_JavaLangInteger :
+				return true;
+			default: break;
+		}
+		return false;
 	}
 	@Override
 	public void resolve(BlockScope upperScope) {
@@ -656,8 +771,12 @@ public class SwitchStatement extends Expression {
 						isStringSwitch = true;
 						break checkType;
 					}
-					upperScope.problemReporter().incorrectSwitchType(this.expression, expressionType);
-					expressionType = null; // fault-tolerance: ignore type mismatch from constants from hereon
+					if (!JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(compilerOptions)) {
+						upperScope.problemReporter().incorrectSwitchType(this.expression, expressionType);
+						expressionType = null; // fault-tolerance: ignore type mismatch from constants from hereon
+					} else {
+						this.isNonTraditional = true;
+					}
 				}
 			}
 			if (isStringSwitch) {
@@ -669,9 +788,10 @@ public class SwitchStatement extends Expression {
 				this.dispatchStringCopy.setConstant(Constant.NotAConstant);
 				this.dispatchStringCopy.useFlag = LocalVariableBinding.USED;
 			}
+			addSecretPatternSwitchVariables(upperScope);
 			if (this.statements != null) {
-				this.scope = new BlockScope(upperScope);
-//				addSecretTryResultVariable();
+				if (this.scope == null)
+					this.scope = new BlockScope(upperScope);
 				int length;
 				// collection of cases is too big but we will only iterate until caseCount
 				this.cases = new CaseStatement[length = this.statements.length];
@@ -685,12 +805,23 @@ public class SwitchStatement extends Expression {
 				}
 				int counter = 0;
 				int caseCounter = 0;
+				LocalVariableBinding[] patternVariables = null;
 				for (int i = 0; i < length; i++) {
 					Constant[] constantsList;
 					int[] caseIndex = new int[this.nConstants];
 					final Statement statement = this.statements[i];
-					if (!(statement instanceof CaseStatement))  {
-						statement.resolve(this.scope);
+					// Let's first collect the pattern variables if any
+					// so that we can resolve all statements (including case statements)
+					// with the pattern variables in scope.
+					if (statement instanceof CaseStatement) {
+						if (statement.containsPatternVariable()) {
+							((CaseStatement) statement).collectPatternVariablesToScope(null, this.scope);
+							patternVariables = statement.getPatternVariablesWhenTrue();
+						} else {
+							patternVariables = null; // Probably redundant?
+						}
+					} else {
+						statement.resolveWithPatternVariablesInScope(patternVariables, this.scope);
 						continue;
 					}
 					if ((constantsList = statement.resolveCase(this.scope, expressionType, this)) != Constant.NotAConstantList) {
@@ -774,6 +905,20 @@ public class SwitchStatement extends Expression {
 			}
 		} finally {
 			if (this.scope != null) this.scope.enclosingCase = null; // no longer inside switch case block
+		}
+	}
+	private void addSecretPatternSwitchVariables(BlockScope upperScope) {
+		if (this.containsPatterns) {
+			this.scope = new BlockScope(upperScope);
+			this.dispatchPatternCopy  = new LocalVariableBinding(SecretPatternVariableName, upperScope.getJavaLangObject(), ClassFileConstants.AccDefault, false);
+			this.scope.addLocalVariable(this.dispatchPatternCopy);
+			this.dispatchPatternCopy.setConstant(Constant.NotAConstant);
+			this.dispatchPatternCopy.useFlag = LocalVariableBinding.USED;
+
+			this.restartIndexLocal  = new LocalVariableBinding(SecretPatternRestartIndexName, TypeBinding.INT, ClassFileConstants.AccDefault, false);
+			this.scope.addLocalVariable(this.restartIndexLocal);
+			this.restartIndexLocal.setConstant(Constant.NotAConstant);
+			this.restartIndexLocal.useFlag = LocalVariableBinding.USED;
 		}
 	}
 	protected void reportMissingEnumConstantCase(BlockScope upperScope, FieldBinding enumConstant) {

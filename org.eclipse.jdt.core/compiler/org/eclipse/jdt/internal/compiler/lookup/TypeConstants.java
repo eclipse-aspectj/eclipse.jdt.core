@@ -8,6 +8,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
@@ -40,6 +44,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 public interface TypeConstants {
 
 	char[] JAVA = "java".toCharArray(); //$NON-NLS-1$
+	char[] JAVAC = "javac".toCharArray(); //$NON-NLS-1$
 	char[] JAVAX = "javax".toCharArray(); //$NON-NLS-1$
 	char[] LANG = "lang".toCharArray(); //$NON-NLS-1$
 	char[] IO = "io".toCharArray(); //$NON-NLS-1$
@@ -118,7 +123,8 @@ public interface TypeConstants {
     char[] YIELD = "yield".toCharArray(); //$NON-NLS-1$
 
     // JEP 286
-	char[] VAR = "var".toCharArray(); //$NON-NLS-1$
+    String VAR_STRING = "var"; //$NON-NLS-1$
+	char[] VAR = VAR_STRING.toCharArray();
     // JEP 359 Records
 	char[] RECORD_RESTRICTED_IDENTIFIER = "record".toCharArray(); //$NON-NLS-1$
 	char[] RECORD_CLASS = "Record".toCharArray(); //$NON-NLS-1$
@@ -208,6 +214,7 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_ANNOTATION_RETENTIONPOLICY = {JAVA, LANG, ANNOTATION, "RetentionPolicy".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_ELEMENTTYPE = {JAVA, LANG, ANNOTATION, "ElementType".toCharArray()}; //$NON-NLS-1$
 	char[][] JDK_INTERNAL_PREVIEW_FEATURE = {JDK, INTERNAL, "PreviewFeature".toCharArray()}; //$NON-NLS-1$
+	char[][] JDK_INTERNAL_JAVAC_PREVIEW_FEATURE = {JDK, INTERNAL, JAVAC, "PreviewFeature".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_REFLECT_FIELD = new char[][] {JAVA, LANG, REFLECT, "Field".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_REFLECT_METHOD = new char[][] {JAVA, LANG, REFLECT, "Method".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_IO_CLOSEABLE = new char[][] { JAVA, IO, "Closeable".toCharArray()};//$NON-NLS-1$
@@ -245,6 +252,7 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_AUTOCLOSEABLE =  {JAVA, LANG, "AutoCloseable".toCharArray()}; //$NON-NLS-1$
 	char[] CLOSE = "close".toCharArray(); //$NON-NLS-1$
 	char[][] JAVA_LANG_RUNTIME_OBJECTMETHODS = {JAVA, LANG, RUNTIME, "ObjectMethods".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_RUNTIME_SWITCHBOOTSTRAPS = {JAVA, LANG, RUNTIME, "SwitchBootstraps".toCharArray()}; //$NON-NLS-1$
 	// known helper functions for closing a Closeable (all receive a Closeable as their first argument):
 	public static class CloseMethodRecord {
 		public char[][] typeName;

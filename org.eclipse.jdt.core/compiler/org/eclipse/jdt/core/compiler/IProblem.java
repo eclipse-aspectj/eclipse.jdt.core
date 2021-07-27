@@ -9,6 +9,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     IBM Corporation - added the following constants
@@ -1607,6 +1611,12 @@ void setSourceStart(int sourceStart);
 	int UnboxingConversion = Internal + 721;
 
 	/**
+	 * Modifiers
+	 * @since 3.27 BETA_JAVA17
+	 */
+	int StrictfpNotRequired = Syntax + Internal + 741;
+
+	/**
 	 * Enum
 	 */
 	/** @since 3.1 */
@@ -2483,4 +2493,30 @@ void setSourceStart(int sourceStart);
 	int SealedSuperTypeDisallowed = PreviewRelated + 1867;
 	/* Java15 errors - end */
 
-	}
+	/**
+	 * @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error
+	 */
+	int LocalReferencedInGuardMustBeEffectivelyFinal = PreviewRelated + 1900;
+	/** @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error */
+	int SwitchPatternConstantCaseLabelIncompatible = PreviewRelated + 1901;
+	/** @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error */
+	int SwitchPatternConstantWithPatternIncompatible = PreviewRelated + 1902;
+	/**
+	 * @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error
+	 */
+	int IllegalFallthroughToPattern = PreviewRelated + 1903;
+
+	/** @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error */
+	int SwitchPatternOnlyOnePatternCaseLabelAllowed = PreviewRelated + 1904;
+	/** @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error */
+	int SwitchPatternBothPatternAndDefaultCaseLabelsNotAllowed = PreviewRelated + 1905;
+	/** @since 3.27 BETA_JAVA17
+	 * @noreference preview feature error */
+	int SwitchPatternBothNullAndNonTypePatternNotAllowed = PreviewRelated + 1906;
+}

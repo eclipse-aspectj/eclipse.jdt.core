@@ -127,6 +127,7 @@ $Terminals
 	RestrictedIdentifierrecord
 	RestrictedIdentifiersealed
 	RestrictedIdentifierpermits
+	BeginCaseElement
 
 --    BodyMarker
 
@@ -236,7 +237,8 @@ Goal ::= '->' SwitchLabelCaseLhs
 -- JSR 360 Restricted
 Goal ::= RestrictedIdentifiersealed Modifiersopt
 Goal ::= RestrictedIdentifierpermits PermittedSubclasses
-
+-- jsr 406 --
+Goal ::= BeginCaseElement Pattern
 /:$readableName Goal:/
 
 Literal -> IntegerLiteral
@@ -1889,7 +1891,7 @@ CompactConstructorHeaderName ::= Modifiersopt TypeParameters JavaIdentifier -- A
 -----------------------------------------------
 
 -----------------------------------------------
--- 14 preview feature : instanceof pattern matching
+-- 16 feature : instanceof pattern matching
 -----------------------------------------------
 
 InstanceofExpression -> RelationalExpression
@@ -1898,7 +1900,8 @@ InstanceofExpression ::= InstanceofExpression InstanceofRHS
 /:$readableName Expression:/
 
 InstanceofRHS -> InstanceofClassic
-InstanceofRHS -> InstanceofPattern
+InstanceofRHS -> InstanceofPrimaryTypePattern
+InstanceofRHS -> InstanceofPrimaryParenPattern
 /.$putCase consumeInstanceOfRHS(); $break ./
 /:$readableName Expression:/
 
@@ -1906,12 +1909,37 @@ InstanceofClassic ::= 'instanceof' Modifiersopt Type
 /.$putCase consumeInstanceOfClassic(); $break ./
 /:$readableName InstanceofClassic:/
 
-InstanceofPattern ::=  InstanceofClassic Identifier
-/.$putCase consumeInstanceofPattern(); $break ./
-/:$readableName InstanceofPattern:/
+InstanceofPrimaryTypePattern ::=  'instanceof' Modifiersopt Type 'Identifier'
+/.$putCase consumeInstanceofPrimaryTypePattern(); $break ./
+/:$readableName InstanceofPrimaryTypePattern:/
+
+InstanceofPrimaryParenPattern ::=  'instanceof'  ParenthesizedPattern 
+/.$putCase consumeInstanceofPrimaryParenPattern(); $break ./
+/:$readableName InstanceofPrimaryParenPattern:/
+
+Pattern -> PrimaryPattern
+Pattern -> GuardedPattern
+/:$readableName Pattern:/
+
+PrimaryPattern -> TypePattern
+PrimaryPattern -> ParenthesizedPattern
+/.$putCase consumePrimaryPattern(); $break ./
+/:$readableName PrimaryPattern:/
+
+ParenthesizedPattern ::= PushLPAREN Pattern PushRPAREN
+/.$putCase consumeParenthesizedPattern(); $break ./
+/:$readableName ParenthesizedPattern:/
+
+TypePattern ::= Modifiersopt Type 'Identifier'
+/.$putCase consumeTypePattern(); $break ./
+/:$readableName TypePattern:/
+
+GuardedPattern ::= PrimaryPattern '&&' ConditionalAndExpression
+/.$putCase consumeGuardedPattern(); $break ./
+/:$readableName GuardedPattern:/
 
 -----------------------------------------------
--- 14 preview feature : end of instanceof pattern matching
+-- 16 feature : end of instanceof pattern matching
 -----------------------------------------------
 
 ConstantDeclaration -> FieldDeclaration
@@ -2150,11 +2178,32 @@ SwitchLabelExpr ::= SwitchLabelCaseLhs BeginCaseExpr '->'
 /. $putCase consumeCaseLabelExpr(); $break ./
 /:$readableName SwitchLabelExpr:/
 
-SwitchLabelCaseLhs ::= 'case' ConstantExpressions
+SwitchLabelCaseLhs ::= 'case' CaseLabelElements
 /. $putCase consumeSwitchLabelCaseLhs(); $break ./
 /:$readableName SwitchLabelCaseLhs:/
 
 -- END SwitchExpression (JEP 325) --
+
+CaseLabelElements -> CaseLabelElement
+CaseLabelElements ::= CaseLabelElements ',' CaseLabelElement
+/.$putCase consumeCaseLabelElements(); $break ./
+/:$readableName CaseLabelElements:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> (need to hook at cCLE)
+CaseLabelElement ::= ConstantExpression
+/.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_EXPRESSION); $break ./
+/:$readableName CaseLabelElement:/
+
+ -- following 'null' in CASE_EXPRESSION - passes through existing grammar
+ -- CaseLabelElement ->  'null'
+  
+CaseLabelElement ::= 'default'
+/.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_DEFAULT); $break ./
+/:$readableName CaseLabelElement:/
+
+CaseLabelElement ::= BeginCaseElement Pattern
+/.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_PATTERN); $break ./
+/:$readableName CaseLabelElement:/
 
 YieldStatement ::= RestrictedIdentifierYield Expression ;
 /.$putCase consumeStatementYield() ; $break ./
@@ -2868,11 +2917,6 @@ Expressionopt ::= $empty
 /.$putCase consumeEmptyExpression(); $break ./
 Expressionopt -> Expression
 /:$readableName Expression:/
-
-ConstantExpressions -> ConstantExpression
-ConstantExpressions ::= ConstantExpressions ',' ConstantExpression
-/.$putCase consumeConstantExpressions(); $break ./
-/:$readableName ConstantExpressions:/
 
 ConstantExpression -> Expression
 /:$readableName ConstantExpression:/

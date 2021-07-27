@@ -8,6 +8,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Benjamin Muskalla - Contribution for bug 239066
@@ -556,6 +560,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("IllegalModifierForArgument", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("IllegalModifierForClass", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 		expectedProblemAttributes.put("IllegalModifierForConstructor", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
+		expectedProblemAttributes.put("StrictfpNotRequired", new ProblemAttributes(CategorizedProblem.CAT_SYNTAX));
 		expectedProblemAttributes.put("IllegalModifierForEnum", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 		expectedProblemAttributes.put("IllegalModifierForEnumConstant", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("IllegalModifierForEnumConstructor", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
@@ -1287,10 +1292,18 @@ public void test011_problem_categories() {
 	    expectedProblemAttributes.put("SealedNotDirectSuperInterface", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("SealedLocalDirectSuperTypeSealed", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("SealedAnonymousClassCannotExtendSealedType", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
+	    expectedProblemAttributes.put("LocalReferencedInGuardMustBeEffectivelyFinal", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("SealedSuperTypeInDifferentPackage", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("SealedSuperTypeDisallowed", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("SafeVarargsOnSyntheticRecordAccessor", new ProblemAttributes(true));
 	    expectedProblemAttributes.put("DiscouragedValueBasedTypeSynchronization", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("SwitchPatternConstantCaseLabelIncompatible", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("SwitchPatternConstantWithPatternIncompatible", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("IllegalFallthroughToPattern", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("SwitchPatternOnlyOnePatternCaseLabelAllowed", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("SwitchPatternBothPatternAndDefaultCaseLabelsNotAllowed", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("SwitchPatternBothNullAndNonTypePatternNotAllowed", new ProblemAttributes(true));
+
 	    StringBuffer failures = new StringBuffer();
 		StringBuffer correctResult = new StringBuffer(70000);
 		Field[] fields = (iProblemClass = IProblem.class).getFields();
@@ -1617,6 +1630,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("IllegalModifierForArgument", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForClass", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForConstructor", SKIP);
+		expectedProblemAttributes.put("StrictfpNotRequired", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForEnum", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForEnumConstant", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForEnumConstructor", SKIP);
@@ -2353,8 +2367,15 @@ public void test012_compiler_problems_tuning() {
 	    expectedProblemAttributes.put("SealedSuperTypeInDifferentPackage", SKIP);
 	    expectedProblemAttributes.put("SealedSuperTypeDisallowed", SKIP);
 	    expectedProblemAttributes.put("SealedAnonymousClassCannotExtendSealedType", SKIP);
+	    expectedProblemAttributes.put("LocalReferencedInGuardMustBeEffectivelyFinal", SKIP);
 	    expectedProblemAttributes.put("SafeVarargsOnSyntheticRecordAccessor", SKIP);
 	    expectedProblemAttributes.put("DiscouragedValueBasedTypeSynchronization", SKIP);
+	    expectedProblemAttributes.put("SwitchPatternConstantCaseLabelIncompatible", SKIP);
+	    expectedProblemAttributes.put("SwitchPatternConstantWithPatternIncompatible", SKIP);
+	    expectedProblemAttributes.put("IllegalFallthroughToPattern", SKIP);
+	    expectedProblemAttributes.put("SwitchPatternOnlyOnePatternCaseLabelAllowed", SKIP);
+	    expectedProblemAttributes.put("SwitchPatternBothPatternAndDefaultCaseLabelsNotAllowed", SKIP);
+	    expectedProblemAttributes.put("SwitchPatternBothNullAndNonTypePatternNotAllowed", SKIP);
 	    Map constantNamesIndex = new HashMap();
 		Field[] fields = JavaCore.class.getFields();
 		for (int i = 0, length = fields.length; i < length; i++) {

@@ -7,6 +7,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -14,7 +18,9 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
 
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 
 import junit.framework.Test;
 
@@ -36,22 +42,10 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 		super(testName);
 	}
 
-	// Enables the tests to run individually
-	protected Map<String, String> getCompilerOptions() {
-		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
-		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
-		defaultOptions.put(CompilerOptions.OPTION_Store_Annotations, CompilerOptions.ENABLED);
-		return defaultOptions;
-	}
-
 	/*
 	 * Preview API, --enable-preview=false, SuppressWarning=No
 	 */
-	public void test001() {
+	public void _test001() {
 		Map<String, String> options = getCompilerOptions();
 		String old = options.get(CompilerOptions.OPTION_EnablePreviews);
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.DISABLED);
@@ -96,7 +90,7 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 	/*
 	 * Preview API, --enable-preview=false, SuppressWarning=yes
 	 */
-	public void test002() {
+	public void _test002() {
 		Map<String, String> options = getCompilerOptions();
 		String old = options.get(CompilerOptions.OPTION_EnablePreviews);
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.DISABLED);
@@ -134,6 +128,8 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 	 */
 	public void test003() {
 		Map<String, String> options = getCompilerOptions();
+		if (this.complianceLevel < ClassFileConstants.getLatestJDKLevel())
+			return;
 		String old = options.get(CompilerOptions.OPTION_EnablePreviews);
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		try {
@@ -168,6 +164,8 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 	 * Preview API, --enable-preview=true, SuppressWarning=Yes
 	 */
 	public void test004() {
+		if (this.complianceLevel < ClassFileConstants.getLatestJDKLevel())
+			return;
 		Map<String, String> options = getCompilerOptions();
 		String old = options.get(CompilerOptions.OPTION_EnablePreviews);
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
@@ -196,6 +194,22 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 					null,
 					true,
 					options);
+		} finally {
+			options.put(CompilerOptions.OPTION_EnablePreviews, old);
+		}
+	}
+	public void test005() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		Map<String, String> options = getCompilerOptions();
+		String old = options.get(CompilerOptions.OPTION_EnablePreviews);
+		if (this.complianceLevel == ClassFileConstants.getLatestJDKLevel())
+			options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		try {
+			if (this.complianceLevel < ClassFileConstants.getLatestJDKLevel())
+				assertFalse(JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(new CompilerOptions(options)));
+			else
+				assertTrue(JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(new CompilerOptions(options)));
 		} finally {
 			options.put(CompilerOptions.OPTION_EnablePreviews, old);
 		}
