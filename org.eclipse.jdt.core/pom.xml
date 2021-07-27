@@ -592,9 +592,10 @@
         </plugin>
         <plugin>
           <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
-          <groupId>com.nickwongdev</groupId>
+          <groupId>dev.aspectj</groupId>
           <artifactId>aspectj-maven-plugin</artifactId>
-          <version>1.12.6</version>
+          <!-- TODO: replace by version supporting Java 17 -->
+          <version>1.13.M3</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -850,14 +851,15 @@
       </plugin>
 
       <plugin>
-        <groupId>com.nickwongdev</groupId>
+        <groupId>dev.aspectj</groupId>
         <artifactId>aspectj-maven-plugin</artifactId>
         <configuration>
           <!--<showWeaveInfo>true</showWeaveInfo>-->
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
-          <Xlint>ignore</Xlint>
+          <!-- TODO: remove after upgrading to new version in which 'complianceLevel' is optional -->
           <complianceLevel>${maven.compiler.target}</complianceLevel>
+          <Xlint>ignore</Xlint>
           <encoding>${project.build.sourceEncoding}</encoding>
           <!--<verbose>true</verbose>-->
           <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
