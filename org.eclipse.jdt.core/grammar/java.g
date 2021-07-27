@@ -1909,11 +1909,11 @@ InstanceofClassic ::= 'instanceof' Modifiersopt Type
 /.$putCase consumeInstanceOfClassic(); $break ./
 /:$readableName InstanceofClassic:/
 
-InstanceofPrimaryTypePattern ::=  'instanceof' Modifiersopt Type 'Identifier'
+InstanceofPrimaryTypePattern ::=  'instanceof' Modifiersopt Type JavaIdentifier  -- AspectJ extension, was 'Identifier'
 /.$putCase consumeInstanceofPrimaryTypePattern(); $break ./
 /:$readableName InstanceofPrimaryTypePattern:/
 
-InstanceofPrimaryParenPattern ::=  'instanceof'  ParenthesizedPattern 
+InstanceofPrimaryParenPattern ::=  'instanceof'  ParenthesizedPattern
 /.$putCase consumeInstanceofPrimaryParenPattern(); $break ./
 /:$readableName InstanceofPrimaryParenPattern:/
 
@@ -1930,7 +1930,7 @@ ParenthesizedPattern ::= PushLPAREN Pattern PushRPAREN
 /.$putCase consumeParenthesizedPattern(); $break ./
 /:$readableName ParenthesizedPattern:/
 
-TypePattern ::= Modifiersopt Type 'Identifier'
+TypePattern ::= Modifiersopt Type JavaIdentifier  -- AspectJ extension, was 'Identifier'
 /.$putCase consumeTypePattern(); $break ./
 /:$readableName TypePattern:/
 
@@ -2196,7 +2196,7 @@ CaseLabelElement ::= ConstantExpression
 
  -- following 'null' in CASE_EXPRESSION - passes through existing grammar
  -- CaseLabelElement ->  'null'
-  
+
 CaseLabelElement ::= 'default'
 /.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_DEFAULT); $break ./
 /:$readableName CaseLabelElement:/
