@@ -433,6 +433,7 @@ TypeParameterList1=TypeParameterList1
 TypeParameterList=TypeParameterList
 TypeParameters=TypeParameters
 TypeParametersAsReference=type parameter list
+TypePattern=TypePattern
 UnannotatableName=UnannotatableQualifiedName
 UnannotatableNameOrAj=name
 UnaryExpression=Expression
