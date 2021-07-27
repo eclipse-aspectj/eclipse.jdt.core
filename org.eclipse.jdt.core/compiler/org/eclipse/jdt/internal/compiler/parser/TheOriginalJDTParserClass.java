@@ -8,6 +8,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Palo Alto Research Center, Incorporated - AspectJ adaptation
@@ -162,6 +166,12 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		LAMBDA,
 	}
 
+	protected enum CaseLabelKind {
+		CASE_EXPRESSION,
+		CASE_NULL,
+		CASE_DEFAULT,
+		CASE_PATTERN
+	}
 	// resumeOnSyntaxError codes:
 	protected static final int HALT = 0;     // halt and throw up hands.
 	protected static final int RESTART = 1;  // stacks adjusted, alternate goal from check point.
@@ -790,7 +800,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 		String[] result = new String[name.length];
 
 		Properties props = new Properties();
-		try (InputStream is = parserClass.getResourceAsStream(filename)) {
+		try (InputStream is = parserClass.getResourceAsStream(filename)) {  //	AspectJ Extension - used passed class not static ref
 			props.load(is);
 		} catch (IOException e) {
 			result = name;
@@ -992,6 +1002,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	protected boolean parsingJava9Plus;
 	protected boolean parsingJava14Plus;
 	protected boolean parsingJava15Plus;
+protected boolean parsingJava17Plus;
 	protected boolean previewEnabled;
 	protected boolean parsingJava11Plus;
 	protected int unstackedAct = ERROR_ACTION;
@@ -1002,6 +1013,7 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 	private boolean reparsingLambdaExpression = false;
 
 private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
+private Map<Integer, Boolean> recordPatternSwitches;
 
 	public TheOriginalJDTParserClass () { // AspectJ - new name
 		// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -1017,6 +1029,7 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 	this.parsingJava11Plus = this.options.sourceLevel >= ClassFileConstants.JDK11;
 		this.parsingJava14Plus = this.options.sourceLevel >= ClassFileConstants.JDK14;
 	this.parsingJava15Plus = this.options.sourceLevel >= ClassFileConstants.JDK15;
+	this.parsingJava17Plus = this.options.sourceLevel >= ClassFileConstants.JDK17;
 	this.previewEnabled = this.options.sourceLevel == ClassFileConstants.getLatestJDKLevel() && this.options.enablePreviewFeatures;
 		this.astLengthStack = new int[50];
 		this.patternLengthStack = new int[20];
@@ -1032,6 +1045,7 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 		this.variablesCounter = new int[30];
 
 		this.recordNestedMethodLevels = new HashMap<>();
+	this.recordPatternSwitches = new HashMap<>();
 
 		// javadoc support
 		this.javadocParser = createJavadocParser();
@@ -1236,6 +1250,9 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 	of a list of several modifiers. The startPosition
 	is zeroed when a copy of modifiers-buffer is push
 	onto the this.astStack. */
+	if (flag == ClassFileConstants.AccStrictfp && this.parsingJava17Plus) {
+		problemReporter().StrictfpNotRequired(this.scanner.startPosition, this.scanner.currentPosition - 1);
+	}
 
 		if ((this.modifiers & flag) != 0){ // duplicate modifier
 			this.modifiers |= ExtraCompilerModifiers.AccAlternateModifierProblem;
@@ -1341,7 +1358,6 @@ private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 			dispatchDeclarationInto(length);
 			TypeDeclaration anonymousTypeDeclaration = (TypeDeclaration)this.astStack[this.astPtr];
 			anonymousTypeDeclaration.declarationSourceEnd = this.endStatementPosition;
-			anonymousTypeDeclaration.addClinit();
 			anonymousTypeDeclaration.bodyEnd = this.endStatementPosition;
 			if (anonymousTypeDeclaration.allocation != null) {
 				anonymousTypeDeclaration.allocation.sourceEnd = this.endStatementPosition;
@@ -3898,7 +3914,6 @@ populatePermittedTypes();
 		dispatchDeclarationInto(this.astLengthStack[this.astLengthPtr--]);
 		TypeDeclaration anonymousType = (TypeDeclaration) this.astStack[this.astPtr--]; // pop type
 		this.astLengthPtr--;
-		anonymousType.addClinit();
 		anonymousType.bodyEnd = this.endPosition;
 		anonymousType.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
 		final FieldDeclaration fieldDeclaration = ((FieldDeclaration) this.astStack[this.astPtr]);
@@ -4573,35 +4588,18 @@ populatePermittedTypes();
 	protected void consumeInsideCastExpressionWithQualifiedGenerics() {
 		// InsideCastExpressionWithQualifiedGenerics ::= $empty
 	}
-	protected LocalDeclaration getInstanceOfVar(TypeReference type) { // AspectJ raised to protected - TODO: renamed to getInstanceOfVar and returns LocalDeclaration instead of void
-		char[] identifierName = this.identifierStack[this.identifierPtr];
-		long namePosition = this.identifierPositionStack[this.identifierPtr];
 
-		LocalDeclaration local = createLocalDeclaration(identifierName, (int) (namePosition >>> 32), (int) namePosition);
-		local.declarationSourceEnd = local.declarationEnd;
-
-		this.identifierPtr--;
-		this.identifierLengthPtr--;
-
-		local.declarationSourceStart = type.sourceStart;
-		local.type = type;
-		problemReporter().validateJavaFeatureSupport(JavaFeature.PATTERN_MATCHING_IN_INSTANCEOF, type.sourceStart, local.declarationEnd);
-		local.modifiers |= ClassFileConstants.AccFinal;
-		return local;
-	}
 	protected void consumeInstanceOfExpression() {
 		int length = this.patternLengthPtr >= 0 ?
 			this.patternLengthStack[this.patternLengthPtr--] : 0;
 		Expression exp;
 		// consume annotations
 		if (length > 0) {
-			LocalDeclaration typeDecl = (LocalDeclaration) this.patternStack[this.patternPtr--];
+		Pattern pattern = (Pattern) this.patternStack[this.patternPtr--];
 			this.expressionStack[this.expressionPtr] = exp =
 				new InstanceOfExpression(
 					this.expressionStack[this.expressionPtr],
-					typeDecl);
-			typeDecl.modifiersSourceStart = this.intStack[this.intPtr--];
-			typeDecl.modifiers = this.intStack[this.intPtr--];
+					pattern);
 		} else {
 			TypeReference typeRef = (TypeReference) this.expressionStack[this.expressionPtr--];
 			this.expressionLengthPtr--;
@@ -4618,7 +4616,7 @@ populatePermittedTypes();
 			exp.sourceEnd = this.scanner.startPosition - 1;
 		}
 	}
-	protected void consumeInstanceOfExpressionHelper() {
+protected void consumeTypeReferenceWithModifiersAndAnnotations() {
 		// RelationalExpression ::= RelationalExpression 'instanceof' ReferenceType
 		//optimize the push/pop
 
@@ -4653,13 +4651,34 @@ populatePermittedTypes();
 		// do nothing
 	}
 	protected void consumeInstanceOfClassic() {
-		consumeInstanceOfExpressionHelper();
+	consumeTypeReferenceWithModifiersAndAnnotations();
+}
+protected void consumeInstanceofPrimaryTypePattern() {
+	consumeTypePattern();
+	consumeInstanceofPattern();
+}
+protected void consumeInstanceofPrimaryParenPattern() {
+	 // TODO - check if parenthesis to be used for source position adjustment
+	consumeInstanceofPattern();
+}
+protected void consumePrimaryPattern() {
+ // TODO - check if parenthesis to be used for source position adjustment
+}
+protected void consumeParenthesizedPattern() {
+	final Pattern pattern = (Pattern) this.astStack[this.astPtr];
+
+	// parenthesisSourceEnd
+	this.intPtr--;
+	// parenthesisSourceStart
+	this.intPtr--;
+	int numberOfParenthesis = (pattern.bits & ASTNode.ParenthesizedMASK) >> ASTNode.ParenthesizedSHIFT;
+	pattern.bits &= ~ASTNode.ParenthesizedMASK;
+	pattern.bits |= (numberOfParenthesis + 1) << ASTNode.ParenthesizedSHIFT;
 	}
 	protected void consumeInstanceofPattern() {
-		TypeReference typeRef = (TypeReference) this.expressionStack[this.expressionPtr--];
-		this.expressionLengthPtr--;
-		LocalDeclaration local = getInstanceOfVar(typeRef);
-		pushOnPatternStack(local);
+	this.astLengthPtr--;
+	Pattern pattern = (Pattern) this.astStack[this.astPtr--];
+	pushOnPatternStack(pattern);
 		// Only if we are not inside a block
 		if (this.realBlockPtr != -1)
 			blockReal();
@@ -4672,14 +4691,12 @@ populatePermittedTypes();
 			this.patternLengthStack[this.patternLengthPtr--] : 0;
 		Expression exp;
 		if (length != 0) {
-			LocalDeclaration typeDecl = (LocalDeclaration) this.patternStack[this.patternPtr--];
+		Pattern pattern = (Pattern) this.patternStack[this.patternPtr--];
 			pushOnExpressionStack(getUnspecifiedReferenceOptimized());
 			this.expressionStack[this.expressionPtr] = exp =
 				new InstanceOfExpression(
 					this.expressionStack[this.expressionPtr],
-					typeDecl);
-			typeDecl.modifiersSourceStart = this.intStack[this.intPtr--];
-			typeDecl.modifiers = this.intStack[this.intPtr--];
+					pattern);
 		} else {
 			//by construction, no base type may be used in getTypeReference
 			TypeReference typeRef = (TypeReference) this.expressionStack[this.expressionPtr--];
@@ -7495,6 +7512,7 @@ private void populatePermittedTypes() {
 		//OpenBlock just makes the semantic action blockStart()
 		//the block is inlined but a scope need to be created
 		//if some declaration occurs.
+	Boolean isPatternSwitch = this.recordPatternSwitches.remove(this.switchNestingLevel);
 		this.nestedType--;
 		this.switchNestingLevel--;
 		this.scanner.breakPreviewAllowed = this.switchNestingLevel > 0;
@@ -7512,6 +7530,7 @@ private void populatePermittedTypes() {
 				length);
 		}
 		switchStatement.explicitDeclarations = this.realBlockStack[this.realBlockPtr--];
+	switchStatement.containsPatterns = isPatternSwitch != null ? isPatternSwitch.booleanValue() : false;
 		pushOnAstStack(switchStatement);
 		switchStatement.blockStart = this.intStack[this.intPtr--];
 		switchStatement.sourceStart = this.intStack[this.intPtr--];
@@ -7888,7 +7907,22 @@ private void populatePermittedTypes() {
 	protected void consumeConstantExpression() {
 		// do nothing for now.
 	}
-	protected void consumeConstantExpressions() {
+protected void consumeCaseLabelElement(CaseLabelKind kind) {
+	switch (kind) {
+		case CASE_PATTERN:
+			this.astLengthPtr--;
+			Pattern pattern = (Pattern) this.astStack[this.astPtr--];
+			pushOnExpressionStack(pattern);
+			this.recordPatternSwitches.put(this.switchNestingLevel, Boolean.TRUE);
+			break;
+		case CASE_DEFAULT:
+			pushOnExpressionStack(new FakeDefaultLiteral(this.scanner.startPosition, this.scanner.currentPosition - 1));
+			break;
+		default : break;
+	}
+	this.scanner.multiCaseLabelComma = this.currentToken == TerminalTokens.TokenNameCOMMA;
+}
+protected void consumeCaseLabelElements() {
 		concatExpressionLists();
 	}
 	protected void consumeSwitchLabeledRules() {
@@ -8558,6 +8592,40 @@ private void populatePermittedTypes() {
 			typeParameter.bits |= (bound.bits & ASTNode.HasTypeAnnotations);
 		}
 	}
+protected void consumeGuardedPattern() {
+	this.astLengthPtr--;
+	Pattern pattern = (Pattern) this.astStack[this.astPtr--];
+	Expression expr = this.expressionStack[this.expressionPtr--];
+	this.expressionLengthPtr--;
+	pushOnAstStack(new GuardedPattern(pattern, expr));
+}
+protected void consumeTypePattern() {
+
+	//name
+	char[] identifierName = this.identifierStack[this.identifierPtr];
+	long namePosition = this.identifierPositionStack[this.identifierPtr];
+
+	LocalDeclaration local = createLocalDeclaration(identifierName, (int) (namePosition >>> 32), (int) namePosition);
+	local.declarationSourceEnd = local.declarationEnd;
+	this.identifierPtr--;
+	this.identifierLengthPtr--;
+
+	//type
+	consumeTypeReferenceWithModifiersAndAnnotations();
+	TypeReference type = (TypeReference) this.expressionStack[this.expressionPtr--];
+	this.expressionLengthPtr--;
+
+	local.type = type;
+
+	TypePattern aTypePattern = new TypePattern(local);
+	aTypePattern.sourceStart = this.intStack[this.intPtr--];
+	local.modifiers =  this.intStack[this.intPtr--];
+	local.declarationSourceStart = aTypePattern.sourceStart;
+	aTypePattern.sourceEnd = local.sourceEnd;
+
+	problemReporter().validateJavaFeatureSupport(JavaFeature.PATTERN_MATCHING_IN_INSTANCEOF, type.sourceStart, local.declarationEnd);
+	pushOnAstStack(aTypePattern);
+}
 	protected void consumeZeroAdditionalBounds() {
 		if (this.currentToken == TokenNameRPAREN)  // Signal zero additional bounds - do this only when the cast type is fully seen (i.e not in error path)
 			pushOnGenericsLengthStack(0);          // Not all stacks are adjusted - this is not meant to be popped by getTypeReference
@@ -10423,12 +10491,14 @@ public void goForRecordBodyDeclarations() {
 		this.nextIgnoredToken = -1;
 		do {
 			try {
+			this.scanner.multiCaseLabelComma = false;
 				this.scanner.lookBack[0] = this.scanner.lookBack[1] = TokenNameNotAToken; // stay clear of the voodoo in the present method
 				this.nextIgnoredToken = this.scanner.getNextNotFakedToken();
 			} catch(InvalidInputException e){
 				pos = this.scanner.currentPosition;
 			} finally {
 				this.scanner.lookBack[0] = this.scanner.lookBack[1] = TokenNameNotAToken; // steer clear of the voodoo in the present method
+			this.scanner.multiCaseLabelComma = false;
 			}
 		} while (this.nextIgnoredToken < 0);
 
@@ -12078,6 +12148,7 @@ protected void pushOnCaseStack(int pos) {
 		this.genericsPtr = -1;
 		this.valueLambdaNestDepth = -1;
 		this.recordNestedMethodLevels = new HashMap<>();
+	this.recordPatternSwitches = new HashMap<>();
 	}
 	/*
 	 * Reset context so as to resume to regular parse loop
