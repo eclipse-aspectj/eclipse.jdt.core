@@ -18,6 +18,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.codeassist.complete;
 
+import java.util.ArrayList;
+
 /*
  * Parser able to build specific completion parse nodes, given a cursorLocation.
  *
@@ -29,6 +31,7 @@ package org.eclipse.jdt.internal.codeassist.complete;
  */
 
 import java.util.HashSet;
+import java.util.List;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -122,6 +125,7 @@ import org.eclipse.jdt.internal.compiler.parser.RecoveredPackageVisibilityStatem
 import org.eclipse.jdt.internal.compiler.parser.RecoveredProvidesStatement;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredType;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredUnit;
+import org.eclipse.jdt.internal.compiler.parser.Scanner;
 import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
@@ -343,7 +347,7 @@ protected void detectAssistNodeParent(ASTNode node) {
 	CompletionNodeDetector detector = new CompletionNodeDetector(this.assistNode, node);
 	if (detector.containsCompletionNode()) {
 		this.assistNodeParent = detector.getCompletionNodeParent();
-		if (this.assistNodeParent == null && node instanceof Statement)
+		if (this.assistNodeParent == null && node instanceof Statement && node != this.assistNode)
 			this.assistNodeParent = node;
 	}
 }
@@ -1977,15 +1981,17 @@ private boolean checkLabelStatement() {
 		System.arraycopy(labels, 0, labels = new char[labelCount][], 0, labelCount);
 
 		long position = this.identifierPositionStack[this.identifierPtr];
-		CompletionOnBranchStatementLabel statementLabel =
-			new CompletionOnBranchStatementLabel(
-					kind == K_INSIDE_BREAK_STATEMENT ? CompletionOnBranchStatementLabel.BREAK : CompletionOnBranchStatementLabel.CONTINUE,
-					this.identifierStack[this.identifierPtr--],
-					(int) (position >>> 32),
-					(int)position,
-					labels);
-
-		this.assistNode = statementLabel;
+		this.assistNode = kind == K_INSIDE_BREAK_STATEMENT
+				? new CompletionOnBreakStatement(
+						this.identifierStack[this.identifierPtr--],
+						(int) (position >>> 32),
+						(int)position,
+						labels)
+				: new CompletionOnContinueStatement(
+						this.identifierStack[this.identifierPtr--],
+						(int) (position >>> 32),
+						(int)position,
+						labels);
 		this.lastCheckPoint = this.assistNode.sourceEnd + 1;
 		this.isOrphanCompletionNode = true;
 		return true;
@@ -4011,19 +4017,27 @@ protected void consumeSwitchLabeledBlock() {
 @Override
 protected int fetchNextToken() throws InvalidInputException {
 	int token = this.scanner.getNextToken();
-	if (!this.diet && token != TerminalTokens.TokenNameEOF) {
-		if (this.scanner.currentPosition > this.cursorLocation
-				&& this.expressionPtr <= -1
-				&& !requireExtendedRecovery())
-		{
-			this.scanner.eofPosition = this.cursorLocation + 1; // revert to old strategy where we stop parsing right at the cursor
-
-			// stop immediately or deferred?
-			if (topKnownElementKind(COMPLETION_OR_ASSIST_PARSER) == K_BLOCK_DELIMITER	// -> not within a complex structure?
-					&& this.scanner.startPosition > this.cursorLocation + 1				// -> is current token entirely beyond cursorLocation?
-					&& this.currentElement == null)										// -> clean slate?
+	if (token != TerminalTokens.TokenNameEOF && this.scanner.currentPosition > this.cursorLocation) {
+		if (!this.diet || this.dietInt != 0) { // do this also when parsing field initializers:
+			if (this.currentToken == TerminalTokens.TokenNameIdentifier
+					&& this.identifierStack[this.identifierPtr].length == 0
+					&& Scanner.isLiteral(token))
 			{
-					return TerminalTokens.TokenNameEOF; // no need to look further
+				// <emptyAssistIdentifier> <someLiteral> is illegal and most likely the literal should be replaced => discard it now
+				return fetchNextToken();
+			}
+		}
+		if (!this.diet) { // only when parsing a method body:
+			if (this.expressionPtr <= -1 && !requireExtendedRecovery()) {
+				this.scanner.eofPosition = this.cursorLocation + 1; // revert to old strategy where we stop parsing right at the cursor
+
+				// stop immediately or deferred?
+				if (topKnownElementKind(COMPLETION_OR_ASSIST_PARSER) == K_BLOCK_DELIMITER	// -> not within a complex structure?
+						&& this.scanner.startPosition > this.cursorLocation + 1				// -> is current token entirely beyond cursorLocation?
+						&& this.currentElement == null)										// -> clean slate?
+				{
+						return TerminalTokens.TokenNameEOF; // no need to look further
+				}
 			}
 		}
 	}
@@ -5015,7 +5029,7 @@ private TypeReference checkAndCreateModuleQualifiedAssistTypeReference(char[][] 
 		if (isAfterWithClause()) return new CompletionOnProvidesImplementationsQualifiedTypeReference(previousIdentifiers, assistName, positions);
 		return new CompletionOnProvidesInterfacesQualifiedTypeReference(previousIdentifiers, assistName, positions);
 	}
-	return new CompletionOnQualifiedTypeReference(previousIdentifiers,	assistName,	positions);
+	return null;
 }
 @Override
 public TypeReference createQualifiedAssistTypeReference(char[][] previousIdentifiers, char[] assistName, long[] positions){
@@ -5041,10 +5055,14 @@ public TypeReference createQualifiedAssistTypeReference(char[][] previousIdentif
 					positions,
 					CompletionOnQualifiedTypeReference.K_INTERFACE);
 		default :
-			return checkAndCreateModuleQualifiedAssistTypeReference(
+			TypeReference ref = checkAndCreateModuleQualifiedAssistTypeReference(
 					previousIdentifiers,
 					assistName,
 					positions);
+			if (ref != null)
+				return ref;
+			return new CompletionOnQualifiedTypeReference(previousIdentifiers, assistName, positions,
+					CompletionOnQualifiedTypeReference.K_TYPE, this.currentToken);
 	}
 }
 @Override
@@ -5119,120 +5137,123 @@ public NameReference createSingleAssistNameReference(char[] assistName, long pos
 			&& topKnownElementInfo(COMPLETION_OR_ASSIST_PARSER) == SWITCH) {
 			return new CompletionOnKeyword3(assistName, position, new char[][]{Keywords.CASE, Keywords.DEFAULT}, false);
 		} else {
-			char[][] keywords = new char[Keywords.COUNT][];
-			int count = 0;
-
-			if((this.lastModifiers & ClassFileConstants.AccStatic) == 0) {
-				keywords[count++]= Keywords.SUPER;
-				keywords[count++]= Keywords.THIS;
-			}
-			keywords[count++]= Keywords.NEW;
-			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=269493: Keywords are not proposed in a for
-			// loop without block. Completion while at K_CONTROL_STATEMENT_DELIMITER case needs to handled
-			// similar to the K_BLOCK_DELIMITER with minor differences.
-			if(kind == K_BLOCK_DELIMITER || kind == K_CONTROL_STATEMENT_DELIMITER || kind == K_LAMBDA_EXPRESSION_DELIMITER
-					|| kind == K_SWITCH_EXPRESSION_DELIMITTER) {
-				if(this.canBeExplicitConstructor == YES) {
-					canBeExplicitConstructorCall = true;
-				}
-				if (this.options.complianceLevel >= ClassFileConstants.JDK1_4) {
-					keywords[count++]= Keywords.ASSERT;
-				}
-				keywords[count++]= Keywords.DO;
-				keywords[count++]= Keywords.FOR;
-				keywords[count++]= Keywords.IF;
-				keywords[count++]= Keywords.RETURN;
-				keywords[count++]= Keywords.SWITCH;
-				keywords[count++]= Keywords.SYNCHRONIZED;
-				keywords[count++]= Keywords.THROW;
-				keywords[count++]= Keywords.TRY;
-				keywords[count++]= Keywords.WHILE;
-
-				keywords[count++]= Keywords.FINAL;
-				keywords[count++]= Keywords.CLASS;
-				if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
-					keywords[count++]= Keywords.VAR;
-				}
-				if (this.options.complianceLevel >= ClassFileConstants.JDK16) {
-					keywords[count++]= Keywords.INTERFACE;
-					keywords[count++]= Keywords.ENUM;
-				}
-
-				if(this.previousKind == K_BLOCK_DELIMITER) {
-					switch (this.previousInfo) {
-						case IF :
-							keywords[count++]= Keywords.ELSE;
-							break;
-						case CATCH :
-							keywords[count++]= Keywords.CATCH;
-							keywords[count++]= Keywords.FINALLY;
-							break;
-					}
-				} else if(this.previousKind == K_CONTROL_STATEMENT_DELIMITER && this.previousInfo == IF) {
-					keywords[count++]= Keywords.ELSE;
-				}
-				if(isInsideLoop()) {
-					keywords[count++]= Keywords.CONTINUE;
-				}
-				if(isInsideBreakable()) {
-					keywords[count++]= Keywords.BREAK;
-				}
-				if(isInsideSwitch()) {
-					keywords[count++]= Keywords.YIELD;
-				}
-			} else if (kind == K_BETWEEN_FOR_AND_RIGHT_PAREN) {
-				if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
-					keywords[count++]= Keywords.VAR;
-				}
-			} else if(kind != K_BETWEEN_CASE_AND_COLON && kind != K_BETWEEN_DEFAULT_AND_COLON) {
-				if (kind == K_LOCAL_INITIALIZER_DELIMITER && this.options.complianceLevel >= ClassFileConstants.JDK11) {
-					keywords[count++]= Keywords.VAR;
-				}
-				if (kind == K_SELECTOR_QUALIFIER && this.options.complianceLevel >= ClassFileConstants.JDK12) {
-					keywords[count++] = Keywords.SWITCH;
-				}
-				keywords[count++]= Keywords.TRUE;
-				keywords[count++]= Keywords.FALSE;
-				keywords[count++]= Keywords.NULL;
-				if (kind == K_YIELD_KEYWORD) {
-					keywords[count++]= Keywords.YIELD;
-				}
-				if(kind == K_SWITCH_LABEL) {
-					if(topKnownElementInfo(COMPLETION_OR_ASSIST_PARSER) != DEFAULT) {
-						keywords[count++]= Keywords.DEFAULT;
-					}
-					keywords[count++]= Keywords.BREAK;
-					keywords[count++]= Keywords.CASE;
-					keywords[count++]= Keywords.YIELD;
-					if (this.options.complianceLevel >= ClassFileConstants.JDK1_4) {
-						keywords[count++]= Keywords.ASSERT;
-					}
-					keywords[count++]= Keywords.DO;
-					keywords[count++]= Keywords.FOR;
-					keywords[count++]= Keywords.IF;
-					keywords[count++]= Keywords.RETURN;
-					keywords[count++]= Keywords.SWITCH;
-					keywords[count++]= Keywords.SYNCHRONIZED;
-					keywords[count++]= Keywords.THROW;
-					keywords[count++]= Keywords.TRY;
-					keywords[count++]= Keywords.WHILE;
-
-					keywords[count++]= Keywords.FINAL;
-					keywords[count++]= Keywords.CLASS;
-
-					if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
-						keywords[count++]= Keywords.VAR;
-					}
-					if(isInsideLoop()) {
-						keywords[count++]= Keywords.CONTINUE;
-					}
-				}
-			}
-			System.arraycopy(keywords, 0 , keywords = new char[count][], 0, count);
-
+			List<char[]> keywordsList = new ArrayList<>(Keywords.COUNT);
+			canBeExplicitConstructorCall = computeKeywords(kind, keywordsList);
+			char[][] keywords = keywordsList.toArray(char[][]::new);
 			return new CompletionOnSingleNameReference(assistName, position, keywords, canBeExplicitConstructorCall, isInsideAttributeValue());
 		}
 	}
+}
+boolean computeKeywords(int kind, List<char[]> keywords) {
+	boolean canBeExplicitConstructorCall = false;
+
+	if((this.lastModifiers & ClassFileConstants.AccStatic) == 0) {
+		keywords.add(Keywords.SUPER);
+		keywords.add(Keywords.THIS);
+	}
+	keywords.add(Keywords.NEW);
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=269493: Keywords are not proposed in a for
+	// loop without block. Completion while at K_CONTROL_STATEMENT_DELIMITER case needs to handled
+	// similar to the K_BLOCK_DELIMITER with minor differences.
+	if(kind == K_BLOCK_DELIMITER || kind == K_CONTROL_STATEMENT_DELIMITER || kind == K_LAMBDA_EXPRESSION_DELIMITER
+			|| kind == K_SWITCH_EXPRESSION_DELIMITTER) {
+		if(this.canBeExplicitConstructor == YES) {
+			canBeExplicitConstructorCall = true;
+		}
+		if (this.options.complianceLevel >= ClassFileConstants.JDK1_4) {
+			keywords.add(Keywords.ASSERT);
+		}
+		keywords.add(Keywords.DO);
+		keywords.add(Keywords.FOR);
+		keywords.add(Keywords.IF);
+		keywords.add(Keywords.RETURN);
+		keywords.add(Keywords.SWITCH);
+		keywords.add(Keywords.SYNCHRONIZED);
+		keywords.add(Keywords.THROW);
+		keywords.add(Keywords.TRY);
+		keywords.add(Keywords.WHILE);
+
+		keywords.add(Keywords.FINAL);
+		keywords.add(Keywords.CLASS);
+		if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
+			keywords.add(Keywords.VAR);
+		}
+		if (this.options.complianceLevel >= ClassFileConstants.JDK16) {
+			keywords.add(Keywords.INTERFACE);
+			keywords.add(Keywords.ENUM);
+		}
+
+		if(this.previousKind == K_BLOCK_DELIMITER) {
+			switch (this.previousInfo) {
+				case IF :
+					keywords.add(Keywords.ELSE);
+					break;
+				case CATCH :
+					keywords.add(Keywords.CATCH);
+					keywords.add(Keywords.FINALLY);
+					break;
+			}
+		} else if(this.previousKind == K_CONTROL_STATEMENT_DELIMITER && this.previousInfo == IF) {
+			keywords.add(Keywords.ELSE);
+		}
+		if(isInsideLoop()) {
+			keywords.add(Keywords.CONTINUE);
+		}
+		if(isInsideBreakable()) {
+			keywords.add(Keywords.BREAK);
+		}
+		if(isInsideSwitch()) {
+			keywords.add(Keywords.YIELD);
+		}
+	} else if (kind == K_BETWEEN_FOR_AND_RIGHT_PAREN) {
+		if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
+			keywords.add(Keywords.VAR);
+		}
+	} else if(kind != K_BETWEEN_CASE_AND_COLON && kind != K_BETWEEN_DEFAULT_AND_COLON) {
+		if (kind == K_LOCAL_INITIALIZER_DELIMITER && this.options.complianceLevel >= ClassFileConstants.JDK11) {
+			keywords.add(Keywords.VAR);
+		}
+		if (kind == K_SELECTOR_QUALIFIER && this.options.complianceLevel >= ClassFileConstants.JDK12) {
+			keywords.add(Keywords.SWITCH);
+		}
+		keywords.add(Keywords.TRUE);
+		keywords.add(Keywords.FALSE);
+		keywords.add(Keywords.NULL);
+		if (kind == K_YIELD_KEYWORD) {
+			keywords.add(Keywords.YIELD);
+		}
+		if(kind == K_SWITCH_LABEL) {
+			if(topKnownElementInfo(COMPLETION_OR_ASSIST_PARSER) != DEFAULT) {
+				keywords.add(Keywords.DEFAULT);
+			}
+			keywords.add(Keywords.BREAK);
+			keywords.add(Keywords.CASE);
+			keywords.add(Keywords.YIELD);
+			if (this.options.complianceLevel >= ClassFileConstants.JDK1_4) {
+				keywords.add(Keywords.ASSERT);
+			}
+			keywords.add(Keywords.DO);
+			keywords.add(Keywords.FOR);
+			keywords.add(Keywords.IF);
+			keywords.add(Keywords.RETURN);
+			keywords.add(Keywords.SWITCH);
+			keywords.add(Keywords.SYNCHRONIZED);
+			keywords.add(Keywords.THROW);
+			keywords.add(Keywords.TRY);
+			keywords.add(Keywords.WHILE);
+
+			keywords.add(Keywords.FINAL);
+			keywords.add(Keywords.CLASS);
+
+			if (this.options.complianceLevel >= ClassFileConstants.JDK10) {
+				keywords.add(Keywords.VAR);
+			}
+			if(isInsideLoop()) {
+				keywords.add(Keywords.CONTINUE);
+			}
+		}
+	}
+	return canBeExplicitConstructorCall;
 }
 private TypeReference checkAndCreateModuleSingleAssistTypeReference(char[] assistName, long position) {
 	if (isInUsesStatement()) return new CompletionOnUsesSingleTypeReference(assistName, position);
@@ -5240,7 +5261,9 @@ private TypeReference checkAndCreateModuleSingleAssistTypeReference(char[] assis
 		if (isAfterWithClause()) return new CompletionOnProvidesImplementationsSingleTypeReference(assistName, position);
 		return new CompletionOnProvidesInterfacesSingleTypeReference(assistName, position);
 	}
-	return new CompletionOnSingleTypeReference(assistName,position);
+	List<char[]> keywords = new ArrayList<>(Keywords.COUNT);
+	boolean canBeCtorCall = computeKeywords(topKnownElementKind(COMPLETION_OR_ASSIST_PARSER), keywords);
+	return new CompletionOnSingleTypeReference(assistName,position, keywords.toArray(char[][]::new), canBeCtorCall);
 }
 @Override
 public TypeReference createSingleAssistTypeReference(char[] assistName, long position) {
@@ -5405,7 +5428,7 @@ protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
 		char[] token = this.identifierStack[this.identifierPtr];
 		long position = this.identifierPositionStack[this.identifierPtr--];
 		int start = (int) (position >>> 32), end = (int) position;
-		if (this.assistNode == null && start < this.cursorLocation && end >= this.cursorLocation) {
+		if (this.assistNode == null && start <= this.cursorLocation && end >= this.cursorLocation) {
 			ref = new CompletionOnSingleNameReference(token, position, isInsideAttributeValue());
 			this.assistNode = ref;
 		} else {
@@ -5419,7 +5442,7 @@ protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
 		long[] positions = new long[length];
 		System.arraycopy(this.identifierPositionStack, this.identifierPtr + 1, positions, 0, length);
 		int start = (int) (positions[0] >>> 32), end = (int) positions[length-1];
-		if (this.assistNode == null && start < this.cursorLocation && end >= this.cursorLocation) {
+		if (this.assistNode == null && start <= this.cursorLocation && end >= this.cursorLocation) {
 			// find the token at cursorLocation:
 			int previousCount = 0;
 			for (int i=0; i<length; i++) {
@@ -5447,6 +5470,14 @@ protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
 		recordReference(ref);
 	}
 	return ref;
+}
+@Override
+protected void updateSourcePosition(Expression exp) {
+	// handles total positions of parenthesized expressions, but don't extend position of the assist node:
+	if (exp == this.assistNode)
+		this.intPtr -= 2;
+	else
+		super.updateSourcePosition(exp);
 }
 @Override
 protected void consumePostfixExpression() {
@@ -6112,7 +6143,6 @@ protected void updateRecoveryState() {
 
 	recoveryExitFromVariable();
 }
-
 @Override
 protected CompilationUnitDeclaration endParse(int act) {
 	CompilationUnitDeclaration cud = super.endParse(act);
@@ -6132,10 +6162,23 @@ protected CompilationUnitDeclaration endParse(int act) {
 				statement = (Statement) this.assistNode;
 			}
 			AbstractMethodDeclaration method = (AbstractMethodDeclaration) this.referenceContext;
-			if (statement != null && isInsideBody(statement, method)) {
+			if (statement != null && isInsideBody(statement, method)
+					&& this.assistNode != null && !CompletionNodeDetector.findAny(cud, this.assistNode))
+			{
 				// automaton ended right before transferring statements into the method?
 				if (method.statements == null) {
 					method.statements = new Statement[] { statement };
+				} else if (this.currentElement != null) {
+					// or before transferring statements into a nested recovered element?
+					this.currentElement.add(statement, 0);
+					RecoveredElement element = this.currentElement;
+					while (element != null) {
+						if (element instanceof RecoveredMethod && ((RecoveredMethod) element).methodDeclaration == method) {
+							element.updateParseTree();
+							break;
+						}
+						element = element.parent;
+					}
 				}
 			}
 		}

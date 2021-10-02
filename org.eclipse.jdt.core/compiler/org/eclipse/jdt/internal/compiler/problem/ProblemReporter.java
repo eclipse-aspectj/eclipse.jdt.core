@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Benjamin Muskalla - Contribution for bug 239066
@@ -473,6 +469,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.RedundantNullCheckOnConstNonNullField:
 		case IProblem.ConstNonNullFieldComparisonYieldsFalse:
 		case IProblem.FieldComparisonYieldsFalse:
+		case IProblem.UnnecessaryNullCaseInSwitchOverNonNull:
 			return CompilerOptions.RedundantNullCheck;
 
 		case IProblem.RequiredNonNullButProvidedNull:
@@ -2042,7 +2039,7 @@ public void duplicateBounds(ASTNode location, TypeBinding type) {
 		location.sourceStart,
 		location.sourceEnd);
 }
-public void duplicateCase(CaseStatement caseStatement) {
+public void duplicateCase(Statement caseStatement) {
 	this.handle(
 		IProblem.DuplicateCase,
 		NoArgument,
@@ -6347,6 +6344,9 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 	this.handle(problemId, arguments, arguments, start, end);
 	return true;
 }
+public void unnecessaryNullCaseInSwitchOverNonNull(CaseStatement caseStmt) {
+	this.handle(IProblem.UnnecessaryNullCaseInSwitchOverNonNull, NoArgument, NoArgument, caseStmt.sourceStart, caseStmt.sourceEnd);
+}
 public void nullAnnotationUnsupportedLocation(Annotation annotation) {
 	String[] arguments = new String[] {
 		String.valueOf(annotation.resolvedType.readableName())
@@ -7285,7 +7285,7 @@ public void notCompatibleTypesError(EqualExpression expression, TypeBinding left
 		expression.sourceStart,
 		expression.sourceEnd);
 }
-public void notCompatibleTypesError(InstanceOfExpression expression, TypeBinding leftType, TypeBinding rightType) {
+public void notCompatibleTypesError(Expression expression, TypeBinding leftType, TypeBinding rightType) {
 	String leftName = new String(leftType.readableName());
 	String rightName = new String(rightType.readableName());
 	String leftShortName = new String(leftType.shortReadableName());
@@ -12241,34 +12241,17 @@ public void StrictfpNotRequired(int sourceStart, int sourceEnd) {
 			NoArgument, NoArgument,
 			sourceStart, sourceEnd);
 }
-public void switchPatternConstantCaseLabelIncompatible(Expression element, TypeBinding selectorType) {
-	String name = new String(selectorType.shortReadableName());
-	this.handle(
-			IProblem.SwitchPatternConstantCaseLabelIncompatible,
-			new String[] {name},
-			new String[] {name},
-			element.sourceStart,
-			element.sourceEnd);
-}
-public void switchPatternConstantWithPatternIncompatible(Expression element) {
-	this.handle(
-			IProblem.SwitchPatternConstantWithPatternIncompatible,
-			NoArgument,
-			NoArgument,
-			element.sourceStart,
-			element.sourceEnd);
-}
-public void IllegalFallThroughToPattern(CaseStatement caseStatement) {
+public void IllegalFallThroughToPattern(Statement statement) {
 	this.handle(
 		IProblem.IllegalFallthroughToPattern,
 		NoArgument,
 		NoArgument,
-		caseStatement.sourceStart,
-		caseStatement.sourceEnd);
+		statement.sourceStart,
+		statement.sourceEnd);
 	}
 public void switchPatternOnlyOnePatternCaseLabelAllowed(Expression element) {
 	this.handle(
-			IProblem.SwitchPatternOnlyOnePatternCaseLabelAllowed,
+			IProblem.OnlyOnePatternCaseLabelAllowed,
 			NoArgument,
 			NoArgument,
 			element.sourceStart,
@@ -12276,7 +12259,7 @@ public void switchPatternOnlyOnePatternCaseLabelAllowed(Expression element) {
 }
 public void switchPatternBothPatternAndDefaultCaseLabelsNotAllowed(Expression element) {
 	this.handle(
-			IProblem.SwitchPatternBothPatternAndDefaultCaseLabelsNotAllowed,
+			IProblem.CannotMixPatternAndDefault,
 			NoArgument,
 			NoArgument,
 			element.sourceStart,
@@ -12284,10 +12267,51 @@ public void switchPatternBothPatternAndDefaultCaseLabelsNotAllowed(Expression el
 }
 public void switchPatternBothNullAndNonTypePatternNotAllowed(Expression element) {
 	this.handle(
-			IProblem.SwitchPatternBothNullAndNonTypePatternNotAllowed,
+			IProblem.CannotMixNullAndNonTypePattern,
 			NoArgument,
 			NoArgument,
 			element.sourceStart,
 			element.sourceEnd);
 }
+public void patternDominatedByAnother(Expression element) {
+	this.handle(
+			IProblem.PatternDominated,
+			NoArgument,
+			NoArgument,
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void illegalTotalPatternWithDefault(Statement element) {
+	this.handle(
+			IProblem.IllegalTotalPatternWithDefault,
+			NoArgument,
+			NoArgument,
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void enhancedSwitchMissingDefaultCase(ASTNode element) {
+	this.handle(
+			IProblem.EnhancedSwitchMissingDefault,
+			NoArgument,
+			NoArgument,
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void duplicateTotalPattern(ASTNode element) {
+	this.handle(
+			IProblem.DuplicateTotalPattern,
+			NoArgument,
+			NoArgument,
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void unexpectedTypeinSwitchPattern(TypeBinding type, ASTNode element) {
+	this.handle(
+			IProblem.UnexpectedTypeinSwitchPattern,
+			new String[] {new String(type.readableName())},
+			new String[] {new String(type.shortReadableName())},
+			element.sourceStart,
+			element.sourceEnd);
+}
+
 }

@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -69,6 +65,8 @@ public class DOMASTUtil {
 			case ASTNode.RECORD_DECLARATION:
 			case ASTNode.PATTERN_INSTANCEOF_EXPRESSION:
 				return apiLevel >= AST.JLS16;
+			case ASTNode.TYPE_PATTERN:
+				return apiLevel == AST.getJLSLatest() && previewEnabled;
 		}
 		return false;
 	}
@@ -135,7 +133,7 @@ public class DOMASTUtil {
 	 * @return <code>true</code> if the given <code>AST</code> supports the provided <code>nodeType</code> else
 	 *         <code>false</code>
 	 * @see ASTNode#getNodeType()
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	public static boolean isFeatureSupportedinAST(int apiLevel, int featureName) {
 		switch (featureName) {
@@ -175,6 +173,14 @@ public class DOMASTUtil {
 		return isNodeTypeSupportedinAST(ast, ASTNode.PATTERN_INSTANCEOF_EXPRESSION);
 	}
 
+	public static boolean isPatternSupported(AST ast) {
+		return isNodeTypeSupportedinAST(ast, ASTNode.TYPE_PATTERN);
+	}
+
+	public static boolean isPatternSupported(int apiLevel, boolean previewEnabled) {
+		return isNodeTypeSupportedinAST(apiLevel, previewEnabled, ASTNode.TYPE_PATTERN);
+	}
+
 	@SuppressWarnings("deprecation")
 	public static void checkASTLevel(int level) {
 		// Clients can use AST.getJLSLatest()
@@ -191,7 +197,7 @@ public class DOMASTUtil {
 
 	private static final String[] AST_COMPLIANCE_MAP = {"-1","-1",JavaCore.VERSION_1_2, JavaCore.VERSION_1_3, JavaCore.VERSION_1_7, //$NON-NLS-1$ //$NON-NLS-2$
 			JavaCore.VERSION_1_7, JavaCore.VERSION_1_7, JavaCore.VERSION_1_7, JavaCore.VERSION_1_8, JavaCore.VERSION_9, JavaCore.VERSION_10,
-			JavaCore.VERSION_11, JavaCore.VERSION_12, JavaCore.VERSION_13, JavaCore.VERSION_14, JavaCore.VERSION_15, JavaCore.VERSION_16};
+			JavaCore.VERSION_11, JavaCore.VERSION_12, JavaCore.VERSION_13, JavaCore.VERSION_14, JavaCore.VERSION_15, JavaCore.VERSION_16, JavaCore.VERSION_17};
 
 	/**
 	 * Calculates the JavaCore Option value string corresponding to the input ast level.

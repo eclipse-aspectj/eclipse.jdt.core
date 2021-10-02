@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     IBM Corporation - added the following constants
@@ -1612,7 +1608,7 @@ void setSourceStart(int sourceStart);
 
 	/**
 	 * Modifiers
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	int StrictfpNotRequired = Syntax + Internal + 741;
 
@@ -2494,29 +2490,45 @@ void setSourceStart(int sourceStart);
 	/* Java15 errors - end */
 
 	/**
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 * @noreference preview feature error
 	 */
 	int LocalReferencedInGuardMustBeEffectivelyFinal = PreviewRelated + 1900;
-	/** @since 3.27 BETA_JAVA17
+	/** @since 3.27
 	 * @noreference preview feature error */
-	int SwitchPatternConstantCaseLabelIncompatible = PreviewRelated + 1901;
-	/** @since 3.27 BETA_JAVA17
-	 * @noreference preview feature error */
-	int SwitchPatternConstantWithPatternIncompatible = PreviewRelated + 1902;
+	int ConstantWithPatternIncompatible = PreviewRelated + 1901;
 	/**
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 * @noreference preview feature error
 	 */
-	int IllegalFallthroughToPattern = PreviewRelated + 1903;
+	int IllegalFallthroughToPattern = PreviewRelated + 1902;
 
-	/** @since 3.27 BETA_JAVA17
+	/** @since 3.27
 	 * @noreference preview feature error */
-	int SwitchPatternOnlyOnePatternCaseLabelAllowed = PreviewRelated + 1904;
-	/** @since 3.27 BETA_JAVA17
+	int OnlyOnePatternCaseLabelAllowed = PreviewRelated + 1903;
+	/** @since 3.27
 	 * @noreference preview feature error */
-	int SwitchPatternBothPatternAndDefaultCaseLabelsNotAllowed = PreviewRelated + 1905;
-	/** @since 3.27 BETA_JAVA17
+	int CannotMixPatternAndDefault = PreviewRelated + 1904;
+	/** @since 3.27
 	 * @noreference preview feature error */
-	int SwitchPatternBothNullAndNonTypePatternNotAllowed = PreviewRelated + 1906;
+	int CannotMixNullAndNonTypePattern = PreviewRelated + 1905;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int PatternDominated = PreviewRelated + 1906;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int IllegalTotalPatternWithDefault = PreviewRelated + 1907;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int EnhancedSwitchMissingDefault = PreviewRelated + 1908;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int DuplicateTotalPattern = PreviewRelated + 1909;
+
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int UnnecessaryNullCaseInSwitchOverNonNull = PreviewRelated + 1910;
+	/** @since 3.27
+	 * @noreference preview feature error */
+	int UnexpectedTypeinSwitchPattern = PreviewRelated + 1911;
 }

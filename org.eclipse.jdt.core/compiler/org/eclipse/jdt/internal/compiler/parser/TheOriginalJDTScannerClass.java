@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1473,11 +1473,11 @@ public int getNextToken() throws InvalidInputException {
 		return token;
 	}
 	if (token == TokenNameLPAREN || token == TokenNameLESS || token == TokenNameAT || token == TokenNameARROW) {
-		token = disambiguatedToken(token);
+		token = disambiguatedToken(token, this);
 	} else if (token == TokenNameELLIPSIS) {
 		this.consumingEllipsisAnnotations = false;
 	} else if (mayBeAtCasePattern(token)) {
-		token = disambiguateCasePattern(token);
+		token = disambiguateCasePattern(token, this);
 	}
 	this.lookBack[0] = this.lookBack[1];
 	this.lookBack[1] = token;
@@ -4970,10 +4970,12 @@ private static final class VanguardScanner extends Scanner {
 			if (isRestrictedKeyword(token))
 				token = disambiguatedRestrictedKeyword(token);
 			updateScanContext(token);
-		}
+		} else if (mayBeAtCasePattern(token)) {
+			token = disambiguateCasePattern(token, this);
+		} else
 		if (token == TokenNameAT && atTypeAnnotation()) {
 			if (((VanguardParser) this.activeParser).currentGoal == Goal.LambdaParameterListGoal) {
-				token = disambiguatedToken(token);
+				token = disambiguatedToken(token, this);
 			} else {
 				token = TokenNameAT308;
 			}
@@ -5059,6 +5061,9 @@ private static class Goal {
 				patternStates.add(i);
 			else
 			if ("Pattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
+				patternStates.add(i);
+			else
+			if ("ParenthesizedPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
 		}
 		RestrictedIdentifierSealedRule = ridSealed.stream().mapToInt(Integer :: intValue).toArray(); // overkill but future-proof
@@ -5645,43 +5650,43 @@ private VanguardParser getNewVanguardParser(char[] src) {
 	vs.setActiveParser(vp);
 	return vp;
 }
-int disambiguatedToken(int token) {
+int disambiguatedToken(int token, Scanner scanner) {
 	final VanguardParser parser = getVanguardParser();
-	if (token == TokenNameARROW  &&  mayBeAtCaseLabelExpr() &&  this.caseStartPosition < this.startPosition) {
+	if (token == TokenNameARROW  &&  mayBeAtCaseLabelExpr() &&  scanner.caseStartPosition < scanner.startPosition) {
 		// this.caseStartPosition > this.startPositionpossible on recovery - bother only about correct ones.
-		int nSz = this.startPosition - this.caseStartPosition;
+		int nSz = scanner.startPosition - scanner.caseStartPosition;
 		// add fake token of TokenNameCOLON, call vanguard on this modified source
 		// TODO: Inefficient method due to redoing of the same source, investigate alternate
 		// Can we do a dup of parsing/check the transition of the state?
-		String s = new String(this.source, this.caseStartPosition, nSz);
+		String s = new String(scanner.source, scanner.caseStartPosition, nSz);
 		String modSource = s.concat(new String(new char[] {':'}));
 		char[] nSource = modSource.toCharArray();
 		VanguardParser vp = getNewVanguardParser(nSource);
 		if (vp.parse(Goal.SwitchLabelCaseLhsGoal) == VanguardParser.SUCCESS) {
-			this.nextToken = TokenNameARROW;
+			scanner.nextToken = TokenNameARROW;
 			return TokenNameBeginCaseExpr;
 		}
 	} else	if (token == TokenNameLPAREN  && maybeAtLambdaOrCast()) {
 		if (parser.parse(Goal.LambdaParameterListGoal) == VanguardParser.SUCCESS) {
-			this.nextToken = TokenNameLPAREN;
+			scanner.nextToken = TokenNameLPAREN;
 			return TokenNameBeginLambda;
 		}
-		this.vanguardScanner.resetTo(this.startPosition, this.eofPosition - 1);
+		scanner.vanguardScanner.resetTo(scanner.startPosition, scanner.eofPosition - 1);
 		if (parser.parse(Goal.IntersectionCastGoal) == VanguardParser.SUCCESS) {
-			this.nextToken = TokenNameLPAREN;
+			scanner.nextToken = TokenNameLPAREN;
 			return TokenNameBeginIntersectionCast;
 		}
 	} else if (token == TokenNameLESS && maybeAtReferenceExpression()) {
 		if (parser.parse(Goal.ReferenceExpressionGoal) == VanguardParser.SUCCESS) {
-			this.nextToken = TokenNameLESS;
+			scanner.nextToken = TokenNameLESS;
 			return TokenNameBeginTypeArguments;
 		}
 	} else if (token == TokenNameAT && atTypeAnnotation()) {
 		token = TokenNameAT308;
 		if (maybeAtEllipsisAnnotationsStart()) {
 			if (parser.parse(Goal.VarargTypeAnnotationGoal) == VanguardParser.SUCCESS) {
-				this.consumingEllipsisAnnotations = true;
-				this.nextToken = TokenNameAT308;
+				scanner.consumingEllipsisAnnotations = true;
+				scanner.nextToken = TokenNameAT308;
 				return TokenNameAT308DOTDOTDOT;
 			}
 		}
@@ -5691,16 +5696,16 @@ int disambiguatedToken(int token) {
 /*
  * Assumption: mayBeAtCasePattern(token) is true before calling this method.
  */
-int disambiguateCasePattern(int token) {
+int disambiguateCasePattern(int token, Scanner scanner) {
 	assert mayBeAtCasePattern(token);
 	int delta = token == TokenNamecase ? 4 : 0; // 4 for case.
 	final VanguardParser parser = getNewVanguardParser();
 	parser.scanner.resetTo(parser.scanner.currentPosition + delta, parser.scanner.eofPosition);
 	if (parser.parse(Goal.PatternGoal) == VanguardParser.SUCCESS) {
 		if (token == TokenNamecase) {
-			this.nextToken = TokenNameBeginCaseElement;
+			scanner.nextToken = TokenNameBeginCaseElement;
 		} else {
-			this.nextToken = token;
+			scanner.nextToken = token;
 			token = TokenNameBeginCaseElement;
 		}
 	}

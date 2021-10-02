@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -24,6 +20,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public class TypePattern extends Pattern {
@@ -48,10 +45,30 @@ public class TypePattern extends Pattern {
 			}
 		}
 	}
+	@Override
+	public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding expressionType, TypeBinding match, boolean isNarrowing) {
+		if (!castType.isReifiable())
+			return CastExpression.checkUnsafeCast(this, scope, castType, expressionType, match, isNarrowing);
+		else
+			return super.checkUnsafeCast(scope, castType, expressionType, match, isNarrowing);
+	}
 
 	@Override
 	public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 		flowInfo.markAsDefinitelyAssigned(this.local.binding);
+		if (!this.isTotalTypeNode) {
+			// non-total type patterns create a nonnull local:
+			flowInfo.markAsDefinitelyNonNull(this.local.binding);
+		} else {
+			// total type patterns inherit the nullness of the value being switched over, unless ...
+			if (flowContext.associatedNode instanceof SwitchStatement) {
+				SwitchStatement swStmt = (SwitchStatement) flowContext.associatedNode;
+				int nullStatus = swStmt.containsNull
+						? FlowInfo.NON_NULL // ... null is handled in a separate case
+						: swStmt.expression.nullStatus(flowInfo, flowContext);
+				flowInfo.markNullStatus(this.local.binding, nullStatus);
+			}
+		}
 		return flowInfo;
 	}
 
@@ -59,7 +76,8 @@ public class TypePattern extends Pattern {
 	public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 		if (this.local != null) {
 			LocalVariableBinding localBinding = this.local.binding;
-			codeStream.checkcast(localBinding.type);
+			if (!this.isTotalTypeNode)
+				codeStream.checkcast(localBinding.type);
 			this.local.generateCode(currentScope, codeStream);
 			codeStream.store(localBinding, false);
 			localBinding.recordInitializationStartPC(codeStream.position);
@@ -75,12 +93,17 @@ public class TypePattern extends Pattern {
 	public void resolve(BlockScope scope) {
 		this.resolveType(scope);
 	}
-
 	@Override
-	public boolean isAnyPattern() {
-		// Not sufficient enough, but will do for the time being.
-		return this.local.type != null &&  (this.local.type.bits & IsVarArgs) != 0;
+	public boolean isTotalForType(TypeBinding type) {
+		if (type == null || this.resolvedType == null)
+			return false;
+		return (type.erasure().isSubtypeOf(this.resolvedType.erasure(), false));
 	}
+	@Override
+	public boolean dominates(Pattern p) {
+		return isTotalForType(p.resolvedType);
+	}
+
 	/*
 	 * A type pattern, p, declaring a pattern variable x of type T, that is total for U,
 	 * is resolved to an any pattern that declares x of type T;

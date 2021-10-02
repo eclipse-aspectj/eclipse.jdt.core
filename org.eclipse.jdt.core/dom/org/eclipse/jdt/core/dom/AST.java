@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -393,7 +389,7 @@ public class AST {
 	 * up to and including Java SE 17(aka JDK 17).
 	 * </p>
 	 *
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	public static final int JLS17 = 17;
 
@@ -1686,6 +1682,17 @@ public class AST {
 	}
 
 	/**
+	 * Creates and returns a new unparented default case expression node.
+	 *
+	 * @return a new unparented default case expression node
+	 * @since 3.27
+	 */
+	public CaseDefaultExpression newCaseDefaultExpression() {
+		CaseDefaultExpression result = new CaseDefaultExpression(this);
+		return result;
+	}
+
+	/**
 	 * Creates and returns a new unparented cast expression node
 	 * owned by this AST. By default, the type and expression are unspecified
 	 * (but legal).
@@ -1986,6 +1993,18 @@ public class AST {
 	 */
 	public ForStatement newForStatement() {
 		return new ForStatement(this);
+	}
+
+	/**
+	 * Creates and returns a new unparented guarded pattern node with an
+	 * unspecified pattern variable name and a null expression.
+	 *
+	 * @return a new unparented guarded pattern node
+	 * @since 3.27
+	 */
+	public GuardedPattern newGuardedPattern() {
+		GuardedPattern result = new GuardedPattern(this);
+		return result;
 	}
 
 	/**
@@ -2466,6 +2485,17 @@ public class AST {
 	 */
 	public NullLiteral newNullLiteral() {
 		return new NullLiteral(this);
+	}
+
+	/**
+	 * Creates and returns a new unparented null pattern node .
+	 *
+	 * @return a new unparented null pattern node
+	 * @since 3.27
+	 */
+	public NullPattern newNullPattern() {
+		NullPattern result = new NullPattern(this);
+		return result;
 	}
 
 	/**
@@ -3071,6 +3101,18 @@ public class AST {
 	 */
 	public TypeParameter newTypeParameter() {
 		TypeParameter result = new TypeParameter(this);
+		return result;
+	}
+
+	/**
+	 * Creates and returns a new unparented type pattern node with an
+	 * unspecified pattern variable.
+	 *
+	 * @return a new unparented type pattern node
+	 * @since 3.27
+	 */
+	public TypePattern newTypePattern() {
+		TypePattern result = new TypePattern(this);
 		return result;
 	}
 

@@ -7,10 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
@@ -142,6 +138,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		  suite.addTest(ASTRewritingMoveCodeTest.suite());
 		  suite.addTest(ASTRewritingStatementsTest.suite());
 		  suite.addTest(ASTRewritingSwitchExpressionsTest.suite());
+		  suite.addTest(ASTRewritingSwitchPatternTest.suite());
 
 		  suite.addTest(ASTRewritingTrackingTest.suite());
 		  suite.addTest(ASTRewritingJavadocTest.suite());
@@ -264,7 +261,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		if (this.apiLevel == AST_INTERNAL_JLS17 ) {
 			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_17);
 			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_17);
-			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_17);
 		}
 	}
 

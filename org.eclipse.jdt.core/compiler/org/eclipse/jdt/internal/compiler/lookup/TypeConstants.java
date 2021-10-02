@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
@@ -123,8 +119,7 @@ public interface TypeConstants {
     char[] YIELD = "yield".toCharArray(); //$NON-NLS-1$
 
     // JEP 286
-    String VAR_STRING = "var"; //$NON-NLS-1$
-	char[] VAR = VAR_STRING.toCharArray();
+	char[] VAR = "var".toCharArray(); //$NON-NLS-1$
     // JEP 359 Records
 	char[] RECORD_RESTRICTED_IDENTIFIER = "record".toCharArray(); //$NON-NLS-1$
 	char[] RECORD_CLASS = "Record".toCharArray(); //$NON-NLS-1$

@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - Contributions for
@@ -60,6 +56,7 @@ import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.AnnotationMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ArrayInitializer;
+import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
 import org.eclipse.jdt.internal.compiler.ast.ClassLiteralAccess;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ExportsStatement;
@@ -80,6 +77,7 @@ import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.RequiresStatement;
 import org.eclipse.jdt.internal.compiler.ast.SingleMemberAnnotation;
 import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
+import org.eclipse.jdt.internal.compiler.ast.StringLiteral;
 import org.eclipse.jdt.internal.compiler.ast.SwitchStatement;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
@@ -3882,16 +3880,29 @@ public class ClassFile implements TypeConstants, TypeIds {
 
 		// u2 num_bootstrap_arguments
 		int numArgsLocation = localContentsOffset;
-		int numArgs = switchStatement.caseLabelElementTypes.size();
+		CaseStatement.ResolvedCase[] constants = switchStatement.otherConstants;
+		int numArgs = constants.length;
 		this.contents[numArgsLocation++] = (byte) (numArgs >> 8);
 		this.contents[numArgsLocation] = (byte) numArgs;
 		localContentsOffset += 2;
 
-		for (TypeBinding type : switchStatement.caseLabelElementTypes) {
-			char[] typeName = type.constantPoolName();
-			int typeIndex = this.constantPool.literalIndexForType(typeName);
-			this.contents[localContentsOffset++] = (byte) (typeIndex >> 8);
-			this.contents[localContentsOffset++] = (byte) typeIndex;
+		for (CaseStatement.ResolvedCase c : constants) {
+			if (c.isPattern()) {
+				char[] typeName = c.t.constantPoolName();
+				int typeIndex = this.constantPool.literalIndexForType(typeName);
+				this.contents[localContentsOffset++] = (byte) (typeIndex >> 8);
+				this.contents[localContentsOffset++] = (byte) typeIndex;
+			} else if (c.e instanceof StringLiteral) {
+				int intValIdx =
+						this.constantPool.literalIndex(c.c.stringValue());
+				this.contents[localContentsOffset++] = (byte) (intValIdx >> 8);
+				this.contents[localContentsOffset++] = (byte) intValIdx;
+			} else {
+				int intValIdx =
+						this.constantPool.literalIndex(c.intValue());
+				this.contents[localContentsOffset++] = (byte) (intValIdx >> 8);
+				this.contents[localContentsOffset++] = (byte) intValIdx;
+			}
 		}
 
 		return localContentsOffset;

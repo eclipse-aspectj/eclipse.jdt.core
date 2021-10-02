@@ -5601,9 +5601,9 @@ public void test574366_onParameterizedInterfaceConstructor_enclosedInstance() th
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
     this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
 
-    String result = requestor.getResults();
-	assertTrue(String.format("Result doesn't contain expected constructor (%s)", result),
-    		result.contains("Temp.Enclosed<java.lang.String>[ANONYMOUS_CLASS_DECLARATION]{, LTemp$Enclosed<Ljava.lang.String;>;, ()V, null, null, 39}"));
+    assertResults(
+    		"Temp.Enclosed<>[ANONYMOUS_CLASS_DECLARATION]{, LTemp$Enclosed<>;, ()V, null, null, 39}",
+    		requestor.getResults());
 }
 public void testBug563020_lambdaWithMethodRef_overloadedMethodRef_expectCompletions() throws JavaModelException {
 	this.workingCopies = new ICompilationUnit[1];
@@ -5926,12 +5926,13 @@ public void testBug574823_completeOn_methodInvocationWithParams_inIfConidtionWit
 public void testBug574912_comment6() throws JavaModelException {
 	this.workingCopies = new ICompilationUnit[1];
 	this.workingCopies[0] = getWorkingCopy(
-			"Completion/src/LambdaFreeze.java",
+			"Completion/src/LambdaFreeze2.java",
 			"import java.util.Calendar;\n" +
 			"import java.util.Date;\n" +
 			"import java.util.function.Supplier;\n" +
 			"\n" +
 			"public class LambdaFreeze2 {\n" +
+			"	static int num = 13;\n" +
 			"\n" +
 			"	public static final Supplier<Date> SUPPLIER = () -> {\n" +
 			"		Calendar calendar = Calendar.getInstance();\n" +
@@ -5947,7 +5948,80 @@ public void testBug574912_comment6() throws JavaModelException {
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	String result = requestor.getResults();
-	assertResults("",
+	assertResults("getMinimum[METHOD_REF]{, Ljava.util.Calendar;, (I)I, getMinimum, (arg0), 86}",
 			result);
+}
+public void testBug574912_comment6b() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/LambdaFreeze2.java",
+			"import java.util.Calendar;\n" +
+			"import java.util.Date;\n" +
+			"import java.util.function.Supplier;\n" +
+			"\n" +
+			"public class LambdaFreeze2 {\n" +
+			"	static int xyz = 13;\n" +
+			"\n" +
+			"	public static final Supplier<Date> SUPPLIER = () -> {\n" +
+			"		Calendar calendar = Calendar.getInstance();\n" +
+			"		calendar.set(Calendar.ALL_STYLES, calendar.getMinimum(xy0));\n" + // once we have a non-empty assist id, use it!
+			"		return calendar.getTime();\n" +
+			"	};\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "calendar.getMinimum(xy";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("xyz[FIELD_REF]{xyz, LLambdaFreeze2;, I, xyz, null, 82}",
+			result);
+}
+public void testBug574882() throws Exception {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/ForLoop.java",
+			"import java.util.concurrent.ExecutorService;\n" +
+			"import java.util.concurrent.Executors;\n" +
+			"import java.util.concurrent.atomic.AtomicInteger;\n" +
+			"\n" +
+			"public class ForLoop {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		AtomicInteger executions = new AtomicInteger();\n" +
+			"		ExecutorService pool = Executors.newFixedThreadPool(1);\n" +
+			"		for (int i = 0; i < 42; i++) {\n" +
+			"			pool.execute(() -> {\n" +
+			"				// sys| offers sysout etc templates here \n" +
+			"				executions.incrementAndGet();\n" +
+			"				// sys | content assist doesn't offer \"sysout\" etc templates here\n" +
+			"			});\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(false, true, false, false, false, false, false, false);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBefore = "// sys | content assist doesn't offer";
+	int cursorLocation = str.lastIndexOf(completeBefore);
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("ForLoop[TYPE_REF]{ForLoop, , LForLoop;, null, null, 52}\n" +
+			"args[LOCAL_VARIABLE_REF]{args, null, [Ljava.lang.String;, args, null, 52}\n" +
+			"executions[LOCAL_VARIABLE_REF]{executions, null, LAtomicInteger;, executions, null, 52}\n" +
+			"i[LOCAL_VARIABLE_REF]{i, null, I, i, null, 52}\n" +
+			"main[METHOD_REF]{main(), LForLoop;, ([Ljava.lang.String;)V, main, (args), 52}\n" +
+			"pool[LOCAL_VARIABLE_REF]{pool, null, Ljava.util.concurrent.ExecutorService;, pool, null, 52}",
+			result);
+	assertEquals("completion offset=449\n" +
+			"completion range=[449, 448]\n" +
+			"completion token=\"\"\n" +
+			"completion token kind=TOKEN_KIND_NAME\n" +
+			"expectedTypesSignatures=null\n" +
+			"expectedTypesKeys=null\n" +
+			"completion token location={STATEMENT_START}", // this is required for sysout template proposal
+			requestor.getContext());
 }
 }

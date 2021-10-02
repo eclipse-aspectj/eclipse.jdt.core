@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -25,6 +21,8 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public abstract class Pattern extends Expression {
 
+	/* package */ boolean isTotalTypeNode = false;
+
 	public boolean isTotalForType(TypeBinding type) {
 		return false;
 	}
@@ -37,9 +35,7 @@ public abstract class Pattern extends Expression {
 		// default implementation does nothing
 	}
 
-	public boolean isAnyPattern() {
-		return false;
-	}
+	public abstract boolean dominates(Pattern p);
 
 	@Override
 	public StringBuffer print(int indent, StringBuffer output) {

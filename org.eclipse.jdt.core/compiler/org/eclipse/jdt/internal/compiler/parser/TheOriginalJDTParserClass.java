@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Palo Alto Research Center, Incorporated - AspectJ adaptation
@@ -255,6 +251,8 @@ public class TheOriginalJDTParserClass implements TerminalTokens, ParserBasicInf
 						compliance = ClassFileConstants.JDK15;
 					}  else if("16".equals(token)) { //$NON-NLS-1$
 						compliance = ClassFileConstants.JDK16;
+					}  else if("17".equals(token)) { //$NON-NLS-1$
+						compliance = ClassFileConstants.JDK17;
 					} else if("recovery".equals(token)) { //$NON-NLS-1$
 						compliance = ClassFileConstants.JDK_DEFERRED;
 					}
@@ -1014,6 +1012,7 @@ private boolean reparsingLambdaExpression = false;
 
 private Map<TypeDeclaration, Integer[]> recordNestedMethodLevels;
 private Map<Integer, Boolean> recordPatternSwitches;
+private Map<Integer, Boolean> recordNullSwitches;
 
 public TheOriginalJDTParserClass () { // AspectJ - new name
 	// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -1358,6 +1357,7 @@ protected void classInstanceCreation(boolean isQualified) {
 		dispatchDeclarationInto(length);
 		TypeDeclaration anonymousTypeDeclaration = (TypeDeclaration)this.astStack[this.astPtr];
 		anonymousTypeDeclaration.declarationSourceEnd = this.endStatementPosition;
+		anonymousTypeDeclaration.addClinit();
 		anonymousTypeDeclaration.bodyEnd = this.endStatementPosition;
 		if (anonymousTypeDeclaration.allocation != null) {
 			anonymousTypeDeclaration.allocation.sourceEnd = this.endStatementPosition;
@@ -3914,6 +3914,7 @@ protected void consumeEnumConstantWithClassBody() {
 	dispatchDeclarationInto(this.astLengthStack[this.astLengthPtr--]);
 	TypeDeclaration anonymousType = (TypeDeclaration) this.astStack[this.astPtr--]; // pop type
 	this.astLengthPtr--;
+	anonymousType.addClinit();
 	anonymousType.bodyEnd = this.endPosition;
 	anonymousType.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
 	final FieldDeclaration fieldDeclaration = ((FieldDeclaration) this.astStack[this.astPtr]);
@@ -4588,7 +4589,6 @@ protected void consumeInsideCastExpressionLL1WithBounds() {
 protected void consumeInsideCastExpressionWithQualifiedGenerics() {
 	// InsideCastExpressionWithQualifiedGenerics ::= $empty
 }
-
 protected void consumeInstanceOfExpression() {
 	int length = this.patternLengthPtr >= 0 ?
 			this.patternLengthStack[this.patternLengthPtr--] : 0;
@@ -7513,6 +7513,7 @@ private SwitchStatement createSwitchStatementOrExpression(boolean isStmt) {
 	//the block is inlined but a scope need to be created
 	//if some declaration occurs.
 	Boolean isPatternSwitch = this.recordPatternSwitches.remove(this.switchNestingLevel);
+  Boolean isNullSwitch = this.recordNullSwitches.remove(this.switchNestingLevel);
 	this.nestedType--;
 	this.switchNestingLevel--;
 	this.scanner.breakPreviewAllowed = this.switchNestingLevel > 0;
@@ -7531,6 +7532,7 @@ private SwitchStatement createSwitchStatementOrExpression(boolean isStmt) {
 	}
 	switchStatement.explicitDeclarations = this.realBlockStack[this.realBlockPtr--];
 	switchStatement.containsPatterns = isPatternSwitch != null ? isPatternSwitch.booleanValue() : false;
+  switchStatement.containsNull = isNullSwitch != null ? isNullSwitch.booleanValue() : false;
 	pushOnAstStack(switchStatement);
 	switchStatement.blockStart = this.intStack[this.intPtr--];
 	switchStatement.sourceStart = this.intStack[this.intPtr--];
@@ -7915,8 +7917,14 @@ protected void consumeCaseLabelElement(CaseLabelKind kind) {
 			pushOnExpressionStack(pattern);
 			this.recordPatternSwitches.put(this.switchNestingLevel, Boolean.TRUE);
 			break;
+    case CASE_EXPRESSION:
+      if (this.expressionPtr >= 0 && this.expressionStack[this.expressionPtr] instanceof NullLiteral)
+        this.recordNullSwitches.put(this.switchNestingLevel, Boolean.TRUE);
+      break;
 		case CASE_DEFAULT:
-			pushOnExpressionStack(new FakeDefaultLiteral(this.scanner.startPosition, this.scanner.currentPosition - 1));
+      int end = this.intStack[this.intPtr--];
+      int start = this.intStack[this.intPtr--];
+      pushOnExpressionStack(new FakeDefaultLiteral(start, end));
 			break;
 		default : break;
 	}
@@ -12147,6 +12155,7 @@ protected void resetStacks() {
 	this.valueLambdaNestDepth = -1;
 	this.recordNestedMethodLevels = new HashMap<>();
 	this.recordPatternSwitches = new HashMap<>();
+  this.recordNullSwitches = new HashMap<>();
 }
 /*
  * Reset context so as to resume to regular parse loop

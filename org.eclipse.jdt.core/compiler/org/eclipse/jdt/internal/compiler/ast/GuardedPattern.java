@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -43,7 +39,7 @@ public class GuardedPattern extends Pattern {
 	public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {
 		this.primaryPattern.collectPatternVariablesToScope(variables, scope);
 		addPatternVariablesWhenTrue(this.primaryPattern.getPatternVariablesWhenTrue());
-		this.condition.collectPatternVariablesToScope(variables, scope);
+		this.condition.collectPatternVariablesToScope(getPatternVariablesWhenTrue(), scope);
 		addPatternVariablesWhenTrue(this.condition.getPatternVariablesWhenTrue());
 	}
 
@@ -77,12 +73,17 @@ public class GuardedPattern extends Pattern {
 	public boolean isTotalForType(TypeBinding type) {
 		Constant cst = this.condition.optimizedBooleanConstant();
 		return this.primaryPattern.isTotalForType(type) && cst != Constant.NotAConstant && cst.booleanValue() == true;
-
 	}
 
 	@Override
 	public void resolve(BlockScope scope) {
 		this.resolveType(scope);
+	}
+
+	@Override
+	public boolean dominates(Pattern p) {
+		// Guarded pattern can never dominate another, even if the guards are identical
+		return false;
 	}
 
 	@Override

@@ -8,10 +8,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
@@ -771,7 +767,7 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	 * @return the live list of types
 	 *    (element type: {@link Type})
 	 * @exception UnsupportedOperationException if this operation is not used with Java 17 and above
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	public List permittedTypes() {
 		// more efficient than just calling unsupportedIn2() to check
@@ -909,7 +905,7 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	/**
 	 * A character index into the original restricted identifier source string, or <code>-1</code> if no restricted
 	 * identifier source position information is available for this node; <code>-1</code> by default.
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	public void setRestrictedIdentifierStartPosition(int restrictedIdentifierStartPosition) {
 		if (restrictedIdentifierStartPosition < 0) {
@@ -924,7 +920,7 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	/**
 	 * A character index into the original restricted identifier source string, or <code>-1</code> if no restricted
 	 * identifier source position information is available for this node; <code>-1</code> by default.
-	 * @since 3.27 BETA_JAVA17
+	 * @since 3.27
 	 */
 	public int getRestrictedIdentifierStartPosition() {
 		return this.restrictedIdentifierStartPosition;

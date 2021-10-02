@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Tom Tromey - Contribution for bug 125961
@@ -2249,7 +2245,7 @@ public void configure(String[] argv) {
 					mode = INSIDE_SYSTEM;
 					continue;
 				}
-				if (currentArg.equals("--module-path") || currentArg.equals("-p") || currentArg.equals("--processor-module-path")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				if (currentArg.equals("--module-path") || currentArg.equals("-p")) { //$NON-NLS-1$ //$NON-NLS-2$
 					mode = INSIDE_MODULEPATH_start;
 					continue;
 				}

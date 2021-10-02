@@ -8,10 +8,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - realigned with bug 399695
@@ -188,7 +184,7 @@ public void test0002() {
 	);
 }
 // TODO: Fix this and Enable
-public void _test0003() {
+public void test0003() {
 	String[] testFiles = new String[] {
 		"X.java",
 		"public enum X {\n" +
@@ -200,7 +196,7 @@ public void _test0003() {
 		"1. ERROR in X.java (at line 1)\n" +
 		"	public enum X {\n" +
 		"	       ^^^^\n" +
-		"Syntax error on token \"enum\", interface expected\n" +
+		"Syntax error on token \"enum\", class expected\n" +
 		"----------\n";
 	String expected14ProblemLog =
 		expected13ProblemLog;
