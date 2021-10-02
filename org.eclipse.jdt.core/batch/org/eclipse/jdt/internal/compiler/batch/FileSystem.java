@@ -190,10 +190,10 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	initialFileNames is a collection is Strings, the trailing '.java' will be removed if its not already.
 */
 public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding) {
-	this(classpathNames, initialFileNames, encoding, null, null);
+	this(classpathNames, initialFileNames, encoding, null, -1, null);
 }
 public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, String release) {
-	this(classpathNames, initialFileNames, encoding, null, release);
+	this(classpathNames, initialFileNames, encoding, null, -1, release);
 }
 protected FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, Collection<String> limitModules) {
 	this(classpathNames, initialFileNames, encoding, limitModules, -1, null);

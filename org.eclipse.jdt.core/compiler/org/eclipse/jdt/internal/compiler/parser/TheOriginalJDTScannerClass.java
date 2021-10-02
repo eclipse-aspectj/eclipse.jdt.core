@@ -5650,7 +5650,7 @@ private VanguardParser getNewVanguardParser(char[] src) {
 	vs.setActiveParser(vp);
 	return vp;
 }
-int disambiguatedToken(int token, Scanner scanner) {
+int disambiguatedToken(int token, TheOriginalJDTScannerClass scanner) {
 	final VanguardParser parser = getVanguardParser();
 	if (token == TokenNameARROW  &&  mayBeAtCaseLabelExpr() &&  scanner.caseStartPosition < scanner.startPosition) {
 		// this.caseStartPosition > this.startPositionpossible on recovery - bother only about correct ones.
@@ -5696,7 +5696,7 @@ int disambiguatedToken(int token, Scanner scanner) {
 /*
  * Assumption: mayBeAtCasePattern(token) is true before calling this method.
  */
-int disambiguateCasePattern(int token, Scanner scanner) {
+int disambiguateCasePattern(int token, TheOriginalJDTScannerClass scanner) {
 	assert mayBeAtCasePattern(token);
 	int delta = token == TokenNamecase ? 4 : 0; // 4 for case.
 	final VanguardParser parser = getNewVanguardParser();

@@ -1045,6 +1045,7 @@ public TheOriginalJDTParserClass(ProblemReporter problemReporter, boolean optimi
 
 	this.recordNestedMethodLevels = new HashMap<>();
 	this.recordPatternSwitches = new HashMap<>();
+	this.recordNullSwitches = new HashMap<>();
 
 	// javadoc support
 	this.javadocParser = createJavadocParser();
