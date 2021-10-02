@@ -594,8 +594,7 @@
           <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
           <groupId>dev.aspectj</groupId>
           <artifactId>aspectj-maven-plugin</artifactId>
-          <!-- TODO: replace by version supporting Java 17 -->
-          <version>1.13.M3</version>
+          <version>1.13</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
