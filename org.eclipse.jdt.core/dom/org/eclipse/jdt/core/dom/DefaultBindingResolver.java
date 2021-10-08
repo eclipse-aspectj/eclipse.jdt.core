@@ -641,6 +641,9 @@ class DefaultBindingResolver extends BindingResolver {
 	@Override
 	Object resolveConstantExpressionValue(Expression expression) {
 		org.eclipse.jdt.internal.compiler.ast.ASTNode node = (org.eclipse.jdt.internal.compiler.ast.ASTNode) this.newAstToOldAst.get(expression);
+		if(node instanceof org.eclipse.jdt.internal.compiler.ast.FieldDeclaration) {
+				node = ((org.eclipse.jdt.internal.compiler.ast.FieldDeclaration) node).initialization;
+		}
 		if (node instanceof org.eclipse.jdt.internal.compiler.ast.Expression &&
 				((org.eclipse.jdt.internal.compiler.ast.Expression) node).isTrulyExpression()) {
 			org.eclipse.jdt.internal.compiler.ast.Expression compilerExpression = (org.eclipse.jdt.internal.compiler.ast.Expression) node;
@@ -754,6 +757,8 @@ class DefaultBindingResolver extends BindingResolver {
 				case ASTNode.MARKER_ANNOTATION :
 				case ASTNode.NORMAL_ANNOTATION :
 				case ASTNode.SINGLE_MEMBER_ANNOTATION :
+				case ASTNode.GUARDED_PATTERN :
+				case ASTNode.TYPE_PATTERN :
 					org.eclipse.jdt.internal.compiler.ast.Expression compilerExpression = (org.eclipse.jdt.internal.compiler.ast.Expression) this.newAstToOldAst.get(expression);
 					if (compilerExpression != null) {
 						return this.getTypeBinding(compilerExpression.resolvedType);
@@ -765,6 +770,8 @@ class DefaultBindingResolver extends BindingResolver {
 						return this.getTypeBinding(this.scope.getJavaLangString());
 					}
 					break;
+				case ASTNode.NULL_PATTERN :
+					return null;
 				case ASTNode.BOOLEAN_LITERAL :
 				case ASTNode.NULL_LITERAL :
 				case ASTNode.CHARACTER_LITERAL :

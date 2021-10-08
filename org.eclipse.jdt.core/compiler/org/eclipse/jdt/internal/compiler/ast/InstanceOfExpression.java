@@ -51,15 +51,15 @@ public InstanceOfExpression(Expression expression, TypeReference type) {
 	this.sourceStart = expression.sourceStart;
 	this.sourceEnd = type.sourceEnd;
 }
-public InstanceOfExpression(Expression expression, LocalDeclaration local) {
+public InstanceOfExpression(Expression expression, Pattern pattern) {
 	this.expression = expression;
-	this.elementVariable = local;
+	// As of now, instanceof can only have a type pattern variable.
+	// So, extract the local variable definition and ignore the pattern
+	this.elementVariable = pattern.getPatternVariableIntroduced();
 	this.type = this.elementVariable.type;
 	this.bits |= INSTANCEOF << OperatorSHIFT;
-	this.elementVariable.sourceStart = local.sourceStart;
-	this.elementVariable.sourceEnd = local.sourceEnd;
 	this.sourceStart = expression.sourceStart;
-	this.sourceEnd = local.declarationSourceEnd;
+	this.sourceEnd = this.elementVariable.declarationSourceEnd;
 }
 
 @Override
@@ -74,7 +74,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		flowContext.recordUsingNullReference(currentScope, local,
 				this.expression, FlowContext.CAN_ONLY_NULL | FlowContext.IN_INSTANCEOF, flowInfo);
 		// no impact upon enclosing try context
-		flowInfo =  FlowInfo.conditional(initsWhenTrue, flowInfo.copy());
+		flowInfo =  FlowInfo.conditional(initsWhenTrue.copy(), flowInfo.copy());
 	} else if (this.expression instanceof Reference) {
 		if (currentScope.compilerOptions().enableSyntacticNullAnalysisForFields) {
 			FieldBinding field = ((Reference)this.expression).lastFieldBinding();
@@ -267,7 +267,7 @@ public boolean resolvePatternVariable(BlockScope scope) {
 }
 @Override
 public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {
-	this.expression.collectPatternVariablesToScope(this.patternVarsWhenTrue, scope);
+	this.expression.collectPatternVariablesToScope(variables, scope);
 	if (this.elementVariable != null) {
 		if (this.elementVariable.binding == null) {
 			resolvePatternVariable(scope);
@@ -289,26 +289,11 @@ public void collectPatternVariablesToScope(LocalVariableBinding[] variables, Blo
 
 }
 @Override
-public void addPatternVariablesWhenTrue(LocalVariableBinding[] vars) {
-	if (this.patternVarsWhenTrue == null) {
-		this.getPatternVariablesWhenTrue();
-	}
-	if (vars == null || vars.length == 0) return;
-	if (this.patternVarsWhenTrue == null) {
-		this.patternVarsWhenTrue = vars;
-	} else {
-		int oldSize = this.patternVarsWhenTrue.length;
-		int newLength = oldSize + vars.length;
-		System.arraycopy(this.patternVarsWhenTrue, 0, (this.patternVarsWhenTrue = new LocalVariableBinding[newLength]), 0, oldSize);
-		System.arraycopy(vars, 0, this.patternVarsWhenTrue, oldSize, vars.length);
-	}
-}
-@Override
 public boolean containsPatternVariable() {
 	return this.elementVariable != null;
 }
 @Override
-protected LocalDeclaration getPatternVariableIntroduced() {
+public LocalDeclaration getPatternVariableIntroduced() {
 	return this.elementVariable;
 }
 private void addSecretInstanceOfPatternExpressionValue(BlockScope scope1) {

@@ -7,7 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.dom;
@@ -28,6 +27,7 @@ import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.core.dom.IMethodBinding;
 import org.eclipse.jdt.core.dom.ITypeBinding;
@@ -60,9 +60,9 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 		this.ast = AST.newAST(getAST15(), false);
 		this.currentProject = getJavaProject("Converter_15");
 		if (this.ast.apiLevel() == AST.JLS15 ) {
-			this.currentProject.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_16);
-			this.currentProject.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_16);
-			this.currentProject.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_16);
+			this.currentProject.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_17);
+			this.currentProject.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_17);
+			this.currentProject.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_17);
 
 		}
 	}
@@ -670,12 +670,12 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 				"public class X {\n" +
 						"	public String test001() {\n" +
 						"		String s = \"\"\"\n" +
-						"      	<html>\n" +
+						"       <html>\n" +
 						"        <body>\n" +
 						"            <p>Hello, world</p>\n" +
 						"        </body>\n" +
-						"    	</html>\n" +
-						"    	\"\"\";\n" +
+						"       </html>\n" +
+						"   \"\"\";\n" +
 						"    	System.out.println(s);" +
 						"		return s;\n" +
 						"	}" +
@@ -703,12 +703,11 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 
 		String literal = ((TextBlock) initializer).getLiteralValue();
 		assertEquals("literal value not correct",
-				"      	<html>\n" +
-				"        <body>\n" +
-				"            <p>Hello, world</p>\n" +
-				"        </body>\n" +
-				"    	</html>\n" +
-				"    	",
+				"    <html>\n" +
+				"     <body>\n" +
+				"         <p>Hello, world</p>\n" +
+				"     </body>\n" +
+				"    </html>\n",
 				literal);
 
 	}
@@ -726,8 +725,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 						"        <body>\n" +
 						"            <p>Hello, world</p>\n" +
 						"        </body>\n" +
-						"    	</html>\n" +
-						"    	\"\"\";\n" +
+						"      	</html>\n" +
+						"\"\"\";\n" +
 						"    	System.out.println(s);" +
 						"		return s;\n" +
 						"	}" +
@@ -762,8 +761,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 				"        <body>\n" +
 				"            <p>Hello, world</p>\n" +
 				"        </body>\n" +
-				"    	</html>\n" +
-				"    	\"\"\"",
+				"      	</html>\n" +
+				"\"\"\"",
 				escapedValue);
 
 		String literal = ((TextBlock) initializer).getLiteralValue();
@@ -772,8 +771,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 				"        <body>\n" +
 				"            <p>Hello, world</p>\n" +
 				"        </body>\n" +
-				"    	</html>\n" +
-				"    	",
+				"      	</html>\n" +
+				"",
 				literal);
 	}
 
@@ -940,7 +939,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 			}
 	}
 
-	public void testSealed001() throws CoreException {
+	// Move sealed test to AST 17 converter class
+	public void _testSealed001() throws CoreException {
 		if (!isJRE15) {
 			System.err.println("Test "+getName()+" requires a JRE 15");
 			return;
@@ -986,7 +986,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 		}
 	}
 
-	public void testSealed002() throws CoreException {
+	// Move sealed test to AST 17 converter class
+	public void _testSealed002() throws CoreException {
 		if (!isJRE15) {
 			System.err.println("Test "+getName()+" requires a JRE 15");
 			return;
@@ -1022,7 +1023,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 		}
 	}
 
-	public void testSealed003() throws CoreException {
+	// Move sealed test to AST 17 converter class
+	public void _testSealed003() throws CoreException {
 		if (!isJRE15) {
 			System.err.println("Test "+getName()+" requires a JRE 15");
 			return;
@@ -1067,7 +1069,8 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 		}
 	}
 
-	public void testSealed004() throws CoreException {
+	// Move sealed test to AST 17 converter class
+	public void _testSealed004() throws CoreException {
 		if (!isJRE15) {
 			System.err.println("Test "+getName()+" requires a JRE 15");
 			return;
@@ -1217,5 +1220,43 @@ public class ASTConverter_15Test extends ConverterTestSetup {
 		} finally {
 			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
 		}
+	}
+	public void testBug571461() throws JavaModelException {
+		if (!isJRE15) {
+			System.err.println("Test "+getName()+" requires a JRE 15");
+			return;
+		}
+		String contents =
+						"public class X {\n"
+						+ "    String example = \"\"\"\n"
+						+ "            Example text\"\"\";\n"
+						+ "    final String expected = \"Example text\";\n"
+						+ "}" ;
+		this.workingCopy = getWorkingCopy("/Converter_15/src/X.java", true/*resolve*/);
+		ASTNode node = buildAST(
+				contents,
+				this.workingCopy);
+		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
+		CompilationUnit compilationUnit = (CompilationUnit) node;
+		assertProblemsSize(compilationUnit, 0);
+		node = getASTNode(compilationUnit, 0, 0, 0);
+		assertEquals("Text block statement", node.getNodeType(), ASTNode.FIELD_DECLARATION);
+		FieldDeclaration field = (FieldDeclaration) node;
+		List fragments = field.fragments();
+		assertEquals("Incorrect no of fragments", 1, fragments.size());
+		node = (ASTNode) fragments.get(0);
+		assertEquals("Switch statement", node.getNodeType(), ASTNode.VARIABLE_DECLARATION_FRAGMENT);
+		VariableDeclarationFragment fragment = (VariableDeclarationFragment) node;
+		Expression initializer = fragment.getInitializer();
+		assertTrue("Initializer is not a TextBlock", initializer instanceof TextBlock);
+		String escapedValue = ((TextBlock) initializer).getEscapedValue();
+
+		assertTrue("String should not be empty", escapedValue.length() != 0);
+		assertTrue("String should start with \"\"\"", escapedValue.startsWith("\"\"\""));
+
+		String literal = ((TextBlock) initializer).getLiteralValue();
+		assertEquals("literal value not correct",
+				"Example text",
+				literal);
 	}
 }

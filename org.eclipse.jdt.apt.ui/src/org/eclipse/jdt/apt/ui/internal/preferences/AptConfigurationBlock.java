@@ -175,7 +175,7 @@ public class AptConfigurationBlock extends BaseConfigurationBlock {
 	/**
 	 * Controls display of items in the Processor Options list control.
 	 */
-	private class ProcessorOptionsLabelProvider extends LabelProvider implements ITableLabelProvider {
+	private static class ProcessorOptionsLabelProvider extends LabelProvider implements ITableLabelProvider {
 
 		/* (non-Javadoc)
 		 * @see org.eclipse.jface.viewers.ITableLabelProvider#getColumnImage(java.lang.Object, int)
@@ -557,10 +557,10 @@ public class AptConfigurationBlock extends BaseConfigurationBlock {
 	@Override
 	protected void updateControls() {
 		if (fAptEnabledField != null) {
-			boolean aptEnabled= Boolean.valueOf(getValue(KEY_APTENABLED)).booleanValue();
+			boolean aptEnabled= Boolean.parseBoolean(getValue(KEY_APTENABLED));
 			fAptEnabledField.setSelection(aptEnabled);
 		}
-		boolean reconcileEnabled= Boolean.valueOf(getValue(KEY_RECONCILEENABLED)).booleanValue();
+		boolean reconcileEnabled= Boolean.parseBoolean(getValue(KEY_RECONCILEENABLED));
 		fReconcileEnabledField.setSelection(reconcileEnabled);
 		String str= getValue(KEY_GENSRCDIR);
 		fGenSrcDirField.setText(str == null ? "" : str); //$NON-NLS-1$

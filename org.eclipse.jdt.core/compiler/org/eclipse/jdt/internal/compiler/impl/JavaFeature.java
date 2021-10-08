@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -33,6 +33,11 @@ import org.eclipse.jdt.internal.compiler.util.Messages;
  */
 public enum JavaFeature {
 
+	SWITCH_EXPRESSIONS(ClassFileConstants.JDK14,
+			Messages.bind(Messages.switch_expression),
+			new char[][] {TypeConstants.YIELD},
+			false),
+
 	TEXT_BLOCKS(ClassFileConstants.JDK15,
 			Messages.bind(Messages.text_block),
 			new char[][] {},
@@ -48,9 +53,13 @@ public enum JavaFeature {
 			new char[][] {TypeConstants.RECORD_RESTRICTED_IDENTIFIER},
 			false),
 
-	SEALED_CLASSES(ClassFileConstants.JDK16,
+	SEALED_CLASSES(ClassFileConstants.JDK17,
 			Messages.bind(Messages.sealed_types),
 			new char[][] {TypeConstants.SEALED, TypeConstants.PERMITS},
+			false),
+	PATTERN_MATCHING_IN_SWITCH(ClassFileConstants.JDK17,
+			Messages.bind(Messages.pattern_matching_switch),
+			new char[][] {},
 			true),
     ;
 

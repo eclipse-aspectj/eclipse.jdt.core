@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -77,6 +77,7 @@ public class SyntheticMethodBinding extends MethodBinding {
     public static final int RecordOverrideToString = 19;
     public static final int RecordOverrideHashCode = 20;
     public static final int RecordOverrideEquals = 21;
+    public static final int RecordCanonicalConstructor = 22;
 
 	public int sourceStart = 0; // start position of the matching declaration
 	public int index; // used for sorting access methods in the class file
@@ -87,7 +88,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) declaringClass;
 		SyntheticMethodBinding[] knownAccessMethods = declaringSourceType.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods[knownAccessMethods.length - 1].index + 1; //index may miss some numbers in between. get the highest index and assign next number.;
 		this.index = methodId;
 		this.selector = CharOperation.concat(TypeConstants.SYNTHETIC_ACCESS_METHOD_PREFIX, String.valueOf(methodId).toCharArray());
 		if (isReadAccess) {
@@ -190,7 +191,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) declaringClass;
 		SyntheticMethodBinding[] knownAccessMethods = declaringSourceType.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods[knownAccessMethods.length - 1].index + 1; //index may miss some numbers in between. get the highest index and assign next number.;
 		this.index = methodId;
 		this.selector = selector;
 		this.returnType = declaringSourceType.scope.createArrayType(TypeBinding.INT, 1);
@@ -274,9 +275,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.thrownExceptions = overridenMethodToBridge.thrownExceptions;
 	    this.targetMethod = targetMethod;
 	    this.purpose = SyntheticMethodBinding.BridgeMethod;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	/**
@@ -298,12 +297,16 @@ public class SyntheticMethodBinding extends MethodBinding {
 		    this.parameters = new TypeBinding[]{ declaringEnum.scope.getJavaLangString() };
 		    this.purpose = SyntheticMethodBinding.EnumValueOf;
 		}
-		SyntheticMethodBinding[] knownAccessMethods = ((SourceTypeBinding)this.declaringClass).syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 		if (declaringEnum.isStrictfp()) {
 			this.modifiers |= ClassFileConstants.AccStrictfp;
 		}
+	}
+
+	private int nextSmbIndex() {
+		SyntheticMethodBinding[] knownAccessMethods = ((SourceTypeBinding)this.declaringClass).syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods[knownAccessMethods.length - 1].index + 1; //index may miss some numbers in between. get the highest index and assign next number.;
+		return methodId;
 	}
 
 	/**
@@ -318,9 +321,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.returnType = declaringClass.scope.getJavaLangObject();
 	    this.parameters = new TypeBinding[]{declaringClass.scope.getJavaLangInvokeSerializedLambda()};
 	    this.purpose = SyntheticMethodBinding.DeserializeLambda;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	/**
@@ -328,8 +329,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	 */
 	public SyntheticMethodBinding(SourceTypeBinding declaringEnum, int startIndex, int endIndex) {
 		this.declaringClass = declaringEnum;
-		SyntheticMethodBinding[] knownAccessMethods = declaringEnum.syntheticMethods();
-		this.index = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = nextSmbIndex();
 		StringBuffer buffer = new StringBuffer();
 		buffer.append(TypeConstants.SYNTHETIC_ENUM_CONSTANT_INITIALIZATION_METHOD_PREFIX).append(this.index);
 		this.selector = String.valueOf(buffer).toCharArray();
@@ -360,9 +360,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.thrownExceptions = overridenMethodToBridge.thrownExceptions;
 	    this.targetMethod = overridenMethodToBridge;
 	    this.purpose = SyntheticMethodBinding.SuperMethodAccess;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	public SyntheticMethodBinding(int purpose, ArrayBinding arrayType, char [] selector, SourceTypeBinding declaringClass) {
@@ -382,9 +380,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.parameters = new TypeBinding[] { purpose == SyntheticMethodBinding.ArrayConstructor ? TypeBinding.INT : (TypeBinding) arrayType};
 	    this.thrownExceptions = Binding.NO_EXCEPTIONS;
 	    this.purpose = purpose;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	public SyntheticMethodBinding(LambdaExpression lambda, char [] lambdaName, SourceTypeBinding declaringClass) {
@@ -400,9 +396,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    	this.typeVariables = vars;
 	    this.thrownExceptions = lambda.binding.thrownExceptions;
 	    this.purpose = SyntheticMethodBinding.LambdaMethod;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	public SyntheticMethodBinding(ReferenceExpression ref, SourceTypeBinding declaringClass) {
@@ -415,9 +409,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.parameters = ref.binding.parameters;
 	    this.thrownExceptions = ref.binding.thrownExceptions;
 	    this.purpose = SyntheticMethodBinding.SerializableMethodReference;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
 	public SyntheticMethodBinding(MethodBinding privateConstructor, MethodBinding publicConstructor, char[] selector, TypeBinding[] enclosingInstances, SourceTypeBinding declaringClass) {
@@ -438,11 +430,28 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.thrownExceptions = publicConstructor.thrownExceptions;
 	    this.purpose = SyntheticMethodBinding.FactoryMethod;
 	    this.targetMethod = publicConstructor;
-		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
-		this.index = methodId;
+		this.index = nextSmbIndex();
 	}
 
+	public SyntheticMethodBinding(ReferenceBinding declaringClass, RecordComponentBinding[] rcb) {
+		SourceTypeBinding declaringSourceType = (SourceTypeBinding) declaringClass;
+		assert declaringSourceType.isRecord();
+		this.declaringClass = declaringSourceType;
+		this.modifiers = declaringClass.modifiers & (ClassFileConstants.AccPublic|ClassFileConstants.AccPrivate|ClassFileConstants.AccProtected);
+		if (this.declaringClass.isStrictfp())
+			this.modifiers |= ClassFileConstants.AccStrictfp;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+		this.tagBits |= (TagBits.IsCanonicalConstructor | TagBits.isImplicit);
+		this.parameters = rcb.length == 0 ? Binding.NO_PARAMETERS : new TypeBinding[rcb.length];
+		for (int i = 0; i < rcb.length; i++) this.parameters[i] = TypeBinding.VOID; // placeholder
+		this.selector = TypeConstants.INIT;
+		this.returnType = TypeBinding.VOID;
+		this.purpose = SyntheticMethodBinding.RecordCanonicalConstructor;
+		this.thrownExceptions = Binding.NO_EXCEPTIONS;
+		this.declaringClass = declaringSourceType;
+		this.tagBits |= TagBits.IsCanonicalConstructor;
+		this.index = nextSmbIndex();
+	}
 	public SyntheticMethodBinding(ReferenceBinding declaringClass, RecordComponentBinding rcb, int index) {
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) declaringClass;
 		assert declaringSourceType.isRecord();
@@ -463,7 +472,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.purpose = SyntheticMethodBinding.FieldReadAccess;
 		this.thrownExceptions = Binding.NO_EXCEPTIONS;
 		this.declaringClass = declaringSourceType;
-		this.index = index;
+		this.index = nextSmbIndex();
 		this.sourceStart = rcb.sourceRecordComponent().sourceStart;
 	}
 	public SyntheticMethodBinding(ReferenceBinding declaringClass, char[] selector, int index) {
@@ -489,7 +498,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		    this.parameters = new TypeBinding[] {declaringSourceType.scope.getJavaLangObject()};
 		    this.purpose = SyntheticMethodBinding.RecordOverrideEquals;
 		}
-		this.index = index;
+		this.index = nextSmbIndex();
 	}
 	/**
 	 * An constructor accessor is a constructor with an extra argument (declaringClass), in case of
@@ -501,8 +510,8 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.modifiers = ClassFileConstants.AccDefault | ClassFileConstants.AccSynthetic;
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding sourceType = (SourceTypeBinding) accessedConstructor.declaringClass;
-		SyntheticMethodBinding[] knownSyntheticMethods = sourceType.syntheticMethods();
-		this.index = knownSyntheticMethods == null ? 0 : knownSyntheticMethods.length;
+		SyntheticMethodBinding[] knownSyntheticMethods = sourceType.syntheticMethods();   // returns synthetic methods sorted with index.
+		this.index = knownSyntheticMethods == null ? 0 : knownSyntheticMethods[knownSyntheticMethods.length - 1].index + 1; //index may miss some numbers in between. get the highest index and assign next number.
 
 		this.selector = accessedConstructor.selector;
 		this.returnType = accessedConstructor.returnType;
@@ -587,7 +596,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) receiverType;
 		SyntheticMethodBinding[] knownAccessMethods = declaringSourceType.syntheticMethods();
-		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods[knownAccessMethods.length - 1].index + 1; //index may miss some numbers in between. get the highest index and assign next number.
 		this.index = methodId;
 
 		this.selector = CharOperation.concat(TypeConstants.SYNTHETIC_ACCESS_METHOD_PREFIX, String.valueOf(methodId).toCharArray());
@@ -680,12 +689,24 @@ public class SyntheticMethodBinding extends MethodBinding {
 				return;
 		}
 	}
+	@Override
+	public void setAnnotations(AnnotationBinding[] annotations, Scope scope, boolean forceStore) {
+		if (this.declaringClass.isRecord() && (!this.isVarargs())) {
+			for (AnnotationBinding annot: annotations) {
+				if ((annot.getAnnotationType().id == TypeIds.T_JavaLangSafeVarargs)) {
+					scope.problemReporter().safeVarargsOnOnSyntheticRecordAccessor(this.recordComponentBinding.sourceRecordComponent());
+				}
+			}
+		}
+		setAnnotations(annotations, forceStore);
+	}
 
-	// AspectJ Extension
-	public SyntheticMethodBinding(MethodBinding myBinding) {
-		super(myBinding,null);
-		this.declaringClass = myBinding.declaringClass;
-		declaringClass.storeAnnotationHolder(this, myBinding.declaringClass.retrieveAnnotationHolder(myBinding, true)); // New AspectJ Extension - done after declaring class set and not in ctor
-    }
-	// End AspectJ Extension
+
+  // AspectJ Extension
+  public SyntheticMethodBinding(MethodBinding myBinding) {
+    super(myBinding,null);
+    this.declaringClass = myBinding.declaringClass;
+    declaringClass.storeAnnotationHolder(this, myBinding.declaringClass.retrieveAnnotationHolder(myBinding, true)); // New AspectJ Extension - done after declaring class set and not in ctor
+  }
+  // End AspectJ Extension
 }

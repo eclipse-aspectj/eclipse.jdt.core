@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,19 +23,18 @@ import org.eclipse.jdt.core.tests.util.Util;
 
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.JavaProject;
-import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 
 import java.io.*;
 import java.util.*;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class TestingEnvironment {
 
 	private boolean isOpen = false;
 
 	private IWorkspace workspace = null;
-	private Hashtable projects = null;
+	private Hashtable<String, IProject> projects = null;
 
 	private void addBuilderSpecs(String projectName) {
 		try {
@@ -222,14 +221,32 @@ public void addClassFolder(IPath projectPath, IPath classFolderPath, boolean isE
 			requiredComplianceFlag = AbstractCompilerTest.F_11;
 			compilerVersion = CompilerOptions.VERSION_11;
 		}
-		else if (!"1.4".equals(compliance) && !"1.3".equals(compliance)) {
+		else if ("12".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_12;
+			compilerVersion = CompilerOptions.VERSION_12;
+		} else if ("13".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_13;
+			compilerVersion = CompilerOptions.VERSION_13;
+		} else if ("14".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_14;
+			compilerVersion = CompilerOptions.VERSION_14;
+		} else if ("15".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_15;
+			compilerVersion = CompilerOptions.VERSION_15;
+		} else if ("16".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_16;
+			compilerVersion = CompilerOptions.VERSION_16;
+		} else if ("17".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_17;
+			compilerVersion = CompilerOptions.VERSION_17;
+		} else if (!"1.4".equals(compliance) && !"1.3".equals(compliance)) {
 			throw new UnsupportedOperationException("Test framework doesn't support compliance level: " + compliance);
 		}
 		if (requiredComplianceFlag != 0) {
 			if (CompilerOptions.versionToJdkLevel(System.getProperty("java.specification.version")) < requiredComplianceFlag)
 				throw new RuntimeException("This test requires a " + compliance + " JRE");
 			IJavaProject javaProject = JavaCore.create(project);
-			Map options = new HashMap();
+			Map<String, String> options = new HashMap<>();
 			options.put(CompilerOptions.OPTION_Compliance, compilerVersion);
 			options.put(CompilerOptions.OPTION_Source, compilerVersion);
 			options.put(CompilerOptions.OPTION_TargetPlatform, compilerVersion);
@@ -415,9 +432,9 @@ public void cleanBuild(String projectName) {
 	public void close() {
 		try {
 			if (this.projects != null) {
-				Enumeration projectNames = this.projects.keys();
+				Enumeration<String> projectNames = this.projects.keys();
 				while (projectNames.hasMoreElements()) {
-					String projectName = (String) projectNames.nextElement();
+					String projectName = projectNames.nextElement();
 					getJavaProject(projectName).getJavaModel().close();
 				}
 			}
@@ -653,7 +670,7 @@ public void cleanBuild(String projectName) {
 			}
 		}
 		try {
-			ArrayList problems = new ArrayList();
+			ArrayList<Problem> problems = new ArrayList<>();
 			IMarker[] markers = resource.findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, IResource.DEPTH_INFINITE);
 			for (int i = 0; i < markers.length; i++)
 				problems.add(new Problem(markers[i]));
@@ -674,8 +691,8 @@ public void cleanBuild(String projectName) {
 
 			Problem[] result = new Problem[problems.size()];
 			problems.toArray(result);
-			Arrays.sort(result, new Comparator() {
-				public int compare(Object o1, Object o2) {
+			Arrays.sort(result, new Comparator<Problem>() {
+				public int compare(Problem o1, Problem o2) {
 					return o1.toString().compareTo(o2.toString());
 				}
 			});
@@ -708,10 +725,10 @@ public void cleanBuild(String projectName) {
 			if (resource != null) {
 				final IMarker[] markers = resource.findMarkers(IJavaModelMarker.TASK_MARKER, true, IResource.DEPTH_INFINITE);
 				if (markers.length > 1) {
-					Arrays.sort(markers, new Comparator() {
-						public int compare(Object o1, Object o2) {
-							IMarker marker1 = (IMarker) o1;
-							IMarker marker2 = (IMarker) o2;
+					Arrays.sort(markers, new Comparator<IMarker>() {
+						public int compare(IMarker o1, IMarker o2) {
+							IMarker marker1 = o1;
+							IMarker marker2 = o2;
 							try {
 								final int start1 = ((Integer) marker1.getAttribute(IMarker.CHAR_START)).intValue();
 								final int start2 = ((Integer) marker2.getAttribute(IMarker.CHAR_START)).intValue();
@@ -758,14 +775,14 @@ public void cleanBuild(String projectName) {
 	* Returns the core project.
 	*/
 	public IProject getProject(String projectName) {
-		return (IProject)this.projects.get(projectName);
+		return this.projects.get(projectName);
 	}
 
 	/**
 	* Returns the core project.
 	*/
 	public IProject getProject(IPath projectPath) {
-		return (IProject)this.projects.get(projectPath.lastSegment());
+		return this.projects.get(projectPath.lastSegment());
 	}
 
 	private File tmpDirectory;
@@ -825,7 +842,7 @@ public void cleanBuild(String projectName) {
 		if (status.isMultiStatus()) {
 			MultiStatus multiStatus = (MultiStatus) status;
 			IStatus[] children = multiStatus.getChildren();
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			for (int i = 0, max = children.length; i < max; i++) {
 				IStatus child = children[i];
 				if (child != null) {
@@ -881,7 +898,7 @@ public void cleanBuild(String projectName) {
 	public void openEmptyWorkspace() {
 		close();
 		openWorkspace();
-		this.projects = new Hashtable(10);
+		this.projects = new Hashtable<>(10);
 		setup();
 	}
 
@@ -996,9 +1013,9 @@ public void cleanBuild(String projectName) {
 	 */
 	public void resetWorkspace(){
 		if (this.projects != null) {
-			Enumeration projectNames = this.projects.keys();
+			Enumeration<String> projectNames = this.projects.keys();
 			while (projectNames.hasMoreElements()) {
-				String projectName = (String) projectNames.nextElement();
+				String projectName = projectNames.nextElement();
 				removeProject(getProject(projectName).getFullPath());
 			}
 		}
@@ -1192,7 +1209,8 @@ public void cleanBuild(String projectName) {
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_BUILD, null);
-				Indexer.getInstance().waitForIndex(null);
+				boolean enableIndex = true;
+				JavaModelManager.getIndexManager().waitForIndex(enableIndex, null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				handle(e);
@@ -1208,7 +1226,8 @@ public void cleanBuild(String projectName) {
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_MANUAL_REFRESH, null);
-				Indexer.getInstance().waitForIndex(null);
+				boolean enableIndex = true;
+				JavaModelManager.getIndexManager().waitForIndex(enableIndex, null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				handle(e);

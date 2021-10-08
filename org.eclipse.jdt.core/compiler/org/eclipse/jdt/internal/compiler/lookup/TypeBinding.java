@@ -173,7 +173,7 @@ TypeBinding [] additionalBounds() {
 
 public String annotatedDebugName() {
 	TypeBinding enclosingType = enclosingType();
-	StringBuffer buffer = new StringBuffer(16);
+	StringBuilder buffer = new StringBuilder(16);
 	if (enclosingType != null) {
 		buffer.append(enclosingType.annotatedDebugName());
 		buffer.append('.');
@@ -1554,6 +1554,10 @@ public TypeBinding withoutToplevelNullAnnotation() {
 
 public final boolean hasTypeAnnotations() {
 	return (this.tagBits & TagBits.HasTypeAnnotations) != 0;
+}
+
+public boolean hasValueBasedTypeAnnotation() {
+	return (this.extendedTagBits & ExtendedTagBits.AnnotationValueBased) != 0;
 }
 
 /**

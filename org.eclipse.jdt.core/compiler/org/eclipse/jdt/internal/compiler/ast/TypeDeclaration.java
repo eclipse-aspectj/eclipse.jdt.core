@@ -621,7 +621,7 @@ public AbstractMethodDeclaration declarationOf(MethodBinding methodBinding) {
  */
 public RecordComponent declarationOf(RecordComponentBinding recordComponentBinding) {
 	if (recordComponentBinding != null && this.recordComponents != null) {
-		for (int i = 0, max = this.fields.length; i < max; i++) {
+		for (int i = 0, max = this.recordComponents.length; i < max; i++) {
 			RecordComponent recordComponent;
 			if ((recordComponent = this.recordComponents[i]).binding == recordComponentBinding)
 				return recordComponent;
@@ -664,8 +664,13 @@ public CompilationUnitDeclaration getCompilationUnitDeclaration() {
 	return null;
 }
 
-/* only for records */
+/**
+ * This is applicable only for records - ideally get the canonical constructor, if not
+ * get a constructor and at the client side tentatively marked as canonical constructor
+ * which gets checked at the binding time. If there are no constructors, then null is returned.
+ **/
 public ConstructorDeclaration getConstructor(Parser parser) {
+	ConstructorDeclaration cd = null;
 	if (this.methods != null) {
 		for (int i = this.methods.length; --i >= 0;) {
 			AbstractMethodDeclaration am;
@@ -687,17 +692,19 @@ public ConstructorDeclaration getConstructor(Parser parser) {
 						return ccd;
 					}
 					// now we are looking at a "normal" constructor
-					if (this.recordComponents == null && am.arguments == null)
+					if ((this.recordComponents == null || this.recordComponents.length == 0)
+							&& am.arguments == null)
 						return (ConstructorDeclaration) am;
+					cd = (ConstructorDeclaration) am; // just return the last constructor
 				}
 			}
 		}
 	}
-	/* At this point we can only say that there is high possibility that there is a constructor
-	 * If it is a CCD, then definitely it is there (except for empty one); else we need to check
-	 * the bindings to say that there is a canonical constructor. To take care at binding resolution time.
-	 */
-	return null;
+//	/* At this point we can only say that there is high possibility that there is a constructor
+//	 * If it is a CCD, then definitely it is there (except for empty one); else we need to check
+//	 * the bindings to say that there is a canonical constructor. To take care at binding resolution time.
+//	 */
+	return cd; // the last constructor
 }
 
 /**
@@ -724,6 +731,12 @@ public void generateCode(ClassFile enclosingClassFile) {
 		} else if (this.binding.isLocalType()) {
 			enclosingClassFile.recordInnerClasses(this.binding);
 			classFile.recordInnerClasses(this.binding);
+		}
+		SourceTypeBinding nestHost = this.binding.getNestHost();
+		if (nestHost != null && !TypeBinding.equalsEquals(nestHost, this.binding)) {
+			ClassFile ocf = enclosingClassFile.outerMostEnclosingClassFile();
+			if (ocf != null)
+				ocf.recordNestMember(this.binding);
 		}
 		TypeVariableBinding[] typeVariables = this.binding.typeVariables();
 		for (int i = 0, max = typeVariables.length; i < max; i++) {
@@ -857,7 +870,10 @@ public boolean hasErrors() {
  *	Common flow analysis for all types
  */
 private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
-	checkYieldUsage();
+	if (CharOperation.equals(this.name, TypeConstants.YIELD)) {
+		this.scope.problemReporter().validateRestrictedKeywords(this.name, this);
+	}
+
 	if (!this.binding.isUsed() && this.binding.isOrEnclosedByPrivateType()) {
 		if (!this.scope.referenceCompilationUnit().compilationResult.hasSyntaxError) {
 			this.scope.problemReporter().unusedPrivateType(this);
@@ -977,18 +993,6 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 	// enable enum support ?
 	if (this.binding.isEnum() && !this.binding.isAnonymousType()) {
 		this.enumValuesSyntheticfield = this.binding.addSyntheticFieldForEnumValues();
-	}
-}
-
-private void checkYieldUsage() {
-	long sourceLevel = this.scope.compilerOptions().sourceLevel;
-	if (sourceLevel < ClassFileConstants.JDK14 || this.name == null ||
-			!("yield".equals(new String(this.name)))) //$NON-NLS-1$
-		return;
-	if (sourceLevel >= ClassFileConstants.JDK14) {
-		this.scope.problemReporter().switchExpressionsYieldTypeDeclarationError(this);
-	} else {
-		this.scope.problemReporter().switchExpressionsYieldTypeDeclarationWarning(this);
 	}
 }
 
@@ -1548,7 +1552,7 @@ public void resolve() {
 				reporter.javadocMissing(this.sourceStart, this.sourceEnd, severity, javadocModifiers);
 			}
 		}
-		updateNestInfo();
+		updateNestHost();
 		FieldDeclaration[] fieldsDecls = this.fields;
 		if (fieldsDecls != null) {
 			for (FieldDeclaration fieldDeclaration : fieldsDecls)
@@ -1889,13 +1893,12 @@ private SourceTypeBinding findNestHost() {
 	return classScope != null ? classScope.referenceContext.binding : null;
 }
 
-void updateNestInfo() {
+void updateNestHost() {
 	if (this.binding == null)
 		return;
 	SourceTypeBinding nestHost = findNestHost();
 	if (nestHost != null && !this.binding.equals(nestHost)) {// member
 		this.binding.setNestHost(nestHost);
-		nestHost.addNestMember(this.binding);
 	}
 }
 public boolean isPackageInfo() {

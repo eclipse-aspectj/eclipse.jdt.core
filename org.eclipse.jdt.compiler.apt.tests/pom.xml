@@ -15,12 +15,12 @@
   <parent>
     <artifactId>tests-pom</artifactId>
     <groupId>eclipse.jdt.core</groupId>
-    <version>4.20.0-SNAPSHOT</version>
+    <version>4.21.0-SNAPSHOT</version>
     <relativePath>../tests-pom/</relativePath>
   </parent>
   <groupId>org.eclipse.jdt</groupId>
   <artifactId>org.eclipse.jdt.compiler.apt.tests</artifactId>
-  <version>1.1.1500-SNAPSHOT</version>
+  <version>1.2.50-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
@@ -34,10 +34,6 @@
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>target-platform-configuration</artifactId>
         <configuration>
-          <compilerArgs>
-            <args>-endorseddirs</args>
-            <args>${basedir}/lib</args>
-          </compilerArgs>
           <dependency-resolution>
             <!--
               these fragments are assumed to be present during compile and runtime.

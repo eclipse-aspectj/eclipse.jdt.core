@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright (c) 2012, 2020 Eclipse Foundation and others.
+  Copyright (c) 2012, 2021 Eclipse Foundation and others.
   All rights reserved. This program and the accompanying materials
   are made available under the terms of the Eclipse Distribution License v1.0
   which accompanies this distribution, and is available at
@@ -15,11 +15,11 @@
   <parent>
     <artifactId>eclipse.jdt.core</artifactId>
     <groupId>eclipse.jdt.core</groupId>
-    <version>4.20.0-SNAPSHOT</version>
+    <version>4.21.0-SNAPSHOT</version>
   </parent>
   <groupId>org.eclipse.jdt</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>3.26.0-SNAPSHOT</version>
+  <version>3.27.50-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 
   <properties>
@@ -114,6 +114,15 @@
               <fileSets>
                 <fileSet>
                   <directory>${project.basedir}/batch</directory>
+                  <excludes>
+                    <exclude>org/eclipse/jdt/internal/compiler/batch/messages.properties</exclude>
+                  </excludes>
+                </fileSet>
+                <fileSet>
+                  <directory>${project.build.directory}/classes</directory>
+                  <includes>
+                    <include>org/eclipse/jdt/internal/compiler/batch/messages.properties</include>
+                  </includes>
                 </fileSet>
                 <fileSet>
                   <directory>${project.basedir}/compiler</directory>
@@ -219,6 +228,69 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <!### AspectJ
+            Replace '\' Windows file separators by '/' in order to expand the new property 'compiler-message-properties'
+            into a string literal in Maven Enforcer rule 'evaluateBeanshell' further below
+          AspectJ ###>
+          <execution>
+            <id>compiler-message-properties</id>
+            <goals>
+              <goal>regex-property</goal>
+            </goals>
+            <configuration>
+              <name>compiler-message-properties</name>
+              <value>${project.basedir}/batch/org/eclipse/jdt/internal/compiler/batch/messages.properties</value>
+              <regex>\\</regex>
+              <replacement>/</replacement>
+              <failIfNoMatch>false</failIfNoMatch>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>no-tabs-in-compiler-messages</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <evaluateBeanshell>
+                  <message>
+                    Compiler message resource file ${compiler-message-properties} must not contain tab characters, please use spaces instead!
+                  </message>
+                  <condition><![CDATA[
+                    FileReader fileReader = new FileReader("${compiler-message-properties}");
+                    BufferedReader bufferReader = new BufferedReader(fileReader);
+                    boolean containsTab = false;
+                    String line;
+                    while((line = bufferReader.readLine()) != null) {
+                      if (line.contains("\t")) {
+                        if (!containsTab) {
+                          System.out.println("Lines containing tab characters detected in resource file:");
+                          containsTab = true;
+                        }
+                        System.out.println(line);
+                      }
+                    }
+                    fileReader.close();
+                    bufferReader.close();
+                    !containsTab
+                  ]]></condition>
+                </evaluateBeanshell>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>
@@ -230,7 +302,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>1.9.7-SNAPSHOT</version>
+  <version>1.9.8-SNAPSHOT</version>
 
   <name>JDT Core for AspectJ</name>
   <description>
@@ -282,7 +354,7 @@
 <!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.6</aspectj.version>
+    <aspectj.version>1.9.8.M1</aspectj.version>
   </properties>
 
   <distributionManagement>
@@ -520,9 +592,9 @@
         </plugin>
         <plugin>
           <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
-          <groupId>com.nickwongdev</groupId>
+          <groupId>dev.aspectj</groupId>
           <artifactId>aspectj-maven-plugin</artifactId>
-          <version>1.12.6</version>
+          <version>1.13</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -591,6 +663,18 @@
             <nexusUrl>https://oss.sonatype.org/</nexusUrl>
             <autoReleaseAfterClose>false</autoReleaseAfterClose>
           </configuration>
+          <dependencies>
+            <!--
+              Plugin version 1.6.8 does not work on JDK 16+ without special MAVEN_OPTS opening certain modules,
+              because the XStream version used needs it. One workaround is to use a more recent XStream version.
+              TODO: remove plugin dependency after OSSRH-66257, NEXUS-26993 are fixed.
+            -->
+            <dependency>
+              <groupId>com.thoughtworks.xstream</groupId>
+              <artifactId>xstream</artifactId>
+              <version>1.4.15</version>
+            </dependency>
+          </dependencies>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -669,8 +753,8 @@
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <!-- Because org.eclipse.jdt.compiler.apt/lib/javax15api.jar has Java 14 byte code version -->
-                  <version>14</version>
+                  <!-- We need the most recent JDK module 'java.compiler' in order to compile some APT classes -->
+                  <version>16</version>
                 </requireJavaVersion>
                 <evaluateBeanshell>
                   <message>
@@ -778,14 +862,15 @@
       </plugin>
 
       <plugin>
-        <groupId>com.nickwongdev</groupId>
+        <groupId>dev.aspectj</groupId>
         <artifactId>aspectj-maven-plugin</artifactId>
         <configuration>
           <!--<showWeaveInfo>true</showWeaveInfo>-->
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
-          <Xlint>ignore</Xlint>
+          <!-- TODO: remove after upgrading to new version in which 'complianceLevel' is optional -->
           <complianceLevel>${maven.compiler.target}</complianceLevel>
+          <Xlint>ignore</Xlint>
           <encoding>${project.build.sourceEncoding}</encoding>
           <!--<verbose>true</verbose>-->
           <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
@@ -827,7 +912,6 @@
               <artifactSet>
                 <excludes>
                   <exclude>org.aspectj:aspectjrt</exclude>
-                  <exclude>java:javax15api</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.expressions</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.commands</exclude>
                 </excludes>
@@ -1079,62 +1163,60 @@
   <dependencyManagement>
     <!--
       Taken from:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.25.0/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.27.0/jar
       Then click "Browse" (top right of the page) and you see all artifacts, among them the original POM:
-      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.25.0/org.eclipse.jdt.core-3.25.0.pom
+      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.27.0/org.eclipse.jdt.core-3.27.0.pom
       Module 'org.eclipse.jdt.compiler.apt' only depends on 'org.eclipse.jdt.core' (this module), as you can see here:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.3.1200/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.4.0/jar
 
       Result of 'mvn dependency:tree' on POM with version ranges taken from the above (optional dependencies omitted),
-      executed 2021-05-08T12:50:02+07:00
+      executed 2021-10-02T13:30:00+02:00 in a dummy project:
 
-      org.aspectj:org.eclipse.jdt.core:jar:3.25.0-SNAPSHOT
-      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.14.0:compile
-      |  \- org.eclipse.platform:org.eclipse.core.expressions:jar:3.7.100:compile (version selected from constraint [3.2.0,4.0.0))
-      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.20.100:compile
-      |  +- org.eclipse.platform:org.eclipse.osgi:jar:3.16.200:compile (version selected from constraint [3.13.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.14.100:compile (version selected from constraint [3.14.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.10.1100:compile (version selected from constraint [3.10.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.10.100:compile (version selected from constraint [3.10.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.8.200:compile (version selected from constraint [3.7.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.7.900:compile (version selected from constraint [3.7.0,4.0.0))
-      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.5.100:compile (version selected from constraint [1.3.0,))
-      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.7.700:compile
-      +- org.eclipse.platform:org.eclipse.text:jar:3.11.0:compile
-      |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.9.800:compile (version selected from constraint [3.5.0,4.0.0))
-      +- java:javax15api:jar:1.0:system
-      \- org.aspectj:aspectjrt:jar:1.9.6:compile
-      
+      org.example:dummy:jar:1.0-SNAPSHOT
+      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.15.100:compile
+      |  \- org.eclipse.platform:org.eclipse.core.expressions:jar:3.8.0:compile (version selected from constraint [3.2.0,4.0.0))
+      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.23.0:compile
+      |  +- org.eclipse.platform:org.eclipse.osgi:jar:3.17.0:compile (version selected from constraint [3.13.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.15.0:compile (version selected from constraint [3.14.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.12.0:compile (version selected from constraint [3.10.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.11.0:compile (version selected from constraint [3.10.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.9.0:compile (version selected from constraint [3.7.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.8.0:compile (version selected from constraint [3.7.0,4.0.0))
+      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.6.0:compile (version selected from constraint [1.3.0,))
+      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.9.100:compile
+      \- org.eclipse.platform:org.eclipse.text:jar:3.12.0:compile
+         \- org.eclipse.platform:org.eclipse.core.commands:jar:3.10.100:compile (version selected from constraint [3.5.0,4.0.0))
+
       Repeat the same procedure again whenever you upgrade JDT Core via merge from upstream. Then update direct and
       transitive dependencies (maybe there are new or absolete ones) and fix their versions in this dependency
       management section. Otherwise, AspectJ JDT Core builds would not be repeatable, pulling updated dependency class
       files into the uber JAR whenever a dependency version is upgraded within its version number range.
-      
+
       After dependency-managing all ranges to fixed version in the tree above, running 'mvn dependency:tree' again
       should yield a clean dependency tree without any "version selected from constraint" sections.
     -->
     <dependencies>
-      
+
       <!-- Direct dependencies (use below in 'dependencies' section) -->
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.resources</artifactId>
-        <version>3.14.0</version>
+        <version>3.15.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.runtime</artifactId>
-        <version>3.20.100</version>
+        <version>3.23.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.filesystem</artifactId>
-        <version>1.7.700</version>
+        <version>1.9.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.text</artifactId>
-        <version>3.11.0</version>
+        <version>3.12.0</version>
       </dependency>
       <!-- Not this one, because optional=true and not used in AspectJ -->
       <!--
@@ -1145,52 +1227,52 @@
         <optional>true</optional>
       </dependency>
       -->
-      
+
       <!-- Transitive dependencies from dependency tree -->
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.expressions</artifactId>
-        <version>3.7.100</version>
+        <version>3.8.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.osgi</artifactId>
-        <version>3.16.200</version>
+        <version>3.17.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.common</artifactId>
-        <version>3.14.100</version>
+        <version>3.15.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.jobs</artifactId>
-        <version>3.10.1100</version>
+        <version>3.12.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.registry</artifactId>
-        <version>3.10.100</version>
+        <version>3.11.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.preferences</artifactId>
-        <version>3.8.200</version>
+        <version>3.9.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.contenttype</artifactId>
-        <version>3.7.900</version>
+        <version>3.8.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.app</artifactId>
-        <version>1.5.100</version>
+        <version>1.6.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.commands</artifactId>
-        <version>3.9.800</version>
+        <version>3.10.100</version>
       </dependency>
 
     </dependencies>
@@ -1199,11 +1281,11 @@
   <dependencies>
     <!--
       Taken from:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.25.0/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.27.0/jar
       Then click "Browse" (top right of the page) and you see all artifacts, among them the original POM:
-      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.25.0/org.eclipse.jdt.core-3.25.0.pom
+      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.27.0/org.eclipse.jdt.core-3.27.0.pom
       Module 'org.eclipse.jdt.compiler.apt' only depends on 'org.eclipse.jdt.core' (this module), as you can see here:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.3.1200/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.4.0/jar
     -->
     <dependency>
       <groupId>org.eclipse.platform</groupId>
@@ -1220,13 +1302,6 @@
     <dependency>
       <groupId>org.eclipse.platform</groupId>
       <artifactId>org.eclipse.text</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>java</groupId>
-      <artifactId>javax15api</artifactId>
-      <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${project.basedir}/../org.eclipse.jdt.compiler.apt/lib/javax15api.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.aspectj</groupId>

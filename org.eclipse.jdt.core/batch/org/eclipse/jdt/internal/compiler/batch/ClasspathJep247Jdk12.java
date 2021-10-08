@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation.
+ * Copyright (c) 2019, 2021 IBM Corporation.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -38,6 +38,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
+import org.eclipse.jdt.internal.compiler.util.CtSym;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
@@ -65,6 +66,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 		try {
 			ClassFileReader reader = null;
 			byte[] content = null;
+			char[] foundModName = null;
 			qualifiedBinaryFileName = qualifiedBinaryFileName.replace(".class", ".sig"); //$NON-NLS-1$ //$NON-NLS-2$
 			if (this.subReleases != null && this.subReleases.length > 0) {
 				done: for (String rel : this.subReleases) {
@@ -75,6 +77,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 								Path f = this.fs.getPath(rel, JRTUtil.sanitizedFileName(subdir), qualifiedBinaryFileName);
 								if (Files.exists(f)) {
 									content = JRTUtil.safeReadBytes(f);
+									foundModName = JRTUtil.sanitizedFileName(subdir).toCharArray();
 									if (content != null)
 										break done;
 								}
@@ -94,7 +97,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 			}
 			if (content != null) {
 				reader = new ClassFileReader(content, qualifiedBinaryFileName.toCharArray());
-				char[] modName = moduleName != null ? moduleName.toCharArray() : null;
+				char[] modName = moduleName != null ? moduleName.toCharArray() : foundModName;
 				return new NameEnvironmentAnswer(reader, fetchAccessRestriction(qualifiedBinaryFileName), modName);
 			}
 		} catch (ClassFormatException | IOException e) {
@@ -112,7 +115,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 			super.initialize();
 			return;
 		}
-		this.releaseInHex = Integer.toHexString(Integer.parseInt(this.compliance)).toUpperCase();
+		this.releaseInHex = CtSym.getReleaseCode(this.compliance);
 		Path filePath = this.jdkHome.toPath().resolve("lib").resolve("ct.sym"); //$NON-NLS-1$ //$NON-NLS-2$
 		URI t = filePath.toUri();
 		if (!Files.exists(filePath)) {
@@ -147,7 +150,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 	}
 	@Override
 	public void loadModules() {
-		// Modules below level 8 are not dealt with here. Leave it to ClasspathJrt
+		// Modules below level 9 are not dealt with here. Leave it to ClasspathJrt
 		if (this.jdklevel <= ClassFileConstants.JDK1_8) {
 			super.loadModules();
 			return;
@@ -217,6 +220,10 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 	}
 	@Override
 	public IModule getModule(char[] moduleName) {
+		// Modules below level 9 are not dealt with here. Leave it to ClasspathJrt
+		if (this.jdklevel <= ClassFileConstants.JDK1_8) {
+			return super.getModule(moduleName);
+		}
 		if (this.modules != null) {
 			return this.modules.get(String.valueOf(moduleName));
 		}
@@ -241,7 +248,7 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 	}
 	@Override
 	void acceptModule(ClassFileReader reader, Map<String, IModule> cache) {
-		// Modules below level 8 are not dealt with here. Leave it to ClasspathJrt
+		// Modules below level 9 are not dealt with here. Leave it to ClasspathJrt
 		if (this.jdklevel <= ClassFileConstants.JDK1_8) {
 			super.acceptModule(reader, cache);
 			return;
@@ -255,6 +262,11 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 	}
 	@Override
 	public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageName, String moduleName) {
+		if (this.jdklevel >= ClassFileConstants.JDK9) {
+			// Delegate to the boss, even if it means inaccurate error reporting at times
+			List<String> mods = JRTUtil.getModulesDeclaringPackage(this.file, qualifiedPackageName, moduleName);
+			return CharOperation.toCharArrays(mods);
+		}
 		if (this.packageCache == null) {
 			this.packageCache = new HashSet<>(41);
 			this.packageCache.add(Util.EMPTY_STRING);
@@ -298,11 +310,6 @@ public class ClasspathJep247Jdk12 extends ClasspathJep247 {
 				e.printStackTrace();
 				// Rethrow
 			}
-		}
-		if (moduleName == null) {
-			// Delegate to the boss, even if it means inaccurate error reporting at times
-			List<String> mods = JRTUtil.getModulesDeclaringPackage(this.file, qualifiedPackageName, moduleName);
-			return CharOperation.toCharArrays(mods);
 		}
 		return singletonModuleNameIf(this.packageCache.contains(qualifiedPackageName));
 	}

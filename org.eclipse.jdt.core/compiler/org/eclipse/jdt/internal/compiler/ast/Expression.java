@@ -788,10 +788,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
 	// Nothing by default
 }
-public boolean containsPatternVariable() {
-	return false;
-}
-protected LocalDeclaration getPatternVariableIntroduced() {
+public LocalDeclaration getPatternVariableIntroduced() {
 	return null;
 }
 public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {

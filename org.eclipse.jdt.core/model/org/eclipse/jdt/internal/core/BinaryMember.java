@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -71,9 +71,6 @@ protected IAnnotation[] getStandardAnnotations(long tagBits) {
 		return Annotation.NO_ANNOTATIONS;
 	ArrayList annotations = new ArrayList();
 
-	if ((tagBits & TagBits.AnnotationTargetMASK) != 0) {
-		annotations.add(getAnnotation(TypeConstants.JAVA_LANG_ANNOTATION_TARGET));
-	}
 	if ((tagBits & TagBits.AnnotationRetentionMASK) != 0) {
 		annotations.add(getAnnotation(TypeConstants.JAVA_LANG_ANNOTATION_RETENTION));
 	}
@@ -131,7 +128,7 @@ public ISourceRange getNameRange() throws JavaModelException {
 	SourceMapper mapper= getSourceMapper();
 	if (mapper != null) {
 		// ensure the class file's buffer is open so that source ranges are computed
-		((AbstractClassFile)getClassFile()).getBuffer();
+		getClassFile().getBuffer();
 
 		return mapper.getNameRange(this);
 	} else {

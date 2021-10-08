@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -63,6 +63,7 @@ import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
@@ -490,7 +491,7 @@ public char[] computeGenericTypeSignature(TypeVariableBinding[] typeVariables) {
 	if (typeVariables == Binding.NO_TYPE_VARIABLES && !isMemberOfGeneric) {
 		return signature();
 	}
-	StringBuffer sig = new StringBuffer(10);
+	StringBuilder sig = new StringBuilder(10);
 	if (isMemberOfGeneric) {
 	    char[] typeSig = enclosingType().genericTypeSignature();
 	    sig.append(typeSig, 0, typeSig.length-1); // copy all but trailing semicolon
@@ -528,6 +529,9 @@ public void computeId() {
 				case 3: // only one type in this group, yet:
 					if (CharOperation.equals(TypeConstants.ORG_JUNIT_ASSERT, this.compoundName))
 						this.id = TypeIds.T_OrgJunitAssert;
+					else if (CharOperation.equals(TypeConstants.JDK_INTERNAL_PREVIEW_FEATURE, this.compoundName)
+							|| CharOperation.equals(TypeConstants.JDK_INTERNAL_JAVAC_PREVIEW_FEATURE, this.compoundName))
+						this.id = TypeIds.T_JdkInternalPreviewFeature;
 					return;
 				case 4:
 					if (!CharOperation.equals(TypeConstants.JAVA, packageName))
@@ -948,6 +952,10 @@ public void computeId() {
 								}
 							}
 							return;
+						case 'j':
+							if (CharOperation.equals(TypeConstants.ORG_JUNIT_JUPITER_API_ASSERTIONS, this.compoundName))
+								this.id = TypeIds.T_OrgJunitJupiterApiAssertions;
+							return;
 					}
 					return;
 				case 'c':
@@ -1030,8 +1038,8 @@ public int depth() {
 }
 
 public boolean detectAnnotationCycle() {
-	if ((this.tagBits & TagBits.EndAnnotationCheck) != 0) return false; // already checked
-	if ((this.tagBits & TagBits.BeginAnnotationCheck) != 0) return true; // in the middle of checking its methods
+	if ((this.tagBits & TagBits.EndAnnotationCheck) == TagBits.EndAnnotationCheck) return false; // already checked
+	if ((this.tagBits & TagBits.BeginAnnotationCheck) == TagBits.BeginAnnotationCheck) return true; // in the middle of checking its methods
 
 	this.tagBits |= TagBits.BeginAnnotationCheck;
 	MethodBinding[] currentMethods = methods();
@@ -1053,6 +1061,7 @@ public boolean detectAnnotationCycle() {
 	}
 	if (inCycle)
 		return true;
+	this.tagBits &= (~TagBits.BeginAnnotationCheck);
 	this.tagBits |= TagBits.EndAnnotationCheck;
 	return false;
 }
@@ -1079,6 +1088,10 @@ public int fieldCount() {
 
 public FieldBinding[] fields() {
 	return Binding.NO_FIELDS;
+}
+
+public RecordComponentBinding[] components() {
+	return Binding.NO_COMPONENTS;
 }
 
 public final int getAccessFlags() {
@@ -1879,7 +1892,7 @@ public char[] readableName(boolean showGenerics) /*java.lang.Object,  p.X<T> */ 
 	if (showGenerics) {
 		TypeVariableBinding[] typeVars;
 		if ((typeVars = typeVariables()) != Binding.NO_TYPE_VARIABLES) {
-		    StringBuffer nameBuffer = new StringBuffer(10);
+		    StringBuilder nameBuffer = new StringBuilder(10);
 		    nameBuffer.append(readableName).append('<');
 		    for (int i = 0, length = typeVars.length; i < length; i++) {
 		        if (i > 0) nameBuffer.append(',');
@@ -2030,7 +2043,7 @@ public char[] shortReadableName(boolean showGenerics) /*Object*/ {
 	if (showGenerics) {
 		TypeVariableBinding[] typeVars;
 		if ((typeVars = typeVariables()) != Binding.NO_TYPE_VARIABLES) {
-		    StringBuffer nameBuffer = new StringBuffer(10);
+		    StringBuilder nameBuffer = new StringBuilder(10);
 		    nameBuffer.append(shortReadableName).append('<');
 		    for (int i = 0, length = typeVars.length; i < length; i++) {
 		        if (i > 0) nameBuffer.append(',');
@@ -2215,12 +2228,29 @@ protected boolean hasMethodWithNumArgs(char[] selector, int numArgs) {
 protected int applyCloseableInterfaceWhitelists() {
 	switch (this.compoundName.length) {
 		case 4:
-			for (int i=0; i<2; i++)
-				if (!CharOperation.equals(this.compoundName[i], TypeConstants.JAVA_UTIL_STREAM[i]))
-					return 0;
-			for (char[] streamName : TypeConstants.RESOURCE_FREE_CLOSEABLE_J_U_STREAMS)
-				if (CharOperation.equals(this.compoundName[3], streamName))
-					return TypeIds.BitResourceFreeCloseable;
+			if (CharOperation.equals(this.compoundName[0], TypeConstants.JAVA_UTIL_STREAM[0])) {
+				for (int i=1; i<3; i++) {
+					if (!CharOperation.equals(this.compoundName[i], TypeConstants.JAVA_UTIL_STREAM[i])) {
+						return 0;
+					}
+				}
+				for (char[] streamName : TypeConstants.RESOURCE_FREE_CLOSEABLE_J_U_STREAMS) {
+					if (CharOperation.equals(this.compoundName[3], streamName)) {
+						return TypeIds.BitResourceFreeCloseable;
+					}
+				}
+			} else {
+				for (int i=0; i<3; i++) {
+					if (!CharOperation.equals(this.compoundName[i], TypeConstants.ONE_UTIL_STREAMEX[i])) {
+						return 0;
+					}
+				}
+				for (char[] streamName : TypeConstants.RESOURCE_FREE_CLOSEABLE_STREAMEX) {
+					if (CharOperation.equals(this.compoundName[3], streamName)) {
+						return TypeIds.BitResourceFreeCloseable;
+					}
+				}
+			}
 			break;
 	}
 	return 0;
@@ -2323,9 +2353,7 @@ public MethodBinding getSingleAbstractMethod(Scope scope, boolean replaceWildcar
 	} else {
 		this.singleAbstractMethod = new MethodBinding[2];
 		// Sec 9.8 of sealed preview - A functional interface is an interface that is not declared sealed...
-		CompilerOptions options = scope.compilerOptions();
-		if (options.complianceLevel == ClassFileConstants.JDK16
-				&& options.enablePreviewFeatures
+		if (JavaFeature.SEALED_CLASSES.isSupported(scope.compilerOptions())
 				&& this.isSealed())
 			return this.singleAbstractMethod[index] = samProblemBinding;
 	}

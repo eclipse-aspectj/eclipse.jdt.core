@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -50,7 +50,6 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
 public abstract class Statement extends ASTNode {
@@ -125,8 +124,8 @@ public boolean continueCompletes() {
 	public static final int NOT_COMPLAINED = 0;
 	public static final int COMPLAINED_FAKE_REACHABLE = 1;
 	public static final int COMPLAINED_UNREACHABLE = 2;
-	LocalVariableBinding[] patternVarsWhenTrue = null;
-	LocalVariableBinding[] patternVarsWhenFalse = null;
+	LocalVariableBinding[] patternVarsWhenTrue;
+	LocalVariableBinding[] patternVarsWhenFalse;
 
 
 /** Analysing arguments of MessageSend, ExplicitConstructorCall, AllocationExpression. */
@@ -545,20 +544,14 @@ public void resolveWithPatternVariablesInScope(LocalVariableBinding[] patternVar
 	}
 }
 /**
- * Returns case constant associated to this statement (NotAConstant if none)
- * parameter statement has to be either a SwitchStatement or a SwitchExpression
- */
-public Constant[] resolveCase(BlockScope scope, TypeBinding testType, SwitchStatement switchStatement) {
-	// statement within a switch that are not case are treated as normal statement....
-	resolve(scope);
-	return new Constant[] {Constant.NotAConstant};
-}
-/**
  * Returns the resolved expression if any associated to this statement - used
  * parameter statement has to be either a SwitchStatement or a SwitchExpression
  */
 public TypeBinding resolveExpressionType(BlockScope scope) {
 	return null;
+}
+public boolean containsPatternVariable() {
+	return false;
 }
 /**
  * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType}

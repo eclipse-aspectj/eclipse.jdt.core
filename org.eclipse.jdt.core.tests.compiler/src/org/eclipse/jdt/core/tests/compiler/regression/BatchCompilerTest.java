@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -59,8 +59,10 @@ import org.eclipse.jdt.internal.compiler.batch.ClasspathDirectory;
 import org.eclipse.jdt.internal.compiler.batch.ClasspathJar;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.batch.Main;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.ManifestAnalyzer;
 
@@ -151,7 +153,7 @@ public class BatchCompilerTest extends AbstractBatchCompilerTest {
 		@Override
 		String normalized(String originalValue) {
 			String result;
-			StringBuffer normalizedValueBuffer = new StringBuffer(originalValue);
+			StringBuilder normalizedValueBuffer = new StringBuilder(originalValue);
 			int classpathsStartTagStart = normalizedValueBuffer
 					.indexOf("<classpaths>"), classpathsEndTagStart = normalizedValueBuffer
 					.indexOf("</classpaths>");
@@ -214,7 +216,7 @@ public class BatchCompilerTest extends AbstractBatchCompilerTest {
 					state = SKIPING;
 				else
 					state = KEEPING;
-				StringBuffer normalizedValueBuffer = new StringBuffer(), source = new StringBuffer(
+				StringBuilder normalizedValueBuffer = new StringBuilder(), source = new StringBuilder(
 						originalValue);
 				sourceLength = source.length();
 				while (state != END && state != ERROR) {
@@ -309,7 +311,7 @@ public void test001() {
 		String expected = " <-classpath> <D:/a folder;d:/jdk1.4/jre/lib/rt.jar> <-1.4> <-preserveAllLocals> <-g> <-verbose> <d:/eclipse/workspaces/development2.0/plugins/Bar/src2/> <-d> <d:/test>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -325,7 +327,7 @@ public void test002() {
 		String expected = " <-classpath> <a folder;b folder>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -341,7 +343,7 @@ public void test003() {
 		String expected = " <-classpath> <a folder;b folder>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -357,7 +359,7 @@ public void test004() {
 		String expected = " <d:/tmp A/A.java> <-classpath> <d:/tmp A;d:/jars/rt.jar> <-nowarn> <-time> <-g> <-d> <d:/tmp>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -373,7 +375,7 @@ public void test005() {
 		String expected = " <d:/tmp A/A.java> <-classpath> <d:/jars/rt.jar;d:/tmp A;toto> <-nowarn> <-time> <-g> <-d> <d:/tmp>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -389,7 +391,7 @@ public void test006() {
 		String expected = " <d:/tmp A/A.java> <-classpath> <d:/jars/rt.jar;d:/tmp A;d:/tmpB/> <-nowarn> <-time> <-g> <-d> <d:/tmp>";
 
 		String[] args = Main.tokenize(commandLine);
-		StringBuffer  buffer = new StringBuffer(30);
+		StringBuilder  buffer = new StringBuilder(30);
 		for (int i = 0; i < args.length; i++){
 			buffer.append(" <"+args[i]+">");
 		}
@@ -588,6 +590,14 @@ public void test011_classpath(){
         "",
         true);
 }
+private String getVersionOptions() {
+	StringBuilder builder = new StringBuilder();
+	String template = "    -15 -15.0          use 15  compliance (-source 15  -target 15)\n";
+	for(int i = ClassFileConstants.MAJOR_VERSION_15; i <= ClassFileConstants.MAJOR_LATEST_VERSION; i++) {
+		builder.append(template.replace("15", "" + (i - ClassFileConstants.MAJOR_VERSION_0)));
+	}
+	return builder.toString();
+}
 // command line - help
 // amended for https://bugs.eclipse.org/bugs/show_bug.cgi?id=141512 (checking
 // width)
@@ -646,7 +656,7 @@ public void test012(){
         "    --processor-module-path <directories separated by " + File.pathSeparator + ">\n" +
         "                       specify module path where annotation processors\n" +
         "                       can be found\n" +
-        "    --system <jdk>      Override location of system modules\n" +
+        "    --system <jdk>     Override location of system modules\n" +
         "    --add-exports <module>/<package>=<other-module>(,<other-module>)*\n" +
         "                       specify additional package exports clauses to the\n" +
         "                       given modules\n" +
@@ -658,8 +668,7 @@ public void test012(){
         "                       resolved to be root modules\n" +
         "    --limit-modules <module>(,<module>)*\n" +
         "                       specify the observable module names\n" +
-        "    --release <release>\n" +
-        "                       compile for a specific VM version\n" +
+        "    --release <release> compile for a specific VM version\n" +
         " \n" +
         " Compliance options:\n" +
         "    -1.3               use 1.3 compliance (-source 1.3 -target 1.1)\n" +
@@ -674,10 +683,10 @@ public void test012(){
         "    -12 -12.0          use 12  compliance (-source 12  -target 12)\n" +
         "    -13 -13.0          use 13  compliance (-source 13  -target 13)\n" +
         "    -14 -14.0          use 14  compliance (-source 14  -target 14)\n" +
-        "    -15 -15.0          use 15  compliance (-source 15  -target 15)\n" +
-        "    -source <version>  set source level: 1.3 to 1.9, 10 to 15\n" +
+        getVersionOptions() +
+        "    -source <version>  set source level: 1.3 to 1.9, 10 to "+ CompilerOptions.getLatestVersion() +"\n" +
         "                       (or 6, 6.0, etc)\n" +
-        "    -target <version>  set classfile target: 1.3 to 1.9, 10 to 15\n" +
+        "    -target <version>  set classfile target: 1.3 to 1.9, 10 to "+ CompilerOptions.getLatestVersion() +"\n" +
         "                       (or 6, 6.0, etc)\n" +
         "                       cldc1.1 can also be used to generate the StackMap\n" +
         "                       attribute\n" +
@@ -702,18 +711,18 @@ public void test012(){
         "                                      reported as errors\n" +
         " \n" +
         " Info options:\n" +
-        "    -info:<warnings separated by ,>    convert exactly the listed warnings\n" +
+        "    -info:<warnings separated by ,>   convert exactly the listed warnings\n" +
         "                                      to be reported as infos\n" +
-        "    -info:+<warnings separated by ,>   enable additional warnings to be\n" +
+        "    -info:+<warnings separated by ,>  enable additional warnings to be\n" +
         "                                      reported as infos\n" +
-        "    -info:-<warnings separated by ,>   disable specific warnings to be\n" +
+        "    -info:-<warnings separated by ,>  disable specific warnings to be\n" +
         "                                      reported as infos\n" +
         " \n" +
         " Setting warning, error or info options using properties file:\n" +
         "    -properties <file>   set warnings/errors/info option based on the properties\n" +
-        "                          file contents. This option can be used with -nowarn,\n" +
-        "                          -err:.., -info: or -warn:.. options, but the last one\n" +
-        "                          on the command line sets the options to be used.\n" +
+        "                         file contents. This option can be used with -nowarn,\n" +
+        "                         -err:.., -info: or -warn:.. options, but the last one\n" +
+        "                         on the command line sets the options to be used.\n" +
         " \n" +
         " Debug options:\n" +
         "    -g[:lines,vars,source] custom debug info\n" +
@@ -819,11 +828,11 @@ public void test012b(){
         "    -deprecation         + deprecation outside deprecated code\n" +
         "    -nowarn -warn:none disable all warnings and infos\n" +
         "    -nowarn:[<directories separated by " + File.pathSeparator+ ">]\n" +
-        "                       specify directories from which optional problems should\n" +
-        "                       be ignored\n" +
-        "    -warn:<warnings separated by ,>    enable exactly the listed warnings\n" +
-        "    -warn:+<warnings separated by ,>   enable additional warnings\n" +
-        "    -warn:-<warnings separated by ,>   disable specific warnings\n" +
+        "                           specify directories from which optional problems\n" +
+        "                           should be ignored\n" +
+        "    -warn:<warnings separated by ,>   enable exactly the listed warnings\n" +
+        "    -warn:+<warnings separated by ,>  enable additional warnings\n" +
+        "    -warn:-<warnings separated by ,>  disable specific warnings\n" +
         "      all                  enable all warnings\n" +
         "      allDeadCode          dead code including trivial if(DEBUG) check\n" +
         "      allDeprecation       deprecation including inside deprecated code\n" +
@@ -850,7 +859,7 @@ public void test012b(){
         "      finalBound           type parameter with final bound\n" +
         "      finally            + finally block not completing normally\n" +
         "      forbidden          + use of types matching a forbidden access rule\n" +
-        "      hashCode              missing hashCode() method when overriding equals()\n" +
+        "      hashCode             missing hashCode() method when overriding equals()\n" +
         "      hiding               macro for fieldHiding, localHiding, typeHiding and\n" +
         "                           maskedCatchBlock\n" +
         "      includeAssertNull    raise null warnings for variables\n" +
@@ -863,42 +872,45 @@ public void test012b(){
         "      invalidJavadoc       all warnings for malformed javadoc tags\n" +
         "      invalidJavadocTag    validate javadoc tag arguments\n" +
         "      invalidJavadocTagDep validate deprecated references in javadoc tag args\n" +
-        "      invalidJavadocTagNotVisible  validate non-visible references in javadoc\n" +
-        "							tag args\n" +
-        "      invalidJavadocVisibility(<visibility>)  specify visibility modifier\n" +
-        "							for malformed javadoc tag warnings\n" +
+        "      invalidJavadocTagNotVisible\n" +
+        "                           validate non-visible references in javadoc tag args\n" +
+        "      invalidJavadocVisibility(<visibility>)\n" +
+        "                           specify visibility modifier for malformed javadoc\n" +
+        "                           tag warnings\n" +
         "      javadoc              invalid javadoc\n" +
         "      localHiding          local variable hiding another variable\n" +
         "      maskedCatchBlock   + hidden catch block\n" +
         "      missingJavadocTags   missing Javadoc tags\n" +
         "      missingJavadocTagsOverriding missing Javadoc tags in overriding methods\n" +
         "      missingJavadocTagsMethod missing Javadoc tags for method type parameter\n" +
-        "      missingJavadocTagsVisibility(<visibility>)  specify visibility modifier\n" +
-        "							for missing javadoc tags warnings\n" +
-        "      missingJavadocComments   missing Javadoc comments\n" +
-        "      missingJavadocCommentsOverriding   missing Javadoc tags in overriding\n" +
-        "							methods\n" +
+        "      missingJavadocTagsVisibility(<visibility>)\n" +
+        "                           specify visibility modifier for missing javadoc\n" +
+        "                           tags warnings\n" +
+        "      missingJavadocComments  missing Javadoc comments\n" +
+        "      missingJavadocCommentsOverriding\n" +
+        "                           missing Javadoc tags in overriding methods\n" +
         "      missingJavadocCommentsVisibility(<visibility>)  specify visibility\n" +
-        "							modifier for missing javadoc comments warnings\n" +
+        "                           modifier for missing javadoc comments warnings\n" +
         "      module             + module related problems.\n" +
         "      nls                  string literal lacking non-nls tag //$NON-NLS-<n>$\n" +
         "      noEffectAssign     + assignment without effect\n" +
         "      null                 potential missing or redundant null check\n" +
-        "      nullAnnot(<annot. names separated by |>)   annotation based null analysis,\n" +
+        "      nullAnnot(<annot. names separated by |>)\n" +
+        "                           annotation based null analysis,\n" +
         "                           nullable|nonnull|nonnullbydefault annotation types\n" +
         "                           optionally specified using fully qualified names.\n" +
-        "							Enabling this option enables all null-annotation\n" +
-        "							related sub-options. These can be individually\n" +
-        "							controlled using options listed below.\n" +
+        "                           Enabling this option enables all null-annotation\n" +
+        "                           related sub-options. These can be individually\n" +
+        "                           controlled using options listed below.\n" +
         "      nullAnnotConflict    conflict between null annotation specified\n" +
-        "							and nullness inferred. Is effective only with\n" +
-        "							nullAnnot option enabled.\n" +
+        "                           and nullness inferred. Is effective only with\n" +
+        "                           nullAnnot option enabled.\n" +
         "      nullAnnotRedundant   redundant specification of null annotation. Is\n" +
-        "							effective only with nullAnnot option enabled.\n" +
+        "                           effective only with nullAnnot option enabled.\n" +
         "      nullDereference    + missing null check\n" +
-        "	   nullUncheckedConversion unchecked conversion from non-annotated type\n" +
-        "							to @NonNull type. Is effective only with\n" +
-        "							nullAnnot option enabled.\n" +
+        "      nullUncheckedConversion  unchecked conversion from non-annotated type\n" +
+        "                           to @NonNull type. Is effective only with\n" +
+        "                           nullAnnot option enabled.\n" +
         "      over-ann             missing @Override annotation (superclass)\n" +
         "      paramAssign          assignment to a parameter\n" +
         "      pkgDefaultMethod   + attempt to override package-default method\n" +
@@ -919,39 +931,39 @@ public void test012b(){
         "      syncOverride         missing synchronized in synchr. method override\n" +
         "      syntacticAnalysis    perform syntax-based null analysis for fields\n" +
         "      syntheticAccess      synthetic access for innerclass\n" +
-        "      tasks(<tags separated by |>) tasks identified by tags inside comments\n" +
+        "      tasks(<tags separated by |>)  tasks identified by tags inside comments\n" +
         "      typeHiding         + type parameter hiding another type\n" +
-        "      unavoidableGenericProblems + ignore unavoidable type safety problems\n" +
-        "                                   due to raw APIs\n" +
+        "      unavoidableGenericProblems  + ignore unavoidable type safety problems\n" +
+        "                           due to raw APIs\n" +
         "      unchecked          + unchecked type operation\n" +
         "      unlikelyCollectionMethodArgumentType\n" +
         "                         + unlikely argument type for collection method\n" +
         "                           declaring an Object parameter\n" +
-        "      unlikelyEqualsArgumentType unlikely argument type for method equals()\n" +
+        "      unlikelyEqualsArgumentType  unlikely argument type for method equals()\n" +
         "      unnecessaryElse      unnecessary else clause\n" +
         "      unqualifiedField     unqualified reference to field\n" +
         "      unused               macro for unusedAllocation, unusedArgument,\n" +
-        "                               unusedImport, unusedLabel, unusedLocal,\n" +
-        "                               unusedPrivate, unusedThrown, and unusedTypeArgs,\n" +
-        "								unusedExceptionParam\n"+
+        "                           unusedImport, unusedLabel, unusedLocal,\n" +
+        "                           unusedPrivate, unusedThrown, and unusedTypeArgs,\n" +
+        "                           unusedExceptionParam\n" +
         "      unusedAllocation     allocating an object that is not used\n" +
         "      unusedArgument       unread method parameter\n" +
         "      unusedExceptionParam unread exception parameter\n" +
         "      unusedImport       + unused import declaration\n" +
         "      unusedLabel        + unused label\n" +
         "      unusedLocal        + unread local variable\n" +
-        "      unusedParam		    unused parameter\n" +
-        "      unusedParamOverriding unused parameter for overriding method\n" +
-        "      unusedParamImplementing unused parameter for implementing method\n" +
-        "      unusedParamIncludeDoc unused parameter documented in comment tag\n" +
+        "      unusedParam          unused parameter\n" +
+        "      unusedParamOverriding  unused parameter for overriding method\n" +
+        "      unusedParamImplementing  unused parameter for implementing method\n" +
+        "      unusedParamIncludeDoc  unused parameter documented in comment tag\n" +
         "      unusedPrivate      + unused private member declaration\n" +
         "      unusedThrown         unused declared thrown exception\n" +
-        "      unusedThrownWhenOverriding unused declared thrown exception in \n" +
-        "							overriding method\n" +
-        "      unusedThrownIncludeDocComment     unused declared thrown exception,\n" +
-        "							documented in a comment tag\n" +
+        "      unusedThrownWhenOverriding  unused declared thrown exception in \n" +
+        "                           overriding method\n" +
+        "      unusedThrownIncludeDocComment  unused declared thrown exception,\n" +
+        "                           documented in a comment tag\n" +
         "      unusedThrownExemptExceptionThrowable  unused declared thrown exception,\n" +
-        "							exempt Exception and Throwable\n" +
+        "                           exempt Exception and Throwable\n" +
         "      unusedTypeArgs     + unused type arguments for method and constructor\n" +
         "      uselessTypeCheck     unnecessary cast/instanceof operation\n" +
         "      varargsCast        + varargs argument need explicit cast\n" +
@@ -13226,5 +13238,16 @@ public void testUnusedObjectAllocation() {
 		"1 problem (1 error)\n",
 		true);
 
+}
+public void testBug573153() {
+	String output = MAIN.bind("configure.source", "10");
+	String template = "source level should be in '1.1'...'1.8','9'...'15' (or '5.0'..'15.0'): 10";
+	template = template.replace("15", CompilerOptions.getLatestVersion());
+	assertEquals("configure.source is not updated", template, output);
+
+	output = MAIN.bind("configure.targetJDK", "10");
+	template = "target level should be in '1.1'...'1.8','9'...'15' (or '5.0'..'15.0') or cldc1.1: 10";
+	template = template.replace("15", CompilerOptions.getLatestVersion());
+	assertEquals("configure.source is not updated", template, output);
 }
 }

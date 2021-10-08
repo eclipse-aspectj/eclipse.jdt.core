@@ -227,11 +227,13 @@ public class HookedJavaFileObject extends
 		_typeName = typeName;
 	}
 
+	@SuppressWarnings("resource") // ForwardingOutputStream forwards close() too
 	@Override
 	public OutputStream openOutputStream() throws IOException {
 		return new ForwardingOutputStream(super.openOutputStream());
 	}
 
+	@SuppressWarnings("resource") // ForwardingWriter forwards close() too
 	@Override
 	public Writer openWriter() throws IOException {
 		return new ForwardingWriter(super.openWriter());

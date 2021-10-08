@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2017 BEA Systems, Inc.
+ * Copyright (c) 2007, 2021 BEA Systems, Inc.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -63,7 +63,7 @@ public class BatchTestUtils {
 	public static String _jls8ProcessorJarPath;
 
 	// locations to copy and generate files
-	private static String _tmpFolder;
+	public static String _tmpFolder;
 
 	private static JavaCompiler _eclipseCompiler;
 
@@ -216,6 +216,8 @@ public class BatchTestUtils {
 				String errorOutput = stringWriter.getBuffer().toString();
 				System.err.println("Compilation failed: " + errorOutput);
 		 		junit.framework.TestCase.assertTrue("Compilation failed : " + errorOutput, false);
+			} else {
+				junit.framework.TestCase.assertEquals("succeeded", System.getProperty(processor));
 			}
 		} catch (IOException e) {
 			// print the stack just in case.
@@ -259,6 +261,9 @@ public class BatchTestUtils {
 			e.printStackTrace();
 		}
 	}
+	public interface InjectCustomOptions {
+		public void execute(List<String> options);
+	}
 	/*
 	 * First compiles the given files without processor, then processes them
 	 * with the just compiled binaries.
@@ -280,7 +285,7 @@ public class BatchTestUtils {
 		copyOptions.add("-s");
 		copyOptions.add(_tmpGenFolderName);
 		addProcessorPaths(copyOptions, true, true);
-		options.add("-XprintRounds");
+		copyOptions.add("-XprintRounds");
 		CompilationTask task = compiler.getTask(printWriter, manager, listener, copyOptions, null, units);
 		Boolean result = task.call();
 
@@ -344,7 +349,9 @@ public class BatchTestUtils {
 			List<String> options,
 			File targetFolder,
 			DiagnosticListener<? super JavaFileObject> diagnosticListener,
-			boolean useJLS8Processors, boolean addProcessorsToClasspath) {
+			boolean useJLS8Processors, 
+			boolean addProcessorsToClasspath,
+			InjectCustomOptions custom) {
 		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing inputfile
@@ -357,6 +364,7 @@ public class BatchTestUtils {
 		options.add("-s");
 		options.add(_tmpGenFolderName);
 		addProcessorPaths(options, useJLS8Processors, addProcessorsToClasspath);
+		if (custom != null) custom.execute(options);
 		// use writer to prevent System.out/err to be polluted with problems
 		StringWriter writer = new StringWriter();
 		CompilationTask task = compiler.getTask(writer, manager, diagnosticListener, options, null, units);
@@ -368,7 +376,14 @@ public class BatchTestUtils {
 		}
 		return result.booleanValue();
 	}
-
+	public static boolean compileTreeWithErrors(
+			JavaCompiler compiler,
+			List<String> options,
+			File targetFolder,
+			DiagnosticListener<? super JavaFileObject> diagnosticListener,
+			boolean useJLS8Processors, boolean addProcessorsToClasspath) {
+			return compileTreeWithErrors(compiler, options, targetFolder, diagnosticListener, useJLS8Processors, addProcessorsToClasspath, null);
+		}
 	/**
 	 * Recursively collect all the files under some root.  Ignore directories named "CVS".
 	 * Used when compiling multiple source files.

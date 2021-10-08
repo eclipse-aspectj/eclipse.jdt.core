@@ -12,8 +12,12 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
+import java.io.IOException;
 import java.util.Map;
 
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
+import org.eclipse.jdt.core.util.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
@@ -24,7 +28,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "test063b" };
+//		TESTS_NAMES = new String[] { "testBug575035" };
 	}
 
 	public static Class<?> testClass() {
@@ -39,18 +43,16 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean preview) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews,
-				preview ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
-		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
+		if (this.complianceLevel >= ClassFileConstants.getLatestJDKLevel()
+				&& preview) {
+			defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		}
 		return defaultOptions;
 	}
 
 	@Override
 	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
-		if(!isJRE15Plus)
+		if(!isJRE16Plus)
 			return;
 		runConformTest(testFiles, expectedOutput, customOptions, new String[] {"--enable-preview"}, JAVAC_OPTIONS);
 	}
@@ -88,7 +90,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X1.java (at line 3)\n" +
 				"	if (obj instanceof String s) {\n" +
 				"	                   ^^^^^^^^\n" +
-				"The Java feature 'Pattern Matching in instanceof Expressions' is only available with source level "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +" and above\n" +
+				"The Java feature 'Pattern Matching in instanceof Expressions' is only available with source level 16 and above\n" +
 				"----------\n",
 				null,
 				true,
@@ -98,6 +100,8 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 		options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
 	}
 	public void test000b() {
+		if (this.complianceLevel < ClassFileConstants.getLatestJDKLevel())
+			return;
 		Map<String, String> options = getCompilerOptions(true);
 		options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_14);
 		options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_14);
@@ -116,7 +120,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X1.java (at line 0)\n" +
 				"	public class X1 {\n" +
 				"	^\n" +
-				"Preview features enabled at an invalid source release level 14, preview can be enabled only at source level "+AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL+"\n" +
+				"Preview features enabled at an invalid source release level 14, preview can be enabled only at source level 17\n" +
 				"----------\n",
 				null,
 				true,
@@ -1046,7 +1050,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X20.java (at line 6)\n" +
 				"	boolean b = (o instanceof String[] s) && s instanceof CharSequence[] s2;\n" +
 				"	                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"Pattern type cannot be a subtype of the expression type\n" +
+				"Expression type cannot be a subtype of the Pattern type\n" +
 				"----------\n",
 				"",
 				null,
@@ -2422,7 +2426,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 					"1. ERROR in X.java (at line 4)\n" +
 					"	if (null instanceof T t) {\n" +
 					"	    ^^^^^^^^^^^^^^^^^^^\n" +
-					"Pattern type cannot be a subtype of the expression type\n" +
+					"Expression type cannot be a subtype of the Pattern type\n" +
 					"----------\n",
 				"",
 				null,
@@ -3656,4 +3660,334 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				true,
 				compilerOptions);
 	}
+	public void testBug572380_1() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X1.java",
+						"\n"
+						+ "public class X1 {\n"
+						+ "    boolean b1, b2, b3;\n"
+						+ "\n"
+						+ "    static boolean bubbleOut(Object obj) {\n"
+						+ "	       return obj instanceof X1 that && that.b1 && that.b2 && that.b3;\n"
+						+ "    }\n"
+						+ "\n"
+						+ "    static boolean propagateTrueIn(Object obj) {\n"
+						+ "        return obj instanceof X1 that && (that.b1 && that.b2 && that.b3);\n"
+						+ "    }\n"
+						+ "\n"
+						+ "    public static void main(String[] obj) {\n"
+						+ "        var ip = new X1();\n"
+						+ "        ip.b1 = ip.b2 = ip.b3 = true;\n"
+						+ "        System.out.println(bubbleOut(ip) && propagateTrueIn(ip));\n"
+						+ "    }\n"
+						+ "\n"
+						+ "}\n",
+				},
+				"true",
+				options);
+	}
+	public void testBug572380_2() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X1.java",
+						"\n"
+						+ "public class X1 {\n"
+						+ "    boolean b1, b2, b3;\n"
+						+ "    static boolean testErrorOr(Object obj) {\n"
+						+ "        return (!(obj instanceof X1 that)) || that.b1 && that.b2;\n"
+						+ "    }\n"
+						+ "    \n"
+						+ "    public static void main(String[] obj) {\n"
+						+ "        var ip = new X1();\n"
+						+ "        ip.b1 = ip.b2 = ip.b3 = true;\n"
+						+ "        System.out.println(testErrorOr(ip));\n"
+						+ "    }\n"
+						+ "\n"
+						+ "}\n",
+				},
+				"true",
+				options);
+	}
+    public void testBug574892() {
+        Map<String, String> options = getCompilerOptions(false);
+        runConformTest(
+                new String[] {
+                        "X1.java",
+                        "\n"
+                        + "public class X1 {\n"
+                        + "    static boolean testConditional(Object obj) {\n"
+                        + "        return obj instanceof Integer other\n"
+                        + "                && ( other.intValue() > 100\n"
+                        + "                   ? other.intValue() < 200 : other.intValue() < 50);\n"
+                        + "    }\n"
+                        + "    public static void main(String[] obj) {\n"
+                        + "        System.out.println(testConditional(101));\n"
+                        + "    }\n"
+                        + "}\n",
+                },
+                "true",
+                options);
+    }
+	public void testBug572431_1() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "			   static public void something () {\n"
+						+ "			      boolean bool = true;\n"
+						+ "			      Object object = null;\n"
+						+ "			      if (object instanceof String string) {\n"
+						+ "			      } else if (bool && object instanceof Integer integer) {\n"
+						+ "			      }\n"
+						+ "			   }\n"
+						+ "			   static public void main (String[] args) throws Exception {\n"
+						+ "			   }\n"
+						+ "			}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_2() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (object instanceof String string) {\n"
+						+ "    } else if (bool) {\n"
+						+ "      if (object instanceof Integer integer) {\n"
+						+ "      }\n"
+						+ "    }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_3() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (bool && object instanceof Integer i) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_4() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (!(object instanceof Integer i)) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_5() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "    Object object = null;\n"
+						+ "    if (false) {\n"
+						+ "	   } else if (!(object instanceof Integer i)) {\n"
+						+ "	   }\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug572431_6() {
+		Map<String, String> options = getCompilerOptions(false);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "  static public void something () {\n"
+						+ "    boolean bool = true;\n"
+						+ "		Object object = null;\n"
+						+ "		for (int i = 0; i < 10; i++) {\n"
+						+ "			if (object instanceof String string) {\n"
+						+ "				System.out.println(i);\n"
+						+ "			} else if (bool) {\n"
+						+ "				if (i == 4) continue;\n"
+						+ "				System.out.println(i);\n"
+						+ "			}\n"
+						+ "		}\n"
+						+ "  }\n"
+						+ "  static public void main (String[] args) throws Exception {\n"
+						+ "  }\n"
+						+ "}",
+				},
+				"",
+				options);
+
+	}
+	public void testBug573880() {
+		if (this.complianceLevel < ClassFileConstants.JDK17)
+			return;
+		Map<String, String> compilerOptions = getCompilerOptions(true);
+		runNegativeTest(
+				new String[] {
+						"X.java",
+							"public class X {\n"
+							+ "	public void foo(Object o) {\n"
+							+ "		if (o instanceof var s) {\n"
+							+ "			System.out.println(s);\n"
+							+ "		}\n"
+							+ "	}\n"
+							+ "}",
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 3)\n" +
+				"	if (o instanceof var s) {\n" +
+				"	                 ^^^\n" +
+				"\'var\' is not allowed here\n" +
+				"----------\n",
+				null,
+				true,
+				compilerOptions);
+	}
+    public void testBug574906() {
+        Map<String, String> options = getCompilerOptions(false);
+        runConformTest(
+                new String[] {
+                        "X1.java",
+                        "\n"
+                        + "public class X1 {\n"
+                        + "    static boolean testConditional(Object obj) {\n"
+                        + "        return obj instanceof Number oNum && oNum.intValue() < 0 && !(oNum instanceof Integer);\n"
+                        + "    }\n"
+                        + "    public static void main(String[] obj) {\n"
+                        + "        System.out.println(testConditional(-2f));\n"
+                        + "    }\n"
+                        + "}\n",
+                },
+                "true",
+                options);
+    }
+    public void testBug575035() throws ClassFormatException, IOException {
+        Map<String, String> options = getCompilerOptions(false);
+    	String source =
+    			"import java.lang.annotation.ElementType;\n" +
+    			"import java.lang.annotation.Retention;\n" +
+    			"import java.lang.annotation.RetentionPolicy;\n" +
+    			"import java.lang.annotation.Target;\n" +
+    			" \n" +
+    			"public class Test {\n" +
+    			"    @Target({ ElementType.LOCAL_VARIABLE})\n" +
+    			"    @Retention(RetentionPolicy.RUNTIME)\n" +
+    			"    @interface Var {}\n" +
+    			"    @Target({ ElementType.TYPE_USE})\n" +
+    			"    @Retention(RetentionPolicy.RUNTIME)\n" +
+    			"    @interface Type {}\n" +
+    			"    public static void main(String[] args) {" +
+    			"        @Var @Type String y = \"OK: \";\n" +
+    			"        if (((Object)\"local\") instanceof @Var @Type String x) {\n" +
+    			"            System.out.println(y + x);\n" +
+    			"        }\n" +
+    		    "    }\n" +
+    			"}";
+    	String expectedOutput = ""
+    			+ "  // Method descriptor #15 ([Ljava/lang/String;)V\n"
+    			+ "  // Stack: 4, Locals: 4\n"
+    			+ "  public static void main(String[] args);\n"
+    			+ "     0  ldc <String \"OK: \"> [16]\n"
+    			+ "     2  astore_1 [y]\n"
+    			+ "     3  ldc <String \"local\"> [18]\n"
+    			+ "     5  astore_3 [ instanceOfPatternExpressionValue]\n"
+    			+ "     6  aload_3 [ instanceOfPatternExpressionValue]\n"
+    			+ "     7  instanceof String [20]\n"
+    			+ "    10  ifeq 50\n"
+    			+ "    13  aload_3 [ instanceOfPatternExpressionValue]\n"
+    			+ "    14  checkcast String [20]\n"
+    			+ "    17  dup\n"
+    			+ "    18  astore_2\n"
+    			+ "    19  aload_3\n"
+    			+ "    20  checkcast String [20]\n"
+    			+ "    23  if_acmpne 50\n"
+    			+ "    26  getstatic System.out : PrintStream [22]\n"
+    			+ "    29  new StringBuilder [28]\n"
+    			+ "    32  dup\n"
+    			+ "    33  aload_1 [y]\n"
+    			+ "    34  invokestatic String.valueOf(Object) : String [30]\n"
+    			+ "    37  invokespecial StringBuilder(String) [34]\n"
+    			+ "    40  aload_2 [x]\n"
+    			+ "    41  invokevirtual StringBuilder.append(String) : StringBuilder [37]\n"
+    			+ "    44  invokevirtual StringBuilder.toString() : String [41]\n"
+    			+ "    47  invokevirtual PrintStream.println(String) : void [45]\n"
+    			+ "    50  return\n"
+    			+ "      Line numbers:\n"
+    			+ "        [pc: 0, line: 13]\n"
+    			+ "        [pc: 3, line: 14]\n"
+    			+ "        [pc: 26, line: 15]\n"
+    			+ "        [pc: 50, line: 17]\n"
+    			+ "      Local variable table:\n"
+    			+ "        [pc: 0, pc: 51] local: args index: 0 type: String[]\n"
+    			+ "        [pc: 3, pc: 51] local: y index: 1 type: String\n"
+    			+ "        [pc: 26, pc: 50] local: x index: 2 type: String\n"
+    			+ "        [pc: 6, pc: 20] local:  instanceOfPatternExpressionValue index: 3 type: Object\n"
+    			+ "      Stack map table: number of frames 1\n"
+    			+ "        [pc: 50, append: {String}]\n"
+    			+ "    RuntimeVisibleTypeAnnotations: \n"
+    			+ "      #59 @Type(\n"
+    			+ "        target type = 0x40 LOCAL_VARIABLE\n"
+    			+ "        local variable entries:\n"
+    			+ "          [pc: 3, pc: 51] index: 1\n"
+    			+ "      )\n"
+    			+ "      #59 @Type(\n"
+    			+ "        target type = 0x40 LOCAL_VARIABLE\n"
+    			+ "        local variable entries:\n"
+    			+ "          [pc: 26, pc: 50] index: 2\n"
+    			+ "      )\n"
+    			+ "\n";
+    	checkClassFile("Test", source, expectedOutput, ClassFileBytesDisassembler.DETAILED | ClassFileBytesDisassembler.COMPACT);
+        runConformTest(
+                new String[] {
+                        "Test.java",
+                        source,
+                },
+                "OK: local",
+                options);
+
+    }
 }

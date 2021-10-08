@@ -173,7 +173,7 @@ class InternalASTRewrite extends NodeEventHandler {
 
 	@Override
 	public String toString() {
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		buf.append("Events:\n"); //$NON-NLS-1$
 		buf.append(this.eventStore.toString());
 		return buf.toString();

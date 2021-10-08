@@ -116,7 +116,8 @@ public abstract class Scope {
 	public static final int MORE_GENERIC = 1;
 
 	public int kind;
-	public Scope parent;
+	public Scope parent;  // AspectJ: make non-final (write access from AspectJ AJDT Core)
+	public CompilationUnitScope compilationUnitScope;
 	private Map<String, Supplier<ReferenceBinding>> commonTypeBindings = null;
 
 	private static class NullDefaultRange {
@@ -152,13 +153,21 @@ public abstract class Scope {
 
 	private /* @Nullable */ ArrayList<NullDefaultRange> nullDefaultRanges;
 
-	protected Scope(int kind, Scope parent) {
+  protected Scope(int kind, Scope parent) {
 		this.kind = kind;
 		this.parent = parent;
 		this.commonTypeBindings = null;
+		this.compilationUnitScope = (CompilationUnitScope) (parent == null ? this : parent.compilationUnitScope());
 	}
 
-	/* Answer an int describing the relationship between the given types.
+	// AspectJ extension: When parent is updated, also update compilationUnitScope
+	public void setParent(Scope parent) {
+		this.parent = parent;
+		this.compilationUnitScope = (CompilationUnitScope) (parent == null ? this : parent.compilationUnitScope());
+	}
+	// End AspectJ extension
+
+  /* Answer an int describing the relationship between the given types.
 	*
 	* 		NOT_RELATED
 	* 		EQUAL_OR_MORE_SPECIFIC : left is compatible with right
@@ -540,6 +549,7 @@ public abstract class Scope {
 	/** Bridge to non-static implementation in {@link Substitutor}, to make methods overridable. */
 	private static Substitutor defaultSubstitutor = new Substitutor();
 	public static class Substitutor {
+		protected ReferenceBinding staticContext;
 		/**
 		 * Returns an array of types, where original types got substituted given a substitution.
 		 * Only allocate an array if anything is different.
@@ -688,7 +698,9 @@ public abstract class Scope {
 					if (substitution.isRawSubstitution()) {
 						return substitution.environment().createRawType(originalReferenceType, substitutedEnclosing, originalType.getTypeAnnotations());
 					}
-				    // treat as if parameterized with its type variables (non generic type gets 'null' arguments)
+				    // potentially treat as if parameterized with its type variables (non generic type gets 'null' arguments)
+					if (TypeBinding.equalsEquals(this.staticContext, originalType))
+						return originalType; // substitution happens on a static member of the generic type, where its type variables are not available
 					originalArguments = originalReferenceType.typeVariables();
 					substitutedArguments = substitute(substitution, originalArguments);
 					return substitution.environment().createParameterizedType(originalReferenceType, substitutedArguments, substitutedEnclosing, originalType.getTypeAnnotations());
@@ -752,14 +764,9 @@ public abstract class Scope {
 	}
 
 	public final CompilationUnitScope compilationUnitScope() {
-		Scope lastScope = null;
-		Scope scope = this;
-		do {
-			lastScope = scope;
-			scope = scope.parent;
-		} while (scope != null);
-		return (CompilationUnitScope) lastScope;
+		return this.compilationUnitScope;
 	}
+
 	public ModuleBinding module() {
 		return environment().module;
 	}
@@ -1237,10 +1244,7 @@ public abstract class Scope {
 	//	End AspectJ Extension
 
 	public final LookupEnvironment environment() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).environment;
+		return this.compilationUnitScope.environment;
 	}
 
 	/* Abstract method lookup (since maybe missing default abstract methods). "Default abstract methods" are methods that used to be emitted into
@@ -1521,9 +1525,9 @@ public abstract class Scope {
 					return field;
 				}
 				keepLooking = false;
-                //      AspectJ Extension
-                field = field.getVisibleBinding(receiverType, invocationSite, this);
-                if (field != null) {
+				// AspectJ Extension
+				field = field.getVisibleBinding(receiverType, invocationSite, this);
+				if (field != null) {
 				// End AspectJ Extension
 				if (field.canBeSeenBy(receiverType, invocationSite, this)) {
 					if (visibleField == null)
@@ -1546,10 +1550,10 @@ public abstract class Scope {
 				unitScope.recordTypeReference(anInterface);
 				// no need to capture rcv interface, since member field is going to be static anyway
 				if ((field = anInterface.getField(fieldName, true /*resolve*/, invocationSite, this)) != null) { // AspectJ Extension - was getField(fieldName,true/*resolve*/)
-					//      AspectJ Extension
-                    field = field.getVisibleBinding(receiverType, invocationSite, this);
-                    if (field != null) {
-                    //  End AspectJ Extension
+					// AspectJ Extension
+					field = field.getVisibleBinding(receiverType, invocationSite, this);
+					if (field != null) {
+					//  End AspectJ Extension
 					if (invisibleFieldsOk) {
 						return field;
 					}
@@ -2389,7 +2393,7 @@ public abstract class Scope {
 		}
 	}
 
-	class MethodClashException extends RuntimeException {
+	static class MethodClashException extends RuntimeException {
 		private static final long serialVersionUID = -7996779527641476028L;
 	}
 
@@ -2608,10 +2612,7 @@ public abstract class Scope {
 	}
 
 	public final PackageBinding getCurrentPackage() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).fPackage;
+		return this.compilationUnitScope.fPackage;
 	}
 
 	/**
@@ -3009,6 +3010,11 @@ public abstract class Scope {
 		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_RUNTIME_OBJECTMETHODS);
 		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_RUNTIME_OBJECTMETHODS, this);
 	}
+	public final ReferenceBinding getJavaLangRuntimeSwitchBootstraps() {
+		CompilationUnitScope unitScope = compilationUnitScope();
+		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_RUNTIME_SWITCHBOOTSTRAPS);
+		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_RUNTIME_SWITCHBOOTSTRAPS, this);
+	}
 	public final ReferenceBinding getJavaLangInvokeLambdaMetafactory() {
 		CompilationUnitScope unitScope = compilationUnitScope();
 		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_INVOKE_LAMBDAMETAFACTORY);
@@ -3402,9 +3408,7 @@ public abstract class Scope {
 		boolean insideClassContext = false;
 		boolean insideTypeAnnotation = false;
 		if ((mask & Binding.TYPE) == 0) {
-			Scope next = scope;
-			while ((next = scope.parent) != null)
-				scope = next;
+			scope = this.compilationUnitScope;
 		} else {
 			boolean inheritedHasPrecedence = compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4;
 			done : while (true) { // done when a COMPILATION_UNIT_SCOPE is found
@@ -3499,10 +3503,10 @@ public abstract class Scope {
 						if (sourceType!=null) {
 						// ASPECTJ END
 						insideStaticContext |= sourceType.isStatic();
+						insideClassContext = !sourceType.isAnonymousType();
 						// ASPECTJ START
 						}
 						// ASPECTJ END
-						insideClassContext = true;
 						insideTypeAnnotation = false;
 						// ASPECTJ START
 						if (sourceType!=null) {
@@ -3920,13 +3924,8 @@ public abstract class Scope {
 		while ((type = enclosingType.enclosingType()) != null)
 			enclosingType = type;
 
-		// find the compilation unit scope
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-
 		// test that the enclosingType is not part of the compilation unit
-		SourceTypeBinding[] topLevelTypes = ((CompilationUnitScope) unitScope).topLevelTypes;
+		SourceTypeBinding[] topLevelTypes = this.compilationUnitScope.topLevelTypes;
 		for (int i = topLevelTypes.length; --i >= 0;)
 			if (TypeBinding.equalsEquals(topLevelTypes[i], enclosingType.original()))
 				return true;
@@ -5216,10 +5215,7 @@ public abstract class Scope {
 	public abstract ProblemReporter problemReporter();
 
 	public final CompilationUnitDeclaration referenceCompilationUnit() {
-		Scope scope, unitScope = this;
-		while ((scope = unitScope.parent) != null)
-			unitScope = scope;
-		return ((CompilationUnitScope) unitScope).referenceContext;
+		return this.compilationUnitScope.referenceContext;
 	}
 
 	/**

@@ -31,14 +31,14 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug570218"};
+//		TESTS_NAMES = new String[] { "testBug573450"};
 	}
 
 	public static Class<?> testClass() {
 		return SealedTypesTests.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_16);
+		return buildMinimalComplianceTestSuite(testClass(), F_17);
 	}
 	public SealedTypesTests(String testName){
 		super(testName);
@@ -47,10 +47,9 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions() {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_16); // FIXME
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_17);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_17);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		defaultOptions.put(CompilerOptions.OPTION_Store_Annotations, CompilerOptions.ENABLED);
 		return defaultOptions;
@@ -61,20 +60,19 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 		runConformTest(testFiles, expectedOutput, getCompilerOptions());
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
-	protected void runConformTest(String[] testFiles, String expectedOutput, Map customOptions) {
+	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
 		Runner runner = new Runner();
 		runner.testFiles = testFiles;
 		runner.expectedOutputString = expectedOutput;
 		runner.vmArguments = new String[] {"--enable-preview"};
 		runner.customOptions = customOptions;
-		runner.javacTestOptions = JavacTestOptions.forReleaseWithPreview("16");
+		runner.javacTestOptions = JavacTestOptions.forReleaseWithPreview("17");
 		runner.runConformTest();
 	}
 	@Override
 	protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
-		runNegativeTest(testFiles, expectedCompilerLog, JavacTestOptions.forReleaseWithPreview("15"));
+		runNegativeTest(testFiles, expectedCompilerLog, JavacTestOptions.forReleaseWithPreview("17"));
 	}
 	protected void runWarningTest(String[] testFiles, String expectedCompilerLog) {
 		runWarningTest(testFiles, expectedCompilerLog, null);
@@ -90,8 +88,8 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 		runner.expectedCompilerLog = expectedCompilerLog;
 		runner.customOptions = customOptions;
 		runner.vmArguments = new String[] {"--enable-preview"};
-		runner.javacTestOptions = javacAdditionalTestOptions == null ? JavacTestOptions.forReleaseWithPreview("15") :
-			JavacTestOptions.forReleaseWithPreview("15", javacAdditionalTestOptions);
+		runner.javacTestOptions = javacAdditionalTestOptions == null ? JavacTestOptions.forReleaseWithPreview("16") :
+			JavacTestOptions.forReleaseWithPreview("16", javacAdditionalTestOptions);
 		runner.runWarningTest();
 	}
 
@@ -617,7 +615,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public final class Y extends p1.X{}\n" +
 			"	                             ^^^^\n" +
-			"The type Y extending a sealed class X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_011() {
@@ -651,7 +649,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public final class Y implements p1.X{}\n" +
 			"	                                ^^^^\n" +
-			"The type Y that implements a sealed interface X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_013() {
@@ -696,7 +694,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"2. ERROR in p2\\Y.java (at line 2)\n" +
 			"	public interface Y extends p1.X{}\n" +
 			"	                           ^^^^\n" +
-			"The type Y that extends a sealed interface X should be a permitted subtype of X\n" +
+			"Sealed type X and sub type Y in an unnamed module should be declared in the same package p1\n" +
 			"----------\n");
 	}
 	public void testBug563806_015() {
@@ -1379,7 +1377,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 					"public final class Z extends Y{}",
 				},
 				lib1Path,
-				JavaCore.VERSION_16,
+				JavaCore.VERSION_17,
 				true);
 		String[] libs = getDefaultClassPaths();
 		int len = libs.length;
@@ -1452,7 +1450,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 3)\n" +
 			"	IY y = new IY(){};\n" +
 			"	           ^^\n" +
-			"A local class new IY(){} cannot have a sealed direct superclass or a sealed direct superinterface IY\n" +
+			"An anonymous class cannot subclass a sealed type IY\n" +
 			"----------\n");
 	}
 	public void testBug564492_003() {
@@ -1497,7 +1495,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 3)\n" +
 			"	new A.IY() {};\n" +
 			"	    ^^^^\n" +
-			"A local class new IY(){} cannot have a sealed direct superclass or a sealed direct superinterface A.IY\n" +
+			"An anonymous class cannot subclass a sealed type A.IY\n" +
 			"----------\n");
 	}
 	public void testBug564498_1() throws IOException, ClassFormatException {
@@ -1687,7 +1685,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class permits {\n" +
 			"	      ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1743,7 +1741,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			},
 			"----------\n" +
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	permits p;\n" +
 			"	^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1754,7 +1752,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
 			"----------\n" +
-			"1. WARNING in permits.java (at line 1)\n" +
+			"1. ERROR in permits.java (at line 1)\n" +
 			"	public class permits {\n" +
 			"	             ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1810,7 +1808,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X<permits> {\n" +
 			"	        ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1892,7 +1890,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X extends permits {\n" +
 			"	                ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1902,7 +1900,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	class permits {\n" +
 			"	      ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1957,7 +1955,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X implements permits {\n" +
 			"	                   ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -1967,7 +1965,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	interface permits {\n" +
 			"	          ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -2022,7 +2020,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	interface X extends permits {\n" +
 			"	                    ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -2032,7 +2030,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	interface permits {\n" +
 			"	          ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -2085,15 +2083,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	permits foo() {\n" +
 			"	^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	permits foo() {\n" +
-			"	^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 3)\n" +
 			"	Zork();\n" +
@@ -2141,15 +2134,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	void foo() throws permits{\n" +
 			"	                  ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	void foo() throws permits{\n" +
-			"	                  ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 3)\n" +
 			"	Zork();\n" +
@@ -2212,15 +2200,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X <T extends permits>{\n" +
 			"	                   ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 1)\n" +
-			"	class X <T extends permits>{\n" +
-			"	                   ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 1)\n" +
 			"	class X <T extends permits>{\n" +
@@ -2287,15 +2270,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	private final permits p;\n" +
 			"	              ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	private final permits p;\n" +
-			"	              ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 5)\n" +
 			"	Zork();\n" +
@@ -2356,15 +2334,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	      ^^^^^^^^^^^^^\n" +
 			"This lambda expression refers to the missing type permits\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	I i = (permits p)-> {};\n" +
 			"	       ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 3)\n" +
-			"	I i = (permits p)-> {};\n" +
-			"	       ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"4. ERROR in X.java (at line 4)\n" +
 			"	Zork();\n" +
@@ -2403,15 +2376,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public void foo(permits this) {}\n" +
 			"	                ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public void foo(permits this) {}\n" +
-			"	                ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -2445,15 +2413,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public void foo(permits this) {}\n" +
 			"	                ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public void foo(permits this) {}\n" +
-			"	                ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -2496,12 +2459,12 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	class permits {\n" +
 			"	      ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	public void foo(permits this) {}\n" +
 			"	                ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -2549,15 +2512,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	permits p;\n" +
 			"	^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	permits p;\n" +
-			"	^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 4)\n" +
 			"	Zork();\n" +
@@ -2611,15 +2569,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	for (permits i = 0; i < 10; ++i) {} \n" +
 			"	     ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	for (permits i = 0; i < 10; ++i) {} \n" +
-			"	     ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 6)\n" +
 			"	Zork();\n" +
@@ -2667,25 +2620,15 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public static void main(permits[] args) {\n" +
 			"	                        ^^^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public static void main(permits[] args) {\n" +
-			"	                        ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
-			"----------\n" +
-			"3. WARNING in X.java (at line 3)\n" +
+			"3. ERROR in X.java (at line 3)\n" +
 			"	for (permits p : args) {} \n" +
 			"	     ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"4. ERROR in X.java (at line 3)\n" +
-			"	for (permits p : args) {} \n" +
-			"	     ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -2743,15 +2686,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	try (permits y = new Y()) {\n" +
 			"	     ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	try (permits y = new Y()) {\n" +
-			"	     ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -2809,15 +2747,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	} catch (permits e) {\n" +
 			"	         ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	} catch (permits e) {\n" +
-			"	         ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -2859,15 +2792,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^\n" +
 			"permits cannot be resolved to a type\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 1)\n" +
+			"2. ERROR in X.java (at line 1)\n" +
 			"	record X(permits p) {\n" +
 			"	         ^^^^^^^\n" +
-			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 16\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 1)\n" +
-			"	record X(permits p) {\n" +
-			"	         ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
+			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 17\n" +
 			"----------\n",
 			null,
 			true,
@@ -2914,15 +2842,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	<permits>this(t);\n" +
 			"	 ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	<permits>this(t);\n" +
-			"	 ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 5)\n" +
 			"	<permits>this(t);\n" +
@@ -2981,15 +2904,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^^^^^^^^^^^^^^\n" +
 			"The parameterized constructor <permits>X(permits) of type X is not applicable for the arguments (Integer)\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 5)\n" +
+			"2. ERROR in X.java (at line 5)\n" +
 			"	new <permits>X(t).foo();\n" +
 			"	     ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 5)\n" +
-			"	new <permits>X(t).foo();\n" +
-			"	     ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -3038,15 +2956,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 6)\n" +
+			"1. ERROR in X.java (at line 6)\n" +
 			"	x.<permits>foo(0);\n" +
 			"	   ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 6)\n" +
-			"	x.<permits>foo(0);\n" +
-			"	   ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 6)\n" +
 			"	x.<permits>foo(0);\n" +
@@ -3093,15 +3006,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	X x = new permits();\n" +
 			"	          ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	X x = new permits();\n" +
-			"	          ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -3158,7 +3066,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	new permits() {\n" +
 			"	    ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3168,7 +3076,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type new permits(){}\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 11)\n" +
+			"3. ERROR in X.java (at line 11)\n" +
 			"	abstract class permits {\n" +
 			"	               ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3209,15 +3117,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	Object[] p = new permits[10];\n" +
 			"	                 ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	Object[] p = new permits[10];\n" +
-			"	                 ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -3272,25 +3175,15 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	        ^^^\n" +
 			"The method foo(permits) from the type X refers to the missing type permits\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	new X().foo((permits) null);\n" +
 			"	             ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"3. ERROR in X.java (at line 3)\n" +
-			"	new X().foo((permits) null);\n" +
-			"	             ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
-			"----------\n" +
-			"4. WARNING in X.java (at line 5)\n" +
+			"4. ERROR in X.java (at line 5)\n" +
 			"	private void foo(permits o) {}\n" +
 			"	                 ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"5. ERROR in X.java (at line 5)\n" +
-			"	private void foo(permits o) {}\n" +
-			"	                 ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -3328,15 +3221,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	if (o instanceof permits) {}\n" +
 			"	                 ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	if (o instanceof permits) {}\n" +
-			"	                 ^^^^^^^\n" +
-			"permits cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -3396,7 +3284,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 8)\n" +
+			"2. ERROR in X.java (at line 8)\n" +
 			"	class permits{}\n" +
 			"	      ^^^^^^^\n" +
 			"\'permits\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3420,7 +3308,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class sealed {\n" +
 			"	      ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3476,7 +3364,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			},
 			"----------\n" +
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	sealed p;\n" +
 			"	^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3487,7 +3375,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
 			"----------\n" +
-			"1. WARNING in sealed.java (at line 1)\n" +
+			"1. ERROR in sealed.java (at line 1)\n" +
 			"	public class sealed {\n" +
 			"	             ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3543,7 +3431,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X<sealed> {\n" +
 			"	        ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3625,7 +3513,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X extends sealed {\n" +
 			"	                ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3635,7 +3523,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	class sealed {\n" +
 			"	      ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3690,7 +3578,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X implements sealed {\n" +
 			"	                   ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3700,7 +3588,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	interface sealed {\n" +
 			"	          ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3755,7 +3643,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	interface X extends sealed {\n" +
 			"	                    ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3765,7 +3653,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
+			"3. ERROR in X.java (at line 6)\n" +
 			"	interface sealed {\n" +
 			"	          ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -3818,15 +3706,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	sealed foo() {\n" +
 			"	^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	sealed foo() {\n" +
-			"	^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 3)\n" +
 			"	Zork();\n" +
@@ -3874,15 +3757,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	void foo() throws sealed{\n" +
 			"	                  ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	void foo() throws sealed{\n" +
-			"	                  ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 3)\n" +
 			"	Zork();\n" +
@@ -3945,15 +3823,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 1)\n" +
+			"1. ERROR in X.java (at line 1)\n" +
 			"	class X <T extends sealed>{\n" +
 			"	                   ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 1)\n" +
-			"	class X <T extends sealed>{\n" +
-			"	                   ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 1)\n" +
 			"	class X <T extends sealed>{\n" +
@@ -4020,15 +3893,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	private final sealed p;\n" +
 			"	              ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	private final sealed p;\n" +
-			"	              ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 5)\n" +
 			"	Zork();\n" +
@@ -4089,15 +3957,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	      ^^^^^^^^^^^^\n" +
 			"This lambda expression refers to the missing type sealed\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	I i = (sealed p)-> {};\n" +
 			"	       ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 3)\n" +
-			"	I i = (sealed p)-> {};\n" +
-			"	       ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"4. ERROR in X.java (at line 4)\n" +
 			"	Zork();\n" +
@@ -4136,15 +3999,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public void foo(sealed this) {}\n" +
 			"	                ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public void foo(sealed this) {}\n" +
-			"	                ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4178,15 +4036,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public void foo(sealed this) {}\n" +
 			"	                ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public void foo(sealed this) {}\n" +
-			"	                ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4229,12 +4082,12 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	class sealed {\n" +
 			"	      ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	public void foo(sealed this) {}\n" +
 			"	                ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -4282,15 +4135,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	sealed p;\n" +
 			"	^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	sealed p;\n" +
-			"	^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 4)\n" +
 			"	Zork();\n" +
@@ -4344,15 +4192,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	for (sealed i = 0; i < 10; ++i) {} \n" +
 			"	     ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	for (sealed i = 0; i < 10; ++i) {} \n" +
-			"	     ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 6)\n" +
 			"	Zork();\n" +
@@ -4400,25 +4243,15 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 2)\n" +
+			"1. ERROR in X.java (at line 2)\n" +
 			"	public static void main(sealed[] args) {\n" +
 			"	                        ^^^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"2. ERROR in X.java (at line 2)\n" +
-			"	public static void main(sealed[] args) {\n" +
-			"	                        ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
-			"----------\n" +
-			"3. WARNING in X.java (at line 3)\n" +
+			"3. ERROR in X.java (at line 3)\n" +
 			"	for (sealed p : args) {} \n" +
 			"	     ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"4. ERROR in X.java (at line 3)\n" +
-			"	for (sealed p : args) {} \n" +
-			"	     ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4476,15 +4309,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	try (sealed y = new Y()) {\n" +
 			"	     ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	try (sealed y = new Y()) {\n" +
-			"	     ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4542,15 +4370,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	} catch (sealed e) {\n" +
 			"	         ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	} catch (sealed e) {\n" +
-			"	         ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4592,15 +4415,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^\n" +
 			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 1)\n" +
+			"2. ERROR in X.java (at line 1)\n" +
 			"	record X(sealed p) {\n" +
 			"	         ^^^^^^\n" +
-			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 16\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 1)\n" +
-			"	record X(sealed p) {\n" +
-			"	         ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
+			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 17\n" +
 			"----------\n",
 			null,
 			true,
@@ -4647,15 +4465,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	<sealed>this(t);\n" +
 			"	 ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	<sealed>this(t);\n" +
-			"	 ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 5)\n" +
 			"	<sealed>this(t);\n" +
@@ -4714,15 +4527,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^^^^^^^^^^^^^\n" +
 			"The parameterized constructor <sealed>X(sealed) of type X is not applicable for the arguments (Integer)\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 5)\n" +
+			"2. ERROR in X.java (at line 5)\n" +
 			"	new <sealed>X(t).foo();\n" +
 			"	     ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 5)\n" +
-			"	new <sealed>X(t).foo();\n" +
-			"	     ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4771,15 +4579,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 6)\n" +
+			"1. ERROR in X.java (at line 6)\n" +
 			"	x.<sealed>foo(0);\n" +
 			"	   ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 6)\n" +
-			"	x.<sealed>foo(0);\n" +
-			"	   ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 6)\n" +
 			"	x.<sealed>foo(0);\n" +
@@ -4826,15 +4629,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 5)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	X x = new sealed();\n" +
 			"	          ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	X x = new sealed();\n" +
-			"	          ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -4891,7 +4689,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	new sealed() {\n" +
 			"	    ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -4901,7 +4699,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type new sealed(){}\n" +
 			"----------\n" +
-			"3. WARNING in X.java (at line 11)\n" +
+			"3. ERROR in X.java (at line 11)\n" +
 			"	abstract class sealed {\n" +
 			"	               ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -4942,15 +4740,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	Object[] p = new sealed[10];\n" +
 			"	                 ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	Object[] p = new sealed[10];\n" +
-			"	                 ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -5005,25 +4798,15 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	        ^^^\n" +
 			"The method foo(sealed) from the type X refers to the missing type sealed\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 3)\n" +
+			"2. ERROR in X.java (at line 3)\n" +
 			"	new X().foo((sealed) null);\n" +
 			"	             ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
 			"----------\n" +
-			"3. ERROR in X.java (at line 3)\n" +
-			"	new X().foo((sealed) null);\n" +
-			"	             ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
-			"----------\n" +
-			"4. WARNING in X.java (at line 5)\n" +
+			"4. ERROR in X.java (at line 5)\n" +
 			"	private void foo(sealed o) {}\n" +
 			"	                 ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"5. ERROR in X.java (at line 5)\n" +
-			"	private void foo(sealed o) {}\n" +
-			"	                 ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -5061,15 +4844,10 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}",
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 3)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
 			"	if (o instanceof sealed) {}\n" +
 			"	                 ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	if (o instanceof sealed) {}\n" +
-			"	                 ^^^^^^\n" +
-			"sealed cannot be resolved to a type\n" +
 			"----------\n",
 			null,
 			true,
@@ -5129,7 +4907,7 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 8)\n" +
+			"2. ERROR in X.java (at line 8)\n" +
 			"	class sealed{}\n" +
 			"	      ^^^^^^\n" +
 			"\'sealed\' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java "+ AbstractRegressionTest.PREVIEW_ALLOWED_LEVEL +"\n" +
@@ -5305,31 +5083,16 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"final class Z implements I{}",
 			},
 			"----------\n" +
-					"1. WARNING in X.java (at line 1)\n" +
-					"	public sealed class X  permits Y {Zork();\n" +
-					"	       ^^^^^^\n" +
-					"You are using a preview language feature that may or may not be supported in a future release\n" +
-					"----------\n" +
-					"2. WARNING in X.java (at line 1)\n" +
-					"	public sealed class X  permits Y {Zork();\n" +
-					"	                       ^^^^^^^\n" +
-					"You are using a preview language feature that may or may not be supported in a future release\n" +
-					"----------\n" +
-					"3. ERROR in X.java (at line 1)\n" +
-					"	public sealed class X  permits Y {Zork();\n" +
-					"	                                  ^^^^^^\n" +
-					"Return type for the method is missing\n" +
-					"----------\n" +
-					"4. ERROR in X.java (at line 1)\n" +
-					"	public sealed class X  permits Y {Zork();\n" +
-					"	                                  ^^^^^^\n" +
-					"This method requires a body instead of a semicolon\n" +
-					"----------\n" +
-					"5. WARNING in X.java (at line 4)\n" +
-					"	sealed interface I{}\n" +
-					"	^^^^^^\n" +
-					"You are using a preview language feature that may or may not be supported in a future release\n" +
-					"----------\n",
+			"1. ERROR in X.java (at line 1)\n" +
+			"	public sealed class X  permits Y {Zork();\n" +
+			"	                                  ^^^^^^\n" +
+			"Return type for the method is missing\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 1)\n" +
+			"	public sealed class X  permits Y {Zork();\n" +
+			"	                                  ^^^^^^\n" +
+			"This method requires a body instead of a semicolon\n" +
+			"----------\n",
 			null,
 			true,
 			options
@@ -5567,7 +5330,6 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"X.java",
 				"import java.lang.reflect.Modifier;\n"+
 				"\n"+
-				"@SuppressWarnings(\"preview\")\n"+
 				"sealed interface I {\n"+
 				" void foo();\n"+
 				"}\n"+
@@ -5844,5 +5606,120 @@ public class SealedTypesTests extends AbstractRegressionTest9 {
 				"}\n",
 			},
 			"0");
+	}
+	public void testBug572205_001() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X{\n" +
+				"  public static void main(String[] args) {\n" +
+				"	 class Circle implements Shape{}\n" +
+				"  }\n" +
+				"  sealed interface Shape {}\n" +
+				"}",
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 3)\n" +
+			"	class Circle implements Shape{}\n" +
+			"	                        ^^^^^\n" +
+			"A local class Circle cannot have a sealed direct superclass or a sealed direct superinterface X.Shape\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	sealed interface Shape {}\n" +
+			"	                 ^^^^^\n" +
+			"Sealed class or interface lacks the permits clause and no class or interface from the same compilation unit declares Shape as its direct superclass or superinterface\n" +
+			"----------\n");
+	}
+	public void testBug573450_001() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"sealed interface Foo permits Foo.Bar {\n" +
+					"	interface Interface {}\n" +
+					"	record Bar() implements Foo, Interface { }\n" +
+					"}\n" +
+					"public class X { \n" +
+					"  public static void main(String[] args){\n"+
+					"     System.out.println(0);\n" +
+					"  }\n"+
+					"}",
+				},
+				"0");
+	}
+
+	public void testBug573450_002() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"interface Interface {}\n" +
+					"sealed interface Foo extends Interface permits Foo.Bar {\n" +
+					"	record Bar() implements Foo, Interface {}\n" +
+					"}\n" +
+					"public class X { \n" +
+					"  public static void main(String[] args){\n"+
+					"     System.out.println(0);\n" +
+					"  }\n"+
+					"}"
+				},
+				"0");
+	}
+	public void testBug573450_003() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"sealed interface Interface extends Foo{}\n" +
+					"sealed interface Foo extends Interface permits Foo.Bar, Interface {\n" +
+					"	record Bar() implements Foo, Interface {} \n" +
+					"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 1)\n" +
+				"	sealed interface Interface extends Foo{}\n" +
+				"	                 ^^^^^^^^^\n" +
+				"The hierarchy of the type Interface is inconsistent\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 2)\n" +
+				"	sealed interface Foo extends Interface permits Foo.Bar, Interface {\n" +
+				"	                             ^^^^^^^^^\n" +
+				"Cycle detected: a cycle exists in the type hierarchy between Foo and Interface\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 3)\n" +
+				"	record Bar() implements Foo, Interface {} \n" +
+				"	       ^^^\n" +
+				"The hierarchy of the type Bar is inconsistent\n" +
+				"----------\n");
+	}
+	public void testBug573450_004() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public sealed class X permits X.Y {\n" +
+					"	final class Y extends X {}\n" +
+					"	public static void main(String[] args){\n"+
+					"		System.out.println(0);\n" +
+					"	}\n"+
+					"}"
+				},
+				"0");
+	}
+	public void testBug573450_005() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"public sealed class X permits Y {\n" +
+					"	final class Y extends X {}\n" +
+					"}"
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 1)\n"
+				+ "	public sealed class X permits Y {\n"
+				+ "	                              ^\n"
+				+ "Y cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 2)\n"
+				+ "	final class Y extends X {}\n"
+				+ "	                      ^\n"
+				+ "The type Y extending a sealed class X should be a permitted subtype of X\n"
+				+ "----------\n");
 	}
 }

@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -55,6 +56,7 @@ import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.AnnotationMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ArrayInitializer;
+import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
 import org.eclipse.jdt.internal.compiler.ast.ClassLiteralAccess;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ExportsStatement;
@@ -75,6 +77,7 @@ import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.RequiresStatement;
 import org.eclipse.jdt.internal.compiler.ast.SingleMemberAnnotation;
 import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
+import org.eclipse.jdt.internal.compiler.ast.StringLiteral;
 import org.eclipse.jdt.internal.compiler.ast.SwitchStatement;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
@@ -163,6 +166,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 	// that collection contains all the remaining bytes of the .class file
 	public int headerOffset;
 	public Map<TypeBinding, Boolean> innerClassesBindings;
+	public Set<SourceTypeBinding> nestMembers;
 	public List<ASTNode> bootstrapMethods = null;
 	public int methodCount;
 	public int methodCountOffset;
@@ -188,7 +192,8 @@ public class ClassFile implements TypeConstants, TypeIds {
 	public static final String ALTMETAFACTORY_STRING = new String(ConstantPool.ALTMETAFACTORY);
 	public static final String METAFACTORY_STRING = new String(ConstantPool.METAFACTORY);
 	public static final String BOOTSTRAP_STRING = new String(ConstantPool.BOOTSTRAP);
-	public static final String[] BOOTSTRAP_METHODS = {ALTMETAFACTORY_STRING, METAFACTORY_STRING, BOOTSTRAP_STRING};
+	public static final String TYPESWITCH_STRING = new String(ConstantPool.TYPESWITCH);
+	public static final String[] BOOTSTRAP_METHODS = {ALTMETAFACTORY_STRING, METAFACTORY_STRING, BOOTSTRAP_STRING, TYPESWITCH_STRING};
 
 	/**
 	 * INTERNAL USE-ONLY
@@ -440,7 +445,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		if (this.bootstrapMethods != null && !this.bootstrapMethods.isEmpty()) {
 			attributesNumber += generateBootstrapMethods(this.bootstrapMethods);
 		}
-		if (this.targetJDK >= ClassFileConstants.JDK16) {
+		if (this.targetJDK >= ClassFileConstants.JDK17) {
 			// add record attributes
 			attributesNumber += generatePermittedTypeAttributes();
 		}
@@ -817,7 +822,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 
 		int codeAttributeOffset = this.contentsOffset;
 		generateCodeAttributeHeader();
-		StringBuffer buffer = new StringBuffer(25);
+		StringBuilder buffer = new StringBuilder(25);
 		buffer.append("\t"  + problem.getMessage() + "\n" ); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.insert(0, Messages.compilation_unresolvedProblem);
 		String problemString = buffer.toString();
@@ -859,7 +864,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -925,7 +930,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -1009,7 +1014,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int problemLine = 0;
 		if (problems != null) {
 			int max = problems.length;
-			StringBuffer buffer = new StringBuffer(25);
+			StringBuilder buffer = new StringBuilder(25);
 			int count = 0;
 			for (int i = 0; i < max; i++) {
 				CategorizedProblem problem = problems[i];
@@ -1161,6 +1166,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 						case SyntheticMethodBinding.SerializableMethodReference:
 							// Nothing to be done
 							break;
+						case SyntheticMethodBinding.RecordCanonicalConstructor:
+							addSyntheticRecordCanonicalConstructor(typeDecl, syntheticMethod);
+							break;
 						case SyntheticMethodBinding.RecordOverrideEquals:
 						case SyntheticMethodBinding.RecordOverrideHashCode:
 						case SyntheticMethodBinding.RecordOverrideToString:
@@ -1196,6 +1204,30 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 	}
 
+	private void addSyntheticRecordCanonicalConstructor(TypeDeclaration typeDecl, SyntheticMethodBinding methodBinding) {
+		generateMethodInfoHeader(methodBinding);
+		int methodAttributeOffset = this.contentsOffset;
+		// this will add exception attribute, synthetic attribute, deprecated attribute,...
+		int attributeNumber = generateMethodInfoAttributes(methodBinding);
+		// Code attribute
+		int codeAttributeOffset = this.contentsOffset;
+		attributeNumber++; // add code attribute
+		generateCodeAttributeHeader();
+		this.codeStream.init(this);
+		this.codeStream.generateSyntheticBodyForRecordCanonicalConstructor(methodBinding);
+		completeCodeAttributeForSyntheticMethod(
+			methodBinding,
+			codeAttributeOffset,
+			((SourceTypeBinding) methodBinding.declaringClass)
+				.scope
+				.referenceCompilationUnit()
+				.compilationResult
+				.getLineSeparatorPositions());
+		// update the number of attributes
+		this.contents[methodAttributeOffset++] = (byte) (attributeNumber >> 8);
+		this.contents[methodAttributeOffset] = (byte) attributeNumber;
+	}
+
 	private void addSyntheticRecordOverrideMethods(TypeDeclaration typeDecl, SyntheticMethodBinding methodBinding, int purpose) {
 		if (this.bootstrapMethods == null)
 			this.bootstrapMethods = new ArrayList<>(3);
@@ -1212,6 +1244,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 		generateCodeAttributeHeader();
 		this.codeStream.init(this);
 		switch (purpose) {
+			case SyntheticMethodBinding.RecordCanonicalConstructor:
+				this.codeStream.generateSyntheticBodyForRecordCanonicalConstructor(methodBinding);
+				break;
 			case SyntheticMethodBinding.RecordOverrideEquals:
 				this.codeStream.generateSyntheticBodyForRecordEquals(methodBinding, index);
 				break;
@@ -2854,7 +2889,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 	private int generateNestMembersAttribute() {
 
 		int localContentsOffset = this.contentsOffset;
-		List<String> nestedMembers = this.referenceBinding.getNestMembers();
+		List<String> nestedMembers = getNestMembers();
 		int numberOfNestedMembers = nestedMembers != null ? nestedMembers.size() : 0;
 		if (numberOfNestedMembers == 0) // JVMS 11 4.7.29 says "at most one" NestMembers attribute - return if none.
 			return 0;
@@ -3638,6 +3673,8 @@ public class ClassFile implements TypeConstants, TypeIds {
 				localContentsOffset = addBootStrapLambdaEntry(localContentsOffset, (FunctionalExpression) o, fPtr);
 			} else if (o instanceof TypeDeclaration) {
 				localContentsOffset = addBootStrapRecordEntry(localContentsOffset, (TypeDeclaration) o, fPtr);
+			} else if (o instanceof SwitchStatement) {
+				localContentsOffset = addBootStrapTypeSwitchEntry(localContentsOffset, (SwitchStatement) o, fPtr);
 			}
 		}
 
@@ -3826,6 +3863,51 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 		return localContentsOffset;
 	}
+	private int addBootStrapTypeSwitchEntry(int localContentsOffset, SwitchStatement switchStatement, Map<String, Integer> fPtr) {
+		final int contentsEntries = 10;
+		int indexFortypeSwitch = fPtr.get(ClassFile.TYPESWITCH_STRING);
+		if (contentsEntries + localContentsOffset >= this.contents.length) {
+			resizeContents(contentsEntries);
+		}
+		if (indexFortypeSwitch == 0) {
+			ReferenceBinding javaLangRuntimeSwitchBootstraps = this.referenceBinding.scope.getJavaLangRuntimeSwitchBootstraps();
+			indexFortypeSwitch = this.constantPool.literalIndexForMethodHandle(ClassFileConstants.MethodHandleRefKindInvokeStatic, javaLangRuntimeSwitchBootstraps,
+					ConstantPool.TYPESWITCH, ConstantPool.JAVA_LANG_RUNTIME_SWITCHBOOTSTRAPS_TYPESWITCH_SIGNATURE, false);
+			fPtr.put(ClassFile.BOOTSTRAP_STRING, indexFortypeSwitch);
+		}
+		this.contents[localContentsOffset++] = (byte) (indexFortypeSwitch >> 8);
+		this.contents[localContentsOffset++] = (byte) indexFortypeSwitch;
+
+		// u2 num_bootstrap_arguments
+		int numArgsLocation = localContentsOffset;
+		CaseStatement.ResolvedCase[] constants = switchStatement.otherConstants;
+		int numArgs = constants.length;
+		this.contents[numArgsLocation++] = (byte) (numArgs >> 8);
+		this.contents[numArgsLocation] = (byte) numArgs;
+		localContentsOffset += 2;
+
+		for (CaseStatement.ResolvedCase c : constants) {
+			if (c.isPattern()) {
+				char[] typeName = c.t.constantPoolName();
+				int typeIndex = this.constantPool.literalIndexForType(typeName);
+				this.contents[localContentsOffset++] = (byte) (typeIndex >> 8);
+				this.contents[localContentsOffset++] = (byte) typeIndex;
+			} else if (c.e instanceof StringLiteral) {
+				int intValIdx =
+						this.constantPool.literalIndex(c.c.stringValue());
+				this.contents[localContentsOffset++] = (byte) (intValIdx >> 8);
+				this.contents[localContentsOffset++] = (byte) intValIdx;
+			} else {
+				int intValIdx =
+						this.constantPool.literalIndex(c.intValue());
+				this.contents[localContentsOffset++] = (byte) (intValIdx >> 8);
+				this.contents[localContentsOffset++] = (byte) intValIdx;
+			}
+		}
+
+		return localContentsOffset;
+	}
+
 	private int generateLineNumberAttribute() {
 		int localContentsOffset = this.contentsOffset;
 		int attributesNumber = 0;
@@ -4314,6 +4396,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 		}
 		if ((methodBinding.tagBits & TagBits.ClearPrivateModifier) != 0) {
 			accessFlags &= ~ClassFileConstants.AccPrivate;
+		}
+		if (this.targetJDK >= ClassFileConstants.JDK17) {
+			accessFlags &= ~(ClassFileConstants.AccStrictfp);
 		}
 		this.contents[this.contentsOffset++] = (byte) (accessFlags >> 8);
 		this.contents[this.contentsOffset++] = (byte) accessFlags;
@@ -6114,6 +6199,25 @@ public class ClassFile implements TypeConstants, TypeIds {
 			enclosingType = enclosingType.enclosingType();
 		}
 	}
+	public void recordNestMember(SourceTypeBinding binding) {
+		SourceTypeBinding nestHost = binding != null ? binding.getNestHost() : null;
+		if (nestHost != null && !binding.equals(nestHost)) {// member
+			if (this.nestMembers == null) {
+				this.nestMembers = new HashSet<>(NESTED_MEMBER_SIZE);
+			}
+			this.nestMembers.add(binding);
+		}
+	}
+	public List<String> getNestMembers() {
+		if (this.nestMembers == null)
+			return null;
+		List<String> list = this.nestMembers
+								.stream()
+								.map(s -> new String(s.constantPoolName()))
+								.sorted()
+								.collect(Collectors.toList());
+		return list;
+	}
 
 	public int recordBootstrapMethod(FunctionalExpression expression) {
 		if (this.bootstrapMethods == null) {
@@ -6133,6 +6237,14 @@ public class ClassFile implements TypeConstants, TypeIds {
 		this.bootstrapMethods.add(expression);
 		// Record which bootstrap method was assigned to the expression
 		return expression.bootstrapMethodNumber = this.bootstrapMethods.size() - 1;
+	}
+
+	public int recordBootstrapMethod(SwitchStatement switchStatement) {
+		if (this.bootstrapMethods == null) {
+			this.bootstrapMethods = new ArrayList<>();
+		}
+		this.bootstrapMethods.add(switchStatement);
+		return this.bootstrapMethods.size() - 1;
 	}
 
 	public void reset(/*@Nullable*/SourceTypeBinding typeBinding, CompilerOptions options) {
@@ -6172,6 +6284,9 @@ public class ClassFile implements TypeConstants, TypeIds {
 		this.methodCountOffset = 0;
 		if (this.innerClassesBindings != null) {
 			this.innerClassesBindings.clear();
+		}
+		if (this.nestMembers != null) {
+			this.nestMembers.clear();
 		}
 		if (this.bootstrapMethods != null) {
 			this.bootstrapMethods.clear();

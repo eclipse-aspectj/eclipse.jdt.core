@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -54,6 +54,8 @@ import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObject;
@@ -97,6 +99,10 @@ public class ClassScope extends Scope {
 				this.referenceContext.superInterfaces = new TypeReference[] { typeReference };
 				if ((supertype.tagBits & TagBits.HasDirectWildcard) != 0) {
 					problemReporter().superTypeCannotUseWildcard(anonymousType, typeReference, supertype);
+					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
+					anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
+				} if (supertype.isSealed()) {
+					problemReporter().sealedAnonymousClassCannotExtendSealedType(typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
 					anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 				}
@@ -147,8 +153,7 @@ public class ClassScope extends Scope {
 	}
 
 	private void checkForEnumSealedPreview(ReferenceBinding supertype, LocalTypeBinding anonymousType) {
-		if (compilerOptions().sourceLevel < ClassFileConstants.JDK15
-				|| !compilerOptions().enablePreviewFeatures
+		if (!JavaFeature.SEALED_CLASSES.isSupported(compilerOptions())
 				|| !supertype.isEnum()
 				|| !(supertype instanceof SourceTypeBinding))
 			return;
@@ -217,6 +222,9 @@ public class ClassScope extends Scope {
 		if (count != componentBindings.length)
 			System.arraycopy(componentBindings, 0, componentBindings = new RecordComponentBinding[count], 0, count);
 		sourceType.setComponents(componentBindings);
+		if (size > 0) {
+			sourceType.isVarArgs = recComps[size-1].isVarArgs();
+		}
 	}
 	private void checkAndSetModifiersForComponents(RecordComponentBinding compBinding, RecordComponent comp) {
 		int modifiers = compBinding.modifiers;
@@ -497,6 +505,9 @@ public class ClassScope extends Scope {
 						methodBindings[count++] = methodBinding;
 						hasAbstractMethods = hasAbstractMethods || methodBinding.isAbstract();
 						hasNativeMethods = hasNativeMethods || methodBinding.isNative();
+						if (methods[i].isCanonicalConstructor()) {
+							methodBinding.tagBits |= TagBits.IsCanonicalConstructor;
+						}
 					}
 				}
 			}
@@ -628,10 +639,10 @@ public class ClassScope extends Scope {
 	private void checkAndSetModifiers() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
 		int modifiers = sourceType.modifiers;
-		boolean isPreviewEnabled = compilerOptions().sourceLevel == ClassFileConstants.getLatestJDKLevel() &&
-				compilerOptions().enablePreviewFeatures;
+		CompilerOptions options = compilerOptions();
 		boolean is16Plus = compilerOptions().sourceLevel >= ClassFileConstants.JDK16;
-		boolean flagSealedNonModifiers = isPreviewEnabled &&
+		boolean isSealedSupported = JavaFeature.SEALED_CLASSES.isSupported(options);
+		boolean flagSealedNonModifiers = isSealedSupported &&
 				(modifiers & (ExtraCompilerModifiers.AccSealed | ExtraCompilerModifiers.AccNonSealed)) != 0;
 		if (sourceType.isRecord()) {
 			/* JLS 14 Records Sec 8.10 - A record declaration is implicitly final. */
@@ -768,7 +779,7 @@ public class ClassScope extends Scope {
 						| ClassFileConstants.AccStrictfp | ClassFileConstants.AccAnnotation
 						| ((is16Plus && this.parent instanceof ClassScope) ? ClassFileConstants.AccStatic : 0));
 				if ((realModifiers & UNEXPECTED_MODIFIERS) != 0
-						|| (isPreviewEnabled && flagSealedNonModifiers))
+						|| flagSealedNonModifiers)
 					problemReporter().localStaticsIllegalVisibilityModifierForInterfaceLocalType(sourceType);
 //				if ((modifiers & ClassFileConstants.AccStatic) != 0) {
 //					problemReporter().recordIllegalStaticModifierForLocalClassOrInterface(sourceType);
@@ -863,7 +874,7 @@ public class ClassScope extends Scope {
 					}
 					modifiers |= ClassFileConstants.AccFinal;
 				}
-				if (isPreviewEnabled && (modifiers & ClassFileConstants.AccFinal) == 0)
+				if (isSealedSupported && (modifiers & ClassFileConstants.AccFinal) == 0)
 					modifiers |= ExtraCompilerModifiers.AccSealed;
 			}
 		} else if (sourceType.isRecord()) {
@@ -1482,18 +1493,18 @@ public class ClassScope extends Scope {
 
 	void connectTypeHierarchy() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
-		CompilationUnitScope compilationUnitScope = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScope.connectingHierarchy;
-		compilationUnitScope.connectingHierarchy = true;
+		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
+		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
+		compilationUnitScopeLocal.connectingHierarchy = true;
 		try {
 			if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) == 0) {
 				sourceType.tagBits |= TagBits.BeginHierarchyCheck;
 				environment().typesBeingConnected.add(sourceType);
 				boolean noProblems = connectSuperclass();
 				noProblems &= connectSuperInterfaces();
-				connectPermittedTypes();
 				environment().typesBeingConnected.remove(sourceType);
 				sourceType.tagBits |= TagBits.EndHierarchyCheck;
+				connectPermittedTypes();
 				noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
 				sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
 				if (noProblems && sourceType.isHierarchyInconsistent())
@@ -1501,7 +1512,7 @@ public class ClassScope extends Scope {
 			}
 			connectMemberTypes();
 		} finally {
-			compilationUnitScope.connectingHierarchy = wasAlreadyConnecting;
+			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
 		}
 		LookupEnvironment env = environment();
 		try {
@@ -1542,23 +1553,23 @@ public class ClassScope extends Scope {
 		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) != 0)
 			return;
 
-		CompilationUnitScope compilationUnitScope = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScope.connectingHierarchy;
-		compilationUnitScope.connectingHierarchy = true;
+		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
+		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
+		compilationUnitScopeLocal.connectingHierarchy = true;
 		try {
 			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
 			environment().typesBeingConnected.add(sourceType);
 			boolean noProblems = connectSuperclass();
 			noProblems &= connectSuperInterfaces();
-			connectPermittedTypes();
 			environment().typesBeingConnected.remove(sourceType);
 			sourceType.tagBits |= TagBits.EndHierarchyCheck;
+			connectPermittedTypes();
 			noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
 			sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
 			if (noProblems && sourceType.isHierarchyInconsistent())
 				problemReporter().hierarchyHasProblems(sourceType);
 		} finally {
-			compilationUnitScope.connectingHierarchy = wasAlreadyConnecting;
+			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
 		}
 	}
 

@@ -1045,7 +1045,7 @@ public SubRoutineStatement subroutine() {
 
 @Override
 public String toString() {
-	StringBuffer buffer = new StringBuffer();
+	StringBuilder buffer = new StringBuilder();
 	FlowContext current = this;
 	int parentsCount = 0;
 	while ((current = current.parent) != null) {

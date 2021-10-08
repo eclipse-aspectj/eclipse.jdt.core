@@ -26,7 +26,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug565844_yy" };
+//		TESTS_NAMES = new String[] { "571833" };
 	}
 
 	public static Class<?> testClass() {
@@ -2370,7 +2370,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_04() {
@@ -2395,7 +2395,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"2. ERROR in X.java (at line 7)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -2417,12 +2417,12 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield y;\n" +
 				"	^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_06() {
@@ -2442,7 +2442,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield y;\n" +
 				"	^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 4)\n" +
 				"	Zork();\n" +
@@ -2452,7 +2452,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"3. ERROR in X.java (at line 7)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -2474,12 +2474,12 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield y = null;\n" +
 				"	^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_08() {
@@ -2499,7 +2499,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield y = null;\n" +
 				"	^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 4)\n" +
 				"	Zork();\n" +
@@ -2509,7 +2509,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"3. ERROR in X.java (at line 7)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -2530,7 +2530,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_10() {
@@ -2554,7 +2554,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -2576,12 +2576,12 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	new yield();\n" +
 				"	    ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_12() {
@@ -2601,7 +2601,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	new yield();\n" +
 				"	    ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 4)\n" +
 				"	Zork();\n" +
@@ -2611,7 +2611,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"3. ERROR in X.java (at line 7)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -2633,12 +2633,12 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield[] y;\n" +
 				"	^^^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 6)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n");
 	}
 	public void testBug547891_14() {
@@ -2658,7 +2658,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	yield[] y;\n" +
 				"	^^^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 4)\n" +
 				"	Zork();\n" +
@@ -2668,7 +2668,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"3. ERROR in X.java (at line 7)\n" +
 				"	class yield {\n" +
 				"	      ^^^^^\n" +
-				"yield is a restricted identifier and cannot be used as type name\n" +
+				"'yield' is not a valid type name; it is a restricted identifier and not allowed as a type identifier in Java 14\n" +
 				"----------\n";
 		this.runNegativeTest(
 				testFiles,
@@ -4503,6 +4503,59 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 			},
 			"3");
 	}
+	public void testBug571929_normal() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				" public static void main(String[] args) {\n" +
+				"   System.out.println(foo(\"a\"));\n" +
+				" }\n" +
+				" private static boolean foo(String s) {\n" +
+				"  bar(0L);\n" +
+				"  return switch (s) {\n" +
+				"    case \"a\" -> {\n" +
+				"      try {\n" +
+				"        yield true;\n" +
+				"      } finally {\n" +
+				"      }\n" +
+				"    }\n" +
+				"    default -> false;\n" +
+				"  };\n" +
+				" }\n" +
+				" private static void bar(long l) {}\n" +
+				"}"
+			},
+			"true");
+	}
+	public void testBug571929_lambda() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				" public static void main(String[] args) {\n" +
+				"   System.out.println(foo(\"a\"));\n" +
+				" }\n" +
+				" static long m = 0L;\n" +
+				" private static boolean foo(String s) {\n" +
+				"  long l = m;\n" +
+				"  // capture l\n" +
+				"  Runnable r = () -> bar(l);\n" +
+				"  return switch (s) {\n" +
+				"    case \"a\" -> {\n" +
+				"      try {\n" +
+				"        yield true;\n" +
+				"      } finally {\n" +
+				"      }\n" +
+				"    }\n" +
+				"    default -> false;\n" +
+				"  };\n" +
+				" }\n" +
+				" private static void bar(long l) {}\n" +
+				"}"
+			},
+			"true");
+	}
 	public void testBug561762_001() {
 		this.runNegativeTest(
 				new String[] {
@@ -4640,6 +4693,45 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 			"	          ^\n" +
 			"r cannot be resolved to a variable\n" +
 			"----------\n");
+	}
+	public void testBug572121() {
+		Map<String, String> compilerOptions = getCompilerOptions();
+		// must disable this option to trigger compilation restart
+		compilerOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.DISABLED);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						" private void foo(int i) {\n" +
+						" }\n" +
+						"\n" +
+						" private static void bar() {\n" +
+						" }\n" +
+						"\n" +
+						" public static void main(String[] args) {\n" +
+						"  if (f) {\n" +
+						"   Object o = switch (j) {\n" +
+						"    default -> {\n" +
+						"     try {\n" +
+						"      bar();\n" +
+						"     } catch (Throwable e) {\n" +
+						"     }\n" +
+						"     yield null;\n" +
+						"    }\n" +
+						"   };\n" +
+						"  }\n" +
+						"  int i = 0;\n" +
+						"  x.foo(i++);\n" +
+						" }\n" +
+						"\n" +
+						" private static boolean f = true;\n" +
+						" private static int j;\n" +
+						" private static X x = new X();\n" +
+						"}"
+				},
+				"",
+				compilerOptions
+				);
 	}
 	public void testBug562198_001() {
 		runConformTest(
@@ -5957,5 +6049,48 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"Syntax error, insert \";\" to complete BlockStatements\n" +
 				"----------\n"
 				);
+	}
+	public void testBug571833_01() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n"+
+				" private static int foo(int a) {\n"+
+				"   int b = (int) switch (a) {\n"+
+				"     case 1 -> 1.0;\n"+
+				"     default -> 0;\n"+
+				"   };\n"+
+				"   return b;\n"+
+				" }\n"+
+				"\n"+
+				" public static void main(String[] args) {\n"+
+				"   int b = foo(2);\n"+
+				"   System.out.println(b);\n"+
+				" }\n"+
+				"}"
+			},
+			"0"
+		);
+
+	}
+	public void testBug572382() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"import java.lang.invoke.MethodHandle;\n"+
+						"\n"+
+						"public class X {\n"+
+						"\n"+
+						"	Object triggerBug(MethodHandle method) throws Throwable {\n"+
+						"		return switch (0) {\n"+
+						"		case 0 -> method.invoke(\"name\");\n"+
+						"		default -> null;\n"+
+						"		};\n"+
+						"	}\n"+
+						"}\n"
+				},
+				(String)null
+				);
+
 	}
 }

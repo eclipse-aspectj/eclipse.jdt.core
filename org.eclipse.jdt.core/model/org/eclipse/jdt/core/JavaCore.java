@@ -192,7 +192,6 @@ import org.eclipse.jdt.internal.core.SetVariablesOperation;
 import org.eclipse.jdt.internal.core.builder.JavaBuilder;
 import org.eclipse.jdt.internal.core.builder.ModuleInfoBuilder;
 import org.eclipse.jdt.internal.core.builder.State;
-import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
@@ -1856,6 +1855,20 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 */
 	public static final String COMPILER_PB_MISSING_NONNULL_BY_DEFAULT_ANNOTATION = PLUGIN_ID + ".compiler.annotation.missingNonNullByDefaultAnnotation"; //$NON-NLS-1$
 	/**
+	 * Core option ID: Read external annotations from all build path entries.
+	 * <p>This option controls where the compiler will look for external annotations for enhanced null analysis</p>
+	 * <p>When enabled, the compiler will search all buildpath entries of a given project to locate external annotation files
+	 * 		({@code .eea}) in order to superimpose null annotations over classes read from dependencies.</p>
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.builder.annotationPath.allLocations"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "disabled", "enabled" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"disabled"</code></dd>
+	 * </dl>
+	 * @since 3.27
+	 * @category CoreOptionID
+	 */
+	public static final String CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS = PLUGIN_ID + ".builder.annotationPath.allLocations"; //$NON-NLS-1$
+	/**
 	 * Compiler option ID: Reporting Violations of Null Specifications.
 	 * <p>Depending on this option, the compiler will issue either an error or a warning
 	 *    whenever one of the following situations is detected:</p>
@@ -3133,12 +3146,18 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_16 = "16"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
+	 * @since 3.27
+	 * @category OptionValue
+	 */
+	public static final String VERSION_17 = "17"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
 	 * @since 3.4
 	 * @category OptionValue
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
-			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16));
+			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17));
 
 	/**
 	 * Returns all {@link JavaCore}{@code #VERSION_*} levels in the order of their
@@ -5207,7 +5226,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		return new ClasspathEntry(
 			IPackageFragmentRoot.K_BINARY,
 			IClasspathEntry.CPE_LIBRARY,
-			hasDotDot ? path : JavaProject.canonicalizedPath(path),
+			hasDotDot ? path : JavaProject.createPackageFragementKey(path),
 			ClasspathEntry.INCLUDE_ALL, // inclusion patterns
 			ClasspathEntry.EXCLUDE_NONE, // exclusion patterns
 			sourceAttachmentPath,
@@ -5827,9 +5846,6 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		IndexManager manager = JavaModelManager.getIndexManager();
 		manager.deleteIndexFiles(subMonitor.split(1));
 		manager.reset();
-		// New index is disabled, see bug 544898.
-		// However we keep this call here to cleanup the possibly existing database
-		Indexer.getInstance().rebuildIndex(subMonitor.split(95));
 		updateLegacyIndex(subMonitor.split(4));
 	}
 

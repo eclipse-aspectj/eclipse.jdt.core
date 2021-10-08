@@ -1,6 +1,6 @@
 //AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -237,6 +237,7 @@ public class CompilerOptions {
 	public static final String VERSION_14 = "14"; //$NON-NLS-1$
 	public static final String VERSION_15 = "15"; //$NON-NLS-1$
 	public static final String VERSION_16 = "16"; //$NON-NLS-1$
+	public static final String VERSION_17 = "17"; //$NON-NLS-1$
 	/*
 	 * Note: Whenever a new version is added, make sure getLatestVersion()
 	 * is updated with it.
@@ -615,7 +616,7 @@ public class CompilerOptions {
 	 * Return the latest Java language version supported by the Eclipse compiler
 	 */
 	public static String getLatestVersion() {
-		return VERSION_16;
+		return VERSION_17;
 	}
 	/**
 	 * Return the most specific option key controlling this irritant. Note that in some case, some irritant is controlled by
@@ -2150,17 +2151,12 @@ public class CompilerOptions {
 
 	String nameListToString(String[] names) {
 		if (names == null) return ""; //$NON-NLS-1$
-		StringBuilder buf = new StringBuilder();
-		for (int i = 0; i < names.length; i++) {
-			if (i > 0) buf.append(',');
-			buf.append(names[i]);
-		}
-		return buf.toString();
+		return String.join(String.valueOf(','), names);
 	}
 
 	@Override
 	public String toString() {
-		StringBuffer buf = new StringBuffer("CompilerOptions:"); //$NON-NLS-1$
+		StringBuilder buf = new StringBuilder("CompilerOptions:"); //$NON-NLS-1$
 		buf.append("\n\t- local variables debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_VARS) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- line number debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- source debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

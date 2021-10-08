@@ -133,7 +133,7 @@ public class Annotation extends SourceRefElement implements IAnnotation {
 
 	@Override
 	public IClassFile getClassFile() {
-		return ((JavaElement)getParent()).getClassFile();
+		return getParent().getClassFile();
 	}
 
 	@Override

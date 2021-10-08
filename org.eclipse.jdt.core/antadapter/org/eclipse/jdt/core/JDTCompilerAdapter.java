@@ -309,6 +309,14 @@ public class JDTCompilerAdapter extends DefaultCompilerAdapter {
 			this.customDefaultOptions.put(CompilerOptions.OPTION_Compliance, source);
 		}
 
+		/*
+		 * release option.
+		 */
+		if (this.release != null) {
+			this.customDefaultOptions.put(CompilerOptions.OPTION_Release, this.release);
+		}
+
+
 		if (compilerArgs != null) {
 			/*
 			 * Add extra argument on the command line
@@ -461,7 +469,7 @@ public class JDTCompilerAdapter extends DefaultCompilerAdapter {
 		int rulesLength = this.accessRules.size();
 		String[] rules = (String[]) this.accessRules.toArray(new String[rulesLength]);
 		int nextRule = 0;
-		final StringBuffer result = new StringBuffer();
+		final StringBuilder result = new StringBuilder();
 
 		//access rules are expected in the same order as the classpath, but there could
 		//be elements in the classpath not in the access rules or access rules not in the classpath
@@ -514,7 +522,7 @@ public class JDTCompilerAdapter extends DefaultCompilerAdapter {
 		this.attributes.log("Compilation " + cmd.describeArguments(), //$NON-NLS-1$
 				Project.MSG_VERBOSE);
 
-		StringBuffer niceSourceList = new StringBuffer("File"); //$NON-NLS-1$
+		StringBuilder niceSourceList = new StringBuilder("File"); //$NON-NLS-1$
 		if (this.compileList.length != 1) {
 			niceSourceList.append("s"); //$NON-NLS-1$
 		}

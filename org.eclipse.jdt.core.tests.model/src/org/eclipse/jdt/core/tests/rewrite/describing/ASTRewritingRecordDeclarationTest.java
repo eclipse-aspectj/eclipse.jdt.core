@@ -56,13 +56,14 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 	}
 
 	public static Test suite() {
-		return createSuite(ASTRewritingRecordDeclarationTest.class);
+		return createSuite(ASTRewritingRecordDeclarationTest.class, 16);
 	}
 
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
 		setUpProjectAbove16();
+		setUpProjectAbove17();
 	}
 
 	@SuppressWarnings("deprecation")
@@ -80,7 +81,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -117,7 +118,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param1) {\n");
 		buf.append("		public C {\n");
@@ -136,7 +137,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -178,7 +179,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -198,7 +199,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int age) {\n");
 		buf.append("\n");
@@ -231,7 +232,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int age) {\n\n");
 		buf.append("    public int age() {\n");
@@ -249,7 +250,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(){\n");
 		buf.append("\n");
@@ -271,7 +272,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements A{\n");
 		buf.append("\n");
@@ -284,7 +285,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements A{\n");
 		buf.append("\n");
@@ -306,7 +307,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements A, B{\n");
 		buf.append("\n");
@@ -320,7 +321,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param1){\n");
 		buf.append("\n");
@@ -342,7 +343,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 		}
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(){\n");
 		buf.append("\n");
@@ -356,7 +357,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param1){\n");
 		buf.append("\n");
@@ -381,7 +382,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 		}
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param2){\n");
 		buf.append("\n");
@@ -394,7 +395,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
@@ -416,7 +417,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record X() {\n");
 		buf.append("\n");
@@ -431,7 +432,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -464,7 +465,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("/**\n");
 		buf.append(" * Hello\n");
@@ -482,7 +483,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("/** javadoc comment */\n");
 		buf.append("public record C() {\n");
@@ -507,7 +508,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("record C() {\n");
 		buf.append("\n");
@@ -522,7 +523,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("/** javadoc comment */\n");
 		buf.append("public record C() {\n");
@@ -555,7 +556,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("/**\n");
 		buf.append(" * Hello\n");
@@ -573,7 +574,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class C {\n");
 		buf.append("\n");
@@ -596,7 +597,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class C {\n");
 		buf.append("\n");
@@ -615,7 +616,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -639,7 +640,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -659,7 +660,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -683,7 +684,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -700,7 +701,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param1) {\n");
 		buf.append("		public C {\n");
@@ -727,7 +728,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -745,7 +746,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -795,7 +796,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C(int param1) {\n");
@@ -814,7 +815,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements A{\n");
 		buf.append("\n");
@@ -838,7 +839,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(){\n");
 		buf.append("\n");
@@ -852,7 +853,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements A{\n");
 		buf.append("\n");
@@ -877,7 +878,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() implements B{\n");
 		buf.append("\n");
@@ -890,7 +891,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -921,7 +922,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int... param1) {\n");
 		buf.append("		public C {\n");
@@ -939,7 +940,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int... param) {\n");
 		buf.append("		public C {\n");
@@ -963,7 +964,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int param) {\n");
 		buf.append("		public C {\n");
@@ -981,7 +982,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C(int... param) {\n");
 		buf.append("		public C {\n");
@@ -1005,7 +1006,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -1023,7 +1024,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("		public C {\n");
@@ -1052,7 +1053,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C<X>() {\n");
 		buf.append("		public C {\n");
@@ -1070,7 +1071,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C<X>() {\n");
 		buf.append("		public C {\n");
@@ -1095,7 +1096,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C () {\n");
 		buf.append("		public C {\n");
@@ -1113,7 +1114,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C<X>() {\n");
 		buf.append("		public C {\n");
@@ -1141,7 +1142,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C<Y>() {\n");
 		buf.append("		public C {\n");
@@ -1159,7 +1160,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -1190,7 +1191,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public record C() {\n");
 		buf.append("\n");
@@ -1208,7 +1209,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");
@@ -1239,7 +1240,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");
@@ -1261,7 +1262,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");
@@ -1297,7 +1298,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");
@@ -1321,7 +1322,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");
@@ -1355,7 +1356,7 @@ public class ASTRewritingRecordDeclarationTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("import java.lang.annotation.ElementType;\n");
 		buf.append("import java.lang.annotation.Target;\n");

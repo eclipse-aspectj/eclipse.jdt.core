@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -2970,7 +2970,7 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 			ifeq(nextOne);
 
 			// Captured arguments
-			StringBuffer sig = new StringBuffer("("); //$NON-NLS-1$
+			StringBuilder sig = new StringBuilder("("); //$NON-NLS-1$
 			index = 0;
 			boolean isLambda = funcEx instanceof LambdaExpression;
 			TypeBinding receiverType = null;
@@ -3433,6 +3433,35 @@ public void generateSyntheticOuterArgumentValues(BlockScope currentScope, Refere
 			generateOuterAccess(emulationPath, invocationSite, targetVariable, currentScope);
 		}
 	}
+}
+public void generateSyntheticBodyForRecordCanonicalConstructor(SyntheticMethodBinding canonConstructor) {
+	initializeMaxLocals(canonConstructor);
+	SourceTypeBinding declaringClass = (SourceTypeBinding) canonConstructor.declaringClass;
+	ReferenceBinding superClass = declaringClass.superclass();
+	MethodBinding superCons = superClass.getExactConstructor(new TypeBinding[0]);
+	aload_0();
+	invoke(Opcodes.OPC_invokespecial, superCons, superClass);
+	int resolvedPosition;
+	FieldBinding[] fields =  declaringClass.getImplicitComponentFields();
+	int len = fields != null ? fields.length : 0;
+	resolvedPosition = 1;
+	for (int i = 0;  i < len; ++i) {
+		FieldBinding field = fields[i];
+		aload_0();
+	    TypeBinding type = field.type;
+		load(type, resolvedPosition);
+		switch(type.id) {
+			case TypeIds.T_long :
+			case TypeIds.T_double :
+				resolvedPosition += 2;
+				break;
+			default :
+				resolvedPosition++;
+				break;
+		}
+		fieldAccess(Opcodes.OPC_putfield, field, declaringClass);
+	}
+	return_();
 }
 public void generateSyntheticBodyForRecordEquals(SyntheticMethodBinding methodBinding, int index) {
 	initializeMaxLocals(methodBinding);
@@ -4555,6 +4584,9 @@ public void init(ClassFile targetClassFile) {
 	this.stackDepth = 0;
 	this.maxLocals = 0;
 	this.position = 0;
+
+	this.clearTypeBindingStack();
+	this.lastSwitchCumulativeSyntheticVars = 0;
 }
 
 /**
@@ -4650,6 +4682,20 @@ protected void invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, 
 	invoke18(opcode, receiverAndArgsSize, returnTypeSize, declaringClass, opcode == Opcodes.OPC_invokeinterface, selector, signature, typeId, type);
 }
 
+private void popInvokeTypeBinding(int receiverAndArgsSize) {
+	if (!isSwitchStackTrackingActive())
+		return;
+	for (int i = 0; i < receiverAndArgsSize;) {
+		TypeBinding typeBinding = popTypeBinding();
+		// 571929: receiverAndArgsSize counts slots, so when we pop a long/double, we popped two slots
+		if (TypeIds.getCategory(typeBinding.id) == 2) {
+			i += 2;
+		} else {
+			i++;
+		}
+	}
+}
+
 // Starting with 1.8 we can no longer deduce isInterface from opcode, invokespecial can be used for default methods, too.
 // Hence adding explicit parameter 'isInterface', which is needed only for non-ctor invokespecial invocations
 // (i.e., other clients may still call the shorter overload).
@@ -4678,7 +4724,7 @@ private void invoke18(byte opcode, int receiverAndArgsSize, int returnTypeSize, 
 		writeUnsignedShort(this.constantPool.literalIndexForMethod(declaringClass, selector, signature, isInterface));
 	}
 	this.stackDepth += returnTypeSize - receiverAndArgsSize;
-	popTypeBinding(receiverAndArgsSize);
+	popInvokeTypeBinding(receiverAndArgsSize);
 	if (returnTypeSize > 0) {
 		pushTypeBinding(type);
 	}
@@ -4704,7 +4750,7 @@ public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, 
 	this.bCodeStream[this.classFileOffset++] = 0;
 	this.bCodeStream[this.classFileOffset++] = 0;
 	this.stackDepth += returnTypeSize - argsSize;
-	popTypeBinding(argsSize);
+	popInvokeTypeBinding(argsSize);
 	if (returnTypeSize > 0) {
 		pushTypeBinding(type);
 	}
@@ -5218,6 +5264,18 @@ public void invokeJavaUtilIteratorNext() {
 			ConstantPool.Next,
 			ConstantPool.NextSignature,
 			getPopularBinding(ConstantPool.JavaLangObjectSignature));
+}
+
+public void invokeJavaUtilObjectsrequireNonNull() {
+	// invokestatic: java.util.Objects.requireNonNull(Ljava.lang.Object;)Ljava.lang.Object;
+	invoke(
+		Opcodes.OPC_invokestatic,
+		1, // receiverAndArgsSize
+		1, // return type size
+		ConstantPool.JavaUtilObjectsConstantPoolName,
+		ConstantPool.RequireNonNull,
+		ConstantPool.RequireNonNullSignature,
+		getPopularBinding(ConstantPool.JavaLangObjectSignature));
 }
 
 public void invokeNoClassDefFoundErrorStringConstructor() {
@@ -7514,7 +7572,7 @@ public void throwAnyException(LocalVariableBinding anyExceptionVariable) {
 
 @Override
 public String toString() {
-	StringBuffer buffer = new StringBuffer("( position:"); //$NON-NLS-1$
+	StringBuilder buffer = new StringBuilder("( position:"); //$NON-NLS-1$
 	buffer.append(this.position);
 	buffer.append(",\nstackDepth:"); //$NON-NLS-1$
 	buffer.append(this.stackDepth);

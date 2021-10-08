@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -190,7 +190,10 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	initialFileNames is a collection is Strings, the trailing '.java' will be removed if its not already.
 */
 public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding) {
-	this(classpathNames, initialFileNames, encoding, null);
+	this(classpathNames, initialFileNames, encoding, null, -1, null);
+}
+public FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, String release) {
+	this(classpathNames, initialFileNames, encoding, null, -1, release);
 }
 protected FileSystem(String[] classpathNames, String[] initialFileNames, String encoding, Collection<String> limitModules) {
 	this(classpathNames, initialFileNames, encoding, limitModules, -1, null);
@@ -211,7 +214,7 @@ public FileSystem(String[] classpathNames, String[] initialFileNames, String enc
 	for (int i = 0; i < classpathSize; i++) {
 		// AspectJ - was: Classpath classpath = getClasspath(classpathNames[i], encoding, null, null, null);
 		Classpath classpath = mode == -1
-			? getClasspath(classpathNames[i], encoding, null, null, null) // AspectJ Extension - be backwards compatible
+			? getClasspath(classpathNames[i], encoding, null, null, release) // AspectJ Extension - be backwards compatible
 			: getClasspath(classpathNames[i], encoding, null, null, mode, release); // AspectJ Extension - pass extra 'mode, release' parameters
 		if (classpath == null) continue; // AspectJ Extension
 		try {
@@ -315,7 +318,7 @@ public static Classpath getClasspath(String classpathName, String encoding,
 	return getClasspath(
 		classpathName,
 		encoding,
-		// This is how originally the method delegated to calculated the classpath location mode. 
+		// This is how originally the method delegated to calculated the classpath location mode.
 		isSourceOnly ? ClasspathLocation.SOURCE : ClasspathLocation.SOURCE | ClasspathLocation.BINARY,
 		accessRuleSet,
 		destinationPath,
@@ -406,10 +409,10 @@ private void initializeKnownFileNames(String[] initialFileNames) {
 		CharOperation.replace(fileName, '\\', '/');
 		boolean globalPathMatches = false;
 		// the most nested path should be the selected one
-		for (int j = 0, max = this.classpaths.length; j < max; j++) {
-			char[] matchCandidate = this.classpaths[j].normalizedPath();
+		for (Classpath classpath : this.classpaths) {
+			char[] matchCandidate = classpath.normalizedPath();
 			boolean currentPathMatch = false;
-			if (this.classpaths[j] instanceof ClasspathDirectory
+			if (classpath instanceof ClasspathDirectory
 					&& CharOperation.prefixEquals(matchCandidate, fileName)) {
 				currentPathMatch = true;
 				if (matchingPathName == null) {

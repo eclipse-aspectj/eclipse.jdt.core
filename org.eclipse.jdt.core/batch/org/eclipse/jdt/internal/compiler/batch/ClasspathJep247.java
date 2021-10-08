@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation.
+ * Copyright (c) 2018, 2021 IBM Corporation.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -38,6 +39,7 @@ import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.util.CtSym;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
@@ -106,7 +108,7 @@ public class ClasspathJep247 extends ClasspathJrt {
 		if (this.compliance == null) {
 			return;
 		}
-		this.releaseInHex = Integer.toHexString(Integer.parseInt(this.compliance)).toUpperCase();
+		this.releaseInHex = CtSym.getReleaseCode(this.compliance);
 		Path filePath = this.jdkHome.toPath().resolve("lib").resolve("ct.sym"); //$NON-NLS-1$ //$NON-NLS-2$
 		URI t = filePath.toUri();
 		if (!Files.exists(filePath)) {
@@ -120,7 +122,11 @@ public class ClasspathJep247 extends ClasspathJrt {
 		}
 		if (this.fs == null) {
 			HashMap<String, ?> env = new HashMap<>();
-			this.fs = FileSystems.newFileSystem(uri, env);
+			try {
+				this.fs = FileSystems.newFileSystem(uri, env);
+			} catch (FileSystemAlreadyExistsException e) {
+				this.fs = FileSystems.getFileSystem(uri);
+			}
 		}
 		this.releasePath = this.fs.getPath("/"); //$NON-NLS-1$
 		if (!Files.exists(this.fs.getPath(this.releaseInHex))) {
@@ -130,7 +136,7 @@ public class ClasspathJep247 extends ClasspathJrt {
 	}
 	@Override
 	public void loadModules() {
-		// Modules below level 8 are not dealt with here. Leave it to ClasspathJrt
+		// Modules below level 9 are not dealt with here. Leave it to ClasspathJrt
 		if (this.jdklevel <= ClassFileConstants.JDK1_8) {
 			super.loadModules();
 			return;
@@ -191,7 +197,7 @@ public class ClasspathJep247 extends ClasspathJrt {
 	}
 	@Override
 	void acceptModule(ClassFileReader reader, Map<String, IModule> cache) {
-		// Modules below level 8 are not dealt with here. Leave it to ClasspathJrt
+		// Modules below level 9 are not dealt with here. Leave it to ClasspathJrt
 		if (this.jdklevel <= ClassFileConstants.JDK1_8) {
 			super.acceptModule(reader, cache);
 			return;
@@ -261,15 +267,7 @@ public class ClasspathJep247 extends ClasspathJrt {
 		}
 		return singletonModuleNameIf(this.packageCache.contains(qualifiedPackageName));
 	}
-	@Override
-	public void reset() {
-		try {
-			super.reset();
-			this.fs.close();
-		} catch (IOException e) {
-			// Move on
-		}
-	}
+
 	@Override
 	public String toString() {
 		return "Classpath for JEP 247 for JDK " + this.file.getPath(); //$NON-NLS-1$

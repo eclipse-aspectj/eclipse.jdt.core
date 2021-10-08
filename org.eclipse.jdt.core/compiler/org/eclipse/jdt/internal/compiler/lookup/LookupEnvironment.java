@@ -92,11 +92,11 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 	public ModuleBinding module;
 	public PlainPackageBinding defaultPackage;
 	/** All visible toplevel packages, i.e. observable packages associated with modules read by the current module. */
-	HashtableOfPackage knownPackages;
-	// AspectJ Extension - raised visibility
-	protected int lastCompletedUnitIndex = -1; // ROOT_ONLY
-	protected int lastUnitIndex = -1; // ROOT_ONLY
-	// End AspectJ Extension
+	HashtableOfPackage<PackageBinding> knownPackages;
+  // AspectJ Extension - raised visibility
+  protected int lastCompletedUnitIndex = -1; // ROOT_ONLY
+  protected int lastUnitIndex = -1; // ROOT_ONLY
+  // End AspectJ Extension
 
 	TypeSystem typeSystem;					 	// SHARED
 

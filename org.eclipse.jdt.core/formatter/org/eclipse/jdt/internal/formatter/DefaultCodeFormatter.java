@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,8 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- *
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
@@ -33,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IModuleDescription;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
@@ -334,7 +331,7 @@ public class DefaultCodeFormatter extends CodeFormatter {
 	}
 
 	private ASTParser createParser(int kind) {
-		ASTParser parser = ASTParser.newParser(AST.JLS16);
+		ASTParser parser = ASTParser.newParser(AST.JLS17);
 
 		if (kind == K_MODULE_INFO) {
 			parser.setSource(createDummyModuleInfoCompilationUnit());
@@ -353,7 +350,7 @@ public class DefaultCodeFormatter extends CodeFormatter {
 	}
 
 	private ICompilationUnit createDummyModuleInfoCompilationUnit() {
-		IJavaProject dummyProject = new JavaProject() {
+		JavaProject dummyProject = new JavaProject() {
 			@Override
 			public Map<String, String> getOptions(boolean inheritJavaCoreOptions) {
 				return new HashMap<>();
@@ -372,7 +369,7 @@ public class DefaultCodeFormatter extends CodeFormatter {
 			}
 
 			@Override
-			public IJavaProject getJavaProject() {
+			public JavaProject getJavaProject() {
 				return dummyProject;
 			}
 		};

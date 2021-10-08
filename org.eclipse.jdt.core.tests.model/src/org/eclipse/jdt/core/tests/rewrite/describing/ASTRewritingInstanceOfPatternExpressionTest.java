@@ -7,8 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- *
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
@@ -35,18 +33,15 @@ import junit.framework.Test;
 public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTest {
 
 
-	public ASTRewritingInstanceOfPatternExpressionTest(String name) {
-		super(name, 16);
-	}
-
 	public ASTRewritingInstanceOfPatternExpressionTest(String name, int apiLevel) {
 		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return createSuite(ASTRewritingInstanceOfPatternExpressionTest.class);
+		return createSuite(ASTRewritingInstanceOfPatternExpressionTest.class, 16);
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
@@ -64,7 +59,7 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
@@ -98,7 +93,7 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
@@ -118,8 +113,8 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
-		buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
@@ -153,7 +148,7 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
@@ -173,8 +168,8 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
-		buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");
@@ -205,7 +200,7 @@ public class ASTRewritingInstanceOfPatternExpressionTest extends ASTRewritingTes
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("    void foo(Object o) {\n");

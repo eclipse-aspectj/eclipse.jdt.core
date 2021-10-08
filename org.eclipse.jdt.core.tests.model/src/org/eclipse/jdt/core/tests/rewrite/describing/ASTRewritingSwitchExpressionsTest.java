@@ -7,7 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
@@ -42,22 +41,19 @@ import junit.framework.Test;
 public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 
-	public ASTRewritingSwitchExpressionsTest(String name) {
-		super(name, 14);
-	}
-
 	public ASTRewritingSwitchExpressionsTest(String name, int apiLevel) {
 		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return createSuite(ASTRewritingSwitchExpressionsTest.class);
+		return createSuite(ASTRewritingSwitchExpressionsTest.class, 14);
 	}
 
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
 		super.setUpProjectAbove14();
+		setUpProjectAbove17();
 
 	}
 
@@ -76,7 +72,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class E {\n");
 		buf.append("    public void foo(int i) {\n");
@@ -158,7 +154,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class E {\n");
 		buf.append("    public void foo(int i) {\n");
@@ -182,7 +178,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 			return;
 		}
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
-		StringBuffer buf= new StringBuffer();
+		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class E {\n");
 		buf.append("    public void foo(int i) {\n");
@@ -223,7 +219,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class E {\n");
 		buf.append("    public void foo(int i) {\n");
@@ -264,7 +260,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -303,7 +299,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -355,7 +351,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -387,7 +383,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -439,7 +435,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -468,7 +464,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 		}
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -518,7 +514,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -543,7 +539,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -599,7 +595,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -624,7 +620,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -679,7 +675,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -705,7 +701,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");
@@ -761,7 +757,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 				"		System.out.print(foo(1));\n"+
 				"	}\n"+
 				"}\n";
-		StringBuffer buf = new StringBuffer(s);
+		StringBuilder buf = new StringBuilder(s);
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
 		CompilationUnit astRoot= createAST(cu);
@@ -787,7 +783,7 @@ public class ASTRewritingSwitchExpressionsTest extends ASTRewritingTest {
 
 		String preview= evaluateRewrite(cu, rewrite);
 
-		buf= new StringBuffer();
+		buf= new StringBuilder();
 		buf.append("package test1;\n");
 		buf.append("public class X {\n");
 		buf.append("	static int foo(int i) {\n");

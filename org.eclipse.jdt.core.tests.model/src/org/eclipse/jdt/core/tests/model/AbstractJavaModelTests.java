@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -12,24 +12,97 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.model;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.net.URL;
-import java.util.*;
-import java.util.stream.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
-
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IProjectDescription;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IStorage;
+import org.eclipse.core.resources.IWorkspace;
+import org.eclipse.core.resources.IWorkspaceDescription;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.IWorkspaceRunnable;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.ILogListener;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Plugin;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.ElementChangedEvent;
+import org.eclipse.jdt.core.IAnnotation;
+import org.eclipse.jdt.core.IBuffer;
+import org.eclipse.jdt.core.IClasspathAttribute;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.ICodeAssist;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IElementChangedListener;
+import org.eclipse.jdt.core.IField;
+import org.eclipse.jdt.core.IImportDeclaration;
+import org.eclipse.jdt.core.IJarEntryResource;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaElementDelta;
+import org.eclipse.jdt.core.IJavaModel;
+import org.eclipse.jdt.core.IJavaModelMarker;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.ILocalVariable;
+import org.eclipse.jdt.core.IMember;
+import org.eclipse.jdt.core.IMemberValuePair;
+import org.eclipse.jdt.core.IMethod;
+import org.eclipse.jdt.core.IOrdinaryClassFile;
+import org.eclipse.jdt.core.IPackageDeclaration;
+import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
+import org.eclipse.jdt.core.IParent;
+import org.eclipse.jdt.core.IProblemRequestor;
+import org.eclipse.jdt.core.ISourceRange;
+import org.eclipse.jdt.core.ISourceReference;
+import org.eclipse.jdt.core.IType;
+import org.eclipse.jdt.core.ITypeHierarchy;
+import org.eclipse.jdt.core.ITypeParameter;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.search.*;
+import org.eclipse.jdt.core.search.IJavaSearchConstants;
+import org.eclipse.jdt.core.search.IJavaSearchScope;
+import org.eclipse.jdt.core.search.SearchEngine;
+import org.eclipse.jdt.core.search.SearchParticipant;
+import org.eclipse.jdt.core.search.SearchPattern;
+import org.eclipse.jdt.core.search.SearchRequestor;
+import org.eclipse.jdt.core.search.TypeNameRequestor;
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -45,9 +118,11 @@ import org.eclipse.jdt.internal.core.JrtPackageFragmentRoot;
 import org.eclipse.jdt.internal.core.NameLookup;
 import org.eclipse.jdt.internal.core.ResolvedSourceMethod;
 import org.eclipse.jdt.internal.core.ResolvedSourceType;
-import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 import org.eclipse.jdt.internal.core.search.BasicSearchEngine;
 import org.eclipse.jdt.internal.core.util.Util;
+
+import junit.framework.Test;
+import junit.framework.TestSuite;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
@@ -82,6 +157,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE14 = false;
 	protected static boolean isJRE15 = false;
 	protected static boolean isJRE16 = false;
+	protected static boolean isJRE17 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -94,6 +170,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK17) {
+			isJRE17 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK16) {
 			isJRE16 = true;
 		}
@@ -169,14 +248,20 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	/**
 	 * Internal synonym for constant AST.JSL16
 	 * to alleviate deprecation warnings once AST.JLS16 is deprecated in future.
+	 * @deprecated
 	 */
 	protected static final int AST_INTERNAL_JLS16 = AST.JLS16;
+
+	/**
+	 * Internal synonym for constant AST.JSL17
+	 */
+	protected static final int AST_INTERNAL_JLS17 = AST.JLS17;
 
 	/**
 	 * Internal synonym for the latest AST level.
 	 *
 	 */
-	protected static final int AST_INTERNAL_LATEST = AST.JLS_Latest;
+	protected static final int AST_INTERNAL_LATEST = AST.getJLSLatest();
 
 	public static class BasicProblemRequestor implements IProblemRequestor {
 		public void acceptProblem(IProblem problem) {}
@@ -234,7 +319,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 		private ByteArrayOutputStream stackTraces;
 
-		private boolean gotResourceDelta;
+		private volatile boolean gotResourceDelta;
 
 		public DeltaListener() {
 			flush();
@@ -252,7 +337,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				copy[this.deltas.length]= event.getDelta();
 				this.deltas= copy;
 
-				new Throwable("Caller of IElementChangedListener#elementChanged").printStackTrace(new PrintStream(this.stackTraces));
+				new Throwable("Caller of IElementChangedListener#elementChanged with delta " + event.getDelta()).printStackTrace(new PrintStream(this.stackTraces));
 			}
 		}
 		public synchronized CompilationUnit getCompilationUnitAST(ICompilationUnit workingCopy) {
@@ -281,6 +366,8 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		 * If the boolean is true returns the first delta found.
 		 */
 		public synchronized IJavaElementDelta getDeltaFor(IJavaElement element, boolean returnFirst) {
+			JavaModelManager.getIndexManager().waitForIndex(isIndexDisabledForTest(), null);
+			if (this.deltas == null) waitForResourceDelta();
 			if (this.deltas == null) return null;
 			IJavaElementDelta result = null;
 			for (int i = 0; i < this.deltas.length; i++) {
@@ -297,6 +384,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 		public synchronized IJavaElementDelta getLastDelta() {
 			return this.deltas[this.deltas.length - 1];
+		}
+
+		public synchronized List<IJavaElementDelta> getAllDeltas() {
+			return List.of(this.deltas);
 		}
 
 		public synchronized void flush() {
@@ -343,7 +434,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
         		}
         	}
         }
-		public void resourceChanged(IResourceChangeEvent event) {
+		public synchronized void resourceChanged(IResourceChangeEvent event) {
 			this.gotResourceDelta = true;
 		}
 		/**
@@ -353,11 +444,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			if (delta == null) {
 				return null;
 			}
-			if (delta.getElement().equals(element)) {
+			IJavaElement deltaElement = delta.getElement();
+			if (deltaElement.equals(element)) {
 				return delta;
 			}
-			for (int i= 0; i < delta.getAffectedChildren().length; i++) {
-				IJavaElementDelta child= searchForDelta(element, delta.getAffectedChildren()[i]);
+			IJavaElementDelta[] affectedChildren = delta.getAffectedChildren();
+			for (IJavaElementDelta affectedChild : affectedChildren) {
+				IJavaElementDelta child= searchForDelta(element, affectedChild);
 				if (child != null) {
 					return child;
 				}
@@ -408,7 +501,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			long start = System.currentTimeMillis();
 			while (!this.gotResourceDelta) {
 				try {
-					Thread.sleep(200);
+					Thread.sleep(50);
 				} catch (InterruptedException e) {
 				}
 				if ((System.currentTimeMillis() - start) > 10000/*wait 10 s max*/) {
@@ -737,7 +830,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 	protected void assertResourcesEqual(String message, String expected, Object[] resources) {
 		sortResources(resources);
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0, length = resources.length; i < length; i++) {
 			if (resources[i] instanceof IResource) {
 				buffer.append(((IResource) resources[i]).getFullPath().toString());
@@ -761,7 +854,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 	protected void assertResourceNamesEqual(String message, String expected, Object[] resources) {
 		sortResources(resources);
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0, length = resources.length; i < length; i++) {
 			if (resources[i] instanceof IResource) {
 				buffer.append(((IResource)resources[i]).getName());
@@ -854,7 +947,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		assertElementsEqual(message, expected, elements, showResolvedInfo, false);
 	}
 	protected void assertElementsEqual(String message, String expected, IJavaElement[] elements, boolean showResolvedInfo, boolean sorted) {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		if (elements != null) {
 			for (int i = 0, length = elements.length; i < length; i++){
 				JavaElement element = (JavaElement)elements[i];
@@ -921,7 +1014,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		assertMarkers(message, expectedMarkers, markers);
 	}
 	protected void assertMarkers(String message, String expectedMarkers, IMarker[] markers) throws CoreException {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		if (markers != null) {
 			for (int i = 0, length = markers.length; i < length; i++) {
 				IMarker marker = markers[i];
@@ -1161,7 +1254,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		if (classpath == null) {
 			actual = "<null>";
 		} else {
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			int length = classpath.length;
 			for (int i=0; i<length; i++) {
 				buffer.append(classpath[i]);
@@ -1180,7 +1273,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		if (roots == null) {
 			actual = "<null>";
 		} else {
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			int length = roots.length;
 			for (int i=0; i<length; i++) {
 				buffer.append(roots[i]);
@@ -1326,7 +1419,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	protected void assertTypesEqual(String message, String expected, IType[] types, boolean sort) {
 		if (sort) sortTypes(types);
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0; i < types.length; i++){
 			if (types[i] == null)
 				buffer.append("<null>");
@@ -1341,7 +1434,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		assertEquals(message, expected, actual);
 	}
 	protected void assertTypeParametersEqual(String expected, ITypeParameter[] typeParameters) throws JavaModelException {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0; i < typeParameters.length; i++) {
 			ITypeParameter typeParameter = typeParameters[i];
 			buffer.append(typeParameter.getElementName());
@@ -1552,6 +1645,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	protected IJavaProject createJava16Project(String name, String[] srcFolders) throws CoreException {
 		return createJava9ProjectWithJREAttributes(name, srcFolders, null, "16");
+	}
+	protected IJavaProject createJava16Project(String name) throws CoreException {
+		return createJava9ProjectWithJREAttributes(name, new String[]{"src"}, null, "16");
 	}
 	protected IJavaProject createJava9ProjectWithJREAttributes(String name, String[] srcFolders, IClasspathAttribute[] attributes) throws CoreException {
 		return createJava9ProjectWithJREAttributes(name, srcFolders, attributes, "9");
@@ -2163,6 +2259,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_16);
 					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_16);
 					javaProject.setOptions(options);
+				} else if ("17".equals(compliance)) {
+					Map options = new HashMap();
+					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_17);
+					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
+					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_17);
+					javaProject.setOptions(options);
 				}
 
 				result[0] = javaProject;
@@ -2311,6 +2413,25 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			assertTrue("Did not find sibling", found);
 		}
 	}
+
+	/**
+	 * Ensure given child exists in the parent
+	 */
+	public void ensureChildExists(IParent container, IJavaElement child) throws JavaModelException {
+		IJavaElement[] children = container.getChildren();
+		if (child != null) {
+			// find the sibling
+			boolean found = false;
+			for (IJavaElement child2 : children) {
+				if (child2.equals(child)) {
+					found = true;
+					break;
+				}
+			}
+			assertTrue("Did not find child: " + child + " in parent container: " + container, found);
+		}
+	}
+
 	protected String[] getJCL15PlusLibraryIfNeeded(String compliance) throws JavaModelException, IOException {
 		if (compliance.charAt(compliance.length()-1) >= '8' && (AbstractCompilerTest.getPossibleComplianceLevels() & AbstractCompilerTest.F_1_8) != 0) {
 			// ensure that the JCL 18 lib is setup (i.e. that the jclMin18.jar is copied)
@@ -2810,7 +2931,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected void refreshExternalArchives(IJavaProject p) throws JavaModelException {
 		waitForAutoBuild(); // ensure that the auto-build job doesn't interfere with external jar refreshing
 		getJavaModel().refreshExternalArchives(new IJavaElement[] {p}, null);
-		Indexer.getInstance().waitForIndex(null);
+		JavaModelManager.getIndexManager().waitForIndex(isIndexDisabledForTest(), null);
 	}
 
 	protected void removeJavaNature(String projectName) throws CoreException {
@@ -2854,20 +2975,35 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		search(element, limitTo, SearchPattern.R_EXACT_MATCH|SearchPattern.R_CASE_SENSITIVE, scope, requestor);
 	}
 	protected void search(IJavaElement element, int limitTo, int matchRule, IJavaSearchScope scope, SearchRequestor requestor) throws CoreException {
-		SearchPattern pattern = SearchPattern.createPattern(element, limitTo, matchRule);
-		assertNotNull("Pattern should not be null", pattern);
-		new SearchEngine().search(
-			pattern,
-			new SearchParticipant[] {SearchEngine.getDefaultSearchParticipant()},
-			scope,
-			requestor,
-			null
-		);
+		boolean indexDisabled = isIndexDisabledForTest();
+		if(indexDisabled) {
+			JavaModelManager.getIndexManager().enable();
+		}
+		try {
+			SearchPattern pattern = SearchPattern.createPattern(element, limitTo, matchRule);
+			assertNotNull("Pattern should not be null", pattern);
+			new SearchEngine().search(
+				pattern,
+				new SearchParticipant[] {SearchEngine.getDefaultSearchParticipant()},
+				scope,
+				requestor,
+				null
+			);
+		} finally {
+			if(indexDisabled) {
+				JavaModelManager.getIndexManager().disable();
+			}
+		}
 	}
 	protected void search(String patternString, int searchFor, int limitTo, IJavaSearchScope scope, SearchRequestor requestor) throws CoreException {
 		search(patternString, searchFor, limitTo, SearchPattern.R_EXACT_MATCH|SearchPattern.R_CASE_SENSITIVE, scope, requestor);
 	}
 	protected void search(String patternString, int searchFor, int limitTo, int matchRule, IJavaSearchScope scope, SearchRequestor requestor) throws CoreException {
+		boolean indexDisabled = isIndexDisabledForTest();
+		if(indexDisabled) {
+			JavaModelManager.getIndexManager().enable();
+		}
+		try {
 		if (patternString.indexOf('*') != -1 || patternString.indexOf('?') != -1)
 			matchRule |= SearchPattern.R_PATTERN_MATCH;
 		SearchPattern pattern = SearchPattern.createPattern(
@@ -2882,6 +3018,11 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			scope,
 			requestor,
 			null);
+		} finally {
+			if(indexDisabled) {
+				JavaModelManager.getIndexManager().disable();
+			}
+		}
 	}
 
 	/*
@@ -2900,7 +3041,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		for (int n=0; index >= 0 && n<max; n++) {
 			index = occurences < 0 ? source.lastIndexOf(selection, index) : source.indexOf(selection, index+selection.length());
 		}
-		StringBuffer msg = new StringBuffer("Selection '");
+		StringBuilder msg = new StringBuilder("Selection '");
 		msg.append(selection);
 		if (index >= 0) {
 			if (selection.startsWith("/**")) { // comment is before
@@ -3265,7 +3406,11 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				newJclSrcString = "JCL18_SRC"; // Use the same source
 			}
 		} else {
-			if (compliance.equals("16")) {
+			if (compliance.equals("17")) {
+				// Reuse the same 14 stuff as of now. No real need for a new one
+				newJclLibString = "JCL_17_LIB";
+				newJclSrcString = "JCL_17_SRC";
+			} else if (compliance.equals("16")) {
 				// Reuse the same 14 stuff as of now. No real need for a new one
 				newJclLibString = "JCL14_LIB";
 				newJclSrcString = "JCL14_SRC";
@@ -3342,11 +3487,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		IPath jcl12Lib = new Path("JCL12_LIB");
 		IPath jcl13Lib = new Path("JCL13_LIB");
 		IPath jcl14Lib = new Path("JCL14_LIB");
+		IPath jcl17Lib = new Path("JCL_17_LIB");
 		IPath jclFull = new Path("JCL18_FULL");
 
 		return path.equals(jclLib) || path.equals(jcl5Lib) || path.equals(jcl8Lib) || path.equals(jcl9Lib)
 				|| path.equals(jcl10Lib) ||  path.equals(jcl11Lib) || path.equals(jcl12Lib) || path.equals(jcl13Lib)
-				|| path.equals(jcl14Lib) || path.equals(jclFull);
+				|| path.equals(jcl14Lib) || path.equals(jcl17Lib) || path.equals(jclFull);
 	}
 	public void setUpJCLClasspathVariables(String compliance) throws JavaModelException, IOException {
 		setUpJCLClasspathVariables(compliance, false);
@@ -3449,6 +3595,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					new IPath[] {getExternalJCLPath("14"), getExternalJCLSourcePath("14"), getExternalJCLRootSourcePath()},
 					null);
 			}
+		} else if ("17".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("JCL_17_LIB") == null) {
+				setupExternalJCL("jclMin17");
+				JavaCore.setClasspathVariables(
+					new String[] {"JCL_17_LIB", "JCL_17_SRC", "JCL_SRCROOT"},
+					new IPath[] {getExternalJCLPath("17"), getExternalJCLSourcePath("17"), getExternalJCLRootSourcePath()},
+					null);
+			}
 		} else {
 			if (JavaCore.getClasspathVariable("JCL_LIB") == null) {
 				setupExternalJCL("jclMin");
@@ -3478,6 +3632,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			System.out.println("--------------------------------------------------------------------------------");
 			System.out.println("Running test "+getName()+"...");
 		}
+		logInfo("SETUP " + getName());
 	}
 	protected void sortElements(IJavaElement[] elements) {
 		Util.Comparer comparer = new Util.Comparer() {
@@ -3653,8 +3808,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	@Override
 	protected void tearDown() throws Exception {
-
-		super.tearDown();
+		logInfo("TEARDOWN " + getName());
 		if (this.workingCopies != null) {
 			discardWorkingCopies(this.workingCopies);
 			this.workingCopies = null;
@@ -3668,6 +3822,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			"Workspace options should be back to their default",
 			new CompilerOptions(defaultOptions).toString(),
 			new CompilerOptions(options).toString());
+		super.tearDown();
 	}
 
 	protected IPath getJRE9Path() {
@@ -3677,12 +3832,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	/**
 	 * Wait for autobuild notification to occur
 	 */
-	public static void waitForAutoBuild() {
+	public void waitForAutoBuild() {
 		boolean wasInterrupted = false;
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_BUILD, null);
-				Indexer.getInstance().waitForIndex(null);
+				JavaModelManager.getIndexManager().waitForIndex(isIndexDisabledForTest(), null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				e.printStackTrace();
@@ -3692,12 +3847,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		} while (wasInterrupted);
 	}
 
-	public static void waitForManualRefresh() {
+	public void waitForManualRefresh() {
 		boolean wasInterrupted = false;
 		do {
 			try {
 				Job.getJobManager().join(ResourcesPlugin.FAMILY_MANUAL_REFRESH, null);
-				Indexer.getInstance().waitForIndex(null);
+				JavaModelManager.getIndexManager().waitForIndex(isIndexDisabledForTest(), null);
 				wasInterrupted = false;
 			} catch (OperationCanceledException e) {
 				e.printStackTrace();
@@ -3707,12 +3862,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		} while (wasInterrupted);
 	}
 
-	public static void waitUntilIndexesReady() {
+	public void waitUntilIndexesReady() {
 		// dummy query for waiting until the indexes are ready
 		SearchEngine engine = new SearchEngine();
 		IJavaSearchScope scope = SearchEngine.createWorkspaceScope();
 		try {
-			Indexer.getInstance().waitForIndex(null);
+			JavaModelManager.getIndexManager().waitForIndex(isIndexDisabledForTest(), null);
 			engine.searchAllTypeNames(
 				null,
 				SearchPattern.R_EXACT_MATCH,
@@ -3741,6 +3896,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			ILog log = plugin.getLog();
 			Status status = new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, errorMessage, e);
 			log.log(status);
+		}
+	}
+
+	private static void logInfo(String message) {
+		Plugin plugin = JavaCore.getPlugin();
+		if (plugin != null) {
+			plugin.getLog().log(new Status(IStatus.INFO, JavaCore.PLUGIN_ID, message));
 		}
 	}
 }

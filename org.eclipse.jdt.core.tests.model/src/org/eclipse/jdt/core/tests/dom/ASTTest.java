@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1002,7 +1002,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		}
 	}
 
-	abstract class Property {
+	abstract static class Property {
 
 		/**
 		 * Indicates whether this property is compulsory, in that every node
@@ -6754,7 +6754,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 	 * source ranges to all nodes.
 	 */
 	void assignSourceRanges(ASTNode target) {
-		final StringBuffer buffer = new StringBuffer();
+		final StringBuilder buffer = new StringBuilder();
 		final List stack = new ArrayList();
 		// pretend that every construct begins with "(" and ends with ")"
 		class PositionAssigner extends ASTVisitor {
@@ -9263,6 +9263,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(Modifier.ModifierKeyword.DEFAULT_KEYWORD.toString().equals("default")); //$NON-NLS-1$
 		if (DOMASTUtil.isFeatureSupportedinAST(this.ast, Modifier.SEALED)) {
 			assertTrue(Modifier.ModifierKeyword.SEALED_KEYWORD.toString().equals("sealed")); //$NON-NLS-1$
+		} else if (DOMASTUtil.isFeatureSupportedinAST(this.ast, Modifier.NON_SEALED)) {
 			assertTrue(Modifier.ModifierKeyword.NON_SEALED_KEYWORD.toString().equals("non-sealed")); //$NON-NLS-1$
 		}
 
@@ -9489,8 +9490,12 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			ASTNode.YIELD_STATEMENT,
 			ASTNode.TEXT_BLOCK,
 			ASTNode.RECORD_DECLARATION,
-			ASTNode.PATTERN_INSTANCEOF_EXPRESSION
-
+			ASTNode.PATTERN_INSTANCEOF_EXPRESSION,
+			ASTNode.MODULE_QUALIFIED_NAME,
+			ASTNode.TYPE_PATTERN,
+			ASTNode.GUARDED_PATTERN,
+			ASTNode.NULL_PATTERN,
+			ASTNode.CASE_DEFAULT_EXPRESSION
 		};
 
 		// assert that nodeType values are correct:
@@ -9542,7 +9547,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 
 	@SuppressWarnings("deprecation")
 	public void testASTLevels() throws Exception {
-		int[] apilLevels = {AST.JLS2, AST.JLS3, AST.JLS4, AST.JLS8, AST.JLS9, AST.JLS10, AST.JLS11, AST.JLS12, AST.JLS13, AST.JLS14, AST.JLS15, AST.JLS16};
+		int[] apilLevels = {AST.JLS2, AST.JLS3, AST.JLS4, AST.JLS8, AST.JLS9, AST.JLS10, AST.JLS11, AST.JLS12, AST.JLS13, AST.JLS14, AST.JLS15, AST.JLS16, AST.JLS17};
 		for (int level : apilLevels) {
 			try {
 				DOMASTUtil.checkASTLevel(level);

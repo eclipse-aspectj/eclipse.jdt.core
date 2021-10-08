@@ -18,22 +18,29 @@ import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
+/**
+ * Initially (https://bugs.eclipse.org/106450) this class was only used when an invocation has
+ * actual type arguments.
+ * Since https://bugs.eclipse.org/539685 it is also used for non-parameterized invocations,
+ * and signals that the selector is to be matched inexactly (in contrast to CompletionOnMessageSend)..
+ */
 public class CompletionOnMessageSendName extends MessageSend {
-	public CompletionOnMessageSendName(char[] selector, int start, int end) {
+
+	public boolean nextIsCast;
+
+	public CompletionOnMessageSendName(char[] selector, int start, int end, boolean nextIsCast) {
 		super();
 		this.selector = selector;
 		this.sourceStart = start;
 		this.sourceEnd = end;
 		this.nameSourcePosition = end;
+		this.nextIsCast = nextIsCast;
 	}
 
 	@Override
 	public TypeBinding resolveType(BlockScope scope) {
 
 		this.constant = Constant.NotAConstant;
-
-		if (this.receiver.isImplicitThis())
-			throw new CompletionNodeFound();
 
 		this.actualReceiverType = this.receiver.resolveType(scope);
 		if (this.actualReceiverType == null || this.actualReceiverType.isBaseType() || this.actualReceiverType.isArrayType())

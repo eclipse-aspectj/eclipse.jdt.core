@@ -246,7 +246,7 @@ public class CompilationUnitProblemFinder extends Compiler {
 			IProgressMonitor monitor)
 		throws JavaModelException {
 
-		JavaProject project = (JavaProject) unitElement.getJavaProject();
+		JavaProject project = unitElement.getJavaProject();
 		CancelableNameEnvironment environment = null;
 		CancelableProblemFactory problemFactory = null;
 		CompilationUnitProblemFinder problemFinder = null;
@@ -315,7 +315,7 @@ public class CompilationUnitProblemFinder extends Compiler {
 		} catch(RuntimeException e) {
 			// avoid breaking other tools due to internal compiler failure (40334)
 			String lineDelimiter = unitElement.findRecommendedLineSeparator();
-			StringBuffer message = new StringBuffer("Exception occurred during problem detection:");  //$NON-NLS-1$
+			StringBuilder message = new StringBuilder("Exception occurred during problem detection:");  //$NON-NLS-1$
 			message.append(lineDelimiter);
 			message.append("----------------------------------- SOURCE BEGIN -------------------------------------"); //$NON-NLS-1$
 			message.append(lineDelimiter);

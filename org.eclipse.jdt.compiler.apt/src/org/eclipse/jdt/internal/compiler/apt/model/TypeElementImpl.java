@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2020 IBM Corporation and others.
+ * Copyright (c) 2005, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -164,9 +164,9 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 				 enclosed.add(variable);
 			}
 		}
-		if (binding.isRecord() && binding instanceof SourceTypeBinding) {
-			SourceTypeBinding sourceBinding = (SourceTypeBinding) binding;
-			for (RecordComponentBinding comp : sourceBinding.components()) {
+		if (binding.isRecord()) {
+			RecordComponentBinding[] components = binding.components();
+			for (RecordComponentBinding comp : components) {
 				RecordComponentElement rec = new RecordComponentElementImpl(_env, comp);
 				enclosed.add(rec);
 			}
@@ -175,9 +175,7 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 			TypeElement type = new TypeElementImpl(_env, memberType, null);
 			enclosed.add(type);
 		}
-
 		Collections.sort(enclosed, new SourceLocationComparator());
-
 		return Collections.unmodifiableList(enclosed);
 	}
 
