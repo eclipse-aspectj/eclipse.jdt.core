@@ -804,6 +804,7 @@
             would lead to double deployment and hence to an error "Transfer failed for ...-sources.jar 409 Conflict".
             See also https://issues.apache.org/jira/browse/MDEPLOY-254 and comments by Alexander Kriegisch.
           -->
+          <!-- TODO: Fixed in Maven 3.8.2. Consider enforcing minimum Maven version and removing 'attach=false'. -->
           <attach>false</attach>
           <archive>
             <addMavenDescriptor>false</addMavenDescriptor>
