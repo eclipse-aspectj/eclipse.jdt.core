@@ -354,7 +354,7 @@
 <!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.8.M1</aspectj.version>
+    <aspectj.version>1.9.8</aspectj.version>
   </properties>
 
   <distributionManagement>
