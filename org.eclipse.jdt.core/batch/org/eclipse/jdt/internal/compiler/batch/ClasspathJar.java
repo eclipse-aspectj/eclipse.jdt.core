@@ -69,8 +69,8 @@ public class ClasspathJar extends ClasspathLocation {
 	 * open and manage the ZipFile.
 	 */
 	private static int maxOpenArchives = 1000;
-	private final static int MAXOPEN_DEFAULT = 1000;
-    private static List openArchives = new ArrayList();
+	private static final int MAXOPEN_DEFAULT = 1000;
+	private static final List<ClasspathJar> openArchives = new ArrayList<>();
 	// End AspectJ Extension
 
 protected File file;
@@ -103,6 +103,14 @@ public List<Classpath> fetchLinkedJars(FileSystem.ClasspathSectionProblemReporte
 	try {
 		initialize();
 		ArrayList<Classpath> result = new ArrayList<>();
+		// AspectJ Extension
+		try {
+			ensureOpen();
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		// End AspectJ Extension
 		ZipEntry manifest = this.zipFile.getEntry(TypeConstants.META_INF_MANIFEST_MF);
 		if (manifest != null) { // non-null implies regular file
 			inputStream = this.zipFile.getInputStream(manifest);
@@ -144,6 +152,14 @@ public List<Classpath> fetchLinkedJars(FileSystem.ClasspathSectionProblemReporte
 }
 @Override
 public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageName, String moduleName, String qualifiedBinaryFileName) {
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	return findClass(typeName, qualifiedPackageName, moduleName, qualifiedBinaryFileName, false);
 }
 @Override
@@ -151,8 +167,15 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 	if (!isPackage(qualifiedPackageName, moduleName))
 		return null; // most common case
 
+	// AspectJ Extension
 	try {
-	    ensureOpen(); // AspectJ Extension
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
+	try {
 		IBinaryType reader = ClassFileReader.read(this.zipFile, qualifiedBinaryFileName);
 		if (reader != null) {
 			char[] modName = this.module == null ? null : this.module.name();
@@ -194,6 +217,14 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 public boolean hasAnnotationFileFor(String qualifiedTypeName) {
 	if (this.zipFile == null)
 		return false;
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	return this.zipFile.getEntry(qualifiedTypeName+ExternalAnnotationProvider.ANNOTATION_FILE_SUFFIX) != null;
 }
 @Override
@@ -202,18 +233,14 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 		return null; // most common case
 	final char[] packageArray = qualifiedPackageName.toCharArray();
 	final ArrayList answers = new ArrayList();
-
 	// AspectJ Extension
 	try {
-        ensureOpen();
-	} catch (IOException ioe) {
-		// Doesn't normally occur - probably means since starting the compile
-		// you have removed one of the jars.
-		ioe.printStackTrace();
-		return null;
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
 	}
 	// End AspectJ Extension
-
 	nextEntry : for (Enumeration e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		String fileName = ((ZipEntry) e.nextElement()).getName();
 
@@ -285,15 +312,12 @@ protected void addToPackageCache(String fileName, boolean endsWithSep) {
 public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageName, String moduleName) {
 	if (this.packageCache != null)
 		return singletonModuleNameIf(this.packageCache.contains(qualifiedPackageName));
-
 	// AspectJ Extension
 	try {
-        ensureOpen();
-	} catch (IOException ioe) {
-		// Doesn't normally occur - probably means since starting the compile
-		// you have removed one of the jars.
-		ioe.printStackTrace();
-		return singletonModuleNameIf(false);
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
 	}
 	// End AspectJ Extension
 	this.packageCache = new HashSet<>(41);
@@ -308,6 +332,14 @@ public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageN
 @Override
 public boolean hasCompilationUnit(String qualifiedPackageName, String moduleName) {
 	qualifiedPackageName += '/';
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		String fileName = e.nextElement().getName();
 		if (fileName.startsWith(qualifiedPackageName) && fileName.length() > qualifiedPackageName.length()) {
@@ -324,6 +356,14 @@ public boolean hasCompilationUnit(String qualifiedPackageName, String moduleName
 @Override
 public char[][] listPackages() {
 	Set<String> packageNames = new HashSet<>();
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		String fileName = e.nextElement().getName();
 		int lastSlash = fileName.lastIndexOf('/');
@@ -399,20 +439,21 @@ public int getMode() {
 public IModule getModule() {
 	return this.module;
 }
+
 // AspectJ Extension
-private void ensureOpen() throws IOException {
-	if (zipFile != null) return; // If its not null, the zip is already open
-	if (openArchives.size()>=maxOpenArchives) {
-		closeSomeArchives(openArchives.size()/10); // Close 10% of those open
+protected void ensureOpen() throws IOException {
+	if (zipFile != null) return; // If it is not null, the zip is already open
+	final int openArchivesSize = openArchives.size();
+	if (openArchivesSize >= maxOpenArchives) {
+		closeSomeArchives(openArchivesSize / 10); // Close 10% of those open
 	}
 	zipFile = new ZipFile(file);
 	openArchives.add(this);
 }
 
 private void closeSomeArchives(int n) {
-	for (int i=n-1;i>=0;i--) {
-		ClasspathJar zf = (ClasspathJar)openArchives.get(0);
-		zf.close();
+	for (int i = n - 1; i >= 0; i--) {
+		openArchives.get(0).close();
 	}
 }
 
@@ -436,6 +477,6 @@ private static String getSystemPropertyWithoutSecurityException (String aPropert
 		return aDefaultValue;
 	}
 }
-
 // End AspectJ Extension
+
 }

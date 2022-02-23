@@ -37,6 +37,14 @@ public class ClasspathSourceJar extends ClasspathJar {
 		if (!isPackage(qualifiedPackageName, moduleName))
 			return null; // most common case
 
+		// AspectJ Extension
+		try {
+			ensureOpen();
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		// End AspectJ Extension
 		ZipEntry sourceEntry = this.zipFile.getEntry(qualifiedBinaryFileName.substring(0, qualifiedBinaryFileName.length() - 6)  + SUFFIX_STRING_java);
 		if (sourceEntry != null) {
 			try {

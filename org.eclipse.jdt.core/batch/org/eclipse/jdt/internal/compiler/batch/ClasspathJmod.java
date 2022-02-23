@@ -55,6 +55,14 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 	if (!isPackage(qualifiedPackageName, moduleName))
 		return null; // most common case
 
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	try {
 		qualifiedBinaryFileName = new String(CharOperation.append(CLASSES_FOLDER, qualifiedBinaryFileName.toCharArray()));
 		IBinaryType reader = ClassFileReader.read(this.zipFile, qualifiedBinaryFileName);
@@ -97,6 +105,14 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 @Override
 public boolean hasAnnotationFileFor(String qualifiedTypeName) {
 	qualifiedTypeName = new String(CharOperation.append(CLASSES_FOLDER, qualifiedTypeName.toCharArray()));
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	return this.zipFile.getEntry(qualifiedTypeName+ExternalAnnotationProvider.ANNOTATION_FILE_SUFFIX) != null;
 }
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -106,6 +122,14 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 		return null; // most common case
 	final char[] packageArray = qualifiedPackageName.toCharArray();
 	final ArrayList answers = new ArrayList();
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	nextEntry : for (Enumeration e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		String fileName = ((ZipEntry) e.nextElement()).getName();
 
@@ -143,6 +167,14 @@ public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageN
 	this.packageCache = new HashSet<>(41);
 	this.packageCache.add(Util.EMPTY_STRING);
 
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		char[] entryName = e.nextElement().getName().toCharArray();
 		int index = CharOperation.indexOf('/', entryName);
@@ -159,6 +191,14 @@ public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageN
 @Override
 public boolean hasCompilationUnit(String qualifiedPackageName, String moduleName) {
 	qualifiedPackageName += '/';
+	// AspectJ Extension
+	try {
+		ensureOpen();
+	}
+	catch (IOException e) {
+		throw new RuntimeException(e);
+	}
+	// End AspectJ Extension
 	for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
 		char[] entryName = e.nextElement().getName().toCharArray();
 		int index = CharOperation.indexOf('/', entryName);

@@ -471,6 +471,16 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 			if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
 				// in case of 'this.annotationsFromClasspath' we indeed search for .eea entries inside the main zipFile of the entry:
 				ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
+				// AspectJ Extension
+				if (classpathEntry instanceof ClasspathJar) {
+					try {
+						((ClasspathJar) classpathEntry).ensureOpen();
+					}
+					catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
+				// End AspectJ Extension
 				boolean shouldClose = false; // don't close classpathEntry.zipFile, which we don't own
 				try {
 					if (zip == null) {
