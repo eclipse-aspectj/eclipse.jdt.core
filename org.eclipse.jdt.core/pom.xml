@@ -302,7 +302,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>1.9.8-SNAPSHOT</version>
+  <version>1.9.9-SNAPSHOT</version>
 
   <name>JDT Core for AspectJ</name>
   <description>
@@ -354,7 +354,7 @@
 <!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.8.M1</aspectj.version>
+    <aspectj.version>1.9.8</aspectj.version>
   </properties>
 
   <distributionManagement>
@@ -804,6 +804,7 @@
             would lead to double deployment and hence to an error "Transfer failed for ...-sources.jar 409 Conflict".
             See also https://issues.apache.org/jira/browse/MDEPLOY-254 and comments by Alexander Kriegisch.
           -->
+          <!-- TODO: Fixed in Maven 3.8.2. Consider enforcing minimum Maven version and removing 'attach=false'. -->
           <attach>false</attach>
           <archive>
             <addMavenDescriptor>false</addMavenDescriptor>
