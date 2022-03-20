@@ -528,9 +528,9 @@ public FieldBinding addSyntheticFieldForEnumValues() {
 // AspectJ Extension
 public FieldBinding addSyntheticField(SyntheticFieldBinding sfb) {
 	if (this.synthetics == null)
-		this.synthetics = new HashMap[4];
+		this.synthetics = new LinkedHashMap[4];
 	if (this.synthetics[SourceTypeBinding.FIELD_EMUL] == null)
-		this.synthetics[SourceTypeBinding.FIELD_EMUL] = new HashMap(5);
+		this.synthetics[SourceTypeBinding.FIELD_EMUL] = new LinkedHashMap(5);
 	String key = new String(sfb.name);
 	if (this.synthetics[SourceTypeBinding.FIELD_EMUL].get(key)!=null) throw new RuntimeException("You are trying to add this twice?? "+key);//$NON-NLS-1$
 	sfb.index=this.synthetics[SourceTypeBinding.FIELD_EMUL].size();

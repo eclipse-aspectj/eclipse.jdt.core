@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -3606,6 +3606,7 @@ protected void consumeEnterAnonymousClassBody(boolean qualified) {
 		}
 		this.lastIgnoredToken = -1;
 	}
+	checkForDiamond(typeReference);
 }
 protected void consumeEnterCompilationUnit() {
 	// EnterCompilationUnit ::= $empty
@@ -6720,6 +6721,10 @@ protected void consumeResourceAsLocalVariable() {
 	//ref.bits |= ASTNode.IsCapturedOuterLocal;
 	pushOnAstStack(ref);
  }
+protected void consumeResourceAsThis() {
+	Reference ref = new ThisReference(this.intStack[this.intPtr--], this.endPosition);
+	pushOnAstStack(ref);
+}
 protected void consumeResourceAsFieldAccess() {
 	// Resource ::= FieldAccess
 	FieldReference ref = (FieldReference) this.expressionStack[this.expressionPtr--];
@@ -7514,7 +7519,7 @@ private SwitchStatement createSwitchStatementOrExpression(boolean isStmt) {
 	//the block is inlined but a scope need to be created
 	//if some declaration occurs.
 	Boolean isPatternSwitch = this.recordPatternSwitches.remove(this.switchNestingLevel);
-  Boolean isNullSwitch = this.recordNullSwitches.remove(this.switchNestingLevel);
+	Boolean isNullSwitch = this.recordNullSwitches.remove(this.switchNestingLevel);
 	this.nestedType--;
 	this.switchNestingLevel--;
 	this.scanner.breakPreviewAllowed = this.switchNestingLevel > 0;
@@ -7533,7 +7538,7 @@ private SwitchStatement createSwitchStatementOrExpression(boolean isStmt) {
 	}
 	switchStatement.explicitDeclarations = this.realBlockStack[this.realBlockPtr--];
 	switchStatement.containsPatterns = isPatternSwitch != null ? isPatternSwitch.booleanValue() : false;
-  switchStatement.containsNull = isNullSwitch != null ? isNullSwitch.booleanValue() : false;
+	switchStatement.containsNull = isNullSwitch != null ? isNullSwitch.booleanValue() : false;
 	pushOnAstStack(switchStatement);
 	switchStatement.blockStart = this.intStack[this.intPtr--];
 	switchStatement.sourceStart = this.intStack[this.intPtr--];
@@ -7541,6 +7546,7 @@ private SwitchStatement createSwitchStatementOrExpression(boolean isStmt) {
 	if (length == 0 && !containsComment(switchStatement.blockStart, switchStatement.sourceEnd)) {
 		switchStatement.bits |= ASTNode.UndocumentedEmptyBlock;
 	}
+	this.scanner.caseStartPosition = -1; // safety: at the end of a switch we definitely leave the scope of this value
 	return switchStatement;
 }
 protected void consumeStatementSwitch() {
@@ -7784,6 +7790,7 @@ protected void consumeSwitchLabels() {
 protected void consumeSwitchLabelCaseLhs() {
 	if (this.scanner.lookBack[1] == TerminalTokens.TokenNameCOLON) // kludge for yield :(
 		this.scanner.yieldColons = 1;
+	this.scanner.caseStartPosition = -1; // value has expired
 }
 protected void consumeCaseLabelExpr() {
 //	SwitchLabelExpr ::= SwitchLabelCaseLhs BeginCaseExpr '->'
@@ -7918,14 +7925,14 @@ protected void consumeCaseLabelElement(CaseLabelKind kind) {
 			pushOnExpressionStack(pattern);
 			this.recordPatternSwitches.put(this.switchNestingLevel, Boolean.TRUE);
 			break;
-    case CASE_EXPRESSION:
-      if (this.expressionPtr >= 0 && this.expressionStack[this.expressionPtr] instanceof NullLiteral)
-        this.recordNullSwitches.put(this.switchNestingLevel, Boolean.TRUE);
-      break;
+		case CASE_EXPRESSION:
+			if (this.expressionPtr >= 0 && this.expressionStack[this.expressionPtr] instanceof NullLiteral)
+				this.recordNullSwitches.put(this.switchNestingLevel, Boolean.TRUE);
+			break;
 		case CASE_DEFAULT:
-      int end = this.intStack[this.intPtr--];
-      int start = this.intStack[this.intPtr--];
-      pushOnExpressionStack(new FakeDefaultLiteral(start, end));
+			int end = this.intStack[this.intPtr--];
+			int start = this.intStack[this.intPtr--];
+			pushOnExpressionStack(new FakeDefaultLiteral(start, end));
 			break;
 		default : break;
 	}
@@ -8624,12 +8631,15 @@ protected void consumeTypePattern() {
 	TypeReference type = (TypeReference) this.expressionStack[this.expressionPtr--];
 	this.expressionLengthPtr--;
 
+	// Move annotations from type reference to LocalDeclaration
+	local.annotations = type.annotations != null && type.annotations.length > 0 ? type.annotations[0] : null;
+	type.annotations = null;
 	local.type = type;
 
 	TypePattern aTypePattern = new TypePattern(local);
 	aTypePattern.sourceStart = this.intStack[this.intPtr--];
 	local.modifiers =  this.intStack[this.intPtr--];
-	local.declarationSourceStart = aTypePattern.sourceStart;
+	local.declarationSourceStart = type.sourceStart;
 	aTypePattern.sourceEnd = local.sourceEnd;
 
 	problemReporter().validateJavaFeatureSupport(JavaFeature.PATTERN_MATCHING_IN_INSTANCEOF, type.sourceStart, local.declarationEnd);
@@ -10213,10 +10223,10 @@ public void goForPackageDeclaration(boolean recordLineSeparators) {
 	this.scanner.recordLineSeparator = recordLineSeparators;
 }
 public void goForRecordBodyDeclarations() {
-		//tells the scanner to go for any record body declarations parsing
+	//tells the scanner to go for any record body declarations parsing
 
-		this.firstToken = TokenNameMINUS;
-		this.scanner.recordLineSeparator = true;
+	this.firstToken = TokenNameMINUS;
+	this.scanner.recordLineSeparator = true;
 }
 public void goForTypeDeclaration() {
 	//tells the scanner to go for type (interface or class) declaration parsing
@@ -12156,7 +12166,7 @@ protected void resetStacks() {
 	this.valueLambdaNestDepth = -1;
 	this.recordNestedMethodLevels = new HashMap<>();
 	this.recordPatternSwitches = new HashMap<>();
-  this.recordNullSwitches = new HashMap<>();
+	this.recordNullSwitches = new HashMap<>();
 }
 /*
  * Reset context so as to resume to regular parse loop
@@ -12239,6 +12249,8 @@ protected int resumeOnSyntaxError() {
 	if (this.lastPosistion < this.scanner.currentPosition) {
 		this.lastPosistion = this.scanner.currentPosition;
 		this.scanner.lastPosition = this.scanner.currentPosition;
+		if (this.scanner.startPosition <= this.scanner.caseStartPosition)
+			this.scanner.caseStartPosition = -1;
 	}
 
 	/* attempt to reset state in order to resume to parse loop */

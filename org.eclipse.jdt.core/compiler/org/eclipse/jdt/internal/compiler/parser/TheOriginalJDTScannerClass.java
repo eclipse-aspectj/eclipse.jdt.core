@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,6 +7,10 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +20,7 @@
 package org.eclipse.jdt.internal.compiler.parser;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +36,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
+import org.eclipse.jdt.internal.compiler.util.CharDeduplication;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
 /**
@@ -116,7 +122,7 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 	public boolean wasAcr = false;
 
 	public boolean fakeInModule = false;
-	int caseStartPosition = -1;
+	public int caseStartPosition = -1;
 	boolean inCondition = false;
 	/* package */ int yieldColons = -1;
 	boolean breakPreviewAllowed = false;
@@ -156,41 +162,6 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 	public static final String INVALID_UNDERSCORE = "Invalid_Underscore"; //$NON-NLS-1$
 	public static final String UNDERSCORES_IN_LITERALS_NOT_BELOW_17 = "Underscores_In_Literals_Not_Below_17"; //$NON-NLS-1$
 
-	//----------------optimized identifier managment------------------
-	static final char[] charArray_a = new char[] {'a'},
-		charArray_b = new char[] {'b'},
-		charArray_c = new char[] {'c'},
-		charArray_d = new char[] {'d'},
-		charArray_e = new char[] {'e'},
-		charArray_f = new char[] {'f'},
-		charArray_g = new char[] {'g'},
-		charArray_h = new char[] {'h'},
-		charArray_i = new char[] {'i'},
-		charArray_j = new char[] {'j'},
-		charArray_k = new char[] {'k'},
-		charArray_l = new char[] {'l'},
-		charArray_m = new char[] {'m'},
-		charArray_n = new char[] {'n'},
-		charArray_o = new char[] {'o'},
-		charArray_p = new char[] {'p'},
-		charArray_q = new char[] {'q'},
-		charArray_r = new char[] {'r'},
-		charArray_s = new char[] {'s'},
-		charArray_t = new char[] {'t'},
-		charArray_u = new char[] {'u'},
-		charArray_v = new char[] {'v'},
-		charArray_w = new char[] {'w'},
-		charArray_x = new char[] {'x'},
-		charArray_y = new char[] {'y'},
-		charArray_z = new char[] {'z'};
-
-	static final char[] initCharArray =
-		new char[] {'\u0000', '\u0000', '\u0000', '\u0000', '\u0000', '\u0000'};
-	static final int TableSize = 30, InternalTableSize = 6; //30*6 =210 entries
-
-	public static final int OptimizedLength = 7;
-	public /*static*/ final char[][][][] charArray_length =
-		new char[OptimizedLength][TableSize][InternalTableSize][];
 	// support for detecting non-externalized string literals
 	public static final char[] TAG_PREFIX= "//$NON-NLS-".toCharArray(); //$NON-NLS-1$
 	public static final int TAG_PREFIX_LENGTH= TAG_PREFIX.length;
@@ -211,20 +182,6 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 	// generic support
 	public boolean returnOnlyGreater = false;
 
-	/*static*/ {
-		for (int i = 0; i < 6; i++) {
-			for (int j = 0; j < TableSize; j++) {
-				for (int k = 0; k < InternalTableSize; k++) {
-					this.charArray_length[i][j][k] = initCharArray;
-				}
-			}
-		}
-	}
-	/*static*/ int newEntry2 = 0,
-		newEntry3 = 0,
-		newEntry4 = 0,
-		newEntry5 = 0,
-		newEntry6 = 0;
 	public boolean insideRecovery = false;
 	int lookBack[] = new int[2]; // fall back to spring forward.
 	protected int nextToken = TokenNameNotAToken; // allows for one token push back, only the most recent token can be reliably ungotten.
@@ -250,6 +207,8 @@ public class TheOriginalJDTScannerClass implements TerminalTokens {
 
 	//Java 15 - first _ keyword appears
 	Map<String, Integer> _Keywords = null;
+
+	private CharDeduplication deduplication = CharDeduplication.getThreadLocalInstance();
 
 public TheOriginalJDTScannerClass() { // Aspectj Extension: new name
 	this(false /*comment*/, false /*whitespace*/, false /*nls*/, ClassFileConstants.JDK1_3 /*sourceLevel*/, null/*taskTag*/, null/*taskPriorities*/, true /*taskCaseSensitive*/);
@@ -508,24 +467,9 @@ public char[] getCurrentIdentifierSource() {
 	}
 	int length = this.currentPosition - this.startPosition;
 	if (length == this.eofPosition) return this.source;
-	switch (length) { // see OptimizedLength
-		case 1 :
-			return optimizedCurrentTokenSource1();
-		case 2 :
-			return optimizedCurrentTokenSource2();
-		case 3 :
-			return optimizedCurrentTokenSource3();
-		case 4 :
-			return optimizedCurrentTokenSource4();
-		case 5 :
-			return optimizedCurrentTokenSource5();
-		case 6 :
-			return optimizedCurrentTokenSource6();
-	}
-	char[] result = new char[length];
-	System.arraycopy(this.source, this.startPosition, result, 0, length);
-	return result;
+	return this.deduplication.sharedCopyOfRange(this.source, this.startPosition, this.currentPosition);
 }
+
 public int getCurrentTokenEndPosition(){
 	return this.currentPosition - 1;
 }
@@ -769,6 +713,9 @@ private boolean getLineContent(StringBuilder result, char[] line, int start, int
 					break;
 				case 's' :
 					result.append(' ');
+					break;
+				case '"':
+					result.append('"');
 					break;
 				case 'b' :
 					result.append('\b');
@@ -1446,7 +1393,7 @@ public void ungetToken(int unambiguousToken) {
 	}
 	this.nextToken = unambiguousToken;
 }
-private void updateCase(int token) {
+protected void updateCase(int token) {
 	if (token == TokenNamecase) {
 		this.caseStartPosition = this.startPosition;
 		this.breakPreviewAllowed = true;
@@ -1464,6 +1411,7 @@ public int getNextToken() throws InvalidInputException {
 		this.scanContext = isInModuleDeclaration() ? ScanContext.EXPECTING_KEYWORD : ScanContext.INACTIVE;
 	}
 	token = getNextToken0();
+	updateCase(token);
 	if (areRestrictedModuleKeywordsActive()) {
 		if (isRestrictedKeyword(token))
 			token = disambiguatedRestrictedKeyword(token);
@@ -1482,7 +1430,6 @@ public int getNextToken() throws InvalidInputException {
 	this.lookBack[0] = this.lookBack[1];
 	this.lookBack[1] = token;
 	this.multiCaseLabelComma = false;
-	updateCase(token);
 	return token;
 }
 protected int getNextToken0() throws InvalidInputException {
@@ -1508,10 +1455,24 @@ protected int getNextToken0() throws InvalidInputException {
 				unicodePtr = this.withoutUnicodePtr;
 				offset = this.currentPosition;
 				this.startPosition = this.currentPosition;
-				try {
-					checkIfUnicode = ((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
-						&& (this.source[this.currentPosition] == 'u');
-				} catch(IndexOutOfBoundsException e) {
+				boolean repositionNeeded = false;
+				if(this.currentPosition < this.source.length){
+					this.currentCharacter = this.source[this.currentPosition];
+					this.currentPosition++;
+					if(this.currentCharacter == '\\') {
+						if (this.currentPosition < this.source.length) {
+							checkIfUnicode = this.source[this.currentPosition] == 'u';
+						} else {
+							repositionNeeded = true;
+						}
+					} else {
+						checkIfUnicode = false;
+					}
+				} else {
+					this.currentPosition++;
+					repositionNeeded = true;
+				}
+				if(repositionNeeded){
 					if (this.tokenizeWhiteSpace && (whiteStart != this.currentPosition - 1)) {
 						// reposition scanner in case we are interested by spaces as tokens
 						this.currentPosition--;
@@ -1716,87 +1677,7 @@ protected int getNextToken0() throws InvalidInputException {
 					++this.yieldColons;
 					return TokenNameCOLON;
 				case '\'' :
-					{
-						int test;
-						if ((test = getNextChar('\n', '\r')) == 0) {
-							throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
-						}
-						if (test > 0) {
-							// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
-							for (int lookAhead = 0; lookAhead < 3; lookAhead++) {
-								if (this.currentPosition + lookAhead == this.eofPosition)
-									break;
-								if (this.source[this.currentPosition + lookAhead] == '\n')
-									break;
-								if (this.source[this.currentPosition + lookAhead] == '\'') {
-									this.currentPosition += lookAhead + 1;
-									break;
-								}
-							}
-							throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
-						}
-					}
-					if (getNextChar('\'')) {
-						// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
-						for (int lookAhead = 0; lookAhead < 3; lookAhead++) {
-							if (this.currentPosition + lookAhead == this.eofPosition)
-								break;
-							if (this.source[this.currentPosition + lookAhead] == '\n')
-								break;
-							if (this.source[this.currentPosition + lookAhead] == '\'') {
-								this.currentPosition += lookAhead + 1;
-								break;
-							}
-						}
-						throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
-					}
-					if (getNextChar('\\')) {
-						if (this.unicodeAsBackSlash) {
-							// consume next character
-							this.unicodeAsBackSlash = false;
-							if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\') && (this.source[this.currentPosition] == 'u')) {
-								getNextUnicodeChar();
-							} else {
-								if (this.withoutUnicodePtr != 0) {
-									unicodeStore();
-								}
-							}
-						} else {
-							this.currentCharacter = this.source[this.currentPosition++];
-						}
-						scanEscapeCharacter();
-					} else { // consume next character
-						this.unicodeAsBackSlash = false;
-						checkIfUnicode = false;
-						try {
-							checkIfUnicode = ((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
-							&& (this.source[this.currentPosition] == 'u');
-						} catch(IndexOutOfBoundsException e) {
-							this.currentPosition--;
-							throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
-						}
-						if (checkIfUnicode) {
-							getNextUnicodeChar();
-						} else {
-							if (this.withoutUnicodePtr != 0) {
-								unicodeStore();
-							}
-						}
-					}
-					if (getNextChar('\''))
-						return TokenNameCharacterLiteral;
-					// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
-					for (int lookAhead = 0; lookAhead < 20; lookAhead++) {
-						if (this.currentPosition + lookAhead == this.eofPosition)
-							break;
-						if (this.source[this.currentPosition + lookAhead] == '\n')
-							break;
-						if (this.source[this.currentPosition + lookAhead] == '\'') {
-							this.currentPosition += lookAhead + 1;
-							break;
-						}
-					}
-					throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+					return processSingleQuotes(checkIfUnicode);
 				case '"' :
 					return scanForStringLiteral();
 				case '/' :
@@ -2057,7 +1938,90 @@ protected int getNextToken0() throws InvalidInputException {
 	}
 	return TokenNameEOF;
 }
-private int scanForStringLiteral() throws InvalidInputException {
+protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputException{
+	{
+		int test;
+		if ((test = getNextChar('\n', '\r')) == 0) {
+			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+		}
+		if (test > 0) {
+			// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
+			for (int lookAhead = 0; lookAhead < 3; lookAhead++) {
+				if (this.currentPosition + lookAhead == this.eofPosition)
+					break;
+				if (this.source[this.currentPosition + lookAhead] == '\n')
+					break;
+				if (this.source[this.currentPosition + lookAhead] == '\'') {
+					this.currentPosition += lookAhead + 1;
+					break;
+				}
+			}
+			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+		}
+	}
+	if (getNextChar('\'')) {
+		// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
+		for (int lookAhead = 0; lookAhead < 3; lookAhead++) {
+			if (this.currentPosition + lookAhead == this.eofPosition)
+				break;
+			if (this.source[this.currentPosition + lookAhead] == '\n')
+				break;
+			if (this.source[this.currentPosition + lookAhead] == '\'') {
+				this.currentPosition += lookAhead + 1;
+				break;
+			}
+		}
+		throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+	}
+	if (getNextChar('\\')) {
+		if (this.unicodeAsBackSlash) {
+			// consume next character
+			this.unicodeAsBackSlash = false;
+			if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\') && (this.source[this.currentPosition] == 'u')) {
+				getNextUnicodeChar();
+			} else {
+				if (this.withoutUnicodePtr != 0) {
+					unicodeStore();
+				}
+			}
+		} else {
+			this.currentCharacter = this.source[this.currentPosition++];
+		}
+		scanEscapeCharacter();
+	} else { // consume next character
+		this.unicodeAsBackSlash = false;
+		checkIfUnicode = false;
+		try {
+			checkIfUnicode = ((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
+			&& (this.source[this.currentPosition] == 'u');
+		} catch(IndexOutOfBoundsException e) {
+			this.currentPosition--;
+			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+		}
+		if (checkIfUnicode) {
+			getNextUnicodeChar();
+		} else {
+			if (this.withoutUnicodePtr != 0) {
+				unicodeStore();
+			}
+		}
+	}
+	if (getNextChar('\''))
+		return TokenNameCharacterLiteral;
+	// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
+	for (int lookAhead = 0; lookAhead < 20; lookAhead++) {
+		if (this.currentPosition + lookAhead == this.eofPosition)
+			break;
+		if (this.source[this.currentPosition + lookAhead] == '\n')
+			break;
+		if (this.source[this.currentPosition + lookAhead] == '\'') {
+			this.currentPosition += lookAhead + 1;
+			break;
+		}
+	}
+	throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+}
+protected int scanForStringLiteral() throws InvalidInputException {
 	boolean isTextBlock = false;
 
 	// consume next character
@@ -2204,12 +2168,17 @@ protected int scanForTextBlock() throws InvalidInputException {
 					case 'n' :
 					case 'r' :
 					case 'f' :
+					case 's' :
 						break outer;
 					case '\n' :
 					case '\r' :
 						this.currentCharacter = '\\';
 						this.currentPosition++;
 						break;
+					case '\"' :
+						this.currentPosition++;
+						this.currentCharacter = this.source[this.currentPosition++];
+						continue;
 					case '\\' :
 						this.currentPosition++;
 						break;
@@ -2460,7 +2429,7 @@ public final void jumpOverMethodBody() {
 										pushLineSeparator();
 										//$FALL-THROUGH$
 									default:
-										if (this.currentCharacter == '\\' && this.source[this.currentPosition++] == '"') {
+										if (this.currentCharacter == '\\' && this.source[this.currentPosition] == '"') {
 											this.currentPosition++;
 										}
 										this.currentCharacter = this.source[this.currentPosition++];
@@ -2766,241 +2735,6 @@ public final boolean jumpOverUnicodeWhiteSpace() throws InvalidInputException {
 	return CharOperation.isWhitespace(this.currentCharacter);
 }
 
-final char[] optimizedCurrentTokenSource1() {
-	//return always the same char[] build only once
-
-	//optimization at no speed cost of 99.5 % of the singleCharIdentifier
-	char charOne = this.source[this.startPosition];
-	switch (charOne) {
-		case 'a' :
-			return charArray_a;
-		case 'b' :
-			return charArray_b;
-		case 'c' :
-			return charArray_c;
-		case 'd' :
-			return charArray_d;
-		case 'e' :
-			return charArray_e;
-		case 'f' :
-			return charArray_f;
-		case 'g' :
-			return charArray_g;
-		case 'h' :
-			return charArray_h;
-		case 'i' :
-			return charArray_i;
-		case 'j' :
-			return charArray_j;
-		case 'k' :
-			return charArray_k;
-		case 'l' :
-			return charArray_l;
-		case 'm' :
-			return charArray_m;
-		case 'n' :
-			return charArray_n;
-		case 'o' :
-			return charArray_o;
-		case 'p' :
-			return charArray_p;
-		case 'q' :
-			return charArray_q;
-		case 'r' :
-			return charArray_r;
-		case 's' :
-			return charArray_s;
-		case 't' :
-			return charArray_t;
-		case 'u' :
-			return charArray_u;
-		case 'v' :
-			return charArray_v;
-		case 'w' :
-			return charArray_w;
-		case 'x' :
-			return charArray_x;
-		case 'y' :
-			return charArray_y;
-		case 'z' :
-			return charArray_z;
-		default :
-			return new char[] {charOne};
-	}
-}
-final char[] optimizedCurrentTokenSource2() {
-	//try to return the same char[] build only once
-
-	char[] src = this.source;
-	int start = this.startPosition;
-	char c0 , c1;
-	int hash = (((c0=src[start]) << 6) + (c1=src[start+1])) % TableSize;
-	char[][] table = this.charArray_length[0][hash];
-	int i = this.newEntry2;
-	while (++i < InternalTableSize) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0]) && (c1 == charArray[1]))
-			return charArray;
-	}
-	//---------other side---------
-	i = -1;
-	int max = this.newEntry2;
-	while (++i <= max) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0]) && (c1 == charArray[1]))
-			return charArray;
-	}
-	//--------add the entry-------
-	if (++max >= InternalTableSize) max = 0;
-	char[] r;
-	System.arraycopy(src, start, r= new char[2], 0, 2);
-	//newIdentCount++;
-	return table[this.newEntry2 = max] = r; //(r = new char[] {c0, c1});
-}
-final char[] optimizedCurrentTokenSource3() {
-	//try to return the same char[] build only once
-
-	char[] src = this.source;
-	int start = this.startPosition;
-	char c0, c1=src[start+1], c2;
-	int hash = (((c0=src[start])<< 6) + (c2=src[start+2])) % TableSize;
-//	int hash = ((c0 << 12) + (c1<< 6) + c2) % TableSize;
-	char[][] table = this.charArray_length[1][hash];
-	int i = this.newEntry3;
-	while (++i < InternalTableSize) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0]) && (c1 == charArray[1]) && (c2 == charArray[2]))
-			return charArray;
-	}
-	//---------other side---------
-	i = -1;
-	int max = this.newEntry3;
-	while (++i <= max) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0]) && (c1 == charArray[1]) && (c2 == charArray[2]))
-			return charArray;
-	}
-	//--------add the entry-------
-	if (++max >= InternalTableSize) max = 0;
-	char[] r;
-	System.arraycopy(src, start, r= new char[3], 0, 3);
-	//newIdentCount++;
-	return table[this.newEntry3 = max] = r; //(r = new char[] {c0, c1, c2});
-}
-final char[] optimizedCurrentTokenSource4() {
-	//try to return the same char[] build only once
-
-	char[] src = this.source;
-	int start = this.startPosition;
-	char c0, c1 = src[start+1], c2, c3 = src[start+3];
-	int hash = (((c0=src[start]) << 6) + (c2=src[start+2])) % TableSize;
-//	int hash = (int) (((((long) c0) << 18) + (c1 << 12) + (c2 << 6) + c3) % TableSize);
-	char[][] table = this.charArray_length[2][hash];
-	int i = this.newEntry4;
-	while (++i < InternalTableSize) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3]))
-			return charArray;
-	}
-	//---------other side---------
-	i = -1;
-	int max = this.newEntry4;
-	while (++i <= max) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3]))
-			return charArray;
-	}
-	//--------add the entry-------
-	if (++max >= InternalTableSize) max = 0;
-	char[] r;
-	System.arraycopy(src, start, r= new char[4], 0, 4);
-	//newIdentCount++;
-	return table[this.newEntry4 = max] = r; //(r = new char[] {c0, c1, c2, c3});
-}
-final char[] optimizedCurrentTokenSource5() {
-	//try to return the same char[] build only once
-
-	char[] src = this.source;
-	int start = this.startPosition;
-	char c0, c1 = src[start+1], c2, c3 = src[start+3], c4;
-	int hash = (((c0=src[start]) << 12) +((c2=src[start+2]) << 6) + (c4=src[start+4])) % TableSize;
-//	int hash = (int) (((((long) c0) << 24) + (((long) c1) << 18) + (c2 << 12) + (c3 << 6) + c4) % TableSize);
-	char[][] table = this.charArray_length[3][hash];
-	int i = this.newEntry5;
-	while (++i < InternalTableSize) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3])
-			&& (c4 == charArray[4]))
-			return charArray;
-	}
-	//---------other side---------
-	i = -1;
-	int max = this.newEntry5;
-	while (++i <= max) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3])
-			&& (c4 == charArray[4]))
-			return charArray;
-	}
-	//--------add the entry-------
-	if (++max >= InternalTableSize) max = 0;
-	char[] r;
-	System.arraycopy(src, start, r= new char[5], 0, 5);
-	//newIdentCount++;
-	return table[this.newEntry5 = max] = r; //(r = new char[] {c0, c1, c2, c3, c4});
-}
-final char[] optimizedCurrentTokenSource6() {
-	//try to return the same char[] build only once
-
-	char[] src = this.source;
-	int start = this.startPosition;
-	char c0, c1 = src[start+1], c2, c3 = src[start+3], c4, c5 = src[start+5];
-	int hash = (((c0=src[start]) << 12) +((c2=src[start+2]) << 6) + (c4=src[start+4])) % TableSize;
-//	int hash = (int)(((((long) c0) << 32) + (((long) c1) << 24) + (((long) c2) << 18) + (c3 << 12) + (c4 << 6) + c5) % TableSize);
-	char[][] table = this.charArray_length[4][hash];
-	int i = this.newEntry6;
-	while (++i < InternalTableSize) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3])
-			&& (c4 == charArray[4])
-			&& (c5 == charArray[5]))
-			return charArray;
-	}
-	//---------other side---------
-	i = -1;
-	int max = this.newEntry6;
-	while (++i <= max) {
-		char[] charArray = table[i];
-		if ((c0 == charArray[0])
-			&& (c1 == charArray[1])
-			&& (c2 == charArray[2])
-			&& (c3 == charArray[3])
-			&& (c4 == charArray[4])
-			&& (c5 == charArray[5]))
-			return charArray;
-	}
-	//--------add the entry-------
-	if (++max >= InternalTableSize) max = 0;
-	char[] r;
-	System.arraycopy(src, start, r= new char[6], 0, 6);
-	//newIdentCount++;
-	return table[this.newEntry6 = max] = r; //(r = new char[] {c0, c1, c2, c3, c4, c5});
-}
 public boolean isInModuleDeclaration() {
 	return this.fakeInModule || this.insideModuleInfo ||
 			(this.activeParser != null ? this.activeParser.isParsingModuleDeclaration() : false);
@@ -3330,6 +3064,9 @@ protected final void scanEscapeCharacter() throws InvalidInputException {
 			this.currentCharacter = '\'';
 			break;
 		case 's' :
+			if (this.sourceLevel < ClassFileConstants.JDK15) {
+				throw new InvalidInputException(INVALID_ESCAPE);
+			}
 			this.currentCharacter = ' ';
 			break;
 		case '\\' :
@@ -4966,20 +4703,30 @@ private static final class VanguardScanner extends Scanner {
 			this.scanContext = isInModuleDeclaration() ? ScanContext.EXPECTING_KEYWORD : ScanContext.INACTIVE;
 		}
 		token = getNextToken0();
+		updateCase(token);
 		if (areRestrictedModuleKeywordsActive()) {
 			if (isRestrictedKeyword(token))
 				token = disambiguatedRestrictedKeyword(token);
 			updateScanContext(token);
 		} else if (mayBeAtCasePattern(token)) {
 			token = disambiguateCasePattern(token, this);
-		} else
-		if (token == TokenNameAT && atTypeAnnotation()) {
+		} else if (token == TokenNameARROW  &&
+				mayBeAtCaseLabelExpr() &&  this.caseStartPosition < this.startPosition) {
+				// this.caseStartPosition > this.startPositionpossible on recovery - bother only about correct ones.
+				// add fake token of TokenNameCOLON, call vanguard on this modified source
+				// TODO: Inefficient method due to redoing of the same source, investigate alternate
+				// Can we do a dup of parsing/check the transition of the state?
+				token = disambiguateArrowWithCaseExpr(this, token);
+		} else	if (token == TokenNameAT && atTypeAnnotation()) {
 			if (((VanguardParser) this.activeParser).currentGoal == Goal.LambdaParameterListGoal) {
 				token = disambiguatedToken(token, this);
 			} else {
 				token = TokenNameAT308;
 			}
 		}
+		this.lookBack[0] = this.lookBack[1];
+		this.lookBack[1] = token;
+		this.multiCaseLabelComma = false;
 		return token == TokenNameEOF ? TokenNameNotAToken : token;
 	}
 }
@@ -5015,7 +4762,7 @@ private static class Goal {
 	static int[] RestrictedIdentifierSealedFollow =  { TokenNameclass, TokenNameinterface,
 			TokenNameenum, TokenNameRestrictedIdentifierrecord };// Note: enum/record allowed as error flagging rules.
 	static int[] RestrictedIdentifierPermitsFollow =  { TokenNameLBRACE };
-	static int[] PatternCaseLabelFollow = {TokenNameCOLON, TokenNameARROW, TokenNameCOMMA};
+	static int[] PatternCaseLabelFollow = {TokenNameCOLON, TokenNameARROW, TokenNameCOMMA, TokenNameBeginCaseExpr};
 
 	static {
 
@@ -5282,15 +5029,17 @@ private VanguardScanner getNewVanguardScanner() {
 	return vs;
 }
 protected final boolean mayBeAtCasePattern(int token) {
-	return (this.complianceLevel == ClassFileConstants.JDK17 && this.previewEnabled)
+	return (!isInModuleDeclaration() && JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
 			&& (token == TokenNamecase || this.multiCaseLabelComma);
 }
 protected final boolean mayBeAtBreakPreview() {
-	return this.breakPreviewAllowed && this.lookBack[1] != TokenNameARROW;
+	return !isInModuleDeclaration() && this.breakPreviewAllowed && this.lookBack[1] != TokenNameARROW;
 }
 
 protected final boolean maybeAtLambdaOrCast() { // Could the '(' we saw just now herald a lambda parameter list or a cast expression ? (the possible locations for both are identical.)
 
+	if (isInModuleDeclaration())
+		return false;
 	switch (this.lookBack[1]) {
 		case TokenNameIdentifier:
 		case TokenNamecatch:
@@ -5310,6 +5059,8 @@ protected final boolean maybeAtLambdaOrCast() { // Could the '(' we saw just now
 
 
 protected final boolean maybeAtReferenceExpression() { // Did the '<' we saw just now herald a reference expression's type arguments and trunk ?
+	if (isInModuleDeclaration())
+		return false;
 	switch (this.lookBack[1]) {
 		case TokenNameIdentifier:
 			switch (this.lookBack[0]) {
@@ -5402,6 +5153,8 @@ public static boolean isRestrictedKeyword(int token) {
 	}
 }
 private boolean mayBeAtAnYieldStatement() {
+	if (isInModuleDeclaration())
+		return false;
 	// preceded by ;, {, }, ), or -> [Ref: http://mail.openjdk.java.net/pipermail/amber-spec-experts/2019-May/001401.html]
 	// above comment is super-seded by http://mail.openjdk.java.net/pipermail/amber-spec-experts/2019-May/001414.html
 	switch (this.lookBack[1]) {
@@ -5420,7 +5173,9 @@ private boolean mayBeAtAnYieldStatement() {
 			return false;
 	}
 }
-private boolean mayBeAtARestricedIdentifier(int restrictedIdentifier) {
+private boolean mayBeAtASealedRestricedIdentifier(int restrictedIdentifier) {
+	if (isInModuleDeclaration())
+		return false;
 	switch (restrictedIdentifier) {
 		case TokenNameRestrictedIdentifiersealed:
 			break;
@@ -5567,7 +5322,7 @@ int disambiguatedRestrictedIdentifierpermits(int restrictedIdentifierToken) {
 	if (!JavaFeature.RECORDS.isSupported(this.complianceLevel, this.previewEnabled))
 		return TokenNameIdentifier;
 
-	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtARestricedIdentifier,
+	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtASealedRestricedIdentifier,
 			restrictedIdentifierToken, Goal.RestrictedIdentifierPermitsGoal);
 }
 int disambiguatedRestrictedIdentifiersealed(int restrictedIdentifierToken) {
@@ -5577,7 +5332,7 @@ int disambiguatedRestrictedIdentifiersealed(int restrictedIdentifierToken) {
 	if (!JavaFeature.RECORDS.isSupported(this.complianceLevel, this.previewEnabled))
 		return TokenNameIdentifier;
 
-	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtARestricedIdentifier,
+	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtASealedRestricedIdentifier,
 			restrictedIdentifierToken, Goal.RestrictedIdentifierSealedGoal);
 }
 int disambiguatedRestrictedIdentifierYield(int restrictedIdentifierToken) {
@@ -5650,22 +5405,14 @@ private VanguardParser getNewVanguardParser(char[] src) {
 	vs.setActiveParser(vp);
 	return vp;
 }
-int disambiguatedToken(int token, TheOriginalJDTScannerClass scanner) {
+int disambiguatedToken(int token, TheOriginalJDTScannerClass scanner) {  // AspectJ
 	final VanguardParser parser = getVanguardParser();
 	if (token == TokenNameARROW  &&  mayBeAtCaseLabelExpr() &&  scanner.caseStartPosition < scanner.startPosition) {
 		// this.caseStartPosition > this.startPositionpossible on recovery - bother only about correct ones.
-		int nSz = scanner.startPosition - scanner.caseStartPosition;
 		// add fake token of TokenNameCOLON, call vanguard on this modified source
 		// TODO: Inefficient method due to redoing of the same source, investigate alternate
 		// Can we do a dup of parsing/check the transition of the state?
-		String s = new String(scanner.source, scanner.caseStartPosition, nSz);
-		String modSource = s.concat(new String(new char[] {':'}));
-		char[] nSource = modSource.toCharArray();
-		VanguardParser vp = getNewVanguardParser(nSource);
-		if (vp.parse(Goal.SwitchLabelCaseLhsGoal) == VanguardParser.SUCCESS) {
-			scanner.nextToken = TokenNameARROW;
-			return TokenNameBeginCaseExpr;
-		}
+		return disambiguateArrowWithCaseExpr(scanner, token);
 	} else	if (token == TokenNameLPAREN  && maybeAtLambdaOrCast()) {
 		if (parser.parse(Goal.LambdaParameterListGoal) == VanguardParser.SUCCESS) {
 			scanner.nextToken = TokenNameLPAREN;
@@ -5693,14 +5440,26 @@ int disambiguatedToken(int token, TheOriginalJDTScannerClass scanner) {
 	}
 	return token;
 }
+
+protected int disambiguateArrowWithCaseExpr(TheOriginalJDTScannerClass scanner, int retToken) {  // AspectJ
+	char[] nSource = CharOperation.append(Arrays.copyOfRange(scanner.source, scanner.caseStartPosition, scanner.startPosition), ':');
+	VanguardParser vp = getNewVanguardParser(nSource);
+	if (vp.parse(Goal.SwitchLabelCaseLhsGoal) == VanguardParser.SUCCESS) {
+		scanner.nextToken = TokenNameARROW;
+		retToken = TokenNameBeginCaseExpr;
+//		scanner.caseStartPosition = scanner.caseStartStack.isEmpty() ? -1 : scanner.caseStartStack.pop();
+	}
+	return retToken;
+}
 /*
  * Assumption: mayBeAtCasePattern(token) is true before calling this method.
  */
-int disambiguateCasePattern(int token, TheOriginalJDTScannerClass scanner) {
+int disambiguateCasePattern(int token, TheOriginalJDTScannerClass scanner) {  // AspectJ
 	assert mayBeAtCasePattern(token);
 	int delta = token == TokenNamecase ? 4 : 0; // 4 for case.
 	final VanguardParser parser = getNewVanguardParser();
 	parser.scanner.resetTo(parser.scanner.currentPosition + delta, parser.scanner.eofPosition);
+	parser.scanner.caseStartPosition = this.caseStartPosition;
 	if (parser.parse(Goal.PatternGoal) == VanguardParser.SUCCESS) {
 		if (token == TokenNamecase) {
 			scanner.nextToken = TokenNameBeginCaseElement;
@@ -5712,9 +5471,14 @@ int disambiguateCasePattern(int token, TheOriginalJDTScannerClass scanner) {
 	return token;
 }
 
-private boolean mayBeAtCaseLabelExpr() {
-	if (this.lookBack[1] == TokenNamedefault || this.caseStartPosition <= 0)
+protected boolean mayBeAtCaseLabelExpr() {
+	if (isInModuleDeclaration() || this.caseStartPosition <= 0)
 		return false;
+	if (this.lookBack[1] == TokenNamedefault) {
+		return JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled) ?
+				(this.lookBack[0] == TerminalTokens.TokenNamecase || this.lookBack[0] == TerminalTokens.TokenNameCOMMA)
+				: false;
+	}
 	return true;
 }
 
