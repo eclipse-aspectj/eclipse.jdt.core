@@ -11,6 +11,7 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - contribution for bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
+ *     Microsoft Corporation - contribution for bug 575562 - improve completion search performance
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
@@ -239,6 +240,7 @@ public class SearchableEnvironment
 				boolean isAnnotated = false;
 				IPackageFragment[] packageFragments = this.nameLookup.findPackageFragments(packageName, false);
 				if (packageFragments != null) {
+					String packageNameSlash = packageName.replace('.', '/');
 					for (IPackageFragment fragment : packageFragments) {
 						if (fragment.exists()) {
 							for (Object rc : fragment.getNonJavaResources()) {
@@ -250,7 +252,7 @@ public class SearchableEnvironment
 									}
 									try {
 										iBinaryType = new ExternalAnnotationDecorator(iBinaryType,
-												new ExternalAnnotationProvider(((IStorage) rc).getContents(), packageName+'/'+typeName));
+												new ExternalAnnotationProvider(((IStorage) rc).getContents(), packageNameSlash+'/'+typeName));
 										isAnnotated = true;
 										break;
 									} catch (IOException | CoreException e) {
@@ -568,6 +570,28 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 * types are found relative to their enclosing type.
 	 */
 	public void findTypes(char[] prefix, final boolean findMembers, int matchRule, int searchFor, final ISearchRequestor storage, IProgressMonitor monitor) {
+		findTypes(prefix, findMembers, matchRule, searchFor, true, storage, monitor);
+	}
+
+	/**
+	 * Must be used only by CompletionEngine.
+	 * The progress monitor is used to be able to cancel completion operations
+	 *
+	 * Find the top-level types that are defined
+	 * in the current environment and whose name starts with the
+	 * given prefix. The prefix is a qualified name separated by periods
+	 * or a simple name (ex. java.util.V or V).
+	 *
+	 * The types found are passed to one of the following methods (if additional
+	 * information is known about the types):
+	 *    ISearchRequestor.acceptType(char[][] packageName, char[] typeName)
+	 *    ISearchRequestor.acceptClass(char[][] packageName, char[] typeName, int modifiers)
+	 *    ISearchRequestor.acceptInterface(char[][] packageName, char[] typeName, int modifiers)
+	 *
+	 * This method can not be used to find member types... member
+	 * types are found relative to their enclosing type.
+	 */
+	public void findTypes(char[] prefix, final boolean findMembers, int matchRule, int searchFor, final boolean resolveDocumentName, final ISearchRequestor storage, IProgressMonitor monitor) {
 		long start = -1;
 		if (NameLookup.VERBOSE)
 			start = System.currentTimeMillis();
@@ -671,6 +695,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 						matchRule, // not case sensitive
 						searchFor,
 						getSearchScope(),
+						resolveDocumentName,
 						typeRequestor,
 						FORCE_IMMEDIATE_SEARCH,
 						progressMonitor);
@@ -693,6 +718,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 							matchRule,
 							searchFor,
 							getSearchScope(),
+							resolveDocumentName,
 							typeRequestor,
 							FORCE_IMMEDIATE_SEARCH,
 							progressMonitor);
@@ -713,6 +739,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 						matchRule, // not case sensitive
 						searchFor,
 						getSearchScope(),
+						resolveDocumentName,
 						typeRequestor,
 						CANCEL_IF_NOT_READY_TO_SEARCH,
 						progressMonitor);
@@ -746,7 +773,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 * The constructors found are passed to one of the following methods:
 	 *    ISearchRequestor.acceptConstructor(...)
 	 */
-	public void findConstructorDeclarations(char[] prefix, int matchRule, final ISearchRequestor storage, IProgressMonitor monitor) {
+	public void findConstructorDeclarations(char[] prefix, int matchRule, final boolean resolveDocumentName, final ISearchRequestor storage, IProgressMonitor monitor) {
 		try {
 			final String excludePath;
 			if (this.unitToSkip != null && this.unitToSkip instanceof IJavaElement) {
@@ -879,6 +906,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 						simpleName,
 						matchRule,
 						getSearchScope(),
+						resolveDocumentName,
 						constructorRequestor,
 						FORCE_IMMEDIATE_SEARCH,
 						progressMonitor);
@@ -889,6 +917,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 							simpleName,
 							matchRule,
 							getSearchScope(),
+							resolveDocumentName,
 							constructorRequestor,
 							CANCEL_IF_NOT_READY_TO_SEARCH,
 							progressMonitor);

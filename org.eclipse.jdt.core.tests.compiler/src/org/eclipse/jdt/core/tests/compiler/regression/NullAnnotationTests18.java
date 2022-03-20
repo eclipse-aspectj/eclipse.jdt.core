@@ -8,6 +8,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     Stephan Herrmann - initial API and implementation
  *******************************************************************************/
@@ -24,9 +28,9 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
 
-public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
+public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 
-	public NullAnnotationTests17(String name) {
+	public NullAnnotationTests18(String name) {
 		super(name);
 	}
 
@@ -37,11 +41,11 @@ public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
 	}
 
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_17);
+		return buildMinimalComplianceTestSuite(testClass(), F_18);
 	}
 
 	public static Class<?> testClass() {
-		return NullAnnotationTests17.class;
+		return NullAnnotationTests18.class;
 	}
 
 	@Deprecated // super method is deprecated
@@ -118,7 +122,7 @@ public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
 			null,
 			jarFileName,
 			jcl17Path != null ? new String[] { jcl17Path } : null,
-			"17");
+			"18");
 		return jarFileName;
 	}
 
@@ -128,7 +132,7 @@ public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
 		Runner runner = new Runner();
 		runner.classLibraries = this.LIBS;
 		Map<String,String> opts = getCompilerOptions();
-		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
+		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_18);
 		opts.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		opts.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		runner.customOptions = opts;
@@ -366,13 +370,12 @@ public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
 				  "	}\n" +
 				  "}\n"
 			};
-		// demonstrate that null case cannot leak into a type pattern:
 		runner.expectedCompilerLog =
 				"----------\n" +
 				"1. ERROR in X.java (at line 5)\n" +
 				"	case null, Integer i -> consumeInt(i);\n" +
-				"	           ^^^^^^^^^\n" +
-				"Illegal fall-through to a pattern\n" +
+				"	                                   ^\n" +
+				"Null type mismatch: required \'@NonNull Integer\' but the provided value is inferred as @Nullable\n" +
 				"----------\n";
 		runner.runNegativeTest();
 	}
@@ -490,6 +493,56 @@ public class NullAnnotationTests17 extends AbstractNullAnnotationTest {
 			};
 		runner.expectedCompilerLog = "";
 		runner.expectedOutputString = "null";
+		runner.runConformTest();
+	}
+
+	public void test_defaultDoesNotApplyToNull_field2() {
+		Runner runner = getDefaultRunner();
+		runner.customOptions.put(CompilerOptions.OPTION_SyntacticNullAnalysisForFields, CompilerOptions.ENABLED);
+		runner.testFiles = new String[] {
+				"X.java",
+				  "import org.eclipse.jdt.annotation.*;\n" +
+				  "public class X {\n" +
+				  "	@Nullable Object o;\n" +
+				  "	void foo(X x) {\n" +
+				  "		switch (x.o) {\n" +
+				  "			case Integer i -> consumeInt(i);\n" +
+				  "			default -> System.out.println(x.o.toString());\n" +
+				  "			case null -> System.out.print(\"null\");\n" +
+				  "		};\n" +
+				  "	}\n" +
+				  "	void consumeInt(@NonNull Integer i) {\n" +
+				  "	}\n" +
+				  "	public static void main(String... args) {\n" +
+				  "		new X().foo(new X());\n" +
+				  "	}\n" +
+				  "}\n"
+			};
+		runner.expectedCompilerLog = "";
+		runner.expectedOutputString = "null";
+		runner.runConformTest();
+	}
+
+	public void testBug576329() {
+		Runner runner = getDefaultRunner();
+		runner.customOptions.put(CompilerOptions.OPTION_SyntacticNullAnalysisForFields, CompilerOptions.ENABLED);
+		runner.testFiles = new String[] {
+				"Main.java",
+				"public class Main {\n" +
+				"    int length;\n" +
+				"    public String switchOnArray(Object argv[]) {\n" +
+				"        return switch(argv.length) {\n" +
+				"        case 0 -> \"0\";\n" +
+				"        default -> \"x\";\n" +
+				"        };\n" +
+				"    }\n" +
+				"	public static void main(String... args) {\n" +
+				"		System.out.print(new Main().switchOnArray(args));\n" +
+				"	}\n" +
+				"}\n"
+			};
+		runner.expectedCompilerLog = "";
+		runner.expectedOutputString = "0";
 		runner.runConformTest();
 	}
 }

@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2004, 2021 IBM Corporation and others.
+ * Copyright (c) 2004, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -8,6 +8,10 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -1179,12 +1183,8 @@ public class ASTParser {
 							} catch(JavaModelException e) {
 								// an error occured accessing the java element
 								StringWriter stringWriter = new StringWriter();
-								PrintWriter writer = null;
-								try {
-									writer = new PrintWriter(stringWriter);
+								try (PrintWriter writer = new PrintWriter(stringWriter)) {
 									e.printStackTrace(writer);
-								} finally {
-									if (writer != null) writer.close();
 								}
 								throw new IllegalStateException(String.valueOf(stringWriter.getBuffer()));
 							}
@@ -1253,12 +1253,8 @@ public class ASTParser {
 						} catch(JavaModelException e) {
 							// an error occured accessing the java element
 							StringWriter stringWriter = new StringWriter();
-							PrintWriter writer = null;
-							try {
-								writer = new PrintWriter(stringWriter);
+							try (PrintWriter writer = new PrintWriter(stringWriter)) {
 								e.printStackTrace(writer);
-							} finally {
-								if (writer != null) writer.close();
 							}
 							throw new IllegalStateException(String.valueOf(stringWriter.getBuffer()));
 						}
@@ -1315,7 +1311,8 @@ public class ASTParser {
 								sourceUnit,
 								searcher,
 								this.compilerOptions,
-								flags);
+								flags,
+								this.project);
 						needToResolveBindings = false;
 					}
 					CompilationUnit result = CompilationUnitResolver.convert(
@@ -1328,7 +1325,8 @@ public class ASTParser {
 						needToResolveBindings ? new DefaultBindingResolver.BindingTables() : null,
 						flags,
 						monitor,
-						this.project != null);
+						this.project != null,
+						this.project);
 					result.setTypeRoot(this.typeRoot);
 					return result;
 				} finally {

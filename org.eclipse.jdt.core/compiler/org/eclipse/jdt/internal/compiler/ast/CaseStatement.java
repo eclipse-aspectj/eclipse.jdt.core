@@ -73,17 +73,25 @@ public FlowInfo analyseCode(
 	FlowContext flowContext,
 	FlowInfo flowInfo) {
 	if (this.constantExpressions != null) {
+		int nullPatternCount = 0;
 		for(int i=0; i < this.constantExpressions.length; i++) {
 			Expression e = this.constantExpressions[i];
+			nullPatternCount +=  e instanceof NullLiteral ? 1 : 0;
 			if (i > 0 && (e instanceof Pattern)) {
-				currentScope.problemReporter().IllegalFallThroughToPattern(e);
+				if (!(i == nullPatternCount && e instanceof TypePattern))
+					currentScope.problemReporter().IllegalFallThroughToPattern(e);
 			}
-			analyseConstantExpression(currentScope, flowContext, flowInfo, e);
+			flowInfo = analyseConstantExpression(currentScope, flowContext, flowInfo, e);
+			if (nullPatternCount > 0 && e instanceof TypePattern) {
+				LocalVariableBinding binding = ((TypePattern) e).local.binding;
+				if (binding != null)
+					flowInfo.markNullStatus(binding, FlowInfo.POTENTIALLY_NULL);
+			}
 		}
 	}
 	return flowInfo;
 }
-private void analyseConstantExpression(
+private FlowInfo analyseConstantExpression(
 		BlockScope currentScope,
 		FlowContext flowContext,
 		FlowInfo flowInfo,
@@ -102,7 +110,7 @@ private void analyseConstantExpression(
 			}
 		}
 	}
-	e.analyseCode(currentScope, flowContext, flowInfo);
+	return e.analyseCode(currentScope, flowContext, flowInfo);
 }
 
 @Override

@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2021 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -66,6 +66,7 @@ public class MethodBinding extends Binding {
 	public TypeVariableBinding[] typeVariables = Binding.NO_TYPE_VARIABLES;
 	char[] signature;
 	public long tagBits;
+	public int extendedTagBits = 0; // See values in the interface ExtendedTagBits
 	// Used only for constructors
 	protected AnnotationBinding [] typeAnnotations = Binding.NO_ANNOTATIONS;
 
@@ -852,6 +853,12 @@ public final boolean isConstructor() {
 	return this.selector == TypeConstants.INIT;
 }
 
+/* Answer true if the method is a canonical constructor
+*/
+public final boolean isCanonicalConstructor() {
+	return (this.extendedTagBits & ExtendedTagBits.IsCanonicalConstructor) != 0;
+}
+
 /* Answer true if the receiver is a compact constructor
 */
 public final boolean isCompactConstructor() {
@@ -894,6 +901,14 @@ public boolean isFinal() { // AspectJ Extension, made non-final
 public final boolean isImplementing() {
 	return (this.modifiers & ExtraCompilerModifiers.AccImplementing) != 0;
 }
+
+
+/* Answer true if the method is an implicit method - only for records
+*/
+public final boolean isImplicit() {
+	return (this.extendedTagBits & ExtendedTagBits.isImplicit) != 0;
+}
+
 
 /*
  * Answer true if the receiver is a "public static void main(String[])" method
@@ -1130,7 +1145,7 @@ public final char[] signature() /* (ILjava/lang/Thread;)Ljava/lang/Object; */ {
 			}
 		}
 
-		if (this instanceof SyntheticMethodBinding) {
+		if ((this instanceof SyntheticMethodBinding) && (!this.declaringClass.isRecord())) {
 			targetParameters = ((SyntheticMethodBinding)this).targetMethod.parameters;
 		}
 	}

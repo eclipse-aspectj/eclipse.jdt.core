@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -564,6 +564,12 @@ public static int getIrritant(int problemID) {
 		case IProblem.JavadocDuplicateReturnTag:
 		case IProblem.JavadocInvalidThrowsClass:
 		case IProblem.JavadocInvalidSeeReference:
+		case IProblem.JavadocInvalidSnippet:
+		case IProblem.JavadocInvalidSnippetMissingColon:
+		case IProblem.JavadocInvalidSnippetContentNewLine:
+		case IProblem.JavadocInvalidSnippetRegexSubstringTogether:
+		case IProblem.JavadocInvalidSnippetRegionNotClosed:
+		case IProblem.JavadocInvalidSnippetDuplicateRegions:
 		case IProblem.JavadocInvalidParamTagName:
 		case IProblem.JavadocInvalidParamTagTypeParameter:
 		case IProblem.JavadocMalformedSeeReference:
@@ -1631,6 +1637,27 @@ public void classExtendFinalClass(SourceTypeBinding type, TypeReference supercla
 		new String[] {superTypeShortName, name},
 		superclass.sourceStart,
 		superclass.sourceEnd);
+}
+public void classExtendFinalRecord(SourceTypeBinding type, TypeReference superclass, TypeBinding superTypeBinding) {
+	String name = new String(type.sourceName());
+	String superTypeFullName = new String(superTypeBinding.readableName());
+	String superTypeShortName = new String(superTypeBinding.shortReadableName());
+	if (superTypeShortName.equals(name)) superTypeShortName = superTypeFullName;
+	this.handle(
+		IProblem.ClassExtendFinalRecord,
+		new String[] {superTypeFullName, name},
+		new String[] {superTypeShortName, name},
+		superclass.sourceStart,
+		superclass.sourceEnd);
+}
+public void recordErasureIncompatibilityInCanonicalConstructor(TypeReference type) {
+	String[] arguments = new String[] { new String(type.resolvedType.readableName()) };
+	this.handle(
+		IProblem.RecordErasureIncompatibilityInCanonicalConstructor,
+		arguments,
+		arguments,
+		type.sourceStart,
+		type.sourceEnd);
 }
 public void codeSnippetMissingClass(String missing, int start, int end) {
 	String[] arguments = new String[]{missing};
@@ -5609,6 +5636,11 @@ public void javadocInvalidModuleQualification(int sourceStart, int sourceEnd, in
 		this.handle(IProblem.JavadocInvalidModuleQualification, NoArgument, NoArgument, sourceStart, sourceEnd);
 	}
 }
+public void javadocInvalidModule(ModuleReference ref) {
+	this.handle(IProblem.JavadocInvalidModule,
+		NoArgument, new String[] { CharOperation.charToString(ref.moduleName) },
+		ref.sourceStart, ref.sourceEnd);
+}
 /*
  * Similar implementation than invalidMethod(MessageSend...)
  * Note that following problem id cannot occur for Javadoc:
@@ -5828,6 +5860,24 @@ public void javadocInvalidProvidesClassName(TypeReference typeReference, int mod
 }
 public void javadocInvalidReference(int sourceStart, int sourceEnd) {
 	this.handle(IProblem.JavadocInvalidSeeReference, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippet(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippet, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippetMissingColon(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippetMissingColon, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippetContentNewLine(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippetContentNewLine, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippetRegionNotClosed(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippetRegionNotClosed, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippetRegexSubstringTogether(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippetRegexSubstringTogether, NoArgument, NoArgument, sourceStart, sourceEnd);
+}
+public void javadocInvalidSnippetDuplicateRegions(int sourceStart, int sourceEnd) {
+	this.handle(IProblem.JavadocInvalidSnippetDuplicateRegions, NoArgument, NoArgument, sourceStart, sourceEnd);
 }
 /**
  * Report an invalid reference that does not conform to the href syntax.

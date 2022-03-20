@@ -7,6 +7,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -30,7 +34,7 @@ public class RecordsRestrictedClassTest extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug574284"};
+//		TESTS_NAMES = new String[] { "testBug577251_001"};
 	}
 
 	public static Class<?> testClass() {
@@ -54,14 +58,14 @@ public class RecordsRestrictedClassTest extends AbstractRegressionTest {
 		return defaultOptions;
 	}
 	// Enables the tests to run individually
-	protected Map<String, String> getCompilerOptionsWithPreview() {
+	protected Map<String, String> getCompilerOptionsWithPreviewIfApplicable() {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
 		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_17);
 		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
 		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_17);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		defaultOptions.put(CompilerOptions.OPTION_Store_Annotations, CompilerOptions.ENABLED);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.DISABLED);
 		return defaultOptions;
 	}
 
@@ -7266,7 +7270,7 @@ public void testBug564672b_049() {
 }
 public void testBug565388_001() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -7286,7 +7290,7 @@ public void testBug565388_001() {
 }
 public void testBug565388_002() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -7748,7 +7752,7 @@ public void testBug563182_07() {
 	}
 public void testBug566063_001() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	runConformTest(
 			new String[] {
 				"X.java",
@@ -7775,7 +7779,7 @@ public void testBug566063_001() {
 }
 public void testBug566063_002() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	runNegativeTest(
 			new String[] {
 				"X.java",
@@ -7809,7 +7813,7 @@ public void testBug566063_002() {
 }
 public void testBug566063_003() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	runNegativeTest(
 			new String[] {
 				"X.java",
@@ -8031,7 +8035,7 @@ public void testBug566554_04() {
 }
 public void testBug567731_001() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -8061,7 +8065,7 @@ public void testBug567731_001() {
 }
 public void testBug567731_002() {
 	if (this.complianceLevel < ClassFileConstants.JDK17) return;
-	Map<String, String> options = getCompilerOptionsWithPreview();
+	Map<String, String> options = getCompilerOptionsWithPreviewIfApplicable();
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -9088,6 +9092,48 @@ public void testBug574282_001() {
 					"}\n"
 			},
 		"0");
+}
+public void testBug576519_001() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"class X extends Point{\n"+
+			"  public X(int x, int y){\n"+
+			"     \n" +
+			"  }\n"+
+			"}\n"+
+			"record Point(int x, int y){\n"+
+		"}",
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 1)\n" +
+		"	class X extends Point{\n" +
+		"	                ^^^^^\n" +
+		"The record Point cannot be the superclass of X; a record is final and cannot be extended\n" +
+		"----------\n");
+}
+public void testBug577251_001() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"class X {\n"+
+			"  record Entry<T> (int value, Entry<T> entry) {\n"+
+			"     Entry(int value, Entry entry) { // Entry is a raw type here\n" +
+			"  }\n"+
+			"}\n"+
+		"}",
+		},
+		"----------\n" +
+		"1. WARNING in X.java (at line 3)\n" +
+		"	Entry(int value, Entry entry) { // Entry is a raw type here\n" +
+		"	                 ^^^^^\n" +
+		"X.Entry is a raw type. References to generic type X.Entry<T> should be parameterized\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 3)\n" +
+		"	Entry(int value, Entry entry) { // Entry is a raw type here\n" +
+		"	                 ^^^^^\n" +
+		"Erasure incompatibility in argument X.Entry of canonical constructor in record\n" +
+		"----------\n");
 }
 
 }

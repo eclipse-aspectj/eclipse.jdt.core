@@ -19,6 +19,7 @@
 package org.eclipse.jdt.internal.codeassist.complete;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /*
  * Parser able to build specific completion parse nodes, given a cursorLocation.
@@ -1316,8 +1317,8 @@ private Statement buildMoreCompletionEnclosingContext(Statement statement) {
 	// collect all if statements with instanceof expressions that enclose the completion node
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=304006
 	while (index >= 0) {
-		if (this.elementInfoStack[index] == IF && this.elementObjectInfoStack[index] instanceof InstanceOfExpression) {
-			InstanceOfExpression condition = (InstanceOfExpression)this.elementObjectInfoStack[index];
+		if (this.elementInfoStack[index] == IF && isInstanceOfGuard(this.elementObjectInfoStack[index])) {
+			Expression condition = (Expression)this.elementObjectInfoStack[index];
 			ifStatement =
 				new IfStatement(
 						condition,
@@ -1330,6 +1331,15 @@ private Statement buildMoreCompletionEnclosingContext(Statement statement) {
 	}
 	this.enclosingNode = ifStatement;
 	return ifStatement;
+}
+private boolean isInstanceOfGuard(Object object) {
+	if (object instanceof InstanceOfExpression)
+		return true;
+	if (object instanceof AND_AND_Expression) {
+		AND_AND_Expression expression = (AND_AND_Expression) object;
+		return isInstanceOfGuard(expression.left) || isInstanceOfGuard(expression.right);
+	}
+	return false;
 }
 private void buildMoreGenericsCompletionContext(ASTNode node, boolean consumeTypeArguments) {
 	int kind = topKnownElementKind(COMPLETION_OR_ASSIST_PARSER);
@@ -2765,8 +2775,10 @@ protected void consumeDimWithOrWithOutExpr() {
 }
 @Override
 protected void consumeEmptyStatement() {
-	ASTNode nodeToAttach = (this.assistNodeParent instanceof MessageSend) || (this.assistNodeParent instanceof ParameterizedSingleTypeReference)
-								? this.assistNodeParent : this.assistNode;
+	boolean shouldAttachParent = (this.assistNodeParent instanceof MessageSend) ||
+			(this.assistNodeParent instanceof ParameterizedSingleTypeReference) ||
+			(this.assistNodeParent instanceof LocalDeclaration);
+	ASTNode nodeToAttach = shouldAttachParent ? this.assistNodeParent : this.assistNode;
 	if (this.shouldStackAssistNode && nodeToAttach != null) {
 		for (int ptr = this.astPtr; ptr >= 0; ptr--) {
 			if (new CompletionNodeDetector(nodeToAttach, this.astStack[ptr]).containsCompletionNode()) {
@@ -4020,11 +4032,22 @@ protected int fetchNextToken() throws InvalidInputException {
 	if (token != TerminalTokens.TokenNameEOF && this.scanner.currentPosition > this.cursorLocation) {
 		if (!this.diet || this.dietInt != 0) { // do this also when parsing field initializers:
 			if (this.currentToken == TerminalTokens.TokenNameIdentifier
-					&& this.identifierStack[this.identifierPtr].length == 0
-					&& Scanner.isLiteral(token))
-			{
-				// <emptyAssistIdentifier> <someLiteral> is illegal and most likely the literal should be replaced => discard it now
-				return fetchNextToken();
+					&& this.identifierStack[this.identifierPtr].length == 0) {
+				if (Scanner.isLiteral(token)) {
+					// <emptyAssistIdentifier> <someLiteral> is illegal and most likely the literal should be replaced => discard it now
+					return fetchNextToken();
+				}
+				if (token == TerminalTokens.TokenNameIdentifier) {
+					// empty completion identifier followed by another identifier likely means the 2nd id should start another parse node.
+					// To cleanly separate them find a suitable separator:
+					this.scanner.currentPosition = this.scanner.startPosition; // return to startPosition after this charade
+					if (this.unstackedAct < ERROR_ACTION) {
+						if ("LocalVariableDeclaration".equals(reduce(TokenNameSEMICOLON))) //$NON-NLS-1$
+							return TokenNameSEMICOLON; // send ';' to terminate a local variable declaration
+						if ("ArgumentList".equals(reduce(TokenNameCOMMA))) //$NON-NLS-1$
+							return TokenNameCOMMA; // send ',' to terminate an argument in the list
+					}
+				}
 			}
 		}
 		if (!this.diet) { // only when parsing a method body:
@@ -4042,6 +4065,47 @@ protected int fetchNextToken() throws InvalidInputException {
 		}
 	}
 	return token;
+}
+/*
+ * Variant of parse() without side effects that stops when another token would need to be fetched.
+ * Returns the name of the last reduced rule, or empty string if nothing reduced, or null if error was detected.
+ */
+String reduce(int token) {
+	int myStackTop = this.stateStackTop;
+	int[] myStack = Arrays.copyOf(this.stack, this.stack.length);
+	int act = this.unstackedAct;
+	String reduceName = ""; //$NON-NLS-1$
+	for (;;) {
+		int stackLength = myStack.length;
+		if (++myStackTop >= stackLength) {
+			System.arraycopy(
+				myStack, 0,
+				myStack = new int[stackLength + StackIncrement], 0,
+				stackLength);
+		}
+		myStack[myStackTop] = act;
+		act = tAction(act, token);
+		if (act == ERROR_ACTION)
+			return null;
+		if (act <= NUM_RULES) { // reduce
+			myStackTop--;
+		} else if (act > ERROR_ACTION) { // shift-reduce
+			return reduceName; // ready to accept the next token
+		} else {
+			if (act < ACCEPT_ACTION) { // shift
+				return reduceName; // ready to accept the next token
+			}
+			return reduceName; // ?
+		}
+		do {
+			reduceName = name[non_terminal_index[lhs[act]]];
+			myStackTop -= (rhs[act] - 1);
+			act = ntAction(myStack[myStackTop], lhs[act]);
+			if (act == ACCEPT_ACTION) {
+				return reduceName;
+			}
+		} while (act <= NUM_RULES);
+	}
 }
 @Override
 protected void consumeToken(int token) {
@@ -5062,7 +5126,7 @@ public TypeReference createQualifiedAssistTypeReference(char[][] previousIdentif
 			if (ref != null)
 				return ref;
 			return new CompletionOnQualifiedTypeReference(previousIdentifiers, assistName, positions,
-					CompletionOnQualifiedTypeReference.K_TYPE, this.currentToken);
+					CompletionOnQualifiedTypeReference.K_TYPE);
 	}
 }
 @Override
@@ -5737,9 +5801,10 @@ public void parseBlockStatements(AbstractMethodDeclaration md, CompilationUnitDe
 		}
 	}
 	super.parseBlockStatements(md, unit);
-	// if the assist node is parsed at the cursor location, then ignore syntax errors found due to chars such as . and (
+	// if the assist node is parsed at the cursor location or the cursor is within the assist node,
+	// then ignore syntax errors found due to chars such as . and (
 	if((md.bits & ASTNode.HasSyntaxErrors) != 0 && this.lastAct == ERROR_ACTION
-			&& this.assistNode != null && this.assistNode.sourceEnd == this.cursorLocation) {
+			&& this.assistNode != null && this.assistNode.sourceEnd >= this.cursorLocation) {
 		md.bits &= ~ASTNode.HasSyntaxErrors;
 	}
 }

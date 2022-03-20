@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,6 +7,10 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,7 +40,7 @@ public class GuardedPattern extends Pattern{
 
 	GuardedPattern(AST ast) {
 		super(ast);
-		supportedOnlyIn17();
+		supportedOnlyIn18();
 		unsupportedWithoutPreviewError();
 	}
 
@@ -198,7 +202,7 @@ public class GuardedPattern extends Pattern{
 	 * @return the expression node, or <code>null</code> if there is none
 	 */
 	public Expression getExpression() {
-		supportedOnlyIn17();
+		supportedOnlyIn18();
 		unsupportedWithoutPreviewError();
 		return this.conditonalExpression;
 	}
@@ -208,12 +212,12 @@ public class GuardedPattern extends Pattern{
 	 * <code>empty</code> if there is none.
 	 * @return the pattern node
 	 * 			(element type: {@link Pattern})
-	 * @exception UnsupportedOperationException if this operation is used other than JLS17
+	 * @exception UnsupportedOperationException if this operation is used other than JLS18
 	 * @exception UnsupportedOperationException if this expression is used with previewEnabled flag as false
 	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
 	 */
 	public Pattern getPattern() {
-		supportedOnlyIn17();
+		supportedOnlyIn18();
 		unsupportedWithoutPreviewError();
 		return this.pattern;
 	}
@@ -232,7 +236,7 @@ public class GuardedPattern extends Pattern{
 	 * </ul>
 	 */
 	public void setExpression(Expression expression) {
-		supportedOnlyIn17();
+		supportedOnlyIn18();
 		unsupportedWithoutPreviewError();
 		ASTNode oldChild = this.conditonalExpression;
 		preReplaceChild(oldChild, expression, EXPRESSION_PROPERTY);
@@ -244,11 +248,11 @@ public class GuardedPattern extends Pattern{
 	 * Sets the pattern of this switch case.
 	 * @param pattern
 	 * @noreference This method is not intended to be referenced by clients.
-	 * @exception UnsupportedOperationException if this operation is used not for JLS17
+	 * @exception UnsupportedOperationException if this operation is used not for JLS18
 	 * @exception UnsupportedOperationException if this operation is used without previewEnabled
 	 */
 	public void setPattern(Pattern pattern) {
-		supportedOnlyIn17();
+		supportedOnlyIn18();
 		unsupportedWithoutPreviewError();
 		ASTNode oldChild = this.pattern;
 		preReplaceChild(oldChild, pattern, PATTERN_PROPERTY);

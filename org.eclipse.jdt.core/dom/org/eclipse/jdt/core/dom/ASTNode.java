@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,6 +7,10 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -1007,7 +1011,7 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>TypePattern</code>.
 	 * @see TypePattern
-	 * @since 3.27
+	 * @since 3.28
 	 */
 	public static final int TYPE_PATTERN = 106;
 
@@ -1015,7 +1019,7 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>GuardedPattern</code>.
 	 * @see GuardedPattern
-	 * @since 3.27
+	 * @since 3.28
 	 */
 	public static final int GUARDED_PATTERN = 107;
 
@@ -1023,7 +1027,7 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>NullPattern</code>.
 	 * @see NullPattern
-	 * @since 3.27
+	 * @since 3.28
 	 */
 	public static final int NULL_PATTERN = 108;
 
@@ -1031,9 +1035,25 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>CaseDefaultExpression</code>.
 	 * @see CaseDefaultExpression
-	 * @since 3.27
+	 * @since 3.28
 	 */
 	public static final int CASE_DEFAULT_EXPRESSION = 109;
+
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>TagProperty</code>.
+	 * @see TagProperty
+	 * @since 3.29 BETA_JAVA 18
+	 */
+	public static final int TAG_PROPERTY = 110;
+
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>JavaDocRegion</code>.
+	 * @see JavaDocRegion
+	 * @since 3.29 BETA_JAVA 18
+	 */
+	public static final int JAVADOC_REGION = 111;
 
 
 	/**
@@ -1134,6 +1154,8 @@ public abstract class ASTNode {
 				return IntersectionType.class;
 			case JAVADOC :
 				return Javadoc.class;
+			case JAVADOC_REGION :
+				return JavaDocRegion.class;
 			case LABELED_STATEMENT :
 				return LabeledStatement.class;
 			case LAMBDA_EXPRESSION :
@@ -1228,6 +1250,8 @@ public abstract class ASTNode {
 				return SynchronizedStatement.class;
 			case TAG_ELEMENT :
 				return TagElement.class;
+			case TAG_PROPERTY :
+				return TagProperty.class;
 			case TEXT_BLOCK :
 				return TextBlock.class;
 			case TEXT_ELEMENT :
@@ -2273,6 +2297,22 @@ public abstract class ASTNode {
 		}
 	}
 
+	/**
+     * Checks that this AST operation is not used when
+     * building JLS2, JLS3, JLS4, JLS8, JLS9, JLS10, JLS11, JLS12, JLS13, JSL14, JSL15, JLS16 or JLS17 level ASTs.
+     * <p>
+     * Use this method to prevent access to new properties that have been added in JLS18
+     * </p>
+     *
+	 * @exception UnsupportedOperationException if this operation is used below JLS18
+	 * @since 3.29 BETA_JAVA 18
+	 */
+	final void unsupportedBelow18() {
+		if (this.ast.apiLevel < AST.JLS18_INTERNAL) {
+			throw new UnsupportedOperationException("Operation only supported in ASTs with level JLS17 and above"); //$NON-NLS-1$
+		}
+	}
+
 
 	/**
      * Checks that this AST operation is not used when
@@ -2417,6 +2457,21 @@ public abstract class ASTNode {
 	 */
 	final void supportedOnlyIn17() {
 		if (this.ast.apiLevel != AST.JLS17_INTERNAL) {
+			throw new UnsupportedOperationException("Operation only supported in JLS17 AST"); //$NON-NLS-1$
+		}
+	}
+	/**
+ 	 * Checks that this AST operation is only used when
+     * building JLS18 level ASTs.
+     * <p>
+     * Use this method to prevent access to new properties available only in JLS18.
+     * </p>
+     *
+	 * @exception UnsupportedOperationException if this operation is not used in JLS18
+	 * @since 3.28 BETA_JAVA 18
+	 */
+	final void supportedOnlyIn18() {
+		if (this.ast.apiLevel != AST.JLS18_INTERNAL) {
 			throw new UnsupportedOperationException("Operation only supported in JLS17 AST"); //$NON-NLS-1$
 		}
 	}

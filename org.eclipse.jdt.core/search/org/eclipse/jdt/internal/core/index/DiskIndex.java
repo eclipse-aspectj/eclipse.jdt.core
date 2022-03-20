@@ -14,6 +14,8 @@
 package org.eclipse.jdt.internal.core.index;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.regex.Pattern;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -253,8 +255,7 @@ HashtableOfObject addQueryResults(char[][] categories, char[] key, int matchRule
 private void cacheDocumentNames() throws IOException {
 	// will need all document names so get them now
 	this.cachedChunks = new String[this.numberOfChunks][];
-	InputStream stream = this.indexLocation.getInputStream();
-	try {
+	try (InputStream stream = this.indexLocation.getInputStream()) {
 		if (this.numberOfChunks > 5) BUFFER_READ_SIZE <<= 1;
 		int offset = this.chunkOffsets[0];
 		stream.skip(offset);
@@ -269,7 +270,6 @@ private void cacheDocumentNames() throws IOException {
 		this.cachedChunks = null;
 		throw e;
 	} finally {
-		stream.close();
 		this.indexLocation.close();
 		this.streamBuffer = null;
 		BUFFER_READ_SIZE = DEFAULT_BUFFER_SIZE;
@@ -429,7 +429,7 @@ void initialize(boolean reuseExistingFile) throws IOException {
 	}
 	if (this.indexLocation.createNewFile()) {
 		FileOutputStream stream = new FileOutputStream(this.indexLocation.getIndexFile(), false);
-		try {
+		try (stream) {
 			this.streamBuffer = new byte[BUFFER_READ_SIZE];
 			this.bufferIndex = 0;
 			writeStreamChars(stream, SIGNATURE_CHARS);
@@ -439,8 +439,6 @@ void initialize(boolean reuseExistingFile) throws IOException {
 				stream.write(this.streamBuffer, 0, this.bufferIndex);
 				this.bufferIndex = 0;
 			}
-		} finally {
-			stream.close();
 		}
 	} else {
 		if (DEBUG)
@@ -589,28 +587,35 @@ DiskIndex mergeWith(MemoryIndex memoryIndex) throws IOException {
 		newDiskIndex.writeOffsetToHeader(offsetToHeader);
 
 		// rename file by deleting previous index file & renaming temp one
-		if (oldIndexFile.exists() && !oldIndexFile.delete()) {
-			if (DEBUG)
-				System.out.println("mergeWith - Failed to delete " + this.indexLocation); //$NON-NLS-1$
-			throw new IOException("Failed to delete index file " + this.indexLocation); //$NON-NLS-1$
+		try {
+			Files.deleteIfExists(oldIndexFile.toPath());
+		} catch (Exception e2) {
+			throw new IOException("Failed to delete index file " + this.indexLocation, e2); //$NON-NLS-1$
 		}
-		if (!usingTmp && !newIndexFile.renameTo(oldIndexFile)) {
-			// try again after waiting for two milli secs
+		if (!usingTmp) {
 			try {
-				Thread.sleep(2);
-			} catch (InterruptedException e) {
-				//ignore
-			}
-			if (!newIndexFile.renameTo(oldIndexFile)) {
-				if (DEBUG)
-					System.out.println("mergeWith - Failed to rename " + this.indexLocation); //$NON-NLS-1$
-				usingTmp = true;
+				Files.move(newIndexFile.toPath(), oldIndexFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			} catch (IOException ioe) {
+				// try again after waiting for two milli secs
+				try {
+					Thread.sleep(2);
+				} catch (InterruptedException e) {
+					//ignore
+				}
+				try {
+					Files.move(newIndexFile.toPath(), oldIndexFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					Util.log(ioe, "mergeWith - Failed to rename index " + this.indexLocation); //$NON-NLS-1$
+					usingTmp = true;
+				}
 			}
 		}
 	} catch (IOException e) {
-		if (newIndexFile.exists() && !newIndexFile.delete())
-			if (DEBUG)
-				System.out.println("mergeWith - Failed to delete temp index " + newDiskIndex.indexLocation); //$NON-NLS-1$
+		try {
+			Files.deleteIfExists(newIndexFile.toPath());
+		} catch (Exception e2) {
+			Util.log(e2, "mergeWith - Failed to delete temp index " + newDiskIndex.indexLocation); //$NON-NLS-1$
+		}
 		throw e;
 	}
 
@@ -623,7 +628,7 @@ private synchronized String[] readAllDocumentNames() throws IOException {
 		return CharOperation.NO_STRINGS;
 
 	InputStream stream = this.indexLocation.getInputStream();
-	try {
+	try (stream) {
 		int offset = this.chunkOffsets[0];
 		stream.skip(offset);
 		this.streamBuffer = new byte[BUFFER_READ_SIZE];
@@ -635,7 +640,6 @@ private synchronized String[] readAllDocumentNames() throws IOException {
 			readChunk(docNames, stream, i * CHUNK_SIZE, i < lastIndex ? CHUNK_SIZE : this.sizeOfLastChunk);
 		return docNames;
 	} finally {
-		stream.close();
 		this.indexLocation.close();
 		this.streamBuffer = null;
 	}
@@ -674,23 +678,11 @@ private synchronized HashtableOfObject readCategoryTable(char[] categoryName, bo
 		this.bufferEnd = stream.read(this.streamBuffer, 0, this.streamBuffer.length);
 		int size = readStreamInt(stream);
 		try {
-			if (size < 0) { // DEBUG
-				System.err.println("-------------------- DEBUG --------------------"); //$NON-NLS-1$
-				System.err.println("file = "+this.indexLocation); //$NON-NLS-1$
-				System.err.println("offset = "+offset); //$NON-NLS-1$
-				System.err.println("size = "+size); //$NON-NLS-1$
-				System.err.println("--------------------   END   --------------------"); //$NON-NLS-1$
-			}
 			categoryTable = new HashtableOfObject(size);
-		} catch (OutOfMemoryError oom) {
-			// DEBUG
-			oom.printStackTrace();
-			System.err.println("-------------------- DEBUG --------------------"); //$NON-NLS-1$
-			System.err.println("file = "+this.indexLocation); //$NON-NLS-1$
-			System.err.println("offset = "+offset); //$NON-NLS-1$
-			System.err.println("size = "+size); //$NON-NLS-1$
-			System.err.println("--------------------   END   --------------------"); //$NON-NLS-1$
-			throw oom;
+		} catch (NegativeArraySizeException | OutOfMemoryError e) {
+			String message = "Failed to read index data from " + this.indexLocation + " at offset " + offset //$NON-NLS-1$ //$NON-NLS-2$
+					+ " and size " + size; //$NON-NLS-1$
+			throw new IOException(message, e);
 		}
 		int largeArraySize = 256;
 		for (int i = 0; i < size; i++) {
@@ -791,7 +783,7 @@ synchronized String readDocumentName(int docNumber) throws IOException {
 		this.streamBuffer = new byte[numberOfBytes];
 		this.bufferIndex = 0;
 		InputStream file = this.indexLocation.getInputStream();
-		try {
+		try (file) {
 			file.skip(start);
 			if (file.read(this.streamBuffer, 0, numberOfBytes) != numberOfBytes)
 				throw new IOException();
@@ -799,7 +791,6 @@ synchronized String readDocumentName(int docNumber) throws IOException {
 			this.streamBuffer = null;
 			throw ioe;
 		} finally {
-			file.close();
 			this.indexLocation.close();
 		}
 		int numberOfNames = isLastChunk ? this.sizeOfLastChunk : CHUNK_SIZE;
@@ -821,7 +812,7 @@ synchronized int[] readDocumentNumbers(Object arrayOffset) throws IOException {
 		return (int[]) arrayOffset;
 
 	InputStream stream = this.indexLocation.getInputStream();
-	try {
+	try (stream) {
 		int offset = ((Integer) arrayOffset).intValue();
 		stream.skip(offset);
 		this.streamBuffer = new byte[BUFFER_READ_SIZE];
@@ -829,7 +820,6 @@ synchronized int[] readDocumentNumbers(Object arrayOffset) throws IOException {
 		this.bufferEnd = stream.read(this.streamBuffer, 0, this.streamBuffer.length);
 		return readStreamDocumentArray(stream, readStreamInt(stream));
 	} finally {
-		stream.close();
 		this.indexLocation.close();
 		this.streamBuffer = null;
 	}
@@ -948,6 +938,13 @@ private char[] readStreamChars(InputStream stream) throws IOException {
 		// all the characters must already be in the buffer if we're at the end of the stream
 		if (charsInBuffer > length || stream == null  || (this.bufferEnd != this.streamBuffer.length && stream.available() == 0))
 			charsInBuffer = length;
+		{ // optimization for the typical case of pure ASCII chars:
+			byte b;
+			while (i < charsInBuffer && (b = this.streamBuffer[this.bufferIndex]) >= 0) {
+				word[i++] = (char) b;
+				this.bufferIndex++;
+			}
+		}
 		while (i < charsInBuffer) {
 			byte b = this.streamBuffer[this.bufferIndex++];
 			switch (b & 0xF0) {
@@ -1243,12 +1240,10 @@ private void writeHeaderInfo(FileOutputStream stream) throws IOException {
 private void writeOffsetToHeader(int offsetToHeader) throws IOException {
 	if (offsetToHeader > 0) {
 		RandomAccessFile file = new RandomAccessFile(this.indexLocation.getIndexFile(), "rw"); //$NON-NLS-1$
-		try {
+		try (file) {
 			file.seek(this.headerInfoOffset); // offset to position in header
 			file.writeInt(offsetToHeader);
 			this.headerInfoOffset = offsetToHeader; // update to reflect the correct offset
-		} finally {
-			file.close();
 		}
 	}
 }

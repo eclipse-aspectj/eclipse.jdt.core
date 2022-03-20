@@ -8,6 +8,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
@@ -25,14 +29,15 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.ArrayList;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
-
+import org.eclipse.jdt.core.tests.compiler.util.HashtableOfObjectTest;
 import org.eclipse.jdt.core.tests.dom.StandAloneASTParserTest;
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
+
+import junit.framework.Test;
+import junit.framework.TestSuite;
 
 /**
  * Run all compiler regression tests
@@ -216,13 +221,18 @@ public static Test suite() {
 	 // add 17 specific test here (check duplicates)
 	 ArrayList since_17 = new ArrayList();
 	 since_17.add(SealedTypesTests.class);
-	 since_17.add(SwitchPatternTest.class);
 	 since_17.add(InstanceofPrimaryPatternTest.class);
-	 since_17.add(NullAnnotationTests17.class);
+
+	 // add 18 specific test here (check duplicates)
+	 ArrayList since_18 = new ArrayList();
+	 since_18.add(SwitchPatternTest.class);
+	 since_18.add(NullAnnotationTests18.class);
+	 since_18.add(JavadocTest_18.class);
 
 	 // Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());
 	all.addTest(new TestSuite(StandAloneASTParserTest.class));
+	all.addTest(new TestSuite(HashtableOfObjectTest.class));
 	int possibleComplianceLevels = AbstractCompilerTest.getPossibleComplianceLevels();
 	if ((possibleComplianceLevels & AbstractCompilerTest.F_1_3) != 0) {
 		ArrayList tests_1_3 = (ArrayList)standardTests.clone();
@@ -415,6 +425,26 @@ public static Test suite() {
 		tests_17.addAll(since_17);
 		TestCase.resetForgottenFilters(tests_17);
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_17), tests_17));
+	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_18) != 0) {
+		ArrayList tests_18 = (ArrayList)standardTests.clone();
+		tests_18.addAll(since_1_4);
+		tests_18.addAll(since_1_5);
+		tests_18.addAll(since_1_6);
+		tests_18.addAll(since_1_7);
+		tests_18.addAll(since_1_8);
+		tests_18.addAll(since_9);
+		tests_18.addAll(since_10);
+		tests_18.addAll(since_11);
+		tests_18.addAll(since_12);
+		tests_18.addAll(since_13);
+		tests_18.addAll(since_14);
+		tests_18.addAll(since_15);
+		tests_18.addAll(since_16);
+		tests_18.addAll(since_17);
+		tests_18.addAll(since_18);
+		TestCase.resetForgottenFilters(tests_18);
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_18), tests_18));
 	}
 	all.addTest(new TestSuite(Jsr14Test.class));
 	return all;

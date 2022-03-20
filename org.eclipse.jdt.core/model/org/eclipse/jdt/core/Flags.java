@@ -199,7 +199,6 @@ public final class Flags {
 	 * Virtual Machine specification.
 	 * </p>
 	 * @since 3.24
-	 * @noreference This field is not intended to be referenced by clients as it is a part of Java preview feature.
 	 */
 	public static final int  AccSealed = ExtraCompilerModifiers.AccSealed;
 	/**
@@ -209,7 +208,6 @@ public final class Flags {
 	 * Virtual Machine specification.
 	 * </p>
 	 * @since 3.24
-	 * @noreference This field is not intended to be referenced by clients as it is a part of Java preview feature.
 	 */
 	public static final int  AccNonSealed = ExtraCompilerModifiers.AccNonSealed;
 
@@ -428,8 +426,8 @@ public final class Flags {
 	 * @param flags the flags
 	 * @return <code>true</code> if the <code>AccSealed</code> flag is included
 	 * @see #AccSealed
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
-	 */
+	 * @since 3.28
+	 * */
 	public static boolean isSealed(int flags) {
 		return (flags & AccSealed) != 0;
 	}
@@ -440,7 +438,7 @@ public final class Flags {
 	 * @param flags the flags
 	 * @return <code>true</code> if the <code>AccNonSealed</code> flag is included
 	 * @see #AccNonSealed
-	 * @noreference This method is not intended to be referenced by clients as it is a part of Java preview feature.
+	 * @since 3.28
 	 */
 	public static boolean isNonSealed(int flags) {
 		return (flags & AccNonSealed) != 0;

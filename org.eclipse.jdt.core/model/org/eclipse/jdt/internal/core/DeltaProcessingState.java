@@ -84,7 +84,7 @@ public class DeltaProcessingState implements IResourceChangeListener {
 	public void doNotUse() {
 		// reset the delta processor of the current thread to avoid to keep it in memory
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=269476
-		this.deltaProcessors.set(null);
+		this.deltaProcessors.remove();
 	}
 
 	/* A table from IPath (from a classpath entry) to DeltaProcessor.RootInfo */
@@ -595,9 +595,7 @@ public class DeltaProcessingState implements IResourceChangeListener {
 		}
 
 		File timestamps = getTimeStampsFile();
-		DataOutputStream out = null;
-		try {
-			out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(timestamps)));
+		try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(timestamps)))){
 			out.writeInt(this.externalTimeStamps.size() - toRemove.size());
 			Iterator<Entry<IPath, Long>> entries = this.externalTimeStamps.entrySet().iterator();
 			while (entries.hasNext()) {
@@ -612,14 +610,6 @@ public class DeltaProcessingState implements IResourceChangeListener {
 		} catch (IOException e) {
 			IStatus status = new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, IStatus.ERROR, "Problems while saving timestamps", e); //$NON-NLS-1$
 			throw new CoreException(status);
-		} finally {
-			if (out != null) {
-				try {
-					out.close();
-				} catch (IOException e) {
-					// nothing we can do: ignore
-				}
-			}
 		}
 	}
 
