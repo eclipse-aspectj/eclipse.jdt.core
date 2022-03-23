@@ -7,10 +7,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -33,7 +29,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug577374_001"};
+//		TESTS_NAMES = new String[] { "testBug579355"};
 	}
 
 	private static String previewLevel = "18";
@@ -5144,5 +5140,149 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				},
 				"1");
 	}
-
+	public void testBug579355_001() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"       static void constantLabelMustAppearBeforePattern(Integer o) {\n"+
+					"               switch (o) {\n"+
+					"               case -1, 1 -> System.out.println(\"special case:\" + o);\n"+
+					"               case Integer i && i > 0 -> System.out.println(\"positive integer: \" + o);\n"+
+					"               case Integer i -> System.out.println(\"other integer: \" + o);\n"+
+					"               }\n"+
+					"       }\n"+
+					"\n"+
+					"       public static void main(String[] args) {\n"+
+					"               X.constantLabelMustAppearBeforePattern(-10);\n"+
+					"               X.constantLabelMustAppearBeforePattern(-1);\n"+
+					"               X.constantLabelMustAppearBeforePattern(0);\n"+
+					"               X.constantLabelMustAppearBeforePattern(1);\n"+
+					"               X.constantLabelMustAppearBeforePattern(10);\n"+
+					"       } \n"+
+					"}"
+				},
+				"other integer: -10\n" +
+				"special case:-1\n" +
+				"other integer: 0\n" +
+				"special case:1\n" +
+				"positive integer: 10");
+	}
+	public void testBug579355_002() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"       static void constantLabelMustAppearBeforePattern(Integer o) {\n"+
+					"               switch (o) {\n"+
+					"               case -1, 1 -> System.out.println(\"special case:\" + o);\n"+
+					"               case null -> System.out.println(\"null\");\n"+
+					"               case Integer i && i > 0 -> System.out.println(\"positive integer: \" + o);\n"+
+					"               case Integer i -> System.out.println(\"other integer: \" + o);\n"+
+					"               }\n"+
+					"       }\n"+
+					"\n"+
+					"       public static void main(String[] args) {\n"+
+					"               X.constantLabelMustAppearBeforePattern(-10);\n"+
+					"               X.constantLabelMustAppearBeforePattern(-1);\n"+
+					"               X.constantLabelMustAppearBeforePattern(0);\n"+
+					"               X.constantLabelMustAppearBeforePattern(1);\n"+
+					"               X.constantLabelMustAppearBeforePattern(10);\n"+
+					"               X.constantLabelMustAppearBeforePattern(null);\n"+
+					"       } \n"+
+					"}"
+				},
+				"other integer: -10\n" +
+				"special case:-1\n" +
+				"other integer: 0\n" +
+				"special case:1\n" +
+				"positive integer: 10\n"+
+				"null");
+	}
+	public void testBug579355_003() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"           public int foo(Integer i) {\n"
+					+ "        int result = 0;\n"
+					+ "        switch (i) {\n"
+					+ "            case 0 -> {\n"
+					+ "                result = 3;\n"
+					+ "                break;\n"
+					+ "            }\n"
+					+ "            case null -> {\n"
+					+ "                result = 5;\n"
+					+ "                break;\n"
+					+ "            }\n"
+					+ "            case (Integer p) -> {\n"
+					+ "                result = 6;\n"
+					+ "                break;\n"
+					+ "            }\n"
+					+ "            case 10 -> {\n"
+					+ "                result = 9;\n"
+					+ "                break;\n"
+					+ "            }\n"
+					+ "        }   \n"
+					+ "        return result;\n"
+					+ "    }\n"+
+					"}"
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 17)\n" +
+				"	case 10 -> {\n" +
+				"	     ^^\n" +
+				"This case label is dominated by one of the preceding case label\n" +
+				"----------\n");
+	}
+	public void testBug579355_004() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public static Color color = Color.BLUE;\n"
+					+ "    public static void main(String args[]) {\n"
+					+ "        Color c; \n"
+					+ "        var result = switch(color){\n"
+					+ "                case BLUE ->  (c = color) == Color.BLUE;\n"
+					+ "                case RED, GREEN ->  (c = color) + \"text\";\n"
+					+ "                case YELLOW ->  new String((c = color) + \"text\");\n"
+					+ "                default ->  (c = color);\n"
+					+ "                };\n"
+					+ "        if (result != null && c == Color.BLUE) {\n"
+					+ "        	System.out.println(\"Pass\");\n"
+					+ "        } else {\n"
+					+ "        	System.out.println(\"Fail\");\n"
+					+ "        }\n"
+					+ "    } \n"
+					+ "}\n"
+					+ "enum Color{BLUE, RED, GREEN, YELLOW;}"
+				},
+				"Pass");
+	}
+	public void testBug579355_005() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n"+
+					"    public int foo(Character c) {\n"
+					+ "        int result = 0;\n"
+					+ "        result = switch (c) {\n"
+					+ "            case Character c1 -> 1;\n"
+					+ "            case (short)1 -> 5;\n"
+					+ "        };\n"
+					+ "        return result;\n"
+					+ "    }\n"
+					+ "    public static void main(String args[]) {\n"
+					+ "    	X x = new X();\n"
+					+ "    	if (x.foo('\\u0001') == 1) {\n"
+					+ "            System.out.println(\"Pass\");\n"
+					+ "        } else {\n"
+					+ "        	System.out.println(\"Fail\");\n"
+					+ "        }\n"
+					+ "    }\n"
+					+ "}"
+				},
+				"Pass");
+	}
 }

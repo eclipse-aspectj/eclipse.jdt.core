@@ -9,10 +9,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -408,7 +404,7 @@ public class AST {
 	 * up to and including Java SE 18(aka JDK 18).
 	 * </p>
 	 *
-	 * @since 3.29 BETA_JAVA 18
+	 * @since 3.29
 	 */
 	public static final int JLS18 = 18;
 
@@ -2112,7 +2108,7 @@ public class AST {
 	 * doc comment string)
 	 *
 	 * @return a new unparented doc comment node
-	 * @since 3.29 BETA_JAVA 18
+	 * @since 3.29
 	 */
 	public JavaDocRegion newJavaDocRegion() {
 		JavaDocRegion result = new JavaDocRegion(this);
@@ -2977,7 +2973,7 @@ public class AST {
 	 * </p>
 	 *
 	 * @return a new unparented tag element node
-	 * @since 3.29 BETA_JAVA 18
+	 * @since 3.29
 	 */
 	public TagProperty newTagProperty() {
 		TagProperty result = new TagProperty(this);
