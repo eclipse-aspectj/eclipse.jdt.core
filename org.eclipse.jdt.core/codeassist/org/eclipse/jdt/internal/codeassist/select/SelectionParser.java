@@ -28,6 +28,7 @@ package org.eclipse.jdt.internal.codeassist.select;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.codeassist.impl.AssistParser;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.ast.AND_AND_Expression;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
@@ -824,9 +825,16 @@ protected void consumeInstanceOfExpression() {
 		int length = this.expressionLengthPtr >= 0 ?
 				this.expressionLengthStack[this.expressionLengthPtr] : 0;
 		if (length > 0) {
-			InstanceOfExpression exp = (InstanceOfExpression) this.expressionStack[this.expressionPtr];
-			if (exp.elementVariable != null) {
-				pushOnAstStack(exp.elementVariable);
+			Expression exp = this.expressionStack[this.expressionPtr];
+			LocalDeclaration local = null;
+			if (exp instanceof InstanceOfExpression) {
+				local = ((InstanceOfExpression) exp).elementVariable;
+			} else if (exp instanceof AND_AND_Expression) {
+				InstanceOfExpression insExpr = (InstanceOfExpression) ((AND_AND_Expression) exp).left;
+				local = insExpr.elementVariable;
+			}
+			if (local != null) {
+				pushOnAstStack(local);
 			}
 		}
 	} else {
@@ -883,6 +891,11 @@ protected void consumeLambdaExpression() {
 		if (this.selectionEnd == arrowStart || this.selectionEnd == arrowEnd) {
 			this.expressionStack[this.expressionPtr] = new SelectionOnLambdaExpression(expression);
 		}
+	} else if (this.selectionStart == expression.sourceStart && this.selectionEnd == expression.sourceEnd) {
+		SelectionOnLambdaExpression lambdaExpression = new SelectionOnLambdaExpression(expression);
+		this.expressionStack[this.expressionPtr] = lambdaExpression;
+		this.assistNode = lambdaExpression;
+		this.lastCheckPoint = lambdaExpression.sourceEnd + 1;
 	}
 	if (!(this.selectionStart >= expression.sourceStart && this.selectionEnd <= expression.sourceEnd))
 		popElement(K_LAMBDA_EXPRESSION_DELIMITER);

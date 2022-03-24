@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -31,9 +31,13 @@ import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class CompletionJavadocParser extends JavadocParser {
 
+	boolean parsingSnippet=false;
+
 	// Initialize lengthes for block and inline tags tables
 	public final static int INLINE_ALL_TAGS_LENGTH;
 	public final static int BLOCK_ALL_TAGS_LENGTH;
+	public final static int SNIPPET_ALL_TAGS_LENGTH;
+
 	static {
 		int length = 0;
 		for (int i=0; i<INLINE_TAGS_LENGTH; i++) {
@@ -45,11 +49,17 @@ public class CompletionJavadocParser extends JavadocParser {
 			length += BLOCK_TAGS[i].length;
 		}
 		BLOCK_ALL_TAGS_LENGTH = length;
+		length = 0;
+		for (int i=0; i<SNIPPET_TAGS_LENGTH; i++) {
+			length += IN_SNIPPET_TAGS[i].length;
+		}
+		SNIPPET_ALL_TAGS_LENGTH = length;
+		//IN_SNIPPET_TAGS
 	}
 
 	// Level tags are array of inline/block tags depending on compilation source level
-	char[][][] levelTags = new char[2][][];
-	int[] levelTagsLength = new int[2];
+	char[][][] levelTags = new char[3][][];
+	int[] levelTagsLength = new int[3];
 
 	// Completion specific info
 	int cursorLocation;
@@ -199,7 +209,7 @@ public class CompletionJavadocParser extends JavadocParser {
 	 * Create type reference. If it includes completion location, create and store completion node.
 	 */
 	@Override
-	protected Object createTypeReference(int primitiveToken) {
+	protected Object createTypeReference(int primitiveToken, boolean canBeModule) {
 		// Need to create type ref in case it was needed by members
 		int nbIdentifiers = this.identifierLengthStack[this.identifierLengthPtr];
 		int startPtr = this.identifierPtr - (nbIdentifiers-1);
@@ -208,7 +218,7 @@ public class CompletionJavadocParser extends JavadocParser {
 		boolean inCompletion = (refStart <= (this.cursorLocation+1) && this.cursorLocation <= refEnd) // completion cursor is between first and last stacked identifiers
 			|| ((refStart == (refEnd+1) && refEnd == this.cursorLocation)); // or it's a completion on empty token
 		if (!inCompletion) {
-			return super.createTypeReference(primitiveToken);
+			return super.createTypeReference(primitiveToken, canBeModule);
 		}
 		this.identifierLengthPtr--;
 		if (nbIdentifiers == 1) { // Single Type ref
@@ -253,17 +263,102 @@ public class CompletionJavadocParser extends JavadocParser {
 		return this.completionNode;
 	}
 
+	@Override
+	protected Object createModuleTypeReference(int primitiveToken, int moduleRefTokenCount) {
+
+		// Need to create type ref in case it was needed by members
+		int nbIdentifiers = this.identifierLengthStack[this.identifierLengthPtr];
+		int startPtr = this.identifierPtr - (nbIdentifiers-1);
+		int refStart = (int) (this.identifierPositionStack[startPtr] >>> 32);
+		int refEnd = (int) this.identifierPositionStack[this.identifierPtr];
+		boolean inCompletion = (refStart <= (this.cursorLocation+1) && this.cursorLocation <= refEnd) // completion cursor is between first and last stacked identifiers
+			|| ((refStart == (refEnd+1) && refEnd == this.cursorLocation)); // or it's a completion on empty token
+		if (!inCompletion) {
+			return super.createModuleTypeReference(primitiveToken, moduleRefTokenCount);
+		}
+
+		JavadocModuleReference moduleRef= createModuleReference(moduleRefTokenCount);
+
+		TypeReference typeRef = null;
+		int size = this.identifierLengthStack[this.identifierLengthPtr];
+		int newSize= size-moduleRefTokenCount;
+		if (newSize == 1) { // Single Type ref
+			typeRef = new CompletionOnJavadocSingleTypeReference(
+					this.identifierStack[moduleRefTokenCount],
+					this.identifierPositionStack[moduleRefTokenCount],
+					this.tagSourceStart,
+					this.tagSourceEnd);
+		} else if (newSize > 1) { // Qualified Type ref
+			for (int i=moduleRefTokenCount+1; i<this.identifierPtr; i++) {
+				int start = (int) (this.identifierPositionStack[i] >>> 32);
+				int end = (int) this.identifierPositionStack[i];
+				if (start <= this.cursorLocation && this.cursorLocation <= end) {
+					if (i == moduleRefTokenCount) {
+						this.completionNode = new CompletionOnJavadocSingleTypeReference(
+									this.identifierStack[moduleRefTokenCount+1],
+									this.identifierPositionStack[moduleRefTokenCount+1],
+									this.tagSourceStart,
+									this.tagSourceEnd);
+					} else {
+						char[][] tokens = new char[i][];
+						System.arraycopy(this.identifierStack, moduleRefTokenCount, tokens, 0, i);
+						long[] positions = new long[i+1];
+						System.arraycopy(this.identifierPositionStack, moduleRefTokenCount, positions, 0, i+1);
+						typeRef = new CompletionOnJavadocQualifiedTypeReference(tokens, this.identifierStack[i], positions, this.tagSourceStart, this.tagSourceEnd);
+					}
+					break;
+				}
+			}
+			if (this.completionNode == null) {
+				char[][] tokens = new char[newSize-1][];
+				System.arraycopy(this.identifierStack, moduleRefTokenCount, tokens, 0, newSize-1);
+				long[] positions = new long[newSize];
+				System.arraycopy(this.identifierPositionStack, moduleRefTokenCount, positions, 0, newSize);
+				typeRef = new CompletionOnJavadocQualifiedTypeReference(tokens, this.identifierStack[this.identifierPtr], positions, this.tagSourceStart, this.tagSourceEnd);
+			}
+
+		}
+
+		moduleRef.setTypeReference(typeRef);
+		this.completionNode = (CompletionOnJavadocModuleReference)moduleRef;
+		return moduleRef;
+	}
+
+	@Override
+	protected JavadocModuleReference createModuleReference(int moduleRefTokenCount) {
+		JavadocModuleReference moduleRef = null;
+		char[][] tokens = new char[moduleRefTokenCount][];
+		System.arraycopy(this.identifierStack, 0, tokens, 0, moduleRefTokenCount);
+		long[] positions = new long[moduleRefTokenCount+1];
+		System.arraycopy(this.identifierPositionStack, 0, positions, 0, moduleRefTokenCount+1);
+		moduleRef = new CompletionOnJavadocModuleReference(tokens, this.identifierStack[this.identifierPtr], positions, this.tagSourceStart, this.tagSourceEnd);
+		return moduleRef;
+	}
+
 	/*
 	 * Get possible tags for a given prefix.
 	 */
-	private char[][][] possibleTags(char[] prefix, boolean newLine) {
-		char[][][] possibleTags = new char[2][][];
-		if (newLine) {
+	private char[][][] possibleTags(char[] prefix, boolean newLine, boolean inSnippet) {
+		char[][][] possibleTags = new char[3][][];
+		if (newLine && inSnippet == false) {
 			System.arraycopy(this.levelTags[BLOCK_IDX], 0, possibleTags[BLOCK_IDX] = new char[this.levelTagsLength[BLOCK_IDX]][], 0, this.levelTagsLength[BLOCK_IDX]);
 		} else {
 			possibleTags[BLOCK_IDX] = CharOperation.NO_CHAR_CHAR;
 		}
-		System.arraycopy(this.levelTags[INLINE_IDX], 0, possibleTags[INLINE_IDX] = new char[this.levelTagsLength[INLINE_IDX]][], 0, this.levelTagsLength[INLINE_IDX]);
+		if(inSnippet==false) {
+			System.arraycopy(this.levelTags[INLINE_IDX], 0, possibleTags[INLINE_IDX] = new char[this.levelTagsLength[INLINE_IDX]][], 0, this.levelTagsLength[INLINE_IDX]);
+		}
+		else {
+			possibleTags[INLINE_IDX] = CharOperation.NO_CHAR_CHAR;
+		}
+
+		if(inSnippet) {
+			System.arraycopy(this.levelTags[SNIPPET_IDX], 0, possibleTags[SNIPPET_IDX] = new char[this.levelTagsLength[SNIPPET_IDX]][], 0, this.levelTagsLength[SNIPPET_IDX]);
+
+		}
+		else {
+			possibleTags[SNIPPET_IDX] = CharOperation.NO_CHAR_CHAR;
+		}
 		if (prefix == null || prefix.length == 0) return possibleTags;
 		int kinds = this.levelTags.length;
 		for (int k=0; k<kinds; k++) {
@@ -320,15 +415,30 @@ public class CompletionJavadocParser extends JavadocParser {
 		if (this.levelTagsLength[INLINE_IDX] < INLINE_ALL_TAGS_LENGTH) {
 			System.arraycopy(this.levelTags[INLINE_IDX], 0, this.levelTags[INLINE_IDX] = new char[this.levelTagsLength[INLINE_IDX]][], 0, this.levelTagsLength[INLINE_IDX]);
 		}
+		// Init inline tags
+		this.levelTags[SNIPPET_IDX] = new char[SNIPPET_ALL_TAGS_LENGTH][];
+		this.levelTagsLength[SNIPPET_IDX]= 0;
+		for (int i=0; i< 1; i++) {// since only in java 18
+			int length = IN_SNIPPET_TAGS[i].length;
+			System.arraycopy(IN_SNIPPET_TAGS[i], 0, this.levelTags[SNIPPET_IDX], this.levelTagsLength[SNIPPET_IDX], length);
+			this.levelTagsLength[SNIPPET_IDX] += length;
+		}
+		if (this.levelTagsLength[SNIPPET_IDX] < INLINE_ALL_TAGS_LENGTH) {
+			System.arraycopy(this.levelTags[SNIPPET_IDX], 0, this.levelTags[SNIPPET_IDX] = new char[this.levelTagsLength[SNIPPET_IDX]][], 0, this.levelTagsLength[SNIPPET_IDX]);
+		}
+	}
+	@Override
+	protected Object parseArguments(Object receiver) throws InvalidInputException {
+		return parseArguments(receiver, true);
 	}
 	/*
 	 * Parse argument in @see tag method reference
 	 */
 	@Override
-	protected Object parseArguments(Object receiver) throws InvalidInputException {
+	protected Object parseArguments(Object receiver, boolean verifySpaceOrEndComment) throws InvalidInputException {
 
 		if (this.tagSourceStart>this.cursorLocation) {
-			return super.parseArguments(receiver);
+			return super.parseArguments(receiver, verifySpaceOrEndComment);
 		}
 
 		// Init
@@ -575,7 +685,13 @@ public class CompletionJavadocParser extends JavadocParser {
 	protected boolean parseTag(int previousPosition) throws InvalidInputException {
 		int startPosition = this.inlineTagStarted ? this.inlineTagStart : previousPosition;
 		boolean newLine = !this.lineStarted;
-		boolean valid = super.parseTag(previousPosition);
+		boolean valid = false;
+		try {
+			valid = super.parseTag(previousPosition);
+		}
+		catch (InvalidCursorLocation e) {
+			// catch exception and get a javadoc tag in snippet if possible
+		}
 		boolean inCompletion = (this.tagSourceStart <= (this.cursorLocation+1) && this.cursorLocation <= this.tagSourceEnd) // completion cursor is between first and last stacked identifiers
 			|| ((this.tagSourceStart == (this.tagSourceEnd+1) && this.tagSourceEnd == this.cursorLocation)); // or it's a completion on empty token
 		if (inCompletion) {
@@ -587,7 +703,7 @@ public class CompletionJavadocParser extends JavadocParser {
 			int length = this.cursorLocation+1-this.tagSourceStart;
 			char[] tag = new char[length];
 			System.arraycopy(this.source, this.tagSourceStart, tag, 0, length);
-			char[][][] tags = possibleTags(tag, newLine);
+			char[][][] tags = this.parsingSnippet ?  possibleTags(tag, false,true) : possibleTags(tag, newLine,false);
 			if (tags != null) {
 				this.completionNode = new CompletionOnJavadocTag(tag, position, startPosition, end, tags, this.allPossibleTags);
 			}
@@ -595,6 +711,16 @@ public class CompletionJavadocParser extends JavadocParser {
 		return valid;
 	}
 
+	@Override
+	protected boolean parseSnippet() throws InvalidInputException {
+		this.parsingSnippet = true;
+		return super.parseSnippet();
+	}
+
+	@Override
+	protected boolean lookForTagsInSnippets() {
+		return this.parsingSnippet;
+	}
 	@Override
 	protected boolean parseThrows() {
 		try {

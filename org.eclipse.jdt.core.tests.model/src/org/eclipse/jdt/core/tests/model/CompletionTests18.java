@@ -26,6 +26,7 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.eval.IEvaluationContext;
 import org.eclipse.jdt.internal.codeassist.RelevanceConstants;
 
@@ -242,7 +243,8 @@ public void test006b() throws JavaModelException {
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"argument[LOCAL_VARIABLE_REF]{argument, null, Ljava.lang.Object;, argument, null, " + (R_DEFAULT + 21) + "}", // FIXME should be "I" and 22 like test006
+			"argument[LOCAL_VARIABLE_REF]{argument, null, Ljava.lang.Object;, argument, null, 51}\n" // FIXME should be "I" and 22 like test006
+			+ "[LAMBDA_EXPRESSION]{->, LI;, (I)I, foo, (x), 89}",
 			requestor.getResults());
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=405126, [1.8][code assist] Lambda parameters incorrectly recovered as fields.
@@ -5948,8 +5950,8 @@ public void testBug574912_comment6() throws JavaModelException {
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	String result = requestor.getResults();
-	assertResults("getMinimum[METHOD_REF]{, Ljava.util.Calendar;, (I)I, getMinimum, (arg0), 86}",
-			result);
+	assertResults("num[FIELD_REF]{num, LLambdaFreeze2;, I, num, null, 52}\n"
+			+ "getMinimum[METHOD_REF]{, Ljava.util.Calendar;, (I)I, getMinimum, (arg0), 86}", result);
 }
 public void testBug574912_comment6b() throws JavaModelException {
 	this.workingCopies = new ICompilationUnit[1];
@@ -6023,5 +6025,442 @@ public void testBug574882() throws Exception {
 			"expectedTypesKeys=null\n" +
 			"completion token location={STATEMENT_START}", // this is required for sysout template proposal
 			requestor.getContext());
+}
+public void testBug575149_expectOverloadedMethodsAndVariablesRankedWithExpectedType() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug443091.java",
+			"import java.util.function.Consumer;\n" +
+			"import java.util.function.Function;\n" +
+			"\n" +
+			"public class Bug443091 {\n" +
+			"	private void foo() {\n" +
+			" 		Consumer<Integer> capture = null;\n" +
+			"		forEach()" +
+			"	}\n" +
+			"	private void forEach(Consumer<Integer> in) {}\n" +
+			"	private void forEach(Function<Integer, String> in) {}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "forEach(";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults(
+			"capture[LOCAL_VARIABLE_REF]{capture, null, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, capture, null, 52}\n"
+			+ "forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;)V, forEach, (in), 56}\n"
+			+ "forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Function<Ljava.lang.Integer;Ljava.lang.String;>;)V, forEach, (in), 56}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Function<Ljava.lang.Integer;Ljava.lang.String;>;, (Ljava.lang.Integer;)Ljava.lang.String;, apply, (arg0), 89}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, (Ljava.lang.Integer;)V, accept, (t), 89}",
+			result);
+	assertTrue("expected type signatures don't match", CharOperation.equals(requestor.getExpectedTypesSignatures(),
+			new char[][] {"Ljava.util.function.Function<Ljava.lang.Integer;Ljava.lang.String;>;".toCharArray(),
+			"Ljava.util.function.Consumer<Ljava.lang.Integer;>;".toCharArray()}, true));
+}
+public void testBug575149_expectRemainingOverloadedMethodsMatchingFilledArguments() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug443091.java",
+			"import java.util.function.Consumer;\n" +
+			"import java.util.function.Function;\n" +
+			"\n" +
+			"public class Bug443091 {\n" +
+			"	private void foo() {\n" +
+			" 		Consumer<Integer> capture = null;\n" +
+			"		forEach(capture, )" +
+			"	}\n" +
+			"	private void forEach(Consumer<Integer> in) {}\n" +
+			"	private void forEach(Consumer<Integer> in, Integer limit) {}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "forEach(capture,";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n"
+			+ "forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;)V, forEach, (in), 56}\n"
+			+ "forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;Ljava.lang.Integer;)V, forEach, (in, limit), 56}",
+			result);
+	assertTrue("expected type signatures don't match", CharOperation.equals(requestor.getExpectedTypesSignatures(), new char[][] {"Ljava.lang.Integer;".toCharArray()}, true));
+}
+public void testBug575149_expectOverloadsOverEnumLiterals() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug443091.java",
+			"import java.util.function.Consumer;\n" +
+			"import java.util.function.Function;\n" +
+			"\n" +
+			"public class Bug443091 {\n" +
+			"	private void foo() {\n" +
+			" 		Consumer<Integer> capture = null;\n" +
+			"		forEach(capture, )" +
+			"	}\n" +
+			"	private Thread.State defaultState() { return null;} \n" +
+			"	private void forEach(Consumer<Integer> in, Thread.State state) {}\n" +
+			"	private void forEach(Consumer<Integer> in, Thread.State state, Integer limit) {}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "forEach(capture,";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("BLOCKED[FIELD_REF]{State.BLOCKED, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, BLOCKED, null, 49}\n" +
+			"NEW[FIELD_REF]{State.NEW, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, NEW, null, 49}\n" +
+			"RUNNABLE[FIELD_REF]{State.RUNNABLE, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, RUNNABLE, null, 49}\n" +
+			"TERMINATED[FIELD_REF]{State.TERMINATED, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, TERMINATED, null, 49}\n" +
+			"TIMED_WAITING[FIELD_REF]{State.TIMED_WAITING, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, TIMED_WAITING, null, 49}\n" +
+			"WAITING[FIELD_REF]{State.WAITING, Ljava.lang.Thread$State;, Ljava.lang.Thread$State;, WAITING, null, 49}\n" +
+			"defaultState[METHOD_REF]{defaultState(), LBug443091;, ()Ljava.lang.Thread$State;, defaultState, null, 52}\n" +
+			"forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;Ljava.lang.Thread$State;)V, forEach, (in, state), 56}\n" +
+			"forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;Ljava.lang.Thread$State;Ljava.lang.Integer;)V, forEach, (in, state, limit), 56}",
+			result);
+	assertTrue("expected type signatures don't match", CharOperation.equals(requestor.getExpectedTypesSignatures(), new char[][] {"Ljava.lang.Thread$State;".toCharArray()}, true));
+}
+public void testBug443091_expectLambdaCompletions_forFunctionalInterfaceArgumentAssignment() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug443091.java",
+			"import java.util.function.Consumer;\n" +
+			"\n" +
+			"public class Bug443091 {\n" +
+			"	private void foo() {\n" +
+			"		forEach(capture)" +
+			"	}\n" +
+			"	private void forEach(Consumer<Integer> in) {}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "forEach(";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("forEach[METHOD_REF]{, LBug443091;, (Ljava.util.function.Consumer<Ljava.lang.Integer;>;)V, forEach, (in), 56}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, (Ljava.lang.Integer;)V, accept, (t), 89}",
+			result);
+}
+public void testBug443091_expectLambdaCompletions_forFunctionalInterfaceVariableAssigments() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug443091.java",
+			"import java.util.function.Consumer;\n" +
+			"\n" +
+			"public class Bug443091 {\n" +
+			"	private void foo() {\n" +
+			" 		Consumer<Integer> in = \n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "in =";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 47}\n"
+			+ "foo[METHOD_REF]{foo(), LBug443091;, ()V, foo, null, 47}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 47}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 47}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 47}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 47}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 47}\n"
+			+ "Bug443091[TYPE_REF]{Bug443091, , LBug443091;, null, null, 52}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 52}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 52}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 52}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 52}\n"
+			+ "Consumer<java.lang.Integer>[TYPE_REF]{Consumer, java.util.function, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, null, null, 82}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, (Ljava.lang.Integer;)V, accept, (t), 89}",
+			result);
+}
+public void testBug576068() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug576068.java",
+			"public class Bug576068 {\n" +
+			"\n" +
+			"	// Type a new member here and content assist won't find anything.\n" +
+			"\n" +
+			"	public void methodA(){\n" +
+			"		switch( 1 ){\n" +
+			"			case 0:\n" +
+			"		}\n" +
+			"	}\n" +
+			"	public void methodB(){\n" +
+			"		Runnable r = ()->{};\n" +
+			"	}\n" +
+			"}");
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBefore = "// Type";
+	int cursorLocation = str.indexOf(completeBefore);
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("[POTENTIAL_METHOD_DECLARATION]{, LBug576068;, ()V, , null, 39}\n" +
+			"abstract[KEYWORD]{abstract, null, null, abstract, null, 49}\n" +
+			"class[KEYWORD]{class, null, null, class, null, 49}\n" +
+			"enum[KEYWORD]{enum, null, null, enum, null, 49}\n" +
+			"final[KEYWORD]{final, null, null, final, null, 49}\n" +
+			"interface[KEYWORD]{interface, null, null, interface, null, 49}\n" +
+			"native[KEYWORD]{native, null, null, native, null, 49}\n" +
+			"private[KEYWORD]{private, null, null, private, null, 49}\n" +
+			"protected[KEYWORD]{protected, null, null, protected, null, 49}\n" +
+			"public[KEYWORD]{public, null, null, public, null, 49}\n" +
+			"static[KEYWORD]{static, null, null, static, null, 49}\n" +
+			"strictfp[KEYWORD]{strictfp, null, null, strictfp, null, 49}\n" +
+			"synchronized[KEYWORD]{synchronized, null, null, synchronized, null, 49}\n" +
+			"transient[KEYWORD]{transient, null, null, transient, null, 49}\n" +
+			"volatile[KEYWORD]{volatile, null, null, volatile, null, 49}\n" +
+			"Bug576068[TYPE_REF]{Bug576068, , LBug576068;, null, null, 52}\n" +
+			"clone[METHOD_DECLARATION]{protected Object clone() throws CloneNotSupportedException, Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 52}\n" +
+			"equals[METHOD_DECLARATION]{public boolean equals(Object obj), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 52}\n" +
+			"finalize[METHOD_DECLARATION]{protected void finalize() throws Throwable, Ljava.lang.Object;, ()V, finalize, null, 52}\n" +
+			"hashCode[METHOD_DECLARATION]{public int hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n" +
+			"toString[METHOD_DECLARATION]{public String toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 52}",
+			result);
+}
+public void testBug577883_expectCompletions_onLambdaVars_inNestedLambdas() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577883.java",
+			"import java.util.stream.Stream;\n" +
+			"\n" +
+			"public class Bug577883 {\n" +
+			"	private static class Int { void boo(){} }\n"+
+			"	private void foo() {\n" +
+			"		Runnable run = () -> {\n" +
+			"			Stream.of(new Int()).map(t -> t.)\n"+
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "t.";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("boo[METHOD_REF]{boo(), LBug577883$Int;, ()V, boo, null, 55}\n"
+			+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 55}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 55}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 55}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 80}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 80}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 80}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 80}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 90}",
+			result);
+}
+public void testBug577883_expectCompletions_onLambdaVars_inNestedLambdasL2() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577883.java",
+			"import java.util.stream.Stream;\n" +
+			"import java.util.Optional;\n" +
+			"\n" +
+			"public class Bug577883 {\n" +
+			"	private static class Int { Integer boo(){ return 0;} }\n"+
+			"	private void foo() {\n" +
+			"		Runnable run = () -> {\n" +
+			"			Stream.of(new Int()).map(t -> Optional.ofNullable(t).map(t -> t.))\n"+
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "t.";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 55}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 55}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 55}\n"
+			+ "boo[METHOD_REF]{boo(), LBug577883$Int;, ()Ljava.lang.Integer;, boo, null, 80}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 80}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 80}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 80}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 80}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 90}",
+			result);
+}
+public void testBug577883_expectCompletions_onIntermediateLambdaVars_inNestedLambdas() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577883.java",
+			"import java.util.stream.Stream;\n" +
+			"import java.util.Optional;\n" +
+			"\n" +
+			"public class Bug577883 {\n" +
+			"	private static class Int { " +
+			"		Integer boo(){ return 0;} " +
+			"		boolean canBoo(){ return true;} " +
+			"	}\n"+
+			"	private void foo() {\n" +
+			"		Runnable run = () -> {\n" +
+			"			Stream.of(new Int()).map(t -> Optional.ofNullable(t).map(t -> t.boo() && t.))\n"+
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "&& t.";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 55}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 55}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 55}\n"
+			+ "boo[METHOD_REF]{boo(), LBug577883$Int;, ()Ljava.lang.Integer;, boo, null, 60}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 60}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 60}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 60}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 60}\n"
+			+ "canBoo[METHOD_REF]{canBoo(), LBug577883$Int;, ()Z, canBoo, null, 90}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 90}",
+			result);
+}
+public void testBug577883_expectCompletions_onOuterLambdaVars_inNestedLambdas() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577883.java",
+			"import java.util.stream.Stream;\n" +
+			"import java.util.Optional;\n" +
+			"import java.util.function.Consumer;\n" +
+			"\n" +
+			"public class Bug577883 {\n" +
+			"	private static class Int { " +
+			"		Integer boo(){ return 0;} " +
+			"		boolean canBoo(){ return true;} " +
+			"	}\n"+
+			"	private static class Dbl { " +
+			"		Double boo(){ return 0.0;} " +
+			"	}\n"+
+			"	private void foo() {\n" +
+			"		Consumer<Dbl> consu = (d) -> {\n" +
+			"			Stream.of(new Int()).filter(t -> d.)\n"+
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "d.";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 55}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 55}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 55}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 55}\n"
+			+ "boo[METHOD_REF]{boo(), LBug577883$Dbl;, ()Ljava.lang.Double;, boo, null, 60}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 60}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 60}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 60}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 60}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 90}",
+			result);
+}
+public void testBug577885_expectCompletions_onMethodArguments_followingMethodInvocationWithMethodRefArguments() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577885.java",
+			"import java.util.stream.Stream;\n" +
+			"\n" +
+			"public class Bug577885 {\n" +
+			"	private void foo() {\n" +
+			" 		Stream.of(\"1\").map(Long::valueOf).filter()\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "filter(";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("filter[METHOD_REF]{, Ljava.util.stream.Stream<Ljava.lang.Long;>;, (Ljava.util.function.Predicate<-Ljava.lang.Long;>;)Ljava.util.stream.Stream<Ljava.lang.Long;>;, filter, (arg0), 56}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Predicate<Ljava.lang.Long;>;, (Ljava.lang.Long;)Z, test, (arg0), 89}",
+			result);
+}
+public void testBug577885_expectCompletions_onMethodArguments_followingMethodInvocationWithMethodRefArguments_InsideLambda() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug577885.java",
+			"import java.util.stream.Stream;\n" +
+			"\n" +
+			"public class Bug577885 {\n" +
+			"	private void foo() {\n" +
+			"		Runnable run = () -> {\n" +
+			" 			Stream.of(\"1\").map(Long::valueOf).filter()\n" +
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "filter(";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("filter[METHOD_REF]{, Ljava.util.stream.Stream<Ljava.lang.Long;>;, (Ljava.util.function.Predicate<-Ljava.lang.Long;>;)Ljava.util.stream.Stream<Ljava.lang.Long;>;, filter, (arg0), 56}\n"
+			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Predicate<Ljava.lang.Long;>;, (Ljava.lang.Long;)Z, test, (arg0), 89}",
+			result);
+}
+public void testBug578116_expectCompletions_forConstructorsInsideLamndaBlock() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Bug578116.java",
+			"import java.util.ArrayList;\n" +
+			"\n" +
+			"public class Bug578116 {\n" +
+			"	private void foo() {\n" +
+			"		Runnable run = () -> {\n" +
+			"			ArrayList<String> list = new \n"+
+			"		};\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "= new ";
+	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	String result = requestor.getResults();
+	assertResults("Bug578116[TYPE_REF]{Bug578116, , LBug578116;, null, null, 52}\n"
+			+ "ArrayList<java.lang.String>[TYPE_REF]{ArrayList, java.util, Ljava.util.ArrayList<Ljava.lang.String;>;, null, null, 82}",
+			result);
 }
 }

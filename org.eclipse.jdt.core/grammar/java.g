@@ -2645,14 +2645,14 @@ OneDimLoop ::= TypeAnnotations '[' ']'
 /. $putCase consumeOneDimLoop(true); $break ./
 /:$readableName Dimension:/
 
-FieldAccess ::= Primary '.' JavaIdentifier -- AJ JavaIdentifier was 'Identifier'
+FieldAccess ::= Primary '.' JavaIdentifier -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeFieldAccess(false); $break ./
 
-FieldAccess ::= 'super' '.' JavaIdentifier -- AJ JavaIdentifier was 'Identifier'
+FieldAccess ::= 'super' '.' JavaIdentifier -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeFieldAccess(true); $break ./
 /:$readableName FieldAccess:/
 
-FieldAccess ::= QualifiedSuperReceiver '.' JavaIdentifier -- AJ JavaIdentifier was 'Identifier'
+FieldAccess ::= QualifiedSuperReceiver '.' JavaIdentifier -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeFieldAccess(false); $break ./
 /:$readableName FieldAccess:/
 
@@ -3290,7 +3290,7 @@ WildcardBounds3 ::= 'super' ReferenceType3
 /:$readableName WildcardBound3:/
 /:$compliance 1.5:/
 
-TypeParameterHeader ::= TypeAnnotationsopt JavaIdentifier -- AJ JavaIdentifier was Identifier
+TypeParameterHeader ::= TypeAnnotationsopt JavaIdentifier -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeTypeParameterHeader(); $break ./
 /:$readableName TypeParameter:/
 /:$compliance 1.5:/

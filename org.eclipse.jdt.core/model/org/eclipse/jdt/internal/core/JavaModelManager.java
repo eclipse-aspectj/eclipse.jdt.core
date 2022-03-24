@@ -34,6 +34,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.URI;
 import java.text.MessageFormat;
@@ -48,8 +50,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
@@ -148,12 +153,11 @@ import org.eclipse.jdt.internal.core.search.JavaWorkspaceScope;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 import org.eclipse.jdt.internal.core.search.processing.IJob;
 import org.eclipse.jdt.internal.core.search.processing.JobManager;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.HashtableOfArrayToObject;
 import org.eclipse.jdt.internal.core.util.LRUCache;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
-import org.eclipse.jdt.internal.core.util.WeakHashSet;
-import org.eclipse.jdt.internal.core.util.WeakHashSetOfCharArray;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatter;
 import org.eclipse.osgi.service.debug.DebugOptions;
 import org.eclipse.osgi.service.debug.DebugOptionsListener;
@@ -175,6 +179,10 @@ import org.xml.sax.SAXException;
  * the static method <code>JavaModelManager.getJavaModelManager()</code>.
  */
 public class JavaModelManager implements ISaveParticipant, IContentTypeChangeListener {
+	/** Thread count for parallel save - if any value is set. Any value <= 1 will disable parallel save. **/
+	private static final Integer SAVE_THREAD_COUNT = Integer.getInteger("org.eclipse.jdt.model_save_threads"); //$NON-NLS-1$
+	/** should the state.dat be gzip compressed? **/
+	private static final boolean SAVE_ZIPPED = !Boolean.getBoolean("org.eclipse.jdt.disable_gzip"); //$NON-NLS-1$
 	private static ServiceRegistration<DebugOptionsListener> DEBUG_REGISTRATION;
 	private static final String NON_CHAINING_JARS_CACHE = "nonChainingJarsCache"; //$NON-NLS-1$
 	private static final String EXTERNAL_FILES_CACHE = "externalFilesCache";  //$NON-NLS-1$
@@ -278,13 +286,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * The unique workspace scope
 	 */
 	public JavaWorkspaceScope workspaceScope;
-
-	/*
-	 * Pools of symbols used in the Java model.
-	 * Used as a replacement for String#intern() that could prevent garbage collection of strings on some VMs.
-	 */
-	private WeakHashSet stringSymbols = new WeakHashSet(5);
-	private WeakHashSetOfCharArray charArraySymbols = new WeakHashSetOfCharArray(5);
 
 	/*
 	 * Extension used to construct Java 6 annotation processor managers
@@ -713,7 +714,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (perPathContainers.size() == 0)
 			perProjectContainers.remove(project);
 		if (perProjectContainers.size() == 0)
-			this.containersBeingInitialized.set(null);
+			this.containersBeingInitialized.remove();
 		return container;
 	}
 
@@ -921,7 +922,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (projectInitializations.size() == 0)
 			initializations.remove(project);
 		if (initializations.size() == 0)
-			this.containerInitializationInProgress.set(null);
+			this.containerInitializationInProgress.remove();
 	}
 
 	private synchronized void containersReset(String[] containerIDs) {
@@ -2031,7 +2032,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		// the owner will be responsible for flushing the cache
 		// we want to check object identity to make sure this is the owner that created the cache
 		if (zipCache.owner == owner) {
-			this.zipFiles.set(null);
+			this.zipFiles.remove();
 			zipCache.flush();
 		} else {
 			if (JavaModelManager.ZIP_ACCESS_VERBOSE) {
@@ -3050,7 +3051,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 							while (perProjectContainers != null && !perProjectContainers.isEmpty()) {
 								initKnownContainers(perProjectContainers, monitor);
 							}
-							JavaModelManager.this.containersBeingInitialized.set(null);
+							JavaModelManager.this.containersBeingInitialized.remove();
 						} finally {
 							if (monitor != null)
 								monitor.done();
@@ -3101,7 +3102,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				// if we're being traversed by an exception, ensure that that containers are
 				// no longer marked as initialization in progress
 				// (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=66437)
-				this.containerInitializationInProgress.set(null);
+				this.containerInitializationInProgress.remove();
 			}
 		}
 
@@ -3316,25 +3317,12 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		((IEclipsePreferences) this.preferencesLookup[PREF_DEFAULT].parent()).addNodeChangeListener(this.defaultNodeListener);
 	}
 
-	public synchronized char[] intern(char[] array) {
-		return this.charArraySymbols.add(array);
+	public char[] intern(char[] array) {
+		return DeduplicationUtil.intern(array);
 	}
 
-	public synchronized String intern(String s) {
-		return (String) this.stringSymbols.add(s);
-
-		// Note1: String#intern() cannot be used as on some VMs this prevents the string from being garbage collected
-		// Note 2: Instead of using a WeakHashset, one could use a WeakHashMap with the following implementation
-		// 			   This would costs more per entry (one Entry object and one WeakReference more))
-
-		/*
-		WeakReference reference = (WeakReference) this.symbols.get(s);
-		String existing;
-		if (reference != null && (existing = (String) reference.get()) != null)
-			return existing;
-		this.symbols.put(s, new WeakReference(s));
-		return s;
-		*/
+	public String intern(String s) {
+		return DeduplicationUtil.intern(s);
 	}
 
 	void touchProjects(final IProject[] projectsToTouch, IProgressMonitor progressMonitor) throws JavaModelException {
@@ -3400,17 +3388,18 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		long now = System.currentTimeMillis();
 
 		// If the TTL for this cache entry has expired, directly check whether the archive is still invalid.
-		// If it transitioned to being valid, remove it from the cache and force an update to project caches.
 		if (now > invalidArchiveInfo.evictionTimestamp) {
 			try {
 				ZipFile zipFile = getZipFile(path, false);
 				closeZipFile(zipFile);
 				removeFromInvalidArchiveCache(path);
+				addInvalidArchive(path, ArchiveValidity.VALID); // update TTL
+				return ArchiveValidity.VALID;
 			} catch (CoreException e) {
 				// Archive is still invalid, fall through to reporting it is invalid.
 			}
-			// Retry the test from the start, now that we have an up-to-date result
-			return getArchiveValidity(path);
+			addInvalidArchive(path, ArchiveValidity.INVALID); // update TTL
+			return ArchiveValidity.INVALID;
 		}
 		if (DEBUG_INVALID_ARCHIVES) {
 			System.out.println("JAR cache: " + invalidArchiveInfo.reason + " " + path);  //$NON-NLS-1$ //$NON-NLS-2$
@@ -3427,6 +3416,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				}
 				return; // do not remove the VALID information
 			}
+			// If it transitioned to being valid then force an update to project caches.
 			if (this.invalidArchives.remove(path) != null) {
 				if (DEBUG_INVALID_ARCHIVES) {
 					System.out.println("JAR cache: removed INVALID " + path);  //$NON-NLS-1$
@@ -4102,24 +4092,29 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * Reads the build state for the relevant project.
 	 */
 	protected Object readState(IProject project) throws CoreException {
+		long startTime = System.currentTimeMillis();
+		Object result = readStateTimed(project);
+		if (JavaBuilder.DEBUG) {
+			long stopTime = System.currentTimeMillis();
+			System.out.println("readState took " + (stopTime - startTime) + "ms:" + project.getName()); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return result;
+	}
+
+	private Object readStateTimed(IProject project) throws CoreException {
 		File file = getSerializationFile(project);
 		if (file != null && file.exists()) {
-			try {
-				DataInputStream in= new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
-				try {
-					String pluginID= in.readUTF();
-					if (!pluginID.equals(JavaCore.PLUGIN_ID))
-						throw new IOException(Messages.build_wrongFileFormat);
-					String kind= in.readUTF();
-					if (!kind.equals("STATE")) //$NON-NLS-1$
-						throw new IOException(Messages.build_wrongFileFormat);
-					if (in.readBoolean())
-						return JavaBuilder.readState(project, in);
-					if (JavaBuilder.DEBUG)
-						System.out.println("Saved state thinks last build failed for " + project.getName()); //$NON-NLS-1$
-				} finally {
-					in.close();
-				}
+			try (DataInputStream in = new DataInputStream(createInputStream(file))) {
+				String pluginID = in.readUTF();
+				if (!pluginID.equals(JavaCore.PLUGIN_ID))
+					throw new IOException(Messages.build_wrongFileFormat);
+				String kind = in.readUTF();
+				if (!kind.equals("STATE")) //$NON-NLS-1$
+					throw new IOException(Messages.build_wrongFileFormat);
+				if (in.readBoolean())
+					return JavaBuilder.readState(project, in);
+				if (JavaBuilder.DEBUG)
+					System.out.println("Saved state thinks last build failed for " + project.getName()); //$NON-NLS-1$
 			} catch (Exception e) {
 				e.printStackTrace();
 				throw new CoreException(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, Platform.PLUGIN_ERROR, "Error reading last build state for project "+ project.getName(), e)); //$NON-NLS-1$
@@ -4306,7 +4301,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * Resets the temporary cache for newly created elements to null.
 	 */
 	public void resetTemporaryCache() {
-		this.temporaryCache.set(null);
+		this.temporaryCache.remove();
 	}
 
 	/**
@@ -4323,7 +4318,14 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (context.getKind() == ISaveContext.SNAPSHOT) return;
 
 		// save built state
-		if (info.triedRead) saveBuiltState(info);
+		if (info.triedRead) {
+			long startTime = System.currentTimeMillis();
+			saveBuiltState(info);
+			if (JavaBuilder.DEBUG) {
+				long stopTime = System.currentTimeMillis();
+				System.out.println("saveState took " + (stopTime - startTime) + "ms:" + info.project.getName()); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		}
 	}
 
 	/**
@@ -4336,8 +4338,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (file == null) return;
 		long t = System.currentTimeMillis();
 		try {
-			DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
-			try {
+			try (DataOutputStream out = new DataOutputStream(createOutputStream(file))) {
 				out.writeUTF(JavaCore.PLUGIN_ID);
 				out.writeUTF("STATE"); //$NON-NLS-1$
 				if (info.savedState == null) {
@@ -4346,8 +4347,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					out.writeBoolean(true);
 					JavaBuilder.writeState(info.savedState, out);
 				}
-			} finally {
-				out.close();
 			}
 		} catch (RuntimeException | IOException e) {
 			try {
@@ -4365,11 +4364,35 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 	}
 
+	private InputStream createInputStream(File file) throws IOException {
+		InputStream in = new FileInputStream(file);
+		try {
+			return new BufferedInputStream(new java.util.zip.GZIPInputStream(in, 8192));
+		} catch (ZipException e) {
+			// probably not zipped (old format), but may also be corrupted.
+			in.close();
+			boolean isZip;
+			try (DataInputStream din = new DataInputStream(new BufferedInputStream(new FileInputStream(file)))) {
+				isZip = din.readShort() == (short) java.util.zip.GZIPInputStream.GZIP_MAGIC;
+			}
+			if (isZip) {
+				throw e; // corrupted
+			}
+			return new BufferedInputStream(new FileInputStream(file));
+		}
+	}
+
+	private OutputStream createOutputStream(File file) throws IOException {
+		if (SAVE_ZIPPED) {
+			return new BufferedOutputStream(new java.util.zip.GZIPOutputStream(new FileOutputStream(file), 8192));
+		} else {
+			return new BufferedOutputStream(new FileOutputStream(file));
+		}
+	}
+
 	private void saveClasspathListCache(String cacheName) throws CoreException {
 		File file = getClasspathListFile(cacheName);
-		DataOutputStream out = null;
-		try {
-			out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
+		try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)))){
 			Set<IPath> pathCache = getClasspathListCache(cacheName);
 			synchronized (pathCache) {
 				out.writeInt(pathCache.size());
@@ -4382,35 +4405,17 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		} catch (IOException e) {
 			IStatus status = new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, IStatus.ERROR, "Problems while saving non-chaining jar cache", e); //$NON-NLS-1$
 			throw new CoreException(status);
-		} finally {
-			if (out != null) {
-				try {
-					out.close();
-				} catch (IOException e) {
-					// nothing we can do: ignore
-				}
-			}
 		}
 	}
 
 	private void saveVariablesAndContainers(ISaveContext context) throws CoreException {
 		File file = getVariableAndContainersFile();
-		DataOutputStream out = null;
-		try {
-			out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
+		try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)))) {
 			out.writeInt(VARIABLES_AND_CONTAINERS_FILE_VERSION);
 			new VariablesAndContainersSaveHelper(out).save(context);
 		} catch (IOException e) {
 			IStatus status = new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, IStatus.ERROR, "Problems while saving variables and containers", e); //$NON-NLS-1$
 			throw new CoreException(status);
-		} finally {
-			if (out != null) {
-				try {
-					out.close();
-				} catch (IOException e) {
-					// nothing we can do: ignore
-				}
-			}
 		}
 	}
 
@@ -4625,6 +4630,15 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 */
 	@Override
 	public void saving(ISaveContext context) throws CoreException {
+		long startTime = System.currentTimeMillis();
+		savingTimed(context);
+		if (JavaBuilder.DEBUG) {
+			long stopTime = System.currentTimeMillis();
+			System.out.println("saving took " + (stopTime - startTime) + "ms:" + this.perProjectInfos.values().size()); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+	}
+
+	private void savingTimed(ISaveContext context) throws CoreException {
 
 	    long start = -1;
 		if (VERBOSE)
@@ -4671,25 +4685,29 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			return;
 		}
 
-		ArrayList<IStatus> vStats= null; // lazy initialized
-		ArrayList<PerProjectInfo> values = null;
-		synchronized(this.perProjectInfos) {
-			values = new ArrayList<>(this.perProjectInfos.values());
+		ArrayList<PerProjectInfo> infos;
+		synchronized (this.perProjectInfos) {
+			infos = new ArrayList<>(this.perProjectInfos.values());
 		}
-		Iterator<PerProjectInfo> iterator = values.iterator();
-		while (iterator.hasNext()) {
-			try {
-				PerProjectInfo info = iterator.next();
-				saveState(info, context);
-			} catch (CoreException e) {
-				if (vStats == null)
-					vStats= new ArrayList<>();
-				vStats.add(e.getStatus());
-			}
+		int parallelism = Math.max(1, SAVE_THREAD_COUNT == null ? ForkJoinPool.getCommonPoolParallelism() : SAVE_THREAD_COUNT.intValue());
+		// never use a shared ForkJoinPool.commonPool() as it may be busy with other tasks, which might deadlock:
+		ForkJoinPool forkJoinPool =  new ForkJoinPool(parallelism);
+		IStatus[] stats;
+		try {
+			stats = forkJoinPool.submit(() -> infos.stream().parallel().map(info -> {
+				try {
+					saveState(info, context);
+				} catch (CoreException e) {
+					return e.getStatus();
+				}
+				return null;
+			}).filter(Objects::nonNull).toArray(IStatus[]::new)).get();
+		} catch (InterruptedException | ExecutionException e) {
+			throw new CoreException(Status.error(Messages.build_cannotSaveStates, e));
+		} finally {
+			forkJoinPool.shutdown();
 		}
-		if (vStats != null) {
-			IStatus[] stats= new IStatus[vStats.size()];
-			vStats.toArray(stats);
+		if (stats.length > 0) {
 			throw new CoreException(new MultiStatus(JavaCore.PLUGIN_ID, IStatus.ERROR, stats, Messages.build_cannotSaveStates, null));
 		}
 
@@ -5596,11 +5614,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	}
 
 	private ClasspathAccessRule getFromCache(ClasspathAccessRule rule) {
-		ClasspathAccessRule cachedRule = this.cache.accessRuleCache.get(rule);
-		if (cachedRule != null) {
-			return cachedRule;
-		}
-		this.cache.accessRuleCache.put(rule, rule);
-		return rule;
+		return DeduplicationUtil.internObject(rule);
 	}
 }

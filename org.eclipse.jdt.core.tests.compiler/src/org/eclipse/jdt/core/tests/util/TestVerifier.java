@@ -281,11 +281,12 @@ static {
  */
 public static boolean READ_VERIFY_TEST_FROM_FILE = false;
 /**
- * Adjust, if in {@link #READ_VERIFY_TEST_FROM_FILE} mode method {@link #getVerifyTestsCode()} cannot find the source
- * file based on the current directory. In that case, set the correct JDT Core project base directory here, so that
- * the 'org.eclipse.jdt.core.tests.compiler/src' sub-directory can be found from there.
+ * Adjust, if in {@link #READ_VERIFY_TEST_FROM_FILE} mode method {@link #getVerifyTestsCode()} cannot find
+ * the source file based on the current directory. In that case, set the correct JDT Core project base
+ * directory as PROJECT_BASE_DIR environment variable, so that the 'org.eclipse.jdt.core.tests.compiler/src'
+ * sub-directory can be found from there.
  */
-public static String PROJECT_BASE_DIR = "C:/Users/alexa/Documents/java-src/eclipse.jdt.core";
+public static String PROJECT_BASE_DIR = System.getenv("PROJECT_BASE_DIR");
 
 // Cached value for VerifyTests.java source code, read only once, either directly from the source code directory or
 // from VERIFY_TEST_CODE_DEFAULT
@@ -305,7 +306,7 @@ private static final Object verifyTestCodeLock = new Object();
  * <b>Caveat:</b> The return value is only lazily initialised once, then cached. If you change
  * {@link #READ_VERIFY_TEST_FROM_FILE} after calling this method for the first time, the return value will not change
  * anymore.
- * 
+ *
  * @return {@link VerifyTests} source code, filtered by {@link #filterSourceCode(Stream)}
  */
 String getVerifyTestsCode() {
@@ -345,7 +346,7 @@ String getVerifyTestsCode() {
  * This method cannot convert things like catch-with-resources or other language elements back to Java 1.5, you have to
  * take care of keeping the source code backward compatible by yourself. But a few things you can still use in the
  * source code, such as {@code @SuppressWarnings}, {@code @Override} in interfaces or single-line {@code assert}.
- * 
+ *
  * @param sourceCodeLines stream of source code lines
  * @return filtered source code file as a string
  */
@@ -362,7 +363,7 @@ private String filterSourceCode(Stream<String> sourceCodeLines) {
  * {@link VerifyTests} class boot-strapping the test resides, because those need to be present during JVM start-up.
  * Other parts of the classpath are stripped off, because they are to be communicated to the forked JVM via direct
  * socket communication.
- * 
+ *
  * @param classPath full classpath
  * @return minimal classpath necessary for forked test JVM boot-strapping
  */

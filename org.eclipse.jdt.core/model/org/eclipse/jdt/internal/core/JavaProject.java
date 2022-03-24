@@ -1435,8 +1435,7 @@ public class JavaProject
 	 */
 	protected String encodeClasspath(IClasspathEntry[] classpath, IClasspathEntry[] referencedEntries, IPath outputLocation, boolean indent, Map unknownElements) throws JavaModelException {
 		try {
-			ByteArrayOutputStream s = new ByteArrayOutputStream();
-			OutputStreamWriter writer = new OutputStreamWriter(s, "UTF8"); //$NON-NLS-1$
+			StringWriter writer = new StringWriter();
 			XMLWriter xmlWriter = new XMLWriter(writer, this, true/*print XML version*/);
 
 			xmlWriter.startTag(ClasspathEntry.TAG_CLASSPATH, indent);
@@ -1462,7 +1461,7 @@ public class JavaProject
 			xmlWriter.endTag(ClasspathEntry.TAG_CLASSPATH, indent, true/*insert new line*/);
 			writer.flush();
 			writer.close();
-			return s.toString("UTF8");//$NON-NLS-1$
+			return writer.toString();
 		} catch (IOException e) {
 			throw new JavaModelException(e, IJavaModelStatusConstants.IO_EXCEPTION);
 		}
@@ -1471,15 +1470,14 @@ public class JavaProject
 	@Override
 	public String encodeClasspathEntry(IClasspathEntry classpathEntry) {
 		try {
-			ByteArrayOutputStream s = new ByteArrayOutputStream();
-			OutputStreamWriter writer = new OutputStreamWriter(s, "UTF8"); //$NON-NLS-1$
+			StringWriter writer = new StringWriter();
 			XMLWriter xmlWriter = new XMLWriter(writer, this, false/*don't print XML version*/);
 
 			((ClasspathEntry)classpathEntry).elementEncode(xmlWriter, this.project.getFullPath(), true/*indent*/, true/*insert new line*/, null/*not interested in unknown elements*/, (classpathEntry.getReferencingEntry() != null));
 
 			writer.flush();
 			writer.close();
-			return s.toString("UTF8");//$NON-NLS-1$
+			return writer.toString();
 		} catch (IOException e) {
 			return null; // never happens since all is done in memory
 		}
@@ -2766,38 +2764,46 @@ public class JavaProject
 	 */
 	@Override
 	public boolean isOnClasspath(IResource resource) {
-		IPath exactPath = resource.getFullPath();
-		IPath path = exactPath;
+		return findContainingClasspathEntry(resource) != null;
+	}
 
+	/*
+	 * @see IJavaProject
+	 */
+	@Override
+	public IClasspathEntry findContainingClasspathEntry(IResource resource) {
+		if (resource == null) {
+			return null;
+		}
+		final int resourceType = resource.getType();
 		// ensure that folders are only excluded if all of their children are excluded
-		int resourceType = resource.getType();
-		boolean isFolderPath = resourceType == IResource.FOLDER || resourceType == IResource.PROJECT;
-
+		final boolean isFolderPath = resourceType == IResource.FOLDER || resourceType == IResource.PROJECT;
 		IClasspathEntry[] classpath;
 		try {
 			classpath = this.getResolvedClasspath();
 		} catch(JavaModelException e){
-			return false; // not a Java project
+			return null; // not a Java project
 		}
+		final IPath path = resource.getFullPath();
 		for (int i = 0; i < classpath.length; i++) {
 			IClasspathEntry entry = classpath[i];
 			IPath entryPath = entry.getPath();
-			if (entryPath.equals(exactPath)) { // package fragment roots must match exactly entry pathes (no exclusion there)
-				return true;
+			if (entryPath.equals(path)) { // package fragment roots must match exactly entry pathes (no exclusion there)
+				return entry;
 			}
 			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=276373
 			// When a classpath entry is absolute, convert the resource's relative path to a file system path and compare
 			// e.g - /P/lib/variableLib.jar and /home/P/lib/variableLib.jar when compared should return true
 			if (entryPath.isAbsolute()
-					&& entryPath.equals(ResourcesPlugin.getWorkspace().getRoot().getLocation().append(exactPath))) {
-				return true;
+					&& entryPath.equals(ResourcesPlugin.getWorkspace().getRoot().getLocation().append(path))) {
+				return entry;
 			}
 			if (entryPath.isPrefixOf(path)
 					&& !Util.isExcluded(path, ((ClasspathEntry)entry).fullInclusionPatternChars(), ((ClasspathEntry)entry).fullExclusionPatternChars(), isFolderPath)) {
-				return true;
+				return entry;
 			}
 		}
-		return false;
+		return null;
 	}
 
 	private boolean isOnClasspathEntry(IPath elementPath, boolean isFolderPath, boolean isPackageFragmentRoot, IClasspathEntry entry) {
@@ -2829,18 +2835,9 @@ public class JavaProject
 		if (projectMetaLocation != null) {
 			File prefFile = projectMetaLocation.append(PREF_FILENAME).toFile();
 			if (prefFile.exists()) { // load preferences from file
-				InputStream in = null;
-				try {
-					in = new BufferedInputStream(new FileInputStream(prefFile));
+				try (InputStream in = new BufferedInputStream(new FileInputStream(prefFile))){
 					preferences = Platform.getPreferencesService().readPreferences(in);
 				} catch (CoreException | IOException e) { // problems loading preference store - quietly ignore
-				} finally {
-					if (in != null) {
-						try {
-							in.close();
-						} catch (IOException e) { // ignore problems with close
-						}
-					}
 				}
 				// one shot read, delete old preferences
 				prefFile.delete();

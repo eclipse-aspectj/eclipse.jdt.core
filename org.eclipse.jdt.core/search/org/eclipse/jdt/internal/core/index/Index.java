@@ -15,6 +15,7 @@ package org.eclipse.jdt.internal.core.index;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -149,11 +150,16 @@ public boolean hasChanged() {
  * If the key is null then all entries in specified categories are returned.
  */
 public EntryResult[] query(char[][] categories, char[] key, int matchRule) throws IOException {
-	if (this.memoryIndex.shouldMerge() && this.monitor.exitReadEnterWrite()) {
+	ReadWriteMonitor readWriteMonitor = this.monitor;
+	if(readWriteMonitor == null) {
+		// index got deleted since acquired
+		return null;
+	}
+	if (this.memoryIndex.shouldMerge() && readWriteMonitor.exitReadEnterWrite()) {
 		try {
 			save();
 		} finally {
-			this.monitor.exitWriteEnterRead();
+			readWriteMonitor.exitWriteEnterRead();
 		}
 	}
 
@@ -211,13 +217,19 @@ public void reset() throws IOException {
 	this.diskIndex = new DiskIndex(this.diskIndex.indexLocation);
 	this.diskIndex.initialize(false/*do not reuse the index file*/);
 }
-public void save() throws IOException {
+public boolean save() throws IOException {
+	ReadWriteMonitor readWriteMonitor = this.monitor;
+	if(readWriteMonitor == null) {
+		// index got deleted since acquired
+		return false;
+	}
 	// must own the write lock of the monitor
-	if (!hasChanged()) return;
+	if (!hasChanged()) return false;
 
 	this.diskIndex.separator = this.separator;
 	this.diskIndex = this.diskIndex.mergeWith(this.memoryIndex);
 	this.memoryIndex = new MemoryIndex();
+	return true;
 }
 public void startQuery() {
 	if (this.diskIndex != null)
@@ -240,6 +252,10 @@ public List<IndexQualifier> getMetaIndexQualifications() throws IOException {
 	try {
 		ArrayList<IndexQualifier> qualifiers = new ArrayList<>();
 		for(char[] category : IIndexConstants.META_INDEX_CATEGORIES) {
+			if (this.monitor == null) {
+				// index got deleted since acquired
+				return Collections.emptyList();
+			}
 			EntryResult[] results = query(new char[][] {category}, null,
 					SearchPattern.R_EXACT_MATCH | SearchPattern.R_CASE_SENSITIVE);
 			if(results != null) {

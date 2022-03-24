@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1944,7 +1944,6 @@ public void configure(String[] argv) {
 	String customDestinationPath = null;
 	String currentSourceDirectory = null;
 	String currentArg = Util.EMPTY_STRING;
-	String moduleName = null;
 
 	Set<String> specifiedEncodings = null;
 
@@ -2076,21 +2075,9 @@ public void configure(String[] argv) {
 				}
 
 				if (currentArg.endsWith(SuffixConstants.SUFFIX_STRING_java)) {
-					if (moduleName == null) {
-						// If the module-info.java was supplied via command line, that will be the
-						// de facto module for the other source files supplied via command line.
-						// TODO: This needs revisit in case a source file specified in command line is
-						// part of a --module-source-path
-						IModule mod = extractModuleDesc(currentArg);
-						if (mod != null) {
-							moduleName = new String(mod.name());
-							this.module = mod;
-						}
-					}
 					if (this.filenames == null) {
 						this.filenames = new String[argCount - index];
 						this.encodings = new String[argCount - index];
-						this.modNames = new String[argCount - index];
 						this.destinationPaths = new String[argCount - index];
 					} else if (filesCount == this.filenames.length) {
 						int length = this.filenames.length;
@@ -2112,15 +2099,8 @@ public void configure(String[] argv) {
 							(this.destinationPaths = new String[length + argCount - index]),
 							0,
 							length);
-						System.arraycopy(
-								this.modNames,
-								0,
-								(this.modNames = new String[length + argCount - index]),
-								0,
-								length);
 					}
 					this.filenames[filesCount] = currentArg;
-					this.modNames[filesCount] = moduleName;
 					this.encodings[filesCount++] = customEncoding;
 					// destination path cannot be specified upon an individual file
 					customEncoding = null;
@@ -2172,36 +2152,6 @@ public void configure(String[] argv) {
 						mode = DEFAULT;
 						continue;
 					}
-				}
-				if (currentArg.equals("-15") || currentArg.equals("-15.0")) { //$NON-NLS-1$ //$NON-NLS-2$
-					if (didSpecifyCompliance) {
-						throw new IllegalArgumentException(
-							this.bind("configure.duplicateCompliance", currentArg)); //$NON-NLS-1$
-					}
-					didSpecifyCompliance = true;
-					this.options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_15);
-					mode = DEFAULT;
-					continue;
-				}
-				if (currentArg.equals("-16") || currentArg.equals("-16.0")) { //$NON-NLS-1$ //$NON-NLS-2$
-					if (didSpecifyCompliance) {
-						throw new IllegalArgumentException(
-							this.bind("configure.duplicateCompliance", currentArg)); //$NON-NLS-1$
-					}
-					didSpecifyCompliance = true;
-					this.options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_16);
-					mode = DEFAULT;
-					continue;
-				}
-				if (currentArg.equals("-17") || currentArg.equals("-17.0")) { //$NON-NLS-1$ //$NON-NLS-2$
-					if (didSpecifyCompliance) {
-						throw new IllegalArgumentException(
-							this.bind("configure.duplicateCompliance", currentArg)); //$NON-NLS-1$
-					}
-					didSpecifyCompliance = true;
-					this.options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_16);
-					mode = DEFAULT;
-					continue;
 				}
 				if (currentArg.equals("-d")) { //$NON-NLS-1$
 					if (this.destinationPath != null) {
@@ -3069,17 +3019,10 @@ public void configure(String[] argv) {
 				(this.destinationPaths = new String[length + filesCount]),
 				0,
 				filesCount);
-			System.arraycopy(
-					this.modNames,
-					0,
-					(this.modNames = new String[length + filesCount]),
-					0,
-					filesCount);
 			System.arraycopy(result, 0, this.filenames, filesCount, length);
 			for (int i = 0; i < length; i++) {
 				this.encodings[filesCount + i] = customEncoding;
 				this.destinationPaths[filesCount + i] = customDestinationPath;
-				this.modNames[filesCount + i] = moduleName;
 			}
 			filesCount += length;
 			customEncoding = null;
@@ -3090,7 +3033,6 @@ public void configure(String[] argv) {
 			filesCount = this.filenames.length;
 			this.encodings = new String[filesCount];
 			this.destinationPaths = new String[filesCount];
-			this.modNames = new String[filesCount];
 			for (int i = 0; i < filesCount; i++) {
 				this.encodings[i] = customEncoding;
 				this.destinationPaths[i] = customDestinationPath;
@@ -3187,6 +3129,8 @@ public void configure(String[] argv) {
 			(this.filenames = new String[filesCount]),
 			0,
 			filesCount);
+
+		this.modNames = new String[filesCount];
 	}
 
 	if (classCount != 0) {
@@ -3196,6 +3140,10 @@ public void configure(String[] argv) {
 			(this.classNames = new String[classCount]),
 			0,
 			classCount);
+	}
+
+	if (moduleSourcepathArg == null) {
+		handleSingleModuleCompilation();
 	}
 
 	setPaths(bootclasspaths,
@@ -3270,6 +3218,9 @@ private String optionStringToVersion(String currentArg) {
 		case "17": //$NON-NLS-1$
 		case "17.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_17;
+		case "18": //$NON-NLS-1$
+		case "18.0": //$NON-NLS-1$
+			return CompilerOptions.VERSION_18;
 		default:
 			return null;
 	}
@@ -3306,13 +3257,13 @@ private Parser getNewParser() {
 }
 private IModule extractModuleDesc(String fileName) {
 	IModule mod = null;
-	// this.options may not be completely populated yet, and definitely not
-	// validated. Make sure the source level is set for the parser
-	Map<String,String> opts = new HashMap<String, String>(this.options);
-	opts.put(CompilerOptions.OPTION_Source, this.options.get(CompilerOptions.OPTION_Compliance));
-	Parser parser = new Parser(new ProblemReporter(getHandlingPolicy(),
-			new CompilerOptions(opts), getProblemFactory()), false);
 	if (fileName.toLowerCase().endsWith(IModule.MODULE_INFO_JAVA)) {
+		// this.options may not be completely populated yet, and definitely not
+		// validated. Make sure the source level is set for the parser
+		Map<String,String> opts = new HashMap<String, String>(this.options);
+		opts.put(CompilerOptions.OPTION_Source, this.options.get(CompilerOptions.OPTION_Compliance));
+		Parser parser = new Parser(new ProblemReporter(getHandlingPolicy(),
+				new CompilerOptions(opts), getProblemFactory()), false);
 
 		ICompilationUnit cu = new CompilationUnit(null, fileName, null);
 		CompilationResult compilationResult = new CompilationResult(cu, 0, 1, 10);
@@ -3699,7 +3650,6 @@ protected ArrayList<FileSystem.Classpath> handleModuleSourcepath(String arg) {
 	ArrayList<FileSystem.Classpath> result = new ArrayList<>();
 	if ((modulePaths != null)
 		&& (modulePaths.size() != 0)) {
-
 		if (this.destinationPath == null) {
 			addPendingErrors(this.bind("configure.missingDestinationPath"));//$NON-NLS-1$
 		}
@@ -3744,6 +3694,29 @@ protected ArrayList<FileSystem.Classpath> handleModuleSourcepath(String arg) {
 		}
 	}
 	return result;
+}
+private void handleSingleModuleCompilation() {
+	if (this.filenames == null) {
+		return;
+	}
+	IModule singleMod = null;
+	for (String filename : this.filenames) {
+		IModule mod = extractModuleDesc(filename);
+		if (mod != null) {
+			if (singleMod == null) {
+				singleMod = mod;
+			} else {
+				addPendingErrors(this.bind("configure.duplicateModuleInfo", filename)); //$NON-NLS-1$
+			}
+		}
+	}
+	if (singleMod != null) {
+		String moduleName = new String(singleMod.name());
+		for (int i = 0; i < this.modNames.length; i++) {
+			this.modNames[i] = moduleName;
+		}
+		this.module = singleMod;
+	}
 }
 /*
  * External API

@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -3146,10 +3146,16 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_16 = "16"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
-	 * @since 3.27
+	 * @since 3.28
 	 * @category OptionValue
 	 */
 	public static final String VERSION_17 = "17"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
+	 * @since 3.29
+	 * @category OptionValue
+	 */
+	public static final String VERSION_18 = "18"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
 	 * @since 3.4
@@ -3157,7 +3163,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
-			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17));
+			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17, VERSION_18));
 
 	/**
 	 * Returns all {@link JavaCore}{@code #VERSION_*} levels in the order of their
@@ -4585,7 +4591,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 				}
 			}
 		} finally {
-			manager.batchContainerInitializationsProgress.initializeAfterLoadMonitor.set(null);
+			manager.batchContainerInitializationsProgress.initializeAfterLoadMonitor.remove();
 		}
 
 		// avoid leaking source attachment properties (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=183413 )

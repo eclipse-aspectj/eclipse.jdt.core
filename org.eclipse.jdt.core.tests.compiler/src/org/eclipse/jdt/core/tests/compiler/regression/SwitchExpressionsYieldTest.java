@@ -6093,4 +6093,78 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				);
 
 	}
+	public void testBug576026() {
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "	enum E { A }\n"
+						+ "	static class C {\n"
+						+ "		E e = E.A;\n"
+						+ "	}\n"
+						+ "	public static void main(String[] args) {\n"
+						+ "		C c = new C();\n"
+						+ "		switch (c.e) {\n"
+						+ "		case A -> {\n"
+						+ "			System.out.println(\"Success\");\n"
+						+ "		}\n"
+						+ "		default -> System.out.println(\"Wrong\");\n"
+						+ "		}\n"
+						+ "	}\n"
+						+ "}",
+				},
+				"Success");
+	}
+	public void testBug576861_001() {
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"import java.util.Comparator;\n"+
+				"\n"+
+				"public class X {\n"+
+				" public static void foo(Comparator<? super Long> comparator) {}\n"+
+				"\n"+
+				" public static void main(String[] args) {\n"+
+				"   int someSwitchCondition = 10;\n"+
+				"   X.foo(switch (someSwitchCondition) {\n"+
+				"   case 10 -> Comparator.comparingLong(Long::longValue);\n"+
+				"   default -> throw new IllegalArgumentException(\"Unsupported\");\n"+
+				" });\n"+
+				"   System.out.println(\"hello\");\n"+
+				" }\n"+
+				"}"
+				},
+				"hello");
+	}
+	public void testBug577220_001() {
+		this.runNegativeTest(
+			new String[] {
+				"module-info.java",
+				"public class X {\n"+
+				" void main(Integer i) {\n"+
+				"   Object a = switch (i) {\n"+
+				"   default -> {\n"+
+				"     yield i.toString();\n"+
+				"   }\n"+
+				"   }\n"+
+				" }\n"+
+				"}",
+			},
+			"----------\n" +
+			"1. ERROR in module-info.java (at line 1)\n" +
+			"	public class X {\n" +
+			"	             ^\n" +
+			"The public type X must be defined in its own file\n" +
+			"----------\n" +
+			"2. ERROR in module-info.java (at line 5)\n" +
+			"	yield i.toString();\n" +
+			"	       ^\n" +
+			"Syntax error on token \".\", ; expected\n" +
+			"----------\n" +
+			"3. ERROR in module-info.java (at line 7)\n" +
+			"	}\n" +
+			"	^\n" +
+			"Syntax error, insert \";\" to complete BlockStatements\n" +
+			"----------\n");
+	}
 }

@@ -18,6 +18,8 @@ package org.eclipse.jdt.core.tests.model;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import org.eclipse.jdt.core.tests.compiler.CharDeduplicationTest;
+import org.eclipse.jdt.core.tests.compiler.DeduplicationUtilTest;
 import org.eclipse.jdt.core.tests.compiler.map.CharArrayMapperTest;
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 
@@ -229,6 +231,10 @@ private static Class[] getAllTestClasses() {
 		JavaModelManagerTests.class,
 
 		CharArrayMapperTest.class,
+
+		CharDeduplicationTest.class,
+
+		DeduplicationUtilTest.class,
 	};
 
 	Class[] deprecatedClasses = getDeprecatedJDOMTestClasses();
