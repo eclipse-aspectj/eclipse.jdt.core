@@ -172,7 +172,10 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	protected Map<String,Classpath> moduleLocations = new HashMap<>();
 
 	/** Tasks resulting from --add-reads or --add-exports command line options. */
-	Map<String,UpdatesByKind> moduleUpdates = new HashMap<>();
+	// AspectJ extension: raise from package-scoped to public (AjBuildManager reads this field).
+	// See https://github.com/eclipse/org.aspectj/issues/145.
+	public Map<String,UpdatesByKind> moduleUpdates = new HashMap<>();
+	// End AspectJ extension
 	static boolean isJRE12Plus = false;
 
 	private boolean hasLimitModules = false;
