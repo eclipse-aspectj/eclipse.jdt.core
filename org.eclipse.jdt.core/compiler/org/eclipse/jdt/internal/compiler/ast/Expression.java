@@ -788,7 +788,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
 	// Nothing by default
 }
-public LocalDeclaration getPatternVariableIntroduced() {
+public LocalDeclaration getPatternVariable() {
 	return null;
 }
 public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope scope) {
@@ -1365,7 +1365,9 @@ public Expression [] getPolyExpressions() {
 }
 
 public boolean isPotentiallyCompatibleWith(TypeBinding targetType, Scope scope) {
-	return isCompatibleWith(targetType, scope); // for all but functional expressions, potential compatibility is the same as compatibility.
+	// A class instance creation expression, a method invocation expression, or an
+	// expression of a standalone form (§15.2) is potentially compatible with any type.
+	return true;
 }
 
 protected Constant optimizedNullComparisonConstant() {

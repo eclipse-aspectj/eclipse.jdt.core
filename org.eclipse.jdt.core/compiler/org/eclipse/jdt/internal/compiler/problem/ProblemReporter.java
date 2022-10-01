@@ -853,15 +853,18 @@ public static int getProblemCategory(int severity, int problemID) {
 				break categorizeOnIrritant;
 		}
 	}
-	// categorize fatal problems per ID
+	// categorize fatal / non-configurable problems per ID
 	switch (problemID) {
 		case IProblem.IsClassPathCorrect :
+		case IProblem.IsClassPathCorrectWithReferencingType :
 		case IProblem.CorruptedSignature :
 		case IProblem.UndefinedModuleAddReads :
 		case IProblem.MissingNullAnnotationImplicitlyUsed :
 			return CategorizedProblem.CAT_BUILDPATH;
 		case IProblem.ProblemNotAnalysed :
 			return CategorizedProblem.CAT_UNNECESSARY_CODE;
+		case IProblem.NonNullArrayContentNotInitialized :
+			return CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM;
 		default :
 			if ((problemID & IProblem.Syntax) != 0)
 				return CategorizedProblem.CAT_SYNTAX;
@@ -2183,14 +2186,6 @@ public void duplicateInitializationOfFinalLocal(LocalVariableBinding local, ASTN
 public void illegalRedeclarationOfPatternVar(LocalVariableBinding local, ASTNode location) {
 	this.handle(
 			IProblem.PatternVariableRedeclared,
-			NoArgument,
-			NoArgument,
-			nodeSourceStart(local, location),
-			nodeSourceEnd(local, location));
-}
-public void patternCannotBeSubtypeOfExpression(LocalVariableBinding local, ASTNode location) {
-	this.handle(
-			IProblem.PatternSubtypeOfExpression,
 			NoArgument,
 			NoArgument,
 			nodeSourceStart(local, location),
@@ -4918,7 +4913,9 @@ public void invalidType(ASTNode location, TypeBinding type) {
 		if (isRecoveredName(ref.tokens)) return;
 		if (type instanceof ReferenceBinding) {
 			char[][] name = ((ReferenceBinding) type).compoundName;
-			end = (int) ref.sourcePositions[name.length - 1];
+			if (name.length <= ref.sourcePositions.length) {
+				end = (int) ref.sourcePositions[name.length - 1];
+			}
 		}
 	} else if (location instanceof ArrayQualifiedTypeReference) {
 		ArrayQualifiedTypeReference arrayQualifiedTypeReference = (ArrayQualifiedTypeReference) location;
@@ -4926,7 +4923,9 @@ public void invalidType(ASTNode location, TypeBinding type) {
 		TypeBinding leafType = type.leafComponentType();
 		if (leafType instanceof ReferenceBinding) {
 			char[][] name = ((ReferenceBinding) leafType).compoundName; // problem type will tell how much got resolved
-			end = (int) arrayQualifiedTypeReference.sourcePositions[name.length-1];
+			if (name.length <= arrayQualifiedTypeReference.sourcePositions.length) {
+				end = (int) arrayQualifiedTypeReference.sourcePositions[name.length-1];
+			}
 		} else {
 			long[] positions = arrayQualifiedTypeReference.sourcePositions;
 			end = (int) positions[positions.length - 1];
@@ -5138,7 +5137,9 @@ public void discouragedValueBasedTypeToSynchronize(Expression expression, TypeBi
 		expression.sourceStart,
 		expression.sourceEnd);
 }
-public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclaration compUnitDecl, Object location, boolean implicitAnnotationUse) {
+public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclaration compUnitDecl,
+					Object location, boolean implicitAnnotationUse, ReferenceBinding referencingType)
+{
 	// ProblemReporter is not designed to be reentrant. Just in case, we discovered a build path problem while we are already
 	// in the midst of reporting some other problem, save and restore reference context thereby mimicking a stack.
 	// See https://bugs.eclipse.org/bugs/show_bug.cgi?id=442755.
@@ -5158,8 +5159,19 @@ public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclar
 		}
 	}
 	try {
+		int pId = IProblem.IsClassPathCorrect;
+		if (implicitAnnotationUse) {
+			pId = IProblem.MissingNullAnnotationImplicitlyUsed;
+		} else {
+			if (referencingType != null) {
+				// avoid readableName() which might cause reentrant "isClassPathCorrect" when resolving type variables
+				char[] fullyQualifiedtypeName = CharOperation.concatWith(referencingType.fPackage.compoundName, referencingType.qualifiedSourceName(), '.');
+				arguments = new String[] { arguments[0], new String(fullyQualifiedtypeName) };
+				pId = IProblem.IsClassPathCorrectWithReferencingType;
+			}
+		}
 		this.handle(
-				implicitAnnotationUse ? IProblem.MissingNullAnnotationImplicitlyUsed : IProblem.IsClassPathCorrect,
+				pId,
 				arguments,
 				arguments,
 				start,
@@ -5177,6 +5189,7 @@ private boolean isRestrictedIdentifier(int token) {
 		case TerminalTokens.TokenNameRestrictedIdentifierrecord:
 		case TerminalTokens.TokenNameRestrictedIdentifiersealed:
 		case TerminalTokens.TokenNameRestrictedIdentifierpermits:
+		case TerminalTokens.TokenNameRestrictedIdentifierWhen:
 			return true;
 		default: return false;
 	}
@@ -5239,6 +5252,7 @@ private boolean isKeyword(int token) {
 		case TerminalTokens.TokenNameRestrictedIdentifierrecord:
 		case TerminalTokens.TokenNameRestrictedIdentifiersealed:
 		case TerminalTokens.TokenNameRestrictedIdentifierpermits:
+		case TerminalTokens.TokenNameRestrictedIdentifierWhen:
 			// making explicit - not a (restricted) keyword but restricted identifier.
 			//$FALL-THROUGH$
 		default:
@@ -10897,6 +10911,17 @@ public void arrayReferencePotentialNullReference(ArrayReference arrayReference) 
 	this.handle(IProblem.ArrayReferencePotentialNullReference, NoArgument, NoArgument, arrayReference.sourceStart, arrayReference.sourceEnd);
 
 }
+
+public void nonNullArrayContentNotInitialized(Expression dimension, LookupEnvironment lookupEnvironment, TypeBinding elementType) {
+	this.handle(
+			IProblem.NonNullArrayContentNotInitialized,
+			new String[] {new String(elementType.nullAnnotatedReadableName(lookupEnvironment.globalOptions, false))},
+			new String[] {new String(elementType.nullAnnotatedReadableName(lookupEnvironment.globalOptions, true))},
+			ProblemSeverities.Info,
+			dimension.sourceStart-1, // optimistically try to include '[' and ']'
+			dimension.sourceEnd+1);
+}
+
 public void nullityMismatchingTypeAnnotation(Expression expression, TypeBinding providedType, TypeBinding requiredType, NullAnnotationMatching status)
 {
 	if (providedType == requiredType) return; //$IDENTITY-COMPARISON$
@@ -12363,5 +12388,28 @@ public void unexpectedTypeinSwitchPattern(TypeBinding type, ASTNode element) {
 			element.sourceStart,
 			element.sourceEnd);
 }
-
+public void unexpectedTypeinRecordPattern(TypeBinding type, ASTNode element) {
+	this.handle(
+			IProblem.UnexpectedTypeinRecordPattern,
+			new String[] {new String(type.readableName())},
+			new String[] {new String(type.shortReadableName())},
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void recordPatternSignatureMismatch(TypeBinding type, ASTNode element) {
+	this.handle(
+			IProblem.RecordPatternMismatch,
+			new String[] {new String(type.readableName())},
+			new String[] {new String(type.shortReadableName())},
+			element.sourceStart,
+			element.sourceEnd);
+}
+public void incompatiblePatternType(ASTNode element, TypeBinding type, TypeBinding expected) {
+	this.handle(
+			IProblem.PatternTypeMismatch,
+			new String[] {new String(type.readableName()), new String(expected.readableName())},
+			new String[] {new String(type.shortReadableName()), new String(expected.readableName())},
+			element.sourceStart,
+			element.sourceEnd);
+}
 }

@@ -7,6 +7,7 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.dom;
@@ -110,6 +111,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			this.deleteProject("Converter_15_1"); //$NON-NLS-1$
 			this.deleteProject("Converter_16"); //$NON-NLS-1$
 			this.deleteProject("Converter_17"); //$NON-NLS-1$
+			this.deleteProject("Converter_19"); //$NON-NLS-1$
 			PROJECT_SETUP = false;
 		} else {
 			TEST_SUITES.remove(getClass());
@@ -128,6 +130,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 				this.deleteProject("Converter_15_1"); //$NON-NLS-1$
 				this.deleteProject("Converter_16"); //$NON-NLS-1$
 				this.deleteProject("Converter_17"); //$NON-NLS-1$
+				this.deleteProject("Converter_19"); //$NON-NLS-1$
 				PROJECT_SETUP = false;
 			}
 		}
@@ -222,6 +225,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 						new IPath[] {getConverterJCLPath("17"), getConverterJCLSourcePath("17"), getConverterJCLRootSourcePath()},
 						null);
 			}
+		} else if ("19".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("CONVERTER_JCL_19_LIB") == null) {
+				setupExternalJCL("converterJclMin19");
+				JavaCore.setClasspathVariables(
+						new String[] {"CONVERTER_JCL_19_LIB", "CONVERTER_JCL_19_SRC", "CONVERTER_JCL_19_SRCROOT"},
+						new IPath[] {getConverterJCLPath("19"), getConverterJCLSourcePath("19"), getConverterJCLRootSourcePath()},
+						null);
+			}
 		} else if (JavaCore.getClasspathVariable("CONVERTER_JCL_LIB") == null) {
 			setupExternalJCL("converterJclMin");
 			JavaCore.setClasspathVariables(
@@ -253,6 +264,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			setUpJavaProject("Converter_15_1", "15"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_16", "16"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_17", "17"); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter_19", "19"); //$NON-NLS-1$ //$NON-NLS-2$
 			waitUntilIndexesReady(); // needed to find secondary types
 			PROJECT_SETUP = true;
 		}

@@ -17,8 +17,10 @@ package org.eclipse.jdt.core.tests.model;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +62,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.NodeFinder;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.tests.model.ContainerInitializer.ITestInitializer;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.core.util.ExternalAnnotationUtil;
@@ -72,14 +75,39 @@ import org.osgi.framework.Bundle;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ExternalAnnotations18Test extends ModifyingResourceTests {
 
-	/** Bridge to hook the host JRE into the registered ContainerInitializer. */
-	static class TestContainerInitializer implements ContainerInitializer.ITestInitializer {
+	/**
+	 * Initializer for a container that may provide a mix of entries, some of which are "self-annotating",
+	 * i.e., contain .eea files for their own classes.
+	 */
+	static class TestCustomContainerInitializer implements ContainerInitializer.ITestInitializer {
 
 		/** Use this container name in test projects. */
-		private static final String TEST_CONTAINER_NAME = "org.eclipse.jdt.core.tests.model.TEST_CONTAINER";
+		private static final String CONTAINER_NAME = "org.eclipse.jdt.core.tests.model.TEST_CONTAINER";
 
-		/** Simulate workspace-settings for rt.jar. */
-		public static String RT_JAR_ANNOTATION_PATH = null;
+		List<String> allEntries;
+		Map<String,String> elementAnnotationPaths;
+
+		/**
+		 * @param elementsAndAnnotationPaths each pair of entries in this array defines one classpath entry:
+		 * <ul>
+		 * 	<li>1st string specifies the path,
+		 *  <li>if 2nd string is "self" than the entry is "self-annotating".
+		 *  	 {@code null} is a legal value to signal "not self-annotating"
+		 *  </ul>
+		 */
+		public TestCustomContainerInitializer(String... elementsAndAnnotationPaths) {
+			this.allEntries = new ArrayList<>();
+			this.elementAnnotationPaths = new HashMap<>();
+			for (int i = 0; i < elementsAndAnnotationPaths.length; i+=2) {
+				String entryPath = elementsAndAnnotationPaths[i];
+				this.allEntries.add(entryPath);
+				String annotsPath = elementsAndAnnotationPaths[i+1];
+				if ("self".equals(annotsPath))
+					this.elementAnnotationPaths.put(entryPath, entryPath);
+				else if (annotsPath != null)
+					this.elementAnnotationPaths.put(entryPath, annotsPath);
+			}
+		}
 
 		static class TestContainer implements IClasspathContainer {
 			IPath path;
@@ -96,21 +124,21 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 
 		@Override
 		public void initialize(IPath containerPath, IJavaProject project) throws CoreException {
-			String[] jars = Util.getJavaClassLibs();
-			IClasspathEntry[] entries = new IClasspathEntry[jars.length];
-			for (int i = 0; i < jars.length; i++) {
+			List<IClasspathEntry> entries = new ArrayList<>();
+			for (String entryPath : this.allEntries) {
 				IClasspathAttribute[] extraAttributes;
-				if (RT_JAR_ANNOTATION_PATH != null && jars[i].endsWith("rt.jar"))
-					extraAttributes = externalAnnotationExtraAttributes(RT_JAR_ANNOTATION_PATH);
+				String elementAnnotationPath = this.elementAnnotationPaths.get(entryPath);
+				if (elementAnnotationPath != null)
+					extraAttributes = externalAnnotationExtraAttributes(elementAnnotationPath);
 				else
 					extraAttributes = ClasspathEntry.NO_EXTRA_ATTRIBUTES;
-				entries[i] = JavaCore.newLibraryEntry(new Path(jars[i]), null, null,
-						ClasspathEntry.NO_ACCESS_RULES, extraAttributes, false/*not exported*/);
+				entries.add(JavaCore.newLibraryEntry(new Path(entryPath), null, null,
+						ClasspathEntry.NO_ACCESS_RULES, extraAttributes, false/*not exported*/));
 			}
 			JavaCore.setClasspathContainer(
-					new Path(TEST_CONTAINER_NAME),
+					new Path(CONTAINER_NAME),
 					new IJavaProject[]{ project },
-					new IClasspathContainer[] { new TestContainer(new Path(TEST_CONTAINER_NAME), entries) },
+					new IClasspathContainer[] { new TestContainer(new Path(CONTAINER_NAME), entries.toArray(IClasspathEntry[]::new)) },
 					null);
 		}
 		@Override
@@ -170,11 +198,11 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		super.setUpSuite();
 
 		Bundle[] bundles = getAnnotationBundles();
-		File bundleFile = FileLocator.getBundleFile(bundles[0]);
+		File bundleFile = FileLocator.getBundleFileLocation(bundles[0]).get();
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 
 		// set up class path container bridging to the host JRE:
-		ContainerInitializer.setInitializer(new TestContainerInitializer());
+		ContainerInitializer.setInitializer(new TestContainerInitializer(IClasspathContainer.K_DEFAULT_SYSTEM));
 	}
 
 	/**
@@ -2390,7 +2418,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n",
 				"/UnannotatedLib/libs/List.java",
 				"package libs;\n" +
-				"public interface List<T> extends java.util.Collection<T> {\n" +
+				"public interface List<T> {\n" +
 				"	Stream<T> stream();\n" +
 				"}\n",
 				"Collector.java",
@@ -2442,7 +2470,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n",
 				"/UnannotatedLib/libs/List.java",
 				"package libs;\n" +
-				"public interface List<T> extends java.util.Collection<T> {\n" +
+				"public interface List<T> {\n" +
 				"	Stream<T> stream();\n" +
 				"}\n",
 				"/UnannotatedLib/libs/Collector.java",
@@ -2570,6 +2598,55 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		createFileInProject("annots/libs", "Collections.eea",
 				"class libs/Collections\n" +
 				"\n" +
+				"emptyList\n" +
+				" <T:Ljava/lang/Object;>()Ljava/util/List<TT;>;\n" +
+				" <T:Ljava/lang/Object;>()L1java/util/List<T1T;>;\n" +
+				"\n");
+
+		// type check sources:
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit cu = fragment.createCompilationUnit("Test1.java",
+				"package tests;\n" +
+				"import libs.Collections;\n" +
+				"import java.util.List;\n" +
+				"\n" +
+				"import org.eclipse.jdt.annotation.NonNull;\n" +
+				"import org.eclipse.jdt.annotation.NonNullByDefault;\n" +
+				"\n" +
+				"@NonNullByDefault\n" +
+				"public class Test1 {\n" +
+				"  List<@NonNull String> strings;\n" +
+				"\n" +
+				"  public Test1() {\n" +
+				"    strings = Collections.emptyList();      // <<<<< WARNING\n" +
+				"  }\n" +
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = cu.reconcile(getJSL9(), true, null, new NullProgressMonitor());
+		assertNoProblems(reconciled.getProblems());
+	}
+	public void testBug513880() throws Exception {
+		myCreateJavaProject("TestLibs");
+		String lib1Content =
+				"package libs;\n" +
+				"import java.util.List;\n" +
+				"public abstract class Collections {\n" +
+				"	public void foo() {}\n" +
+				"   public static final <T> List<T> emptyList() {\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"}\n";
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Collections.java",
+				lib1Content
+			}, null);
+		createFileInProject("annots/libs", "Collections.eea",
+				"class libs/Collections\n" +
+				"\n" +
+				"foo\n" +
+				" ()V\n" + // 2-line entry without separating empty line: ignore
+				"foo\n" +
+				"()V\n" + // 2-line entry without leading space on signature lines: ignore
 				"emptyList\n" +
 				" <T:Ljava/lang/Object;>()Ljava/util/List<TT;>;\n" +
 				" <T:Ljava/lang/Object;>()L1java/util/List<T1T;>;\n" +
@@ -2822,8 +2899,299 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"Null type mismatch: required '@NonNull String' but the provided value is null",
 				markers);
 	}
+
+	// re-usable file contents for the subsequent set of tests (which exercise different configurations with same content):
+	static String mixedArtifacts_CGen_eea_content =
+			"class lib/pgen/CGen\n" +
+			"\n" +
+			"get\n" +
+			" (Ljava/lang/String;)Ljava/lang/String;\n" +
+			" (L1java/lang/String;)L1java/lang/String;\n";
+	static String mixedArtifacts_CGen2_eea_content =
+			"class lib/pgen2/CGen2\n" +
+			"\n" +
+			"get2\n" +
+			" (Ljava/lang/Exception;)Ljava/lang/String;\n" +
+			" (L1java/lang/Exception;)L1java/lang/String;\n";
+	static String mixedArtifacts_CGen_java_content =
+			"package lib.pgen;\n" +
+			"public class CGen {\n" +
+			"	public String get(String in) { return in; }\n" +
+			"}\n";
+	static String mixedArtifacts_CGen2_java_content =
+			"package lib.pgen2;\n" +
+			"public class CGen2 {\n" +
+			"	public String get2(Exception in) { return in.toString(); }\n" +
+			"}\n";
+
 	public void testMultiProject1() throws CoreException {
+		// PrjTest depends on two projects bundled with eea for their respective generated classes
+		// accessed using CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS
 		IJavaProject prj1 = null, prj2 = null;
+		myCreateJavaProject("Prj1");
+		addSourceFolderWithExternalAnnotations(this.project, "/Prj1/src-gen", null, "/Prj1/annot-gen");
+		prj1 = this.project;
+		try {
+			createFileInProject("annot-gen/lib/pgen", "CGen.eea",  mixedArtifacts_CGen_eea_content);
+			createFileInProject("src-gen/lib/pgen",   "CGen.java", mixedArtifacts_CGen_java_content);
+			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+
+			myCreateJavaProject("Prj2");
+			prj2 = this.project;
+			addSourceFolderWithExternalAnnotations(this.project, "/Prj2/src-gen", null, "/Prj2/annot-gen");
+			createFileInProject("annot-gen/lib/pgen2", "CGen2.eea",  mixedArtifacts_CGen2_eea_content);
+			createFileInProject("src-gen/lib/pgen2",   "CGen2.java", mixedArtifacts_CGen2_java_content);
+			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+
+			myCreateJavaProject("PrjTest");
+			addClasspathEntry(this.project,
+					JavaCore.newProjectEntry(new Path("/Prj1"), null/*access rules*/, false/*combine access rules*/, null, false/*exported*/));
+			addClasspathEntry(this.project,
+					JavaCore.newProjectEntry(new Path("/Prj2"), null/*access rules*/, false/*combine access rules*/, null, false/*exported*/));
+			this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
+
+			internalTestMixedArtifactsTest();
+		} finally {
+			if (prj1 != null)
+				prj1.getProject().delete(true, true , null);
+			if (prj2 != null)
+				prj2.getProject().delete(true, true , null);
+		}
+	}
+	public void testSelfAnnotatedJars() throws CoreException, IOException {
+		// this is the "deployed" variant of testMultiProject1(), i.e, dependencies are jars, not projects
+		myCreateJavaProject("PrjTest");
+		this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
+
+		String projectLoc = this.project.getProject().getLocation().toString();
+		Util.createJar(
+			new String[] { "lib/pgen/CGen.java", mixedArtifacts_CGen_java_content },
+			new String[] { "lib/pgen/CGen.eea",  mixedArtifacts_CGen_eea_content },
+			projectLoc+"/lib/prj1.jar", "1.8");
+		addClasspathEntry(this.project,
+				JavaCore.newLibraryEntry(new Path("/PrjTest/lib/prj1.jar"), null/*access rules*/, null, false/*exported*/));
+
+		Util.createJar(
+			new String[] { "lib/pgen2/CGen2.java", mixedArtifacts_CGen2_java_content },
+			new String[] { "lib/pgen2/CGen2.eea",  mixedArtifacts_CGen2_eea_content },
+			projectLoc+"/lib/prj2.jar", "1.8");
+		addClasspathEntry(this.project,
+				JavaCore.newLibraryEntry(new Path("/PrjTest/lib/prj2.jar"), null/*access rules*/, null, false/*exported*/));
+
+		internalTestMixedArtifactsTest();
+	}
+
+	public void testSeparateAnnotationJar() throws CoreException, IOException {
+		// all .eeas are deployed in a separate jar on the build path
+		// accessed using CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS
+		myCreateJavaProject("PrjTest");
+		this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
+
+		String projectLoc = this.project.getProject().getLocation().toString();
+		Util.createJar(new String[0], new String[] {
+					"lib/pgen/CGen.eea", mixedArtifacts_CGen_eea_content,
+					"lib/pgen2/CGen2.eea", mixedArtifacts_CGen2_eea_content,
+				},
+				projectLoc+"/lib/eeas.jar", "1.8");
+		addClasspathEntry(this.project,
+				JavaCore.newLibraryEntry(new Path("/PrjTest/lib/eeas.jar"), null/*access rules*/, null, false/*exported*/));
+
+		// one jar dependency in the workspace
+		Util.createJar(
+				new String[] { "lib/pgen/CGen.java", mixedArtifacts_CGen_java_content },
+				projectLoc+"/lib/prj1.jar", "1.8");
+		addClasspathEntry(this.project,
+				JavaCore.newLibraryEntry(new Path("/PrjTest/lib/prj1.jar"), null/*access rules*/, null, false/*exported*/));
+
+		// second dependency is external jar file
+		String externalJarLoc = Util.getOutputDirectory()+"/lib/prj2.jar";
+		Util.createJar(
+				new String[] { "lib.pgen2/CGen2.java", mixedArtifacts_CGen2_java_content },
+				externalJarLoc, "1.8");
+		addClasspathEntry(this.project,
+				JavaCore.newLibraryEntry(new Path(externalJarLoc), null/*access rules*/, null, false/*exported*/));
+
+		internalTestMixedArtifactsTest();
+	}
+
+	public void testSeparateAnnotationJarInContainer() throws CoreException, IOException {
+		// .eeas are deployed as a member of a classpath container
+		// referenced relative to the container.
+		myCreateJavaProject("PrjTest");
+		String projectLoc = this.project.getProject().getLocation().toString();
+
+		ITestInitializer prev = ContainerInitializer.initializer;
+		String fullPathToEEA = projectLoc+"/lib/my.eeas-0.1.jar";
+		String fullPathToPrj1 = projectLoc+"/lib/prj1.jar";
+		ContainerInitializer.setInitializer(new TestCustomContainerInitializer(
+				fullPathToEEA, null,
+				fullPathToPrj1, null));
+
+		try {
+			Util.createJar(new String[0], new String[] {
+						"lib/pgen/CGen.eea",   mixedArtifacts_CGen_eea_content,
+						"lib/pgen2/CGen2.eea", mixedArtifacts_CGen2_eea_content },
+					fullPathToEEA, "1.8");
+
+			Util.createJar(
+					new String[] { "lib/pgen/CGen.java", mixedArtifacts_CGen_java_content },
+					fullPathToPrj1, "1.8");
+
+			// eeas & prj1 accessed via the Container:
+			IClasspathEntry entry = JavaCore.newContainerEntry(new Path(TestContainerInitializer.TEST_CONTAINER_NAME), null/*access rules*/,
+					externalAnnotationExtraAttributes(TestContainerInitializer.TEST_CONTAINER_NAME+"/my.eeas"),
+					false/*exported*/);
+			addClasspathEntry(this.project, entry);
+
+			// other jar accessed via separate entry, also annotated using eea in container
+			String externalJarLoc = Util.getOutputDirectory() + "/lib/prj2.jar";
+			Util.createJar(
+					new String[] { "lib.pgen2/CGen2.java", mixedArtifacts_CGen2_java_content },
+					externalJarLoc, "1.8");
+			entry = JavaCore.newLibraryEntry(new Path(externalJarLoc), null, null, null,
+					externalAnnotationExtraAttributes(TestContainerInitializer.TEST_CONTAINER_NAME+"/my.eeas"),
+					false/*exported*/);
+			addClasspathEntry(this.project, entry);
+
+			internalTestMixedArtifactsTest();
+		} finally {
+			ContainerInitializer.setInitializer(prev);
+		}
+	}
+
+	public void testAnnotationsInProjectReferencedViaContainer() throws CoreException, IOException {
+		internalTestAnnotationsInProjectReferencedViaContainer(null);
+	}
+	public void testAnnotationsInExternalProjectReferencedViaContainer() throws CoreException, IOException {
+		URI parentLocation = getWorkspaceRoot().getLocation().toFile().getParentFile().toURI();
+		URI location = parentLocation.resolve(URI.create("external-project"));
+		internalTestAnnotationsInProjectReferencedViaContainer(location);
+	}
+	void internalTestAnnotationsInProjectReferencedViaContainer(URI location) throws CoreException, IOException {
+		// undeployed version of testSeparateAnnotationJarInContainer:
+		// container "resolved" the eea-artifact to a workspace project
+		myCreateJavaProject("PrjTest");
+		String projectLoc = this.project.getProject().getLocation().toString();
+
+		ITestInitializer prev = ContainerInitializer.initializer;
+		String eeaProjectName = "my.eeas";
+		String fullPathToPrj1 = projectLoc+"/lib/prj1.jar";
+		ContainerInitializer.setInitializer(new TestCustomContainerInitializer(
+				'/'+eeaProjectName, null,
+				fullPathToPrj1, null));
+
+		IJavaProject eeaProject = null;
+		try {
+			final String projectName = eeaProjectName;
+			eeaProject = createJavaProject(projectName, location,
+					new String[] {""}, new String[] {"JCL_LIB"},
+					null, null, null, null, null, true, null,
+					"", null, null, null, "", false, false);
+			createFolder('/'+eeaProjectName+"/lib/pgen");
+			createFolder('/'+eeaProjectName+"/lib/pgen2");
+			createFile(eeaProjectName+"/lib/pgen/CGen.eea",   mixedArtifacts_CGen_eea_content);
+			createFile(eeaProjectName+"/lib/pgen2/CGen2.eea", mixedArtifacts_CGen2_eea_content);
+
+			Util.createJar(
+					new String[] { "lib/pgen/CGen.java", mixedArtifacts_CGen_java_content },
+					fullPathToPrj1, "1.8");
+
+			// eeas & prj1 accessed via the Container:
+			IClasspathEntry entry = JavaCore.newContainerEntry(
+					new Path(TestContainerInitializer.TEST_CONTAINER_NAME), null/*access rules*/,
+					externalAnnotationExtraAttributes(TestContainerInitializer.TEST_CONTAINER_NAME+"/my.eeas"),
+					false/*exported*/);
+			addClasspathEntry(this.project, entry);
+
+			// other jar accessed via separate entry, also annotated using eea in container
+			String externalJarLoc = Util.getOutputDirectory() + "/lib/prj2.jar";
+			Util.createJar(
+					new String[] { "lib.pgen2/CGen2.java", mixedArtifacts_CGen2_java_content },
+					externalJarLoc, "1.8");
+			entry = JavaCore.newLibraryEntry(
+					new Path(externalJarLoc), null, null, null,
+					externalAnnotationExtraAttributes(TestContainerInitializer.TEST_CONTAINER_NAME+"/my.eeas"),
+					false/*exported*/);
+			addClasspathEntry(this.project, entry);
+
+			internalTestMixedArtifactsTest();
+		} finally {
+			ContainerInitializer.setInitializer(prev);
+			if (eeaProject.exists())
+				eeaProject.getProject().delete(true, null);
+		}
+	}
+
+	public void testMixedElementAndContainerAnnotation() throws Exception {
+		// container mixes annotations from internal resolving ("self") and client-side annotation path
+		myCreateJavaProject("PrjTest");
+		String projectLoc = this.project.getProject().getLocation().toString();
+		ITestInitializer prev = ContainerInitializer.initializer;
+		ContainerInitializer.setInitializer(new TestCustomContainerInitializer(projectLoc+"/lib1.jar", "self", projectLoc+"/lib2.jar", null));
+		try {
+
+			// jar with external annotations for its own class
+			Util.createJar(
+				new String[] { "lib/pgen/CGen.java", mixedArtifacts_CGen_java_content },
+				new String[] { "lib/pgen/CGen.eea",  mixedArtifacts_CGen_eea_content, },
+				projectLoc+"/lib1.jar", "1.8");
+			Util.createJar(
+				new String[] { "lib/pgen2/CGen2.java", mixedArtifacts_CGen2_java_content },
+				projectLoc+"/lib2.jar", "1.8");
+			IClasspathEntry containerEntry = JavaCore.newContainerEntry(
+					new Path(TestContainerInitializer.TEST_CONTAINER_NAME),
+					null,
+					externalAnnotationExtraAttributes("/PrjTest/annots"),
+					false);
+			addClasspathEntry(this.project, containerEntry);
+
+			createFileInProject("annots/lib/pgen2", "CGen2.eea", mixedArtifacts_CGen2_eea_content);
+
+			internalTestMixedArtifactsTest();
+		} finally {
+			ContainerInitializer.setInitializer(prev);
+		}
+	}
+	protected void internalTestMixedArtifactsTest() throws CoreException, JavaModelException {
+		this.project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
+		createFileInProject("src/p", "Use.java",
+				"package p;\n" +
+				"import lib.pgen.CGen;\n" +
+				"import lib.pgen2.CGen2;\n" +
+				"import org.eclipse.jdt.annotation.NonNull;\n" +
+				"public class Use {\n" +
+				"	public @NonNull String test(CGen c) {\n" +
+				"		String s = c.get(null);\n" + // problem here (7)
+				"		return s;\n" + // no problem here
+				"	}\n" +
+				"	public @NonNull String test2(CGen2 c) {\n" +
+				"		String s = c.get2(null);\n" + // problem here (11)
+				"		return s;\n" + // no problem here
+				"	}\n" +
+				"}\n");
+		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+		IMarker[] markers = this.project.getProject()
+				.findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
+		sortMarkers(markers);
+		assertMarkers("Unexpected markers",
+				"Null type mismatch: required '@NonNull Exception' but the provided value is null\n" +
+				"Null type mismatch: required '@NonNull String' but the provided value is null",
+				markers);
+		ICompilationUnit unit = JavaCore
+				.createCompilationUnitFrom(this.project.getProject().getFile("src/p/Use.java"))
+				.getWorkingCopy(null);
+		CompilationUnit reconciled = unit.reconcile(getJLS8(), true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems,
+			new String[] {
+				"Pb(910) Null type mismatch: required '@NonNull String' but the provided value is null",
+				"Pb(910) Null type mismatch: required '@NonNull Exception' but the provided value is null"
+			},
+			new int[] { 7, 11 });
+	}
+
+	public void testAnnotatedSourceSharesOutputFolder() throws CoreException {
+		IJavaProject prj1 = null;
 		myCreateJavaProject("Prj1");
 		addSourceFolderWithExternalAnnotations(this.project, "/Prj1/src-gen", null, "/Prj1/annot-gen");
 		prj1 = this.project;
@@ -2842,270 +3210,22 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 					"}\n");
 			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 
-			myCreateJavaProject("Prj2");
-			addSourceFolderWithExternalAnnotations(this.project, "/Prj2/src-gen", null, "/Prj2/annot-gen");
-			prj2 = this.project;
-			createFileInProject("annot-gen/pgen2", "CGen2.eea",
-					"class pgen2/CGen2\n" +
-					"\n" +
-					"get2\n" +
-					" (Ljava/lang/Exception;)Ljava/lang/String;\n" +
-					" (L1java/lang/Exception;)L1java/lang/String;\n");
-
-			createFileInProject("src-gen/pgen2", "CGen2.java",
-					"package pgen2;\n" +
-					"public class CGen2 {\n" +
-					"	public String get2(Exception in) { return in.toString(); }\n" +
+			createFileInProject("src/pgen", "CImpl.java",
+					"package pgen;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class CImpl extends CGen {\n" +
+					"	public @NonNull String get(@NonNull String in) { return in; }\n" +
 					"}\n");
-			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
-
-			myCreateJavaProject("PrjTest");
-			IClasspathEntry entry = JavaCore.newProjectEntry(
-					new Path("/Prj1"),
-					null/*access rules*/,
-					false/*combine access rules*/,
-					null,
-					false/*exported*/);
-			addClasspathEntry(this.project, entry);
-			entry = JavaCore.newProjectEntry(
-					new Path("/Prj2"),
-					null/*access rules*/,
-					false/*combine access rules*/,
-					null,
-					false/*exported*/);
-			addClasspathEntry(this.project, entry);
-			this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
-
-			createFileInProject("src/p", "Use.java",
-					"package p;\n" +
-					"import pgen.CGen;\n" +
-					"import pgen2.CGen2;\n" +
-					"import org.eclipse.jdt.annotation.NonNull;\n" +
-					"public class Use {\n" +
-					"	public @NonNull String test(CGen c) {\n" +
-					"		String s = c.get(null);\n" + // problem here (7)
-					"		return s;\n" + // no problem here
-					"	}\n" +
-					"	public @NonNull String test2(CGen2 c) {\n" +
-					"		String s = c.get2(null);\n" + // problem here (11)
-					"		return s;\n" + // no problem here
-					"	}\n" +
-					"}\n");
-			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
-			IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
-			sortMarkers(markers);
-			assertMarkers("Unexpected markers",
-					"Null type mismatch: required '@NonNull Exception' but the provided value is null\n" +
-					"Null type mismatch: required '@NonNull String' but the provided value is null",
-					markers);
-
-			ICompilationUnit unit = JavaCore.createCompilationUnitFrom(this.project.getProject().getFile("src/p/Use.java")).getWorkingCopy(null);
-			CompilationUnit reconciled = unit.reconcile(getJLS8(), true, null, new NullProgressMonitor());
+			ICompilationUnit unit = JavaCore.createCompilationUnitFrom(this.project.getProject().getFile("src/pgen/CImpl.java")).getWorkingCopy(null);
+			CompilationUnit reconciled = unit.reconcile(AST.getJLSLatest(), true, null, new NullProgressMonitor());
 			IProblem[] problems = reconciled.getProblems();
-			assertProblems(problems,
-				new String[] {
-					"Pb(910) Null type mismatch: required '@NonNull String' but the provided value is null",
-					"Pb(910) Null type mismatch: required '@NonNull Exception' but the provided value is null"
-				},
-				new int[] {
-					7, 11
-				});
+			assertNoProblems(problems);
+			this.project.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
+			IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
+			assertNoMarkers(markers);
 		} finally {
 			if (prj1 != null)
 				prj1.getProject().delete(true, true , null);
-			if (prj2 != null)
-				prj2.getProject().delete(true, true , null);
 		}
-	}
-	public void testSelfAnnotatedJars() throws CoreException, IOException {
-		// this is the "deployed" variant of testMultiProject1(), i.e, dependencies are jars, not projects
-		myCreateJavaProject("PrjTest");
-		this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
-
-		String projectLoc = this.project.getProject().getLocation().toString();
-		Util.createJar(new String[] {
-				"pgen/CGen.java",
-				"package pgen;\n" +
-				"public class CGen {\n" +
-				"	public String get(String in) { return in; }\n" +
-				"}\n"
-			},
-			new String[] {
-				"pgen/CGen.eea",
-				"class pgen/CGen\n" +
-				"\n" +
-				"get\n" +
-				" (Ljava/lang/String;)Ljava/lang/String;\n" +
-				" (L1java/lang/String;)L1java/lang/String;\n"
-			},
-			projectLoc+"/lib/prj1.jar",
-			"1.8");
-		IClasspathEntry entry = JavaCore.newLibraryEntry(
-				new Path("/PrjTest/lib/prj1.jar"),
-				null/*access rules*/,
-				null,
-				false/*exported*/);
-		addClasspathEntry(this.project, entry);
-
-		Util.createJar(new String[] {
-				"pgen2/CGen2.java",
-				"package pgen2;\n" +
-				"public class CGen2 {\n" +
-				"	public String get2(Exception in) { return in.toString(); }\n" +
-				"}\n"
-			},
-			new String[] {
-				"pgen2/CGen2.eea",
-				"class pgen2/CGen2\n" +
-				"\n" +
-				"get2\n" +
-				" (Ljava/lang/Exception;)Ljava/lang/String;\n" +
-				" (L1java/lang/Exception;)L1java/lang/String;\n",
-			},
-			projectLoc+"/lib/prj2.jar",
-			"1.8");
-		entry = JavaCore.newLibraryEntry(
-				new Path("/PrjTest/lib/prj2.jar"),
-				null/*access rules*/,
-				null,
-				false/*exported*/);
-		addClasspathEntry(this.project, entry);
-		this.project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
-
-		createFileInProject("src/p", "Use.java",
-				"package p;\n" +
-				"import pgen.CGen;\n" +
-				"import pgen2.CGen2;\n" +
-				"import org.eclipse.jdt.annotation.NonNull;\n" +
-				"public class Use {\n" +
-				"	public @NonNull String test(CGen c) {\n" +
-				"		String s = c.get(null);\n" + // problem here (7)
-				"		return s;\n" + // no problem here
-				"	}\n" +
-				"	public @NonNull String test2(CGen2 c) {\n" +
-				"		String s = c.get2(null);\n" + // problem here (11)
-				"		return s;\n" + // no problem here
-				"	}\n" +
-				"}\n");
-		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
-		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
-		sortMarkers(markers);
-		assertMarkers("Unexpected markers",
-				"Null type mismatch: required '@NonNull Exception' but the provided value is null\n" +
-				"Null type mismatch: required '@NonNull String' but the provided value is null",
-				markers);
-
-		ICompilationUnit unit = JavaCore.createCompilationUnitFrom(this.project.getProject().getFile("src/p/Use.java")).getWorkingCopy(null);
-		CompilationUnit reconciled = unit.reconcile(getJLS8(), true, null, new NullProgressMonitor());
-		IProblem[] problems = reconciled.getProblems();
-		assertProblems(problems,
-			new String[] {
-				"Pb(910) Null type mismatch: required '@NonNull String' but the provided value is null",
-				"Pb(910) Null type mismatch: required '@NonNull Exception' but the provided value is null"
-			},
-			new int[] {
-				7, 11
-			});
-
-	}
-	public void testSeparateAnnotationJar() throws CoreException, IOException {
-		// similar to selfAnnotatedJars(), but here all .eeas are deployed in a separate jar on the build path
-		myCreateJavaProject("PrjTest");
-		this.project.setOption(JavaCore.CORE_JAVA_BUILD_EXTERNAL_ANNOTATIONS_FROM_ALL_LOCATIONS, JavaCore.ENABLED);
-
-		String projectLoc = this.project.getProject().getLocation().toString();
-		Util.createJar(new String[0],
-			new String[] {
-				"lib/pgen/CGen.eea",
-				"class lib/pgen/CGen\n" +
-				"\n" +
-				"get\n" +
-				" (Ljava/lang/String;)Ljava/lang/String;\n" +
-				" (L1java/lang/String;)L1java/lang/String;\n",
-
-				"lib/pgen2/CGen2.eea",
-				"class lib/pgen2/CGen2\n" +
-				"\n" +
-				"get2\n" +
-				" (Ljava/lang/Exception;)Ljava/lang/String;\n" +
-				" (L1java/lang/Exception;)L1java/lang/String;\n",
-			},
-			projectLoc+"/lib/eeas.jar",
-			"1.8");
-		IClasspathEntry entry = JavaCore.newLibraryEntry(
-				new Path("/PrjTest/lib/eeas.jar"),
-				null/*access rules*/,
-				null,
-				false/*exported*/);
-		addClasspathEntry(this.project, entry);
-
-		Util.createJar(new String[] {
-				"lib/pgen/CGen.java",
-				"package lib.pgen;\n" +
-				"public class CGen {\n" +
-				"	public String get(String in) { return in; }\n" +
-				"}\n"
-			},
-			projectLoc+"/lib/prj1.jar",
-			"1.8");
-		entry = JavaCore.newLibraryEntry(
-				new Path("/PrjTest/lib/prj1.jar"),
-				null/*access rules*/,
-				null,
-				false/*exported*/);
-		addClasspathEntry(this.project, entry);
-
-		String externalJarLoc = Util.getOutputDirectory()+"/lib/prj2.jar";
-		Util.createJar(new String[] {
-				"lib.pgen2/CGen2.java",
-				"package lib.pgen2;\n" +
-				"public class CGen2 {\n" +
-				"	public String get2(Exception in) { return in.toString(); }\n" +
-				"}\n"
-			},
-			externalJarLoc,
-			"1.8");
-		entry = JavaCore.newLibraryEntry(
-				new Path(externalJarLoc),
-				null/*access rules*/,
-				null,
-				false/*exported*/);
-		addClasspathEntry(this.project, entry);
-		this.project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
-
-		createFileInProject("src/p", "Use.java",
-				"package p;\n" +
-				"import lib.pgen.CGen;\n" +
-				"import lib.pgen2.CGen2;\n" +
-				"import org.eclipse.jdt.annotation.NonNull;\n" +
-				"public class Use {\n" +
-				"	public @NonNull String test(CGen c) {\n" +
-				"		String s = c.get(null);\n" + // problem here (7)
-				"		return s;\n" + // no problem here
-				"	}\n" +
-				"	public @NonNull String test2(CGen2 c) {\n" +
-				"		String s = c.get2(null);\n" + // problem here (11)
-				"		return s;\n" + // no problem here
-				"	}\n" +
-				"}\n");
-		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
-		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
-		sortMarkers(markers);
-		assertMarkers("Unexpected markers",
-				"Null type mismatch: required '@NonNull Exception' but the provided value is null\n" +
-				"Null type mismatch: required '@NonNull String' but the provided value is null",
-				markers);
-
-		ICompilationUnit unit = JavaCore.createCompilationUnitFrom(this.project.getProject().getFile("src/p/Use.java")).getWorkingCopy(null);
-		CompilationUnit reconciled = unit.reconcile(getJLS8(), true, null, new NullProgressMonitor());
-		IProblem[] problems = reconciled.getProblems();
-		assertProblems(problems,
-			new String[] {
-				"Pb(910) Null type mismatch: required '@NonNull String' but the provided value is null",
-				"Pb(910) Null type mismatch: required '@NonNull Exception' but the provided value is null"
-			},
-			new int[] {
-				7, 11
-			});
 	}
 }

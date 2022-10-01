@@ -1039,7 +1039,7 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>TagProperty</code>.
 	 * @see TagProperty
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public static final int TAG_PROPERTY = 110;
 
@@ -1047,10 +1047,25 @@ public abstract class ASTNode {
 	 * Node type constant indicating a node of type
 	 * <code>JavaDocRegion</code>.
 	 * @see JavaDocRegion
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public static final int JAVADOC_REGION = 111;
 
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>TextElement</code>.
+	 * @see TextElement
+	 * @since 3.31
+	 */
+	public static final int JAVADOC_TEXT_ELEMENT = 112;
+
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>RecordPattern</code>.
+	 * @see RecordPattern
+	 * @since 3.32
+	 */
+	public static final int RECORD_PATTERN = 113;
 
 	/**
 	 * Returns the node class for the corresponding node type.
@@ -1152,6 +1167,8 @@ public abstract class ASTNode {
 				return Javadoc.class;
 			case JAVADOC_REGION :
 				return JavaDocRegion.class;
+			case JAVADOC_TEXT_ELEMENT :
+				return JavaDocTextElement.class;
 			case LABELED_STATEMENT :
 				return LabeledStatement.class;
 			case LAMBDA_EXPRESSION :
@@ -1214,6 +1231,8 @@ public abstract class ASTNode {
 				return QualifiedType.class;
 			case RECORD_DECLARATION :
 				return RecordDeclaration.class;
+			case RECORD_PATTERN :
+				return RecordPattern.class;
 			case REQUIRES_DIRECTIVE :
 				return RequiresDirective.class;
 			case RETURN_STATEMENT :
@@ -2301,7 +2320,7 @@ public abstract class ASTNode {
      * </p>
      *
 	 * @exception UnsupportedOperationException if this operation is used below JLS18
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	final void unsupportedBelow18() {
 		if (this.ast.apiLevel < AST.JLS18_INTERNAL) {
@@ -2464,11 +2483,26 @@ public abstract class ASTNode {
      * </p>
      *
 	 * @exception UnsupportedOperationException if this operation is not used in JLS18
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	final void supportedOnlyIn18() {
 		if (this.ast.apiLevel != AST.JLS18_INTERNAL) {
-			throw new UnsupportedOperationException("Operation only supported in JLS17 AST"); //$NON-NLS-1$
+			throw new UnsupportedOperationException("Operation only supported in JLS18 AST"); //$NON-NLS-1$
+		}
+	}
+	/**
+ 	 * Checks that this AST operation is only used when
+     * building JLS19 level ASTs.
+     * <p>
+     * Use this method to prevent access to new properties available only in JLS19.
+     * </p>
+     *
+	 * @exception UnsupportedOperationException if this operation is not used in JLS19
+	 * @since 3.30
+	 */
+	final void supportedOnlyIn19() {
+		if (this.ast.apiLevel != AST.JLS19_INTERNAL) {
+			throw new UnsupportedOperationException("Operation only supported in JLS19 AST"); //$NON-NLS-1$
 		}
 	}
 

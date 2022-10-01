@@ -1414,6 +1414,11 @@ public int getNextToken() throws InvalidInputException {
 		updateScanContext(token);
 	}
 	if (this.activeParser == null) { // anybody interested in the grammatical structure of the program should have registered.
+		if (token != TokenNameWHITESPACE) {
+			this.lookBack[0] = this.lookBack[1];
+			this.lookBack[1] = token;
+			this.multiCaseLabelComma = false;
+		}
 		return token;
 	}
 	if (token == TokenNameLPAREN || token == TokenNameLESS || token == TokenNameAT || token == TokenNameARROW) {
@@ -2165,6 +2170,7 @@ protected int scanForTextBlock() throws InvalidInputException {
 					case 'r' :
 					case 'f' :
 					case 's' :
+					case 't' :
 						break outer;
 					case '\n' :
 					case '\r' :
@@ -3882,6 +3888,10 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 						&& (data[++index] == 't')
 						&& (data[++index] == 'h'))
 						return TokenNamewith;
+					else if ((data[++index] == 'h')
+							&& (data[++index] == 'e')
+							&& (data[++index] == 'n'))
+							return disambiguatedRestrictedIdentifierWhen(TokenNameRestrictedIdentifierWhen);
 					else
 						return TokenNameIdentifier;
 				case 5 :
@@ -4336,6 +4346,8 @@ public String toStringAction(int act) {
 	switch (act) {
 		case TokenNameIdentifier :
 			return "Identifier(" + new String(getCurrentTokenSource()) + ")"; //$NON-NLS-1$ //$NON-NLS-2$
+		case TokenNameRestrictedIdentifierWhen :
+			return "when"; //$NON-NLS-1$
 		case TokenNameRestrictedIdentifierYield :
 			return "yield"; //$NON-NLS-1$
 		case TokenNameRestrictedIdentifierrecord :
@@ -4672,6 +4684,7 @@ public static boolean isKeyword(int token) {
 		case TerminalTokens.TokenNameRestrictedIdentifierrecord:
 		case TerminalTokens.TokenNameRestrictedIdentifiersealed:
 		case TerminalTokens.TokenNameRestrictedIdentifierpermits:
+		case TerminalTokens.TokenNameRestrictedIdentifierWhen:
 			// making explicit - not a (restricted) keyword but restricted identifier.
 			//$FALL-THROUGH$
 		default:
@@ -4740,8 +4753,10 @@ private static class Goal {
 	static int BlockStatementoptRule = 0;
 	static int YieldStatementRule = 0;
 	static int SwitchLabelCaseLhsRule = 0;
+	static int GuardRule = 0;
 	static int[] RestrictedIdentifierSealedRule;
 	static int[] RestrictedIdentifierPermitsRule;
+	static int[] RestrictedIdentifierWhenRule;
 	static int[] PatternRules;
 
 	static Goal LambdaParameterListGoal;
@@ -4753,12 +4768,15 @@ private static class Goal {
 	static Goal SwitchLabelCaseLhsGoal;
 	static Goal RestrictedIdentifierSealedGoal;
 	static Goal RestrictedIdentifierPermitsGoal;
+	static Goal RestrictedIdentifierWhenGoal;
 	static Goal PatternGoal;
 
+	static int[] EMPTY_FOLLOW_SET = new int[0];
 	static int[] RestrictedIdentifierSealedFollow =  { TokenNameclass, TokenNameinterface,
 			TokenNameenum, TokenNameRestrictedIdentifierrecord };// Note: enum/record allowed as error flagging rules.
 	static int[] RestrictedIdentifierPermitsFollow =  { TokenNameLBRACE };
-	static int[] PatternCaseLabelFollow = {TokenNameCOLON, TokenNameARROW, TokenNameCOMMA, TokenNameBeginCaseExpr};
+	static int[] PatternCaseLabelFollow = {TokenNameCOLON, TokenNameARROW, TokenNameCOMMA, TokenNameBeginCaseExpr, TokenNameRestrictedIdentifierWhen};
+	static int[] GuardFollow = EMPTY_FOLLOW_SET;
 
 	static {
 
@@ -4797,17 +4815,18 @@ private static class Goal {
 			if ("TypePattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
 			else
-			if ("PrimaryPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
-				patternStates.add(i);
-			else
-			if ("GuardedPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
-				patternStates.add(i);
-			else
 			if ("Pattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
 			else
 			if ("ParenthesizedPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
+			else
+			if ("RecordPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
+				patternStates.add(i);
+			else
+			if ("Expression".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
+				GuardRule = i;
+
 		}
 		RestrictedIdentifierSealedRule = ridSealed.stream().mapToInt(Integer :: intValue).toArray(); // overkill but future-proof
 		RestrictedIdentifierPermitsRule = ridPermits.stream().mapToInt(Integer :: intValue).toArray();
@@ -4822,6 +4841,7 @@ private static class Goal {
 		SwitchLabelCaseLhsGoal =   new Goal(TokenNameARROW, new int [0], SwitchLabelCaseLhsRule);
 		RestrictedIdentifierSealedGoal = new Goal(TokenNameRestrictedIdentifiersealed, RestrictedIdentifierSealedFollow, RestrictedIdentifierSealedRule);
 		RestrictedIdentifierPermitsGoal = new Goal(TokenNameRestrictedIdentifierpermits, RestrictedIdentifierPermitsFollow, RestrictedIdentifierPermitsRule);
+		RestrictedIdentifierWhenGoal = new Goal(TokenNameRestrictedIdentifierWhen, GuardFollow, GuardRule);
 		PatternGoal = new Goal(TokenNameBeginCaseElement, PatternCaseLabelFollow, PatternRules);
 	}
 
@@ -4840,7 +4860,7 @@ private static class Goal {
 
 	boolean hasBeenReached(int act, int token) {
 		/*
-		System.out.println("[Goal = " + Parser.name[Parser.non_terminal_index[Parser.lhs[this.rule]]] + "]  " + "Saw: " + Parser.name[Parser.non_terminal_index[Parser.lhs[act]]] + "::" +  //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		System.out.println("[Goal = " + Parser.name[Parser.non_terminal_index[Parser.lhs[act]]] + "]  " + "Saw: " + Parser.name[Parser.non_terminal_index[Parser.lhs[act]]] + "::" +  //$NON-NLS-1$//$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 					Parser.name[Parser.terminal_index[token]]);
 		*/
 		boolean foundRule = false;
@@ -5027,6 +5047,22 @@ private VanguardScanner getNewVanguardScanner() {
 protected final boolean mayBeAtCasePattern(int token) {
 	return (!isInModuleDeclaration() && JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
 			&& (token == TokenNamecase || this.multiCaseLabelComma);
+}
+protected boolean mayBeAtGuard(int token) {
+	if (isInModuleDeclaration())
+		return false;
+	if (!JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
+		return false;
+	switch (this.lookBack[1]) { // a simple elimination optimization for some common possible cases
+		case TokenNameCOMMA:
+		case TokenNamecase:
+		case TokenNamedefault:
+		case TokenNameSEMICOLON:
+		case TokenNameRestrictedIdentifierWhen:
+		case TokenNameOR_OR:
+			return false;
+	}
+	return true;
 }
 protected final boolean mayBeAtBreakPreview() {
 	return !isInModuleDeclaration() && this.breakPreviewAllowed && this.lookBack[1] != TokenNameARROW;
@@ -5330,6 +5366,16 @@ int disambiguatedRestrictedIdentifiersealed(int restrictedIdentifierToken) {
 
 	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtASealedRestricedIdentifier,
 			restrictedIdentifierToken, Goal.RestrictedIdentifierSealedGoal);
+}
+int disambiguatedRestrictedIdentifierWhen(int restrictedIdentifierToken) {
+	// and here's the kludge
+	if (restrictedIdentifierToken != TokenNameRestrictedIdentifierWhen)
+		return restrictedIdentifierToken;
+	if (!JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
+		return TokenNameIdentifier;
+
+	return disambiguatesRestrictedIdentifierWithLookAhead(this::mayBeAtGuard,
+			restrictedIdentifierToken, Goal.RestrictedIdentifierWhenGoal);
 }
 int disambiguatedRestrictedIdentifierYield(int restrictedIdentifierToken) {
 	// and here's the kludge

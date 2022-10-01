@@ -2275,7 +2275,32 @@ public class ASTConverter {
 		int startPosition = pattern.sourceStart;
 		int sourceEnd = pattern.sourceEnd;
 		guardedPattern.setSourceRange(startPosition, sourceEnd - startPosition + 1);
+		guardedPattern.setRestrictedIdentifierStartPosition(pattern.restrictedIdentifierStart);
 		return guardedPattern;
+	}
+	// TODO: Implement this. What we have here is just a dummy implementation
+	public Pattern convert(org.eclipse.jdt.internal.compiler.ast.RecordPattern pattern) {
+		RecordPattern recordPattern = new RecordPattern(this.ast);
+		if (this.resolveBindings) {
+			recordNodes(recordPattern, pattern);
+		}
+		int startPosition = pattern.sourceStart;
+		int sourceEnd= pattern.sourceEnd;
+		recordPattern.setSourceRange(startPosition, sourceEnd - startPosition + 1);
+		if (pattern.local != null) {
+			recordPattern.setPatternType(convertType(pattern.local.type));
+			SimpleName patternName = new SimpleName(this.ast);
+			patternName.internalSetIdentifier(new String(pattern.local.name));
+			patternName.setSourceRange(pattern.local.nameSourceStart(), pattern.local.nameSourceEnd() - pattern.local.nameSourceStart() + 1);
+			recordPattern.setPatternName(patternName);
+		} else if (pattern.type != null) {
+			recordPattern.setPatternType(convertType(pattern.type));
+		}
+		for (org.eclipse.jdt.internal.compiler.ast.Pattern nestedPattern : pattern.patterns ) {
+			recordPattern.patterns().add(convert(nestedPattern));
+
+		}
+		return recordPattern;
 	}
 
 	public IfStatement convert(org.eclipse.jdt.internal.compiler.ast.IfStatement statement) {
@@ -2812,12 +2837,16 @@ public class ASTConverter {
 			if (!DOMASTUtil.isPatternSupported(this.ast)) {
 				return createFakeNullPattern(pattern);
 			}
+			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.RecordPattern) {
+				return convert((org.eclipse.jdt.internal.compiler.ast.RecordPattern) pattern);
+			}
 			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.GuardedPattern) {
 				return convert((org.eclipse.jdt.internal.compiler.ast.GuardedPattern) pattern);
 			}
 			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.TypePattern) {
 				return convert((org.eclipse.jdt.internal.compiler.ast.TypePattern) pattern);
 			}
+
 
 			return null;
 	}
@@ -5827,6 +5856,9 @@ public class ASTConverter {
 						break;
 					case TerminalTokens.TokenNamenon_sealed:
 						modifier = createModifier(Modifier.ModifierKeyword.NON_SEALED_KEYWORD);
+						break;
+					case TerminalTokens.TokenNameRestrictedIdentifierWhen:
+						modifier = createModifier(Modifier.ModifierKeyword.WHEN_KEYWORD);
 						break;
 					case TerminalTokens.TokenNameAT :
 						// we have an annotation

@@ -241,6 +241,18 @@ public static TestSuite getTestSuite(boolean addComplianceDiagnoseTest) {
 		TestCase.RUN_ONLY_ID = null;
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_18), tests_18));
 	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_19) != 0) {
+		ArrayList tests_19 = (ArrayList)testClasses.clone();
+		tests_19.addAll(TEST_CLASSES_1_5);
+		addJava16Tests(tests_19);
+		// Reset forgotten subsets tests
+		TestCase.TESTS_PREFIX = null;
+		TestCase.TESTS_NAMES = null;
+		TestCase.TESTS_NUMBERS= null;
+		TestCase.TESTS_RANGE = null;
+		TestCase.RUN_ONLY_ID = null;
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_19), tests_19));
+	}
 	return all;
 }
 

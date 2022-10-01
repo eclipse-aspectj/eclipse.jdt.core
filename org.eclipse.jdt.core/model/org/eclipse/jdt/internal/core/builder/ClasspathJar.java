@@ -19,9 +19,12 @@ package org.eclipse.jdt.internal.core.builder;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
@@ -42,7 +45,6 @@ import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.util.Util;
@@ -52,19 +54,20 @@ public class ClasspathJar extends ClasspathLocation {
 final boolean isOnModulePath;
 
 static class PackageCacheEntry {
+	WeakReference<ZipFile> zipFile;
 	long lastModified;
 	long fileSize;
 	SimpleSet packageSet;
 
-	PackageCacheEntry(long lastModified, long fileSize, SimpleSet packageSet) {
+	PackageCacheEntry(ZipFile zipFile, long lastModified, long fileSize, SimpleSet packageSet) {
+		this.zipFile = new WeakReference<>(zipFile);
 		this.lastModified = lastModified;
 		this.fileSize = fileSize;
 		this.packageSet = packageSet;
 	}
 }
 
-protected static SimpleLookupTable PackageCache = new SimpleLookupTable();
-protected static SimpleLookupTable ModuleCache = new SimpleLookupTable();
+protected static Map<String, PackageCacheEntry> PackageCache = new ConcurrentHashMap<>();
 
 protected static void addToPackageSet(SimpleSet packageSet, String fileName, boolean endsWithSep) {
 	int last = endsWithSep ? fileName.length() : fileName.lastIndexOf('/');
@@ -82,18 +85,23 @@ protected static void addToPackageSet(SimpleSet packageSet, String fileName, boo
  * @return A SimpleSet with the all the package names in the zipFile.
  */
 protected SimpleSet findPackageSet() {
-	String zipFileName = this.zipFilename;
-	PackageCacheEntry cacheEntry = (PackageCacheEntry) PackageCache.get(zipFileName);
-	long timestamp = this.lastModified();
-	long fileSize = new File(zipFileName).length();
-	if (cacheEntry != null && cacheEntry.lastModified == timestamp && cacheEntry.fileSize == fileSize) {
-		return cacheEntry.packageSet;
-	}
-	final SimpleSet packageSet = new SimpleSet(41);
-	packageSet.add(""); //$NON-NLS-1$
-	readJarContent(packageSet);
-	PackageCache.put(zipFileName, new PackageCacheEntry(timestamp, fileSize, packageSet));
-	return packageSet;
+	PackageCacheEntry entry = PackageCache.compute(this.zipFilename, (zipFileName, cacheEntry) -> {
+		if(cacheEntry != null && cacheEntry.zipFile.get() == this.zipFile) {
+			return cacheEntry;
+		}
+		long timestamp = this.lastModified();
+		long fileSize = new File(zipFileName).length();
+		if (cacheEntry != null && cacheEntry.lastModified == timestamp && cacheEntry.fileSize == fileSize) {
+			cacheEntry.zipFile = new WeakReference<>(this.zipFile);
+			return cacheEntry;
+		}
+		final SimpleSet packageSet = new SimpleSet(41);
+		packageSet.add(""); //$NON-NLS-1$
+		readJarContent(packageSet);
+		return new PackageCacheEntry(this.zipFile, timestamp, fileSize, packageSet);
+	});
+
+	return entry.packageSet;
 }
 protected String readJarContent(final SimpleSet packageSet) {
 	String modInfo = null;
@@ -187,16 +195,10 @@ ClasspathJar(String zipFilename, long lastModified, AccessRuleSet accessRuleSet,
 	this.isOnModulePath = isOnModulePath;
 }
 
-public ClasspathJar(ZipFile zipFile, AccessRuleSet accessRuleSet, IPath externalAnnotationPath, boolean isOnModulePath) {
-	this(zipFile.getName(), accessRuleSet, externalAnnotationPath, isOnModulePath);
+public ClasspathJar(ZipFile zipFile, AccessRuleSet accessRuleSet, boolean isOnModulePath) {
+	this(zipFile.getName(), 0, accessRuleSet, null, isOnModulePath);
 	this.zipFile = zipFile;
 	this.closeZipFileAtEnd = true;
-}
-
-public ClasspathJar(String fileName, AccessRuleSet accessRuleSet, IPath externalAnnotationPath, boolean isOnModulePath) {
-	this(fileName, 0, accessRuleSet, externalAnnotationPath, isOnModulePath);
-	if (externalAnnotationPath != null)
-		this.externalAnnotationPath = externalAnnotationPath.toString();
 }
 
 @Override

@@ -31,15 +31,15 @@ import org.eclipse.jdt.internal.compiler.util.Util;
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 @SuppressWarnings("rawtypes")
-public final class TextElement extends ASTNode implements IDocElement {
+public final class TextElement extends AbstractTextElement {
+
 
 	/**
 	 * The "text" structural property of this node type (type: {@link String}).
-	 *
-	 * @since 3.0
 	 */
+
 	public static final SimplePropertyDescriptor TEXT_PROPERTY =
-		new SimplePropertyDescriptor(TextElement.class, "text", String.class, MANDATORY); //$NON-NLS-1$
+			internalTextPropertyFactory(TextElement.class);
 
 	/**
 	 * A list of property descriptors (element type:
@@ -70,10 +70,10 @@ public final class TextElement extends ASTNode implements IDocElement {
 		return PROPERTY_DESCRIPTORS;
 	}
 
-	/**
-	 * The text element; defaults to the empty string.
-	 */
-	private String text = Util.EMPTY_STRING;
+	@Override
+	final SimplePropertyDescriptor internalTextPropertyFactory() {
+		return TEXT_PROPERTY;
+	}
 
 	/**
 	 * Creates a new AST node for a text element owned by the given AST.
@@ -95,19 +95,6 @@ public final class TextElement extends ASTNode implements IDocElement {
 		return propertyDescriptors(apiLevel);
 	}
 
-	@Override
-	final Object internalGetSetObjectProperty(SimplePropertyDescriptor property, boolean get, Object value) {
-		if (property == TEXT_PROPERTY) {
-			if (get) {
-				return getText();
-			} else {
-				setText((String) value);
-				return null;
-			}
-		}
-		// allow default implementation to flag the error
-		return super.internalGetSetObjectProperty(property, get, value);
-	}
 
 	@Override
 	final int getNodeType0() {
@@ -135,15 +122,6 @@ public final class TextElement extends ASTNode implements IDocElement {
 	}
 
 	/**
-	 * Returns this node's text.
-	 *
-	 * @return the text of this node
-	 */
-	public String getText() {
-		return this.text;
-	}
-
-	/**
 	 * Sets the text of this node to the given value.
 	 * <p>
 	 * The text element typically includes leading and trailing
@@ -156,10 +134,9 @@ public final class TextElement extends ASTNode implements IDocElement {
 	 * @exception IllegalArgumentException if the text is null
 	 * or contains a block comment closing delimiter
 	 */
+	@Override
 	public void setText(String text) {
-		if (text == null) {
-			throw new IllegalArgumentException();
-		}
+		super.setText(text);
 		if (text.indexOf("*/") > 0) { //$NON-NLS-1$
 			throw new IllegalArgumentException();
 		}

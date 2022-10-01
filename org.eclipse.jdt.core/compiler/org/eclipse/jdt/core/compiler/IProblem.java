@@ -831,7 +831,7 @@ void setSourceStart(int sourceStart);
 	int PackageCollidesWithType = TypeRelated + 321;
 	int TypeCollidesWithPackage = TypeRelated + 322;
 	int DuplicateTypes = TypeRelated + 323;
-	int IsClassPathCorrect = TypeRelated + 324;
+	int IsClassPathCorrect = TypeRelated + 324; // see also IsClasspathCorrectWithReferencingType below
 	int PublicClassMustMatchFileName = TypeRelated + 325;
 	/** @deprecated - problem is no longer generated */
 	int MustSpecifyPackage = Internal + 326;
@@ -878,6 +878,8 @@ void setSourceStart(int sourceStart);
 	int IllegalVisibilityModifierCombinationForField = FieldRelated + 344;
 	int IllegalModifierCombinationFinalVolatileForField = FieldRelated + 345;
 	int UnexpectedStaticModifierForField = FieldRelated + 346;
+	/** @since 3.32 */
+	int IsClassPathCorrectWithReferencingType = TypeRelated + 347;
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
 	int FieldTypeNotFound =  FieldRelated + 349 + ProblemReasons.NotFound; // FieldRelated + 350
@@ -1254,17 +1256,17 @@ void setSourceStart(int sourceStart);
 	int JavadocInvalidModuleQualification = Javadoc + Internal + 1810;
 	/** @since 3.29*/
 	int JavadocInvalidModule = Javadoc + Internal + 1811;
-	/** @since 3.29 */
+	/** @since 3.30*/
 	int JavadocInvalidSnippet = Javadoc + Internal + 1812;
-	/** @since 3.29 */
+	/** @since 3.30 */
 	int JavadocInvalidSnippetMissingColon = Javadoc + Internal + 1813;
-	/** @since 3.29 */
+	/** @since 3.30 */
 	int JavadocInvalidSnippetContentNewLine = Javadoc + Internal + 1814;
-	/** @since 3.29 */
+	/** @since 3.30 */
 	int JavadocInvalidSnippetRegionNotClosed = Javadoc + Internal + 1815;
-	/** @since 3.29 */
+	/** @since 3.30 */
 	int JavadocInvalidSnippetRegexSubstringTogether = Javadoc + Internal + 1816;
-	/** @since 3.29 */
+	/** @since 3.30 */
 	int JavadocInvalidSnippetDuplicateRegions = Javadoc + Internal + 1817;
 
 	/**
@@ -1965,6 +1967,8 @@ void setSourceStart(int sourceStart);
 	int AnnotatedTypeArgumentToUnannotated = Internal + 983;
 	/** @since 3.21 */
 	int AnnotatedTypeArgumentToUnannotatedSuperHint = Internal + 984;
+	/** @since 3.32 */
+	int NonNullArrayContentNotInitialized = Internal + 985;
 
 
 	// Java 8 work
@@ -2436,6 +2440,7 @@ void setSourceStart(int sourceStart);
 	 */
 	int PatternVariableRedefined = Internal + 1781;
 	/** @since 3.26
+	 * @deprecated
 	 */
 	int PatternSubtypeOfExpression = Internal + 1782;
 	/** @since 3.26
@@ -2529,4 +2534,19 @@ void setSourceStart(int sourceStart);
 	/** @since 3.28
 	 * @noreference preview feature error */
 	int UnexpectedTypeinSwitchPattern = PreviewRelated + 1911;
+	/**
+	 * @since 3.32
+	 * @noreference preview feature
+	 */
+	int UnexpectedTypeinRecordPattern =  PreviewRelated + 1912;
+	/**
+	 * @since 3.32
+	 * @noreference preview feature
+	 */
+	int RecordPatternMismatch =  PreviewRelated + 1913;
+	/**
+	 * @since 3.32
+	 * @noreference preview feature
+	 */
+	int PatternTypeMismatch =  PreviewRelated + 1914;
 }

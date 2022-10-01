@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -2352,6 +2352,21 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 	}
 
 	@Override
+	public boolean visit(RecordPattern node) {
+		if (!DOMASTUtil.isPatternSupported(node.getAST())) {
+			return false;
+		}
+		if (!hasChildrenChanges(node)) {
+			return doVisitUnchangedChildren(node);
+		}
+
+		int pos = rewriteRequiredNode(node, RecordPattern.PATTERN_TYPE_PROPERTY);
+		rewriteNodeList(node, RecordPattern.PATTERNS_PROPERTY, pos, Util.EMPTY_STRING, ", "); //$NON-NLS-1$
+		rewriteRequiredNode(node, RecordPattern.PATTERN_NAME_PROPERTY);
+		return false;
+	}
+
+	@Override
 	public boolean visit(ReturnStatement node) {
 		try {
 			this.beforeRequiredSpaceIndex = getScanner().getTokenEndOffset(TerminalTokens.TokenNamereturn, node.getStartPosition());
@@ -3263,6 +3278,17 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		String separator= getLineDelimiter() + getIndentAtOffset(node.getStartPosition())  + " * "; //$NON-NLS-1$
 
 		rewriteNodeList(node, Javadoc.TAGS_PROPERTY, startPos, separator, separator);
+		return false;
+	}
+
+	@Override
+	public boolean visit(JavaDocTextElement node) {
+		if (!hasChildrenChanges(node)) {
+			return doVisitUnchangedChildren(node);
+		}
+		String newText= (String) getNewValue(node, JavaDocTextElement.TEXT_PROPERTY);
+		TextEditGroup group = getEditGroup(node, JavaDocTextElement.TEXT_PROPERTY);
+		doTextReplace(node.getStartPosition(), node.getLength(), newText, group);
 		return false;
 	}
 

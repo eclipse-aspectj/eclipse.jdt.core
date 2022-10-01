@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -876,9 +876,12 @@ public abstract class Scope {
 			if (CompilerOptions.tolerateIllegalAmbiguousVarargsInvocation && compilerOptions.complianceLevel < ClassFileConstants.JDK1_7)
 				tiebreakingVarargsMethods = false;
 		}
+
+
 		if ((parameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods)) > NOT_COMPATIBLE) {
-			if ((method.tagBits & TagBits.AnnotationPolymorphicSignature) != 0) {
-				// generate polymorphic method
+			if (method.hasPolymorphicSignature(this)) {
+				// generate polymorphic method and set polymorphic tagbits as well
+				method.tagBits |= TagBits.AnnotationPolymorphicSignature;
 				return this.environment().createPolymorphicMethod(method, arguments, this);
 			}
 			return method;
@@ -1384,8 +1387,9 @@ public abstract class Scope {
 				if (invocationSite.genericTypeArguments() != null) {
 					// computeCompatibleMethod(..) will return a PolymorphicMethodBinding if needed
 					exactMethod = computeCompatibleMethod(exactMethod, argumentTypes, invocationSite);
-				} else if ((exactMethod.tagBits & TagBits.AnnotationPolymorphicSignature) != 0) {
-					// generate polymorphic method
+				} else if (exactMethod.hasPolymorphicSignature(this)) {
+					// generate polymorphic method and set polymorphic tagbits as well
+					exactMethod.tagBits |= TagBits.AnnotationPolymorphicSignature;
 					return this.environment().createPolymorphicMethod(exactMethod, argumentTypes, this);
 				}
 				return exactMethod;
@@ -1483,7 +1487,7 @@ public abstract class Scope {
 			if (invisibleFieldsOk) {
 				return field;
 			}
-			if (invocationSite == null || insideTypeAnnotations
+			if (invocationSite == null
 				? field.canBeSeenBy(getCurrentPackage())
 				: field.canBeSeenBy(currentType, invocationSite, this))
 					return field;
@@ -3032,6 +3036,18 @@ public abstract class Scope {
 		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_INVOKE_METHODHANDLES);
 		ReferenceBinding outerType = unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_INVOKE_METHODHANDLES, this);
 		return findDirectMemberType("Lookup".toCharArray(), outerType); //$NON-NLS-1$
+	}
+
+	public final ReferenceBinding getJavaLangInvokeMethodHandle() {
+		CompilationUnitScope unitScope = compilationUnitScope();
+		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_INVOKE_METHODHANDLE);
+		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_INVOKE_METHODHANDLE, this);
+	}
+
+	public final ReferenceBinding getJavaLangInvokeVarHandle() {
+		CompilationUnitScope unitScope = compilationUnitScope();
+		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_INVOKE_VARHANDLE);
+		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_INVOKE_VARHANDLE, this);
 	}
 
 	public final ReferenceBinding getJavaLangInteger() {
@@ -5575,17 +5591,26 @@ public abstract class Scope {
 		while (methodScope != null) {
 			while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
 				LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
-				if (!typeVariableAccess && !lambda.scope.isStatic)
+				SourceTypeBinding lambdaEnclosingType = methodScope.classScope().referenceContext.binding;
+				if (methodScope.isConstructorCall) {
+					ReferenceBinding tmp = lambdaEnclosingType;
+					while ((tmp = tmp.enclosingType()) != null) {
+						if (!TypeBinding.equalsEquals(enclosingType, tmp)) continue;
+						lambda.mapSyntheticEnclosingTypes.computeIfAbsent((SourceTypeBinding) enclosingType, lambda::addSyntheticArgument);
+						lambda.hasOuterClassMemberReference = true; // ref to Outer class members allowed - interpreting 8.8.7.1
+						break;
+					}
+				}
+				if (!typeVariableAccess && !lambda.scope.isStatic && !lambda.hasOuterClassMemberReference)
 					lambda.shouldCaptureInstance = true;  // lambda can still be static, only when `this' is touched (implicitly or otherwise) it cannot be.
 				methodScope = methodScope.enclosingMethodScope();
 			}
 			if (methodScope != null) {
-				if (methodScope.referenceContext instanceof MethodDeclaration) {
-					MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
-					if (methodDeclaration.binding == enclosingMethod)
-						break;
-					methodDeclaration.bits &= ~ASTNode.CanBeStatic;
-				}
+				AbstractMethodDeclaration methodDecl = methodScope.referenceMethod();
+				if (methodDecl != null && methodDecl.binding == enclosingMethod)
+					break;
+				if (methodDecl instanceof MethodDeclaration)
+					methodDecl.bits &= ~ASTNode.CanBeStatic;
 				ClassScope enclosingClassScope = methodScope.enclosingClassScope();
 				if (enclosingClassScope != null) {
 					TypeDeclaration type = enclosingClassScope.referenceContext;

@@ -128,6 +128,7 @@ $Terminals
 	RestrictedIdentifiersealed
 	RestrictedIdentifierpermits
 	BeginCaseElement
+	RestrictedIdentifierWhen
 
 --    BodyMarker
 
@@ -237,8 +238,9 @@ Goal ::= '->' SwitchLabelCaseLhs
 -- JSR 360 Restricted
 Goal ::= RestrictedIdentifiersealed Modifiersopt
 Goal ::= RestrictedIdentifierpermits PermittedSubclasses
--- jsr 406 --
+-- jsr 427 --
 Goal ::= BeginCaseElement Pattern
+Goal ::= RestrictedIdentifierWhen Expression
 /:$readableName Goal:/
 
 Literal -> IntegerLiteral
@@ -735,7 +737,7 @@ TypeDeclaration ::= ';'
 -----------------------------------------------
 TypeDeclaration -> EnumDeclaration
 TypeDeclaration -> AnnotationTypeDeclaration
--- 14 preview feature
+-- Java 14 feature
 TypeDeclaration -> RecordDeclaration
 /:$readableName TypeDeclaration:/
 
@@ -1426,7 +1428,7 @@ ClassMemberDeclaration -> InterfaceDeclaration
 -- 1.5 feature
 ClassMemberDeclaration -> EnumDeclaration
 ClassMemberDeclaration -> AnnotationTypeDeclaration
--- 14 preview feature
+-- Java 14 feature
 ClassMemberDeclaration -> RecordDeclaration
 /:$readableName ClassMemberDeclaration:/
 
@@ -1779,7 +1781,7 @@ InterfaceMemberDeclaration -> RecordDeclaration
 /:$readableName InterfaceMemberDeclaration:/
 
 -----------------------------------------------
--- 14 preview feature : record type
+-- 14 feature : record type
 -----------------------------------------------
 
 RecordDeclaration ::= RecordHeaderPart RecordBody
@@ -1887,7 +1889,7 @@ CompactConstructorHeaderName ::= Modifiersopt TypeParameters JavaIdentifier -- A
 /:$compliance 14:/
 
 -----------------------------------------------
--- 14 preview feature : end of record type
+-- 14 feature : end of record type
 -----------------------------------------------
 
 -----------------------------------------------
@@ -1900,8 +1902,7 @@ InstanceofExpression ::= InstanceofExpression InstanceofRHS
 /:$readableName Expression:/
 
 InstanceofRHS -> InstanceofClassic
-InstanceofRHS -> InstanceofPrimaryTypePattern
-InstanceofRHS -> InstanceofPrimaryParenPattern
+InstanceofRHS -> InstanceofPattern
 /.$putCase consumeInstanceOfRHS(); $break ./
 /:$readableName Expression:/
 
@@ -1909,22 +1910,16 @@ InstanceofClassic ::= 'instanceof' Modifiersopt Type
 /.$putCase consumeInstanceOfClassic(); $break ./
 /:$readableName InstanceofClassic:/
 
-InstanceofPrimaryTypePattern ::=  'instanceof' Modifiersopt Type JavaIdentifier  -- AspectJ extension, was 'Identifier'
-/.$putCase consumeInstanceofPrimaryTypePattern(); $break ./
-/:$readableName InstanceofPrimaryTypePattern:/
+InstanceofPattern ::=  'instanceof' Pattern
+/.$putCase consumeInstanceofPattern(); $break ./
+/:$readableName InstanceofPattern:/
 
-InstanceofPrimaryParenPattern ::=  'instanceof'  ParenthesizedPattern
-/.$putCase consumeInstanceofPrimaryParenPattern(); $break ./
-/:$readableName InstanceofPrimaryParenPattern:/
 
-Pattern -> PrimaryPattern
-Pattern -> GuardedPattern
+Pattern -> TypePattern
+Pattern -> ParenthesizedPattern
+Pattern -> RecordPattern
+/.$putCase consumePattern(); $break ./
 /:$readableName Pattern:/
-
-PrimaryPattern -> TypePattern
-PrimaryPattern -> ParenthesizedPattern
-/.$putCase consumePrimaryPattern(); $break ./
-/:$readableName PrimaryPattern:/
 
 ParenthesizedPattern ::= PushLPAREN Pattern PushRPAREN
 /.$putCase consumeParenthesizedPattern(); $break ./
@@ -1934,12 +1929,44 @@ TypePattern ::= Modifiersopt Type JavaIdentifier  -- AspectJ extension, was 'Ide
 /.$putCase consumeTypePattern(); $break ./
 /:$readableName TypePattern:/
 
-GuardedPattern ::= PrimaryPattern '&&' ConditionalAndExpression
-/.$putCase consumeGuardedPattern(); $break ./
-/:$readableName GuardedPattern:/
-
 -----------------------------------------------
 -- 16 feature : end of instanceof pattern matching
+-----------------------------------------------
+
+-----------------------------------------------
+-- 19 preview feature : record patterns
+-----------------------------------------------
+
+RecordPattern ::= Modifiersopt Type RecordStructurePattern
+/.$putCase consumeRecordPattern(); $break ./
+/:$readableName RecordPattern:/
+/:$compliance 19:/
+
+RecordPattern ::= Modifiersopt Type RecordStructurePattern 'JavaIdentifier' -- AspectJ extension, was 'Identifier'
+/.$putCase consumeRecordPatternWithId(); $break ./
+/:$readableName RecordPatternWithId:/
+/:$compliance 19:/
+
+RecordStructurePattern ::= PushLPAREN RecordComponentPatternsopt PushRPAREN
+RecordStructurePattern ::= PushLPAREN RecordComponentPatternList PushRPAREN
+/.$putCase consumeRecordStructure(); $break ./
+/:$readableName RecordStructurePattern:/
+/:$compliance 19:/
+
+RecordComponentPatternsopt ::= $empty
+/.$putCase consumeRecordComponentPatternsopt(); $break ./
+/:$readableName RecordComponentsopt:/
+/:$compliance 19:/
+
+
+RecordComponentPatternList ::=  'Pattern'
+RecordComponentPatternList ::=  RecordComponentPatternList ',' 'Pattern'
+/.$putCase consumeRecordComponentPatternList();  $break ./
+/:$readableName RecordComponentPatternList:/
+/:$compliance 19:/
+
+-----------------------------------------------
+-- 19 preview feature : end of record patterns
 -----------------------------------------------
 
 ConstantDeclaration -> FieldDeclaration
@@ -2201,9 +2228,22 @@ CaseLabelElement ::= 'default'
 /.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_DEFAULT); $break ./
 /:$readableName CaseLabelElement:/
 
-CaseLabelElement ::= BeginCaseElement Pattern
+CaseLabelElement ::= CaseLabelElementPattern
 /.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_PATTERN); $break ./
 /:$readableName CaseLabelElement:/
+
+CaseLabelElement ::=  CaseLabelElementPattern Guard
+/.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_PATTERN); $break ./
+/:$readableName CaseLabelElement:/
+
+CaseLabelElementPattern ::= BeginCaseElement Pattern
+/.$putCase consumeCaseLabelElementPattern(); $break ./
+/:$readableName CaseLabelElementPattern:/
+
+Guard ::= RestrictedIdentifierWhen Expression
+/.$putCase consumeGuard(); $break ./
+/:$readableName Guard:/
+/:$compliance 19:/
 
 YieldStatement ::= RestrictedIdentifierYield Expression ;
 /.$putCase consumeStatementYield() ; $break ./
@@ -2336,6 +2376,11 @@ Resource ::= Modifiers Type PushRealModifiers VariableDeclaratorId EnterVariable
 
 Resource ::= Name
 /.$putCase consumeResourceAsLocalVariable(); $break ./
+/:$readableName Resource:/
+/:$compliance 1.9:/
+
+Resource ::= 'this'
+/.$putCase consumeResourceAsThis(); $break ./
 /:$readableName Resource:/
 /:$compliance 1.9:/
 

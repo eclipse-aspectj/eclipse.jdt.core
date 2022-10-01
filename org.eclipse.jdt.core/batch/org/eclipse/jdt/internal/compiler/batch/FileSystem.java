@@ -128,6 +128,7 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 		public String getDestinationPath();
 		Collection<String> getModuleNames(Collection<String> limitModules);
 		Collection<String> getModuleNames(Collection<String> limitModules, Function<String,IModule> getModule);
+		default boolean forbidsExportFrom(String modName) { return false; }
 	}
 	public interface ClasspathSectionProblemReporter {
 		void invalidClasspathSection(String jarFilePath);
@@ -226,7 +227,13 @@ public FileSystem(String[] classpathNames, String[] initialFileNames, String enc
 				this.moduleLocations.put(moduleName, classpath);
 			this.classpaths[counter++] = classpath;
 		} catch (IOException e) {
-			// ignore
+			String error = "Failed to init " + classpath; //$NON-NLS-1$
+			if (JRTUtil.PROPAGATE_IO_ERRORS) {
+				throw new IllegalStateException(error, e);
+			} else {
+				System.err.println(error);
+				e.printStackTrace();
+			}
 		}
 	}
 	if (counter != classpathSize) {
@@ -247,9 +254,17 @@ public FileSystem(Classpath[] paths, String[] initialFileNames, boolean annotati
 			for (String moduleName : classpath.getModuleNames(limitedModules))
 				this.moduleLocations.put(moduleName, classpath);
 			this.classpaths[counter++] = classpath;
-		} catch(IOException | InvalidPathException exception) {
+		} catch(InvalidPathException exception) {
 			// JRE 9 could throw an IAE if the linked JAR paths have invalid chars, such as ":"
 			// ignore
+		} catch (IOException e) {
+			String error = "Failed to init " + classpath; //$NON-NLS-1$
+			if (JRTUtil.PROPAGATE_IO_ERRORS) {
+				throw new IllegalStateException(error, e);
+			} else {
+				System.err.println(error);
+				e.printStackTrace();
+			}
 		}
 	}
 	if (counter != length) {

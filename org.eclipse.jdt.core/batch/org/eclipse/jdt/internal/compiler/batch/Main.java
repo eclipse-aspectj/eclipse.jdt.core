@@ -3221,6 +3221,9 @@ private String optionStringToVersion(String currentArg) {
 		case "18": //$NON-NLS-1$
 		case "18.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_18;
+		case "19": //$NON-NLS-1$
+		case "19.0": //$NON-NLS-1$
+			return CompilerOptions.VERSION_19;
 		default:
 			return null;
 	}
@@ -3595,6 +3598,11 @@ private void processAddonModuleOptions(FileSystem env) {
 		AddExport addExport = ModuleFinder.extractAddonExport(option);
 		if (addExport != null) {
 			String modName = addExport.sourceModuleName;
+			for (Classpath classpath : this.checkedClasspaths) {
+				if (classpath.forbidsExportFrom(modName)) {
+					throw new IllegalArgumentException(this.bind("configure.illegalExportFromSystemModule", modName)); //$NON-NLS-1$
+				}
+			}
 			IPackageExport export = addExport.export;
 			IPackageExport[] existing = exports.get(modName);
 			if (existing == null) {

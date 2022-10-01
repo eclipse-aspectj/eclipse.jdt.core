@@ -1333,6 +1333,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
         case JavaCore.VERSION_16: return AST.JLS16;
         case JavaCore.VERSION_17: return AST.JLS17;
         case JavaCore.VERSION_18: return AST.JLS18;
+        case JavaCore.VERSION_19: return AST.JLS19;
         default:  return AST.JLS2;
 		}
 	}
@@ -9499,7 +9500,9 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			ASTNode.NULL_PATTERN,
 			ASTNode.CASE_DEFAULT_EXPRESSION,
 			ASTNode.TAG_PROPERTY,
-			ASTNode.JAVADOC_REGION
+			ASTNode.JAVADOC_REGION,
+			ASTNode.JAVADOC_TEXT_ELEMENT,
+			ASTNode.RECORD_PATTERN
 		};
 
 		// assert that nodeType values are correct:
@@ -9551,7 +9554,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 
 	@SuppressWarnings("deprecation")
 	public void testASTLevels() throws Exception {
-		int[] apilLevels = {AST.JLS2, AST.JLS3, AST.JLS4, AST.JLS8, AST.JLS9, AST.JLS10, AST.JLS11, AST.JLS12, AST.JLS13, AST.JLS14, AST.JLS15, AST.JLS16, AST.JLS17,AST.JLS18};
+		int[] apilLevels = {AST.JLS2, AST.JLS3, AST.JLS4, AST.JLS8, AST.JLS9, AST.JLS10, AST.JLS11, AST.JLS12, AST.JLS13, AST.JLS14, AST.JLS15, AST.JLS16, AST.JLS17,AST.JLS18, AST.JLS19};
 		for (int level : apilLevels) {
 			try {
 				DOMASTUtil.checkASTLevel(level);
@@ -9559,8 +9562,6 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 				throw new AssertionFailedError("missing support for AST level: " + level);
 			}
 		}
-
-
 	}
 }
 

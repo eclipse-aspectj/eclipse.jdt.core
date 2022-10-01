@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -25,14 +25,18 @@
  *								Bug 466713 - Null Annotations: NullPointerException using <int @Nullable []> as Type Param
  *     Jesper S Moller <jesper@selskabet.org> - Contributions for
  *								bug 378674 - "The method can be declared as static" is wrong
+ *                              bug 413873 - Warning "Method can be static" on method referencing a non-static inner class
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import java.util.List;
+import java.util.function.BiPredicate;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationCollector;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationPosition;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.flow.ExceptionHandlingFlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -43,6 +47,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MemberTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
@@ -50,8 +55,6 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationCollector;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationPosition;
 
 public class MethodDeclaration extends AbstractMethodDeclaration {
 
@@ -114,7 +117,30 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 			// nullity and mark as assigned
 			analyseArguments(classScope.environment(), flowInfo, this.arguments, this.binding);
 
-			if (this.binding.declaringClass instanceof MemberTypeBinding && !this.binding.declaringClass.isStatic()) {
+			BiPredicate<TypeBinding, ReferenceBinding> condition = (argType, declClass) -> {
+				ReferenceBinding enclosingType = argType.enclosingType();
+				if (enclosingType != null && TypeBinding.equalsEquals(declClass, enclosingType.actualType())) {
+					return true;
+				}
+				return false;
+			};
+			boolean referencesGenericType = false;
+			ReferenceBinding declaringClass = this.binding.declaringClass;
+			if (declaringClass.isGenericType()) {
+				if (condition.test(this.binding.returnType, declaringClass)) {
+					referencesGenericType = true;
+				}
+				if (!referencesGenericType && this.binding.parameters != null && this.arguments != null) {
+					int length = Math.min(this.binding.parameters.length, this.arguments.length);
+					for (int i = 0; i < length; i++) {
+						if (condition.test(this.binding.parameters[i], this.binding.declaringClass)) {
+							referencesGenericType = true;
+							break;
+						}
+					}
+				}
+			}
+			if (this.binding.declaringClass instanceof MemberTypeBinding && !this.binding.declaringClass.isStatic() || referencesGenericType) {
 				// method of a non-static member type can't be static.
 				this.bits &= ~ASTNode.CanBeStatic;
 			}

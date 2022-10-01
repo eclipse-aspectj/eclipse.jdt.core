@@ -15,10 +15,10 @@
   <parent>
     <artifactId>eclipse.jdt.core</artifactId>
     <groupId>org.eclipse.jdt</groupId>
-    <version>4.23.0-SNAPSHOT</version>
+    <version>4.26.0-SNAPSHOT</version>
   </parent>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>3.29.50-SNAPSHOT</version>
+  <version>3.32.0-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 
   <properties>
@@ -360,7 +360,7 @@
 <!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.8</aspectj.version>
+    <aspectj.version>1.9.9.1</aspectj.version>
   </properties>
 
   <distributionManagement>
@@ -1170,30 +1170,32 @@
   <dependencyManagement>
     <!--
       Taken from:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.29.0/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.31.0/jar
       Then click "Browse" (top right of the page) and you see all artifacts, among them the original POM:
-      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.29.0/org.eclipse.jdt.core-3.29.0.pom
+      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.31.0/org.eclipse.jdt.core-3.31.0.pom
       Module 'org.eclipse.jdt.compiler.apt' only depends on 'org.eclipse.jdt.core' (this module), as you can see here:
       https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.4.50/jar
 
       Rename JDT Core POM to pom.xml in an empty directory, then run 'mvn dependency:tree'. Result for 3.29.0:
 
-      org.eclipse.jdt:org.eclipse.jdt.core:jar:3.29.0
-      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.16.100:compile
-      |  \- org.eclipse.platform:org.eclipse.core.expressions:jar:3.8.100:compile (version selected from constraint [3.2.0,4.0.0))
-      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.24.100:compile
-      |  +- org.eclipse.platform:org.eclipse.osgi:jar:3.17.200:compile (version selected from constraint [3.17.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.16.0:compile (version selected from constraint [3.15.0,))
-      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.12.100:compile (version selected from constraint [3.12.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.11.100:compile (version selected from constraint [3.11.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.9.100:compile (version selected from constraint [3.9.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.8.100:compile (version selected from constraint [3.8.0,4.0.0))
-      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.6.100:compile (version selected from constraint [1.6.0,))
-      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.9.300:compile
-      +- org.eclipse.platform:org.eclipse.text:jar:3.12.0:compile
-      |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.10.100:compile (version selected from constraint [3.5.0,4.0.0))
-      \- org.eclipse.platform:org.eclipse.team.core:jar:3.9.300:compile
-         \- org.eclipse.platform:org.eclipse.compare.core:jar:3.6.1000:compile (version selected from constraint [3.5.200,4.0.0))
+      org.eclipse.jdt:org.eclipse.jdt.core:jar:3.31.0
+      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.18.0:compile
+      |  +- org.eclipse.platform:org.eclipse.core.expressions:jar:3.8.200:compile (version selected from constraint [3.2.0,4.0.0))
+      |  \- org.eclipse.platform:org.eclipse.osgi:jar:3.18.100:compile (version selected from constraint [0.0,))
+      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.26.0:compile
+      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.16.200:compile (version selected from constraint [3.16.0,))
+      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.13.100:compile (version selected from constraint [3.13.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.11.200:compile (version selected from constraint [3.11.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.10.100:compile (version selected from constraint [3.10.0,4.0.0))
+      |  |  \- org.osgi:org.osgi.service.prefs:jar:1.1.2:compile (version selected from constraint [1.1.0,1.2.0))
+      |  |     \- org.osgi:osgi.annotation:jar:8.0.1:compile
+      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.8.200:compile (version selected from constraint [3.8.0,4.0.0))
+      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.6.200:compile (version selected from constraint [1.6.0,))
+      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.9.500:compile
+      +- org.eclipse.platform:org.eclipse.text:jar:3.12.200:compile
+      |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.10.200:compile (version selected from constraint [3.5.0,4.0.0))
+      \- org.eclipse.platform:org.eclipse.team.core:jar:3.9.500:compile
+         \- org.eclipse.platform:org.eclipse.compare.core:jar:3.7.100:compile (version selected from constraint [3.5.200,4.0.0))
 
       Repeat the same procedure again whenever you upgrade JDT Core via merge from upstream. Then update direct and
       transitive dependencies (maybe there are new or absolete ones) and fix their versions in this dependency
@@ -1209,29 +1211,29 @@
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.resources</artifactId>
-        <version>3.16.100</version>
+        <version>3.18.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.runtime</artifactId>
-        <version>3.24.100</version>
+        <version>3.26.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.filesystem</artifactId>
-        <version>1.9.300</version>
+        <version>1.9.500</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.text</artifactId>
-        <version>3.12.0</version>
+        <version>3.12.200</version>
       </dependency>
       <!-- Not this one, because optional=true and not used in AspectJ -->
       <!--
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.team.core</artifactId>
-        <version>[3.1.0,4.0.0)</version>
+        <version>3.9.500</version>
         <optional>true</optional>
       </dependency>
       -->
@@ -1240,47 +1242,47 @@
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.expressions</artifactId>
-        <version>3.8.100</version>
+        <version>3.8.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.osgi</artifactId>
-        <version>3.17.200</version>
+        <version>3.18.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.common</artifactId>
-        <version>3.16.0</version>
+        <version>3.16.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.jobs</artifactId>
-        <version>3.12.100</version>
+        <version>3.13.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.registry</artifactId>
-        <version>3.11.100</version>
+        <version>3.11.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.preferences</artifactId>
-        <version>3.9.100</version>
+        <version>3.10.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.contenttype</artifactId>
-        <version>3.8.100</version>
+        <version>3.8.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.app</artifactId>
-        <version>1.6.100</version>
+        <version>1.6.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.commands</artifactId>
-        <version>3.10.100</version>
+        <version>3.10.200</version>
       </dependency>
 
     </dependencies>

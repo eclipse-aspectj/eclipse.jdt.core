@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2021 IBM Corporation and others.
+ * Copyright (c) 2004, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,7 +7,6 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
- *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -356,10 +355,10 @@ public class ASTStructuralPropertyTest extends org.eclipse.jdt.core.tests.junit.
 	}
 
 	public void testNodeClassForType() {
-		Set classes = new HashSet(103);
+		Set classes = new HashSet(125);
 		// make sure node types are contiguous starting at 0
 		int hi = 0;
-		for (int nodeType = 1; nodeType < 110; nodeType++) {
+		for (int nodeType = 1; nodeType < 125; nodeType++) {
 			try {
 				Class nodeClass = ASTNode.nodeClassForType(nodeType);
 				assertTrue(ASTNode.class.isAssignableFrom(nodeClass));
@@ -372,7 +371,7 @@ public class ASTStructuralPropertyTest extends org.eclipse.jdt.core.tests.junit.
 				// oops - guess that's not valid
 			}
 		}
-		assertEquals("Wrong last known type", 109, hi); // last known one
+		assertEquals("Wrong last known type", 113, hi); // last known one
 		assertEquals("Wrong number of distinct types",  hi, classes.size()); // all classes are distinct
 	}
 }

@@ -64,7 +64,7 @@ public class NullPattern extends Pattern {
 	 */
 	NullPattern(AST ast) {
 		super(ast);
-		supportedOnlyIn18();
+		supportedOnlyIn19();
 		unsupportedWithoutPreviewError();
 	}
 
@@ -105,11 +105,6 @@ public class NullPattern extends Pattern {
 	@Override
 	int treeSize() {
 		return memSize();
-	}
-
-	@Override
-	public List<SingleVariableDeclaration> patternVariables() {
-		return null;
 	}
 }
 

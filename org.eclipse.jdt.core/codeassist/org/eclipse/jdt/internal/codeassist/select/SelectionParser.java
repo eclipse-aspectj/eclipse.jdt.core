@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -28,7 +28,6 @@ package org.eclipse.jdt.internal.codeassist.select;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.codeassist.impl.AssistParser;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
-import org.eclipse.jdt.internal.compiler.ast.AND_AND_Expression;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
@@ -43,7 +42,6 @@ import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.FieldReference;
 import org.eclipse.jdt.internal.compiler.ast.GuardedPattern;
 import org.eclipse.jdt.internal.compiler.ast.ImportReference;
-import org.eclipse.jdt.internal.compiler.ast.InstanceOfExpression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.MarkerAnnotation;
@@ -55,6 +53,7 @@ import org.eclipse.jdt.internal.compiler.ast.NameReference;
 import org.eclipse.jdt.internal.compiler.ast.NormalAnnotation;
 import org.eclipse.jdt.internal.compiler.ast.Pattern;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedAllocationExpression;
+import org.eclipse.jdt.internal.compiler.ast.RecordPattern;
 import org.eclipse.jdt.internal.compiler.ast.Reference;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
@@ -184,14 +183,14 @@ private void buildMoreCompletionContext(Expression expression) {
 		int info = topKnownElementInfo(SELECTION_OR_ASSIST_PARSER);
 		nextElement : switch (kind) {
 			case K_BETWEEN_CASE_AND_COLONORARROW :
-				if(this.expressionPtr > 0) {
+				if(this.expressionPtr >= info && info > -1) {
 					SwitchStatement switchStatement = new SwitchStatement();
-					switchStatement.expression = this.expressionStack[this.expressionPtr - 1];
+					switchStatement.expression = this.expressionStack[info]; // info is pointer to top expr when encountering 'case'
 					if(this.astLengthPtr > -1 && this.astPtr > -1) {
 						int length = this.astLengthStack[this.astLengthPtr];
 						int newAstPtr = this.astPtr - length;
 						ASTNode firstNode = this.astStack[newAstPtr + 1];
-						if(length != 0 && firstNode.sourceStart > switchStatement.expression.sourceEnd) {
+						if(length != 0 && firstNode instanceof Statement && firstNode.sourceStart > switchStatement.expression.sourceEnd) {
 							switchStatement.statements = new Statement[length + 1];
 							System.arraycopy(
 								this.astStack,
@@ -822,21 +821,6 @@ protected void consumeInsideCastExpressionWithQualifiedGenerics() {
 protected void consumeInstanceOfExpression() {
 	if (indexOfAssistIdentifier() < 0) {
 		super.consumeInstanceOfExpression();
-		int length = this.expressionLengthPtr >= 0 ?
-				this.expressionLengthStack[this.expressionLengthPtr] : 0;
-		if (length > 0) {
-			Expression exp = this.expressionStack[this.expressionPtr];
-			LocalDeclaration local = null;
-			if (exp instanceof InstanceOfExpression) {
-				local = ((InstanceOfExpression) exp).elementVariable;
-			} else if (exp instanceof AND_AND_Expression) {
-				InstanceOfExpression insExpr = (InstanceOfExpression) ((AND_AND_Expression) exp).left;
-				local = insExpr.elementVariable;
-			}
-			if (local != null) {
-				pushOnAstStack(local);
-			}
-		}
 	} else {
 		getTypeReference(this.intStack[this.intPtr--]);
 		this.isOrphanCompletionNode = true;
@@ -844,6 +828,45 @@ protected void consumeInstanceOfExpression() {
 		this.lastIgnoredToken = -1;
 	}
 }
+@Override
+protected Expression consumePatternInsideInstanceof(Pattern pattern) {
+	if(pattern instanceof RecordPattern) {
+		pushLocalVariableFromRecordPatternOnAstStack((RecordPattern)pattern);
+	}
+	return super.consumePatternInsideInstanceof(pattern);
+}
+
+@Override
+protected void consumeCaseLabelElement(CaseLabelKind kind) {
+	super.consumeCaseLabelElement(kind);
+	switch (kind) {
+		case CASE_PATTERN: {
+			ASTNode[] ps = this.patternStack;
+			if (ps[0] instanceof RecordPattern) {
+				pushLocalVariableFromRecordPatternOnAstStack((RecordPattern) ps[0]);
+			}
+		}
+			break;
+		default:
+			break;
+
+	}
+}
+
+private void pushLocalVariableFromRecordPatternOnAstStack(RecordPattern rp) {
+	Pattern[] patterns = rp.patterns;
+	for (Pattern pattern : patterns) {
+		if (pattern instanceof RecordPattern)
+			pushLocalVariableFromRecordPatternOnAstStack((RecordPattern) pattern);
+		else {
+			LocalDeclaration patternVariable = pattern.getPatternVariable();
+			if (patternVariable != null)
+				pushOnAstStack(patternVariable);
+
+		}
+	}
+}
+
 @Override
 protected void consumeInstanceOfExpressionWithName() {
 	int length = this.patternLengthPtr >= 0 ?
@@ -854,12 +877,13 @@ protected void consumeInstanceOfExpressionWithName() {
 		if (this.expressionStack[this.expressionPtr] != this.assistNode) {
 			// Push only when the selection node is not the expression of this
 			// pattern matching instanceof expression
-			LocalDeclaration patternVariableIntroduced = pattern.getPatternVariableIntroduced();
+			LocalDeclaration patternVariableIntroduced = pattern.getPatternVariable();
 			if (patternVariableIntroduced != null) {
 				// filter out patternVariableIntroduced based on current selection if there is an assist node
 				if (this.assistNode == null || (this.selectionStart <= patternVariableIntroduced.sourceStart
 						&& this.selectionEnd >= patternVariableIntroduced.sourceEnd)) {
-					pushOnAstStack(patternVariableIntroduced);
+					if(!(pattern instanceof RecordPattern))
+						pushOnAstStack(patternVariableIntroduced);
 				}
 			}
 			if ((this.selectionStart >= pattern.sourceStart)
@@ -1327,7 +1351,7 @@ protected void consumeToken(int token) {
 	if (isInsideMethod() || isInsideFieldInitialization()) {
 		switch (token) {
 			case TokenNamecase :
-				pushOnElementStack(K_BETWEEN_CASE_AND_COLONORARROW);
+				pushOnElementStack(K_BETWEEN_CASE_AND_COLONORARROW, this.expressionPtr);
 				break;
 			case TokenNameCOMMA :
 				switch (topKnownElementKind(SELECTION_OR_ASSIST_PARSER)) {

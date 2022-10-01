@@ -29,7 +29,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,19 +77,6 @@ public class JrtFileSystem extends Archive {
 
 		org.eclipse.jdt.internal.compiler.util.JRTUtil.walkModuleImage(this.file,
 				new org.eclipse.jdt.internal.compiler.util.JRTUtil.JrtFileVisitor<Path>() {
-
-			@Override
-			public FileVisitResult visitPackage(Path dir, Path mod, BasicFileAttributes attrs)
-					throws IOException {
-				return FileVisitResult.CONTINUE;
-			}
-
-			@Override
-			public FileVisitResult visitFile(Path f, Path mod, BasicFileAttributes attrs)
-					throws IOException {
-				return FileVisitResult.CONTINUE;
-			}
-
 			@Override
 			public FileVisitResult visitModule(Path path, String name) throws IOException {
 				JrtFileSystem.this.modulePathMap.put(name, path);
@@ -113,7 +99,13 @@ public class JrtFileSystem extends Archive {
             		return true;
             }).collect(Collectors.toList());
         } catch (IOException e) {
-        	// ignore
+        	String error = "Failed to read files from " + resolve; //$NON-NLS-1$
+			if (JRTUtil.PROPAGATE_IO_ERRORS) {
+				throw new IllegalStateException(error, e);
+			} else {
+				System.err.println(error);
+				e.printStackTrace();
+			}
         }
         List<JrtFileObject> result = new ArrayList<>();
         for (Path p: files) {
@@ -143,6 +135,7 @@ public class JrtFileSystem extends Archive {
 		private JrtFileObject(File file, Path path, String module, Charset charset) {
 			super(file, path.toString(), charset);
 			this.path = path;
+			this.module = module;
 		}
 
 		@Override
