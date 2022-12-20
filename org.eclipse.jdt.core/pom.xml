@@ -626,6 +626,9 @@
           <archive>
             <addMavenDescriptor>false</addMavenDescriptor>
           </archive>
+          <excludes>
+            <exclude>**/org/eclipse/jdt/core/JDTCompilerAdapter.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
 
@@ -692,6 +695,9 @@
           <encoding>${project.build.sourceEncoding}</encoding>
           <!--<verbose>true</verbose>-->
           <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
+          <excludes>
+            <exclude>**/org/eclipse/jdt/core/JDTCompilerAdapter.java</exclude>
+          </excludes>
         </configuration>
         <executions>
           <execution>
