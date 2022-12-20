@@ -15,11 +15,11 @@
   <parent>
     <artifactId>tests-pom</artifactId>
     <groupId>org.eclipse.jdt</groupId>
-    <version>4.26.0-SNAPSHOT</version>
+    <version>4.27.0-SNAPSHOT</version>
     <relativePath>../tests-pom/</relativePath>
   </parent>
   <artifactId>org.eclipse.jdt.core.tests.model</artifactId>
-  <version>3.11.400-SNAPSHOT</version>
+  <version>3.11.500-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
@@ -34,7 +34,7 @@
       	<artifactId>tycho-surefire-plugin</artifactId>
       	<version>${tycho.version}</version>
       	<configuration>
-      	  <argLine>-Xmx2G -Djdt.default.test.compliance=1.8 ${tycho.surefire.argLine}</argLine>
+      	  <argLine>-Xmx1G -Djdt.default.test.compliance=1.8 ${tycho.surefire.argLine}</argLine>
       	  <includes>
       	  	<include>org/eclipse/jdt/core/tests/model/AllJavaModelTestsTracing.class</include>
       	  	<include>org/eclipse/jdt/core/tests/dom/RunAllTestsTracing.class</include>
@@ -212,15 +212,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -242,15 +233,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -272,15 +254,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
@@ -302,15 +275,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>1.1</version>
-					<executions>
-						<execution>
-							<phase>validate</phase>
-							<goals>
-								<goal>toolchain</goal>
-							</goals>
-						</execution>
-					</executions>
 					<configuration>
 						<toolchains>
 							<jdk>
