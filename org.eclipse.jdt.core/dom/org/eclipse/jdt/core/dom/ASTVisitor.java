@@ -914,10 +914,27 @@ public abstract class ASTVisitor {
 	 * be skipped
 	 * @see #ASTVisitor()
 	 * @see #ASTVisitor(boolean)
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public boolean visit(JavaDocRegion node) {
 		return this.visitDocTags;
+	}
+
+	/**
+	 * Visits the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing and return true.
+	 * Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param node the node to visit
+	 * @return <code>true</code> if the children of this node should be
+	 * visited, and <code>false</code> if the children of this node should
+	 * be skipped
+	 * @since 3.31
+	 */
+	public boolean visit(JavaDocTextElement node) {
+		return true;
 	}
 
 	/**
@@ -1478,6 +1495,23 @@ public abstract class ASTVisitor {
 	 * @return <code>true</code> if the children of this node should be
 	 * visited, and <code>false</code> if the children of this node should
 	 * be skipped
+	 * @since 3.32
+	 */
+	public boolean visit(RecordPattern node) {
+		return true;
+	}
+
+	/**
+	 * Visits the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing and return true.
+	 * Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param node the node to visit
+	 * @return <code>true</code> if the children of this node should be
+	 * visited, and <code>false</code> if the children of this node should
+	 * be skipped
 	 */
 	public boolean visit(ReturnStatement node) {
 		return true;
@@ -1725,7 +1759,7 @@ public abstract class ASTVisitor {
 	 * @return <code>true</code> if the children of this node should be
 	 * visited, and <code>false</code> if the children of this node should
 	 * be skipped
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public boolean visit(TagProperty node) {
 		return true;
@@ -2574,9 +2608,22 @@ public abstract class ASTVisitor {
 	 * </p>
 	 *
 	 * @param node the node to visit
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public void endVisit(JavaDocRegion node) {
+		// default implementation: do nothing
+	}
+
+	/**
+	 * End of visit the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing. Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param node the node to visit
+	 * @since 3.32
+	 */
+	public void endVisit(JavaDocTextElement node) {
 		// default implementation: do nothing
 	}
 
@@ -2991,6 +3038,19 @@ public abstract class ASTVisitor {
 		// default implementation: do nothing
 	}
 
+	/**
+	 * End of visit the given type-specific AST node.
+	 * <p>
+	 * The default implementation does nothing. Subclasses may re implement.
+	 * </p>
+	 *
+	 * @param node the node to visit
+	 * @since 3.31
+	 * @noreference This method is not intended to be referenced by clients.
+	 */
+	public void endVisit(RecordPattern node) {
+		// default implementation: do nothing
+	}
 
 	/**
 	 * End of visit the given type-specific AST node.
@@ -3183,7 +3243,7 @@ public abstract class ASTVisitor {
 	 * </p>
 	 *
 	 * @param node the node to visit
-	 * @since 3.29
+	 * @since 3.30
 	 */
 	public void endVisit(TagProperty node) {
 		// default implementation: do nothing

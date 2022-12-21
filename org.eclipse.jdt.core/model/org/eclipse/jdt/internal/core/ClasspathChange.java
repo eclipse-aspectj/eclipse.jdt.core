@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2016 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15,12 +15,15 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
@@ -28,6 +31,7 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.jdt.core.IClasspathAttributeDelta;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaElementDelta;
 import org.eclipse.jdt.core.IPackageFragment;
@@ -414,6 +418,7 @@ public class ClasspathChange {
 						}
 					}
 				}
+				addAttributeDeltas(delta, this.oldResolvedClasspath[i], newResolvedClasspath[index]);
 			}
 		}
 
@@ -560,7 +565,11 @@ public class ClasspathChange {
 								if (oldurl == null && newurl == null) {
 									pathHasChanged = false;
 								} else if (oldurl != null && newurl != null) {
-									pathHasChanged = !(newurl.equals(oldurl));
+									try {
+										pathHasChanged = !Objects.equals(newurl.toURI(),oldurl.toURI());
+									} catch (URISyntaxException e) {
+										pathHasChanged = !Objects.equals(newurl, oldurl);
+									}
 								} else if (oldurl != null) {
 									indexManager.removeIndex(newPath);
 								}
@@ -586,5 +595,20 @@ public class ClasspathChange {
 	@Override
 	public String toString() {
 		return "ClasspathChange: " + this.project.getElementName(); //$NON-NLS-1$
+	}
+
+	// Include changes to the delta attributes, see: https://github.com/eclipse-jdt/eclipse.jdt.core/issues/486
+	private void addAttributeDeltas(JavaElementDelta delta, IClasspathEntry oldClasspathEntry, IClasspathEntry newClasspathEntry) {
+		List<IClasspathAttributeDelta> attributeDeltas = ClasspathAttributeDelta.getAttributeDeltas(oldClasspathEntry, newClasspathEntry);
+		if (!attributeDeltas.isEmpty()) {
+			IPackageFragmentRoot[] roots = this.project.computePackageFragmentRoots(oldClasspathEntry);
+			for (int i = 0; i < roots.length; ++i) {
+				IPackageFragmentRoot root = roots[i];
+				JavaElementDelta childDelta = delta.changed(root, IJavaElementDelta.F_CLASSPATH_ATTRIBUTES);
+				for (IClasspathAttributeDelta attributeDelta : attributeDeltas) {
+					childDelta.addAttributeDelta(attributeDelta);
+				}
+			}
+		}
 	}
 }

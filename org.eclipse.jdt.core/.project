@@ -19,7 +19,7 @@
 		<link>
 			<name>apt</name>
 			<type>2</type>
-			<locationURI>WORKSPACE_LOC/eclipse.jdt.core/org.eclipse.jdt.compiler.apt/src</locationURI>
+			<locationURI>WORKSPACE_LOC/eclipse.jdt.core/org.eclipse.jdt.core.compiler.batch/src</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

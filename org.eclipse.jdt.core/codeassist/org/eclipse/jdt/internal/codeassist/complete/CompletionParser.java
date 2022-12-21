@@ -8,6 +8,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ *
  * Contributors:
  *		IBM Corporation - initial API and implementation
  *		Stephan Herrmann - Contribution for
@@ -1270,12 +1271,15 @@ private Statement buildMoreCompletionEnclosingContext(Statement statement) {
 		index = blockIndex != -1 && controlIndex < blockIndex ? blockIndex : controlIndex;
 	}
 	while (index >= 0) {
-		// Try to find an enclosing if statement even if one is not found immediately preceding the completion node.
+		// Try to find an enclosing if statement with instanceof even if one is not found immediately preceding the completion node.
+		// A if statement is only chosen if it has a instanceof or the completion node is in the if statment it self.
+		Object elementObjectInfo = this.elementObjectInfoStack[index];
 		int kind = this.elementKindStack[index];
 		if ((kind == K_BLOCK_DELIMITER || kind == K_CONTROL_STATEMENT_DELIMITER || kind == K_BETWEEN_INSTANCEOF_AND_RPAREN) // same set as above
-			&& this.elementInfoStack[index] == IF && this.elementObjectInfoStack[index] != null)
+			&& this.elementInfoStack[index] == IF && elementObjectInfo != null
+			&& (isInstanceOfGuard(elementObjectInfo) || (this.assistNode == elementObjectInfo)))
 		{
-			Expression condition = (Expression)this.elementObjectInfoStack[index];
+			Expression condition = (Expression)elementObjectInfo;
 
 			// If currentElement is a RecoveredLocalVariable then it can be contained in the if statement
 			if (this.currentElement instanceof RecoveredLocalVariable &&
@@ -1809,7 +1813,7 @@ private boolean checkInstanceofKeyword() {
 private boolean checkYieldKeyword() {
 	// Clients to ensure that we are already inside a method
 	char[] id = this.scanner.getCurrentIdentifierSource();
-	if(id.length > 0 && CharOperation.prefixEquals(id, Keywords.YIELD)) {
+	if(id.length > 0 && CharOperation.equals(id, Keywords.YIELD)) {
 		return true;
 	}
 	return false;
@@ -4247,6 +4251,9 @@ protected void consumeToken(int token) {
 					// YieldStatement and thus not producing accurate completion, but completion doesn't have
 					// enough information anyway about the LHS anyway.
 					token = this.currentToken = this.getNextToken();
+					if(token == TokenNameIntegerLiteral && this.previousToken == TokenNameIdentifier ) {
+						token = this.currentToken = this.getNextToken();
+					}
 					super.consumeToken(this.currentToken);
 				}
 				if (previous == TokenNameDOT) { // e.g. foo().[fred]()
@@ -5283,6 +5290,9 @@ boolean computeKeywords(int kind, List<char[]> keywords) {
 		keywords.add(Keywords.TRUE);
 		keywords.add(Keywords.FALSE);
 		keywords.add(Keywords.NULL);
+		if (this.options.complianceLevel >= ClassFileConstants.JDK19) {
+			keywords.add(Keywords.WHEN);
+		}
 		if (kind == K_YIELD_KEYWORD) {
 			keywords.add(Keywords.YIELD);
 		}

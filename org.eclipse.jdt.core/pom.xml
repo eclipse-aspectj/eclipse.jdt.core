@@ -15,10 +15,10 @@
   <parent>
     <artifactId>eclipse.jdt.core</artifactId>
     <groupId>org.eclipse.jdt</groupId>
-    <version>4.23.0-SNAPSHOT</version>
+    <version>4.27.0-SNAPSHOT</version>
   </parent>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>3.29.50-SNAPSHOT</version>
+  <version>3.33.0-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 
   <properties>
@@ -41,6 +41,12 @@
 						<replace token="bundle_version" value="${unqualifiedVersion}" dir="${project.build.directory}/classes">
 							<include name="org/eclipse/jdt/internal/compiler/batch/messages.properties"/>
 						</replace>
+						<copy todir="${project.build.directory}/jdtCompilerAdapter.jar-classes">
+							<fileset dir="${project.build.directory}/../../org.eclipse.jdt.core.compiler.batch/target/classes">
+								<include name="org/eclipse/jdt/core/*.class"/>
+								<include name="org/eclipse/jdt/internal/antadapter/**"/>
+							</fileset>
+						</copy>
 					</target>
 				</configuration>
 				<goals>
@@ -98,122 +104,6 @@
               </fileSets>
             </configuration>
           </execution>
-          <execution>
-            <id>batch-compiler-src</id>
-            <phase>package</phase>
-            <goals>
-              <goal>custom-bundle</goal>
-            </goals>
-            <configuration>
-				<archive>
-					<addMavenDescriptor>false</addMavenDescriptor>
-				</archive>
-              <bundleLocation>${project.build.directory}/scripts/source</bundleLocation>
-              <classifier>batch-compiler-src</classifier>
-              <fileSets>
-                <fileSet>
-                  <directory>${project.basedir}/batch</directory>
-                  <excludes>
-                    <exclude>org/eclipse/jdt/internal/compiler/batch/messages.properties</exclude>
-                  </excludes>
-                </fileSet>
-                <fileSet>
-                  <directory>${project.build.directory}/classes</directory>
-                  <includes>
-                    <include>org/eclipse/jdt/internal/compiler/batch/messages.properties</include>
-                  </includes>
-                </fileSet>
-                <fileSet>
-                  <directory>${project.basedir}/compiler</directory>
-                </fileSet>
-                <fileSet>
-                  <directory>${project.basedir}/antadapter</directory>
-                  <excludes>
-				    <exclude>org/eclipse/jdt/core/CheckDebugAttributes.java</exclude>
-					<exclude>org/eclipse/jdt/core/BuildJarIndex.java</exclude>
-                  </excludes>
-                </fileSet>
-				<fileSet>
-                  <directory>${project.basedir}/../org.eclipse.jdt.compiler.tool/src</directory>
-                </fileSet>
-				<fileSet>
-                  <directory>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</directory>
-                </fileSet>
-				<fileSet>
-                  <directory>${project.basedir}/scripts</directory>
-                  <includes>
-				    <include>about.html</include>
-					<include>build.xml</include>
-					<include>ecj.1</include>
-                  </includes>
-                </fileSet>
-                <fileSet>
-                  <directory>${project.basedir}</directory>
-                  <includes>
-                    <include>scripts/binary/**</include>
-                  </includes>
-                </fileSet>
-                <!## Include API stubs required for building ECJ on Java 11 ##>
-                <fileSet>
-                  <directory>${project.basedir}/../org.eclipse.jdt.compiler.tool/lib</directory>
-                  <includes>
-                    <include>*.jar</include>
-                  </includes>
-                </fileSet>
-              </fileSets>
-            </configuration>
-          </execution>
-          <execution>
-            <id>batch-compiler</id>
-            <phase>package</phase>
-            <goals>
-              <goal>custom-bundle</goal>
-            </goals>
-            <configuration>
-				<archive>
-					<addMavenDescriptor>false</addMavenDescriptor>
-				</archive>
-              <bundleLocation>${project.basedir}/scripts/binary</bundleLocation>
-              <classifier>batch-compiler</classifier>
-              <fileSets>
-                <fileSet>
-                  <directory>${project.build.directory}/jdtCompilerAdapter.jar-classes</directory>
-                  <includes>
-				    <include>META-INF/eclipse.inf</include>
-                  </includes>
-                </fileSet>
-				<fileSet>
-                  <directory>${project.basedir}/scripts</directory>
-                  <includes>
-				    <include>about.html</include>
-				    <include>ecj.1</include>
-                  </includes>
-                </fileSet>
-                <fileSet>
-                  <directory>${project.build.directory}/classes</directory>
-                  <includes>
-                    <include>org/eclipse/jdt/internal/compiler/**</include>
-                    <include>org/eclipse/jdt/core/compiler/**</include>
-                  </includes>
-                  <excludes>
-                    <exclude>**/package.htm*</exclude>
-                    <exclude>org/eclipse/jdt/core/compiler/CompilationParticipant*.class</exclude>
-                    <exclude>org/eclipse/jdt/core/compiler/BuildContext.class</exclude>
-                    <exclude>org/eclipse/jdt/core/compiler/IScanner.class</exclude>
-                    <exclude>org/eclipse/jdt/core/compiler/ITerminalSymbols*.class</exclude>
-                    <exclude>org/eclipse/jdt/core/compiler/ReconcileContext*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/DocumentElementParser*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/IDocumentElementRequestor.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/ISourceElementRequestor*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/SourceElementParser*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/SourceElementRequestorAdapter*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/SourceJavadocParser*.class</exclude>
-                    <exclude>org/eclipse/jdt/internal/compiler/parser/SourceTypeConverter*.class</exclude>
-                  </excludes>
-                </fileSet>
-              </fileSets>
-            </configuration>
-          </execution>
         </executions>
       </plugin>
       <plugin>
@@ -234,69 +124,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.2.0</version>
-        <executions>
-          <!### AspectJ
-            Replace '\' Windows file separators by '/' in order to expand the new property 'compiler-message-properties'
-            into a string literal in Maven Enforcer rule 'evaluateBeanshell' further below
-          AspectJ ###>
-          <execution>
-            <id>compiler-message-properties</id>
-            <goals>
-              <goal>regex-property</goal>
-            </goals>
-            <configuration>
-              <name>compiler-message-properties</name>
-              <value>${project.basedir}/batch/org/eclipse/jdt/internal/compiler/batch/messages.properties</value>
-              <regex>\\</regex>
-              <replacement>/</replacement>
-              <failIfNoMatch>false</failIfNoMatch>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>no-tabs-in-compiler-messages</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <evaluateBeanshell>
-                  <message>
-                    Compiler message resource file ${compiler-message-properties} must not contain tab characters, please use spaces instead!
-                  </message>
-                  <condition><![CDATA[
-                    FileReader fileReader = new FileReader("${compiler-message-properties}");
-                    BufferedReader bufferReader = new BufferedReader(fileReader);
-                    boolean containsTab = false;
-                    String line;
-                    while((line = bufferReader.readLine()) != null) {
-                      if (line.contains("\t")) {
-                        if (!containsTab) {
-                          System.out.println("Lines containing tab characters detected in resource file:");
-                          containsTab = true;
-                        }
-                        System.out.println(line);
-                      }
-                    }
-                    fileReader.close();
-                    bufferReader.close();
-                    !containsTab
-                  ]]></condition>
-                </evaluateBeanshell>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 </project>
@@ -308,7 +135,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>1.9.10-SNAPSHOT</version>
+  <version>1.9.19-SNAPSHOT</version>
 
   <name>JDT Core for AspectJ</name>
   <description>
@@ -348,8 +175,8 @@
     <!-- Basic build properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
 
     <!-- PARENT POM: By default, do not deploy artifacts - override for the ones which actually should be deployed -->
     <!--<maven.deploy.skip>true</maven.deploy.skip>-->
@@ -360,7 +187,7 @@
 <!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.8</aspectj.version>
+    <aspectj.version>1.9.9.1</aspectj.version>
   </properties>
 
   <distributionManagement>
@@ -476,23 +303,7 @@
         </includes>
       </resource>
       <resource>
-        <directory>${project.basedir}/batch</directory>
-        <includes>
-          <include>**/*.rsc</include>
-          <include>**/*.properties</include>
-          <include>**/*.props</include>
-        </includes>
-      </resource>
-      <resource>
         <directory>${project.basedir}/codeassist</directory>
-        <includes>
-          <include>**/*.rsc</include>
-          <include>**/*.properties</include>
-          <include>**/*.props</include>
-        </includes>
-      </resource>
-      <resource>
-        <directory>${project.basedir}/compiler</directory>
         <includes>
           <include>**/*.rsc</include>
           <include>**/*.properties</include>
@@ -540,7 +351,7 @@
         </includes>
       </resource>
       <resource>
-        <directory>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</directory>
+        <directory>${project.basedir}/../org.eclipse.jdt.core.compiler.batch/src</directory>
         <includes>
           <include>**/*.rsc</include>
           <include>**/*.properties</include>
@@ -723,7 +534,7 @@
                 <source>${project.basedir}/model</source>
                 <source>${project.basedir}/search</source>
                 <!-- Add compiler APT support -->
-                <source>${project.basedir}/../org.eclipse.jdt.compiler.apt/src</source>
+                <source>${project.basedir}/../org.eclipse.jdt.core.compiler.batch/src</source>
               </sources>
             </configuration>
           </execution>
@@ -738,7 +549,7 @@
             </goals>
             <configuration>
               <name>compiler-message-properties</name>
-              <value>${project.basedir}/batch/org/eclipse/jdt/internal/compiler/batch/messages.properties</value>
+              <value>${project.basedir}/../org.eclipse.jdt.core.compiler.batch/src/org/eclipse/jdt/internal/compiler/batch/messages.properties</value>
               <regex>\\</regex>
               <replacement>/</replacement>
               <failIfNoMatch>false</failIfNoMatch>
@@ -815,6 +626,9 @@
           <archive>
             <addMavenDescriptor>false</addMavenDescriptor>
           </archive>
+          <excludes>
+            <exclude>**/org/eclipse/jdt/core/JDTCompilerAdapter.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
 
@@ -881,6 +695,9 @@
           <encoding>${project.build.sourceEncoding}</encoding>
           <!--<verbose>true</verbose>-->
           <!--<warn>constructorName,packageDefaultMethod,deprecation,maskedCatchBlocks,unusedLocals,unusedArguments,unusedImport</warn>-->
+          <excludes>
+            <exclude>**/org/eclipse/jdt/core/JDTCompilerAdapter.java</exclude>
+          </excludes>
         </configuration>
         <executions>
           <execution>
@@ -1010,7 +827,7 @@
                     <!--
                     TODO:
                       Always make sure that exclusions are up to date. Heuristicallly, you can find out like this:
-                        find org.eclipse.jdt.core org.eclipse.jdt.compiler.apt -type f -name '*.java' |
+                        find org.eclipse.jdt.core org.eclipse.jdt.core.compiler.batch -type f -name '*.java' |
                           xargs grep -E '"org\.eclipse\.jdt\..*\$NON\-NLS-[0-9]+\$' |
                           sed -E 's/.*"(org\.eclipse\.jdt\.[^"]*).*/\1/' |
                           sort |
@@ -1170,30 +987,32 @@
   <dependencyManagement>
     <!--
       Taken from:
-      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.29.0/jar
+      https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.core/3.31.0/jar
       Then click "Browse" (top right of the page) and you see all artifacts, among them the original POM:
-      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.29.0/org.eclipse.jdt.core-3.29.0.pom
+      https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/3.31.0/org.eclipse.jdt.core-3.31.0.pom
       Module 'org.eclipse.jdt.compiler.apt' only depends on 'org.eclipse.jdt.core' (this module), as you can see here:
       https://search.maven.org/artifact/org.eclipse.jdt/org.eclipse.jdt.compiler.apt/1.4.50/jar
 
       Rename JDT Core POM to pom.xml in an empty directory, then run 'mvn dependency:tree'. Result for 3.29.0:
 
-      org.eclipse.jdt:org.eclipse.jdt.core:jar:3.29.0
-      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.16.100:compile
-      |  \- org.eclipse.platform:org.eclipse.core.expressions:jar:3.8.100:compile (version selected from constraint [3.2.0,4.0.0))
-      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.24.100:compile
-      |  +- org.eclipse.platform:org.eclipse.osgi:jar:3.17.200:compile (version selected from constraint [3.17.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.16.0:compile (version selected from constraint [3.15.0,))
-      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.12.100:compile (version selected from constraint [3.12.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.11.100:compile (version selected from constraint [3.11.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.9.100:compile (version selected from constraint [3.9.0,4.0.0))
-      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.8.100:compile (version selected from constraint [3.8.0,4.0.0))
-      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.6.100:compile (version selected from constraint [1.6.0,))
-      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.9.300:compile
-      +- org.eclipse.platform:org.eclipse.text:jar:3.12.0:compile
-      |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.10.100:compile (version selected from constraint [3.5.0,4.0.0))
-      \- org.eclipse.platform:org.eclipse.team.core:jar:3.9.300:compile
-         \- org.eclipse.platform:org.eclipse.compare.core:jar:3.6.1000:compile (version selected from constraint [3.5.200,4.0.0))
+      org.eclipse.jdt:org.eclipse.jdt.core:jar:3.31.0
+      +- org.eclipse.platform:org.eclipse.core.resources:jar:3.18.0:compile
+      |  +- org.eclipse.platform:org.eclipse.core.expressions:jar:3.8.200:compile (version selected from constraint [3.2.0,4.0.0))
+      |  \- org.eclipse.platform:org.eclipse.osgi:jar:3.18.100:compile (version selected from constraint [0.0,))
+      +- org.eclipse.platform:org.eclipse.core.runtime:jar:3.26.0:compile
+      |  +- org.eclipse.platform:org.eclipse.equinox.common:jar:3.16.200:compile (version selected from constraint [3.16.0,))
+      |  +- org.eclipse.platform:org.eclipse.core.jobs:jar:3.13.100:compile (version selected from constraint [3.13.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.registry:jar:3.11.200:compile (version selected from constraint [3.11.0,4.0.0))
+      |  +- org.eclipse.platform:org.eclipse.equinox.preferences:jar:3.10.100:compile (version selected from constraint [3.10.0,4.0.0))
+      |  |  \- org.osgi:org.osgi.service.prefs:jar:1.1.2:compile (version selected from constraint [1.1.0,1.2.0))
+      |  |     \- org.osgi:osgi.annotation:jar:8.0.1:compile
+      |  +- org.eclipse.platform:org.eclipse.core.contenttype:jar:3.8.200:compile (version selected from constraint [3.8.0,4.0.0))
+      |  \- org.eclipse.platform:org.eclipse.equinox.app:jar:1.6.200:compile (version selected from constraint [1.6.0,))
+      +- org.eclipse.platform:org.eclipse.core.filesystem:jar:1.9.500:compile
+      +- org.eclipse.platform:org.eclipse.text:jar:3.12.200:compile
+      |  \- org.eclipse.platform:org.eclipse.core.commands:jar:3.10.200:compile (version selected from constraint [3.5.0,4.0.0))
+      \- org.eclipse.platform:org.eclipse.team.core:jar:3.9.500:compile
+         \- org.eclipse.platform:org.eclipse.compare.core:jar:3.7.100:compile (version selected from constraint [3.5.200,4.0.0))
 
       Repeat the same procedure again whenever you upgrade JDT Core via merge from upstream. Then update direct and
       transitive dependencies (maybe there are new or absolete ones) and fix their versions in this dependency
@@ -1209,29 +1028,29 @@
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.resources</artifactId>
-        <version>3.16.100</version>
+        <version>3.18.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.runtime</artifactId>
-        <version>3.24.100</version>
+        <version>3.26.0</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.filesystem</artifactId>
-        <version>1.9.300</version>
+        <version>1.9.500</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.text</artifactId>
-        <version>3.12.0</version>
+        <version>3.12.200</version>
       </dependency>
       <!-- Not this one, because optional=true and not used in AspectJ -->
       <!--
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.team.core</artifactId>
-        <version>[3.1.0,4.0.0)</version>
+        <version>3.9.500</version>
         <optional>true</optional>
       </dependency>
       -->
@@ -1240,47 +1059,47 @@
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.expressions</artifactId>
-        <version>3.8.100</version>
+        <version>3.8.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.osgi</artifactId>
-        <version>3.17.200</version>
+        <version>3.18.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.common</artifactId>
-        <version>3.16.0</version>
+        <version>3.16.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.jobs</artifactId>
-        <version>3.12.100</version>
+        <version>3.13.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.registry</artifactId>
-        <version>3.11.100</version>
+        <version>3.11.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.preferences</artifactId>
-        <version>3.9.100</version>
+        <version>3.10.100</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.contenttype</artifactId>
-        <version>3.8.100</version>
+        <version>3.8.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.equinox.app</artifactId>
-        <version>1.6.100</version>
+        <version>1.6.200</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.platform</groupId>
         <artifactId>org.eclipse.core.commands</artifactId>
-        <version>3.10.100</version>
+        <version>3.10.200</version>
       </dependency>
 
     </dependencies>

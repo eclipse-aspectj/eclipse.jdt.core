@@ -14,6 +14,7 @@
 package org.eclipse.jdt.core;
 
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 
 /**
  * Interface of a classpath container.
@@ -25,6 +26,7 @@ import org.eclipse.core.runtime.IPath;
  * to a different container object.
  * <p>
  * The set of entries associated with a classpath container may contain any of the following:
+ * </p>
  * <ul>
  * <li> library entries (<code>CPE_LIBRARY</code>) </li>
  * <li> project entries (<code>CPE_PROJECT</code>) </li>
@@ -34,11 +36,12 @@ import org.eclipse.core.runtime.IPath;
  * A library entry can reference other libraries through the Class-Path section of the JAR's MANIFEST.MF file. If the
  * container wants such referenced entries to be part of the classpath, the container must explicitly add them to the
  * array returned from {@link #getClasspathEntries()}.
+ * </p>
  * <p>
  * Classpath container values are persisted locally to the workspace, but are not preserved from a
  * session to another. It is thus highly recommended to register a <code>ClasspathContainerInitializer</code>
  * for each referenced container (through the extension point "org.eclipse.jdt.core.ClasspathContainerInitializer").
- * <p>
+ * </p>
  * @see IClasspathEntry
  * @since 2.0
  */
@@ -135,9 +138,20 @@ public interface IClasspathContainer {
 	 * The container ID is also used to identify a<code>ClasspathContainerInitializer</code>
 	 * registered on the extension point "org.eclipse.jdt.core.classpathContainerInitializer", which can
 	 * be invoked if needing to resolve the container before it is explicitly set.
-	 * <p>
+	 * </p>
 	 * @return IPath - the container path that is associated with this container
 	 */
     IPath getPath();
+
+	/**
+	 * Answer the IDs of all registered classpath containers (extensions at extension point
+	 * {@link JavaModelManager#CPCONTAINER_INITIALIZER_EXTPOINT_ID}).
+	 * @return array of strings as extracted from the "id" attribute from all registered
+	 * 	classpath containers.
+	 * @since 3.32
+	 */
+	public static String[] getRegisteredContainerIds() {
+		return JavaModelManager.getRegisteredContainerIDs();
+	}
 }
 

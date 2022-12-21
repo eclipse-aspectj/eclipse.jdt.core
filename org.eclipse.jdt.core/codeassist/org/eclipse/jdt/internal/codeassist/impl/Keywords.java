@@ -8,6 +8,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *      Jesper Steen Møller - Contributions for
@@ -70,5 +71,6 @@ public interface Keywords {
 	char[] FALSE = "false".toCharArray(); //$NON-NLS-1$
 	char[] NULL = "null".toCharArray(); //$NON-NLS-1$
 	char[] VAR = "var".toCharArray(); //$NON-NLS-1$ // Admittedly not a full blown keyword, just "reserved"
+	char[] WHEN = "when".toCharArray(); //$NON-NLS-1$ // Admittedly not a full blown keyword, just "reserved"
 
 }

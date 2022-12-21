@@ -16,8 +16,10 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
 
 import junit.framework.Test;
 
@@ -26,6 +28,7 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.search.*;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.core.JarPackageFragmentRoot;
 import org.eclipse.jdt.internal.core.JavaModelStatus;
 
 /**
@@ -4503,5 +4506,214 @@ public void testBug383908() throws CoreException {
 		deleteProject("P");
 	}
 }
+/*
+ * Test that we can find methods called in an anonymous type from a jar,
+ * if the primary type contains multiple anonymous types.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/375
+ */
+public void testAnonymousTypeMethodReferenceJarSearchGh375() throws Exception {
+	try {
+		IJavaProject project = createJavaProject("P", new String[] { "src" }, new String[] { "/P/libGh375.jar", "JCL18_LIB" }, "bin", "1.8");
+		createFile(
+			"/P/src/X.java",
+			"public class X {\n" +
+			"	@SuppressWarnings({ \"rawtypes\", \"unchecked\" })\n" +
+			"	public static void main(String[] args) {\n" +
+			"		IY y = s -> foo(0);\n" +
+			"		y.accept(0);\n" +
+			"	}\n" +
+			"	static private void foo(int i) {}\n" +
+			"}\n"
+		);
 
+		String libSource = String.join(System.lineSeparator(), new String[] {
+				"public class TestGh375 {",
+				"	public void foo() {",
+				"		Runnable r = new Runnable() {",
+				"			@Override",
+				"			public void run() {",
+				"				System.out.println(\"foo\");",
+				"			}",
+				"		};",
+				"		r.run();",
+				"	}",
+				"	public void bar() throws Exception {",
+				"		java.util.concurrent.Callable<Void> r = new java.util.concurrent.Callable<Void>() {",
+				"			@Override",
+				"			public Void call() {",
+				"				System.out.println(\"bar\");",
+				"				helloWorld();",
+				"				return null;",
+				"			}",
+				"		};",
+				"		r.call();",
+				"	}",
+				"	public void helloWorld() {",
+				"		System.out.println(\"hello world\");",
+				"	}",
+				"}",
+		});
+
+		String jarFileName = "libGh375.jar";
+		String srcZipName = "libGh375.src.zip";
+		createLibrary(project, jarFileName, srcZipName, new String[] { "TestGh375.java", libSource}, new String[0], JavaCore.VERSION_1_8);
+		IFile srcZip = (IFile) project.getProject().findMember(srcZipName);
+		IFile jar = (IFile) project.getProject().findMember(jarFileName);
+		JarPackageFragmentRoot root = (JarPackageFragmentRoot) project.getPackageFragmentRoot(jar);
+		root.attachSource(srcZip.getFullPath(), null, null);
+		waitUntilIndexesReady();
+
+		IMethod testMethod = findMethod(project, "TestGh375", "helloWorld");
+		String foundReferences = searchForMethodReferences(testMethod);
+		assertFalse("Expected search to find references of method: " + testMethod + ", in snippet:\n" + libSource, foundReferences.isEmpty());
+		List<String> results = Arrays.asList(foundReferences.split(System.lineSeparator()));
+		String[] expectedResults = {
+				"call() (not open) [in <anonymous> [in TestGh375$2.class [in <default> [in libGh375.jar [in P]]]]]",
+		};
+		assertEquals("Unexpected search result", String.join(System.lineSeparator(), expectedResults), String.join(System.lineSeparator(), results));
+	} finally {
+		JavaCore.setOptions(getDefaultJavaCoreOptions());
+		deleteProject("P");
+	}
+}
+/*
+ * Test that we can find method references called in an anonymous type defined in a method.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/432
+ */
+public void testAnonymousTypeMethodReferenceSearchGh432() throws Exception {
+	String testProjectName = "gh432MethodReferencesSearchBug";
+	String snippet1 = "package p;\n" +
+			"public class TestGh432 {\n" +
+			"  public static void main(String[] args) {\n" +
+			"    class R implements Runnable {\n" +
+			"      public void run() {\n" +
+			"        java.util.stream.Stream.empty().filter(TestGh432::missingReference).count();\n" +
+			"      }\n" +
+			"    }\n" +
+			"    new R().run();\n" +
+			"  }\n" +
+			"  public static boolean missingReference(Object arg) {\n" +
+			"    return true;\n" +
+			"  }\n" +
+			"}";
+	String snippet2 = "package p;\n" +
+			"public class TestGh432 {\n" +
+			"  private static void foo(Runnable r) {\n" +
+			"    r.run();\n" +
+			"  }\n" +
+			"  public static void main(String[] args) {\n" +
+			"    foo(new Runnable() {\n" +
+			"      public void run() {\n" +
+			"        java.util.stream.Stream.empty().filter(TestGh432::missingReference).count();\n" +
+			"      }\n" +
+			"    });\n" +
+			"  }\n" +
+			"  public static boolean missingReference(Object arg) {\n" +
+			"    return true;\n" +
+			"  }\n" +
+			"}";
+	String snippet3 = "package p;\n" +
+			"public class TestGh432 {\n" +
+			"  public static void main(String[] args) {\n" +
+			"    new Runnable() {\n" +
+			"      public void run() {\n" +
+			"        new Runnable() {\n" +
+			"          public void run() {\n" +
+			"            java.util.stream.Stream.empty().filter(TestGh432::missingReference).count();\n" +
+			"          }\n" +
+			"        }.run();\n" +
+			"      }\n" +
+			"    }.run();\n" +
+			"  }\n" +
+			"  public static boolean missingReference(Object arg) {\n" +
+			"    return true;\n" +
+			"  }\n" +
+			"}";
+	String snippet4 = "package p;\n" +
+			"public class TestGh432 {\n" +
+			"  private static void foo(Runnable r) {\n" +
+			"    r.run();\n" +
+			"  }\n" +
+			"  public static void main(String[] args) {\n" +
+			"    foo(() -> {\n" +
+			"      new Runnable() {\n" +
+			"        public void run() {\n" +
+			"          java.util.stream.Stream.empty().filter(TestGh432::missingReference).count();\n" +
+			"        }\n" +
+			"      };\n" +
+			"    });\n" +
+			"  }\n" +
+			"  public static boolean missingReference(Object arg) {\n" +
+			"    return true;\n" +
+			"  }\n" +
+			"}";
+	String[] testSnippets = {
+			snippet1,
+			snippet2,
+			snippet3,
+			snippet4,
+	};
+	String[] expectedMatches = {
+			"void run() {key=Lp/TestGh432$89$R;.run()V} [in R [in main(String[]) [in TestGh432 [in TestGh432.java [in p [in src [in gh432MethodReferencesSearchBug]]]]]]]",
+			"void run() {key=Lp/TestGh432$148;.run()V} [in <anonymous #1> [in main(String[]) [in TestGh432 [in TestGh432.java [in p [in src [in gh432MethodReferencesSearchBug]]]]]]]",
+			"void run() {key=Lp/TestGh432$138;.run()V} [in <anonymous #1> [in run() [in <anonymous #1> [in main(String[]) [in TestGh432 [in TestGh432.java [in p [in src [in gh432MethodReferencesSearchBug]]]]]]]]]",
+			"run() (not open) {key=Lp/TestGh432$162;.run()V} [in <anonymous #1> [in run() [in <lambda #1> [in main(String[]) [in TestGh432 [in TestGh432.java [in p [in src [in gh432MethodReferencesSearchBug]]]]]]]]]",
+	};
+	try {
+		IJavaProject p = createJava11Project(testProjectName, new String[] {"src"});
+		waitUntilIndexesReady();
+		String packageFolder = "/" + testProjectName + "/src/p";
+		createFolder(packageFolder);
+		String sourceFile = packageFolder + "/TestGh432.java";
+		waitForAutoBuild();
+		for (int i = 0; i < testSnippets.length; ++i) {
+			String fileContent = testSnippets[i];
+			String expectedResults = expectedMatches[i];
+			deleteFile(sourceFile);
+			waitForAutoBuild();
+			waitUntilIndexesReady();
+			createFile(sourceFile, fileContent);
+			waitForAutoBuild();
+			waitUntilIndexesReady();
+
+			IMethod testMethod = findMethod(p, "p.TestGh432", "missingReference");
+			String foundReferences = searchForMethodReferences(testMethod).strip();
+			assertFalse("Expected search to find references of method: " + testMethod + ", in snippet:\n" + fileContent, foundReferences.isEmpty());
+			List<String> results = Arrays.asList(foundReferences.split("\n"));
+			assertEquals("Unexpected search result for snippet:\n" + fileContent, expectedResults, String.join("\n", results));
+		}
+	} finally {
+		JavaCore.setOptions(getDefaultJavaCoreOptions());
+		deleteProject(testProjectName);
+	}
+}
+private static String searchForMethodReferences(IMethod testMethod) throws CoreException {
+	class JavaSearchResultCollector extends SearchRequestor {
+		private final StringBuilder result = new StringBuilder();
+		public void acceptSearchMatch(SearchMatch match) throws CoreException {
+			JavaSearchResultCollector.this.result.append(match.getElement());
+			JavaSearchResultCollector.this.result.append(System.lineSeparator());
+		}
+	}
+	JavaSearchResultCollector testResultCollector = new JavaSearchResultCollector();
+	IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { testMethod.getAncestor(IJavaElement.PACKAGE_FRAGMENT) });
+	int agnosticMatchRule = SearchPattern.R_EXACT_MATCH | SearchPattern.R_CASE_SENSITIVE | SearchPattern.R_ERASURE_MATCH;
+	SearchPattern pattern = SearchPattern.createPattern(testMethod, IJavaSearchConstants.REFERENCES, agnosticMatchRule);
+	SearchEngine searchEngine = new SearchEngine();
+	searchEngine.search(pattern, new SearchParticipant[] {SearchEngine.getDefaultSearchParticipant()}, scope, testResultCollector, new NullProgressMonitor());
+	String foundReferences = testResultCollector.result.toString();
+	return foundReferences;
+}
+private static IMethod findMethod(IJavaProject project, String typeFqn, String methodName) throws JavaModelException {
+	IType testType = project.findType(typeFqn);
+	assertNotNull("Failed to find test type: " + typeFqn, testType);
+	IMethod testMethod = null;
+	for (IMethod method : testType.getMethods()) {
+		if (methodName.equals(method.getElementName())) {
+			testMethod = method;
+		}
+	}
+	assertNotNull("Failed to find method: " + methodName + ", in type: " + typeFqn, testMethod);
+	return testMethod;
+}
 }

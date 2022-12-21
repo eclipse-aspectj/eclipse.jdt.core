@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -310,6 +310,8 @@ static class JavacCompiler {
 			return JavaCore.VERSION_16;
 		} else if(rawVersion.startsWith("17")) {
 			return JavaCore.VERSION_17;
+		} else if(rawVersion.startsWith("18")) {
+			return JavaCore.VERSION_18;
 		} else {
 			throw new RuntimeException("unknown javac version: " + rawVersion);
 		}
@@ -504,6 +506,20 @@ static class JavacCompiler {
 				return 0100;
 			}
 			if ("17.0.2".equals(rawVersion)) {
+				return 0200;
+			}
+		}
+		if (version == JavaCore.VERSION_18) {
+			if ("18-ea".equals(rawVersion)) {
+				return 0000;
+			}
+			if ("18".equals(rawVersion)) {
+				return 0000;
+			}
+			if ("18.0.1".equals(rawVersion)) {
+				return 0100;
+			}
+			if ("18.0.2".equals(rawVersion)) {
 				return 0200;
 			}
 		}
@@ -839,8 +855,6 @@ protected static class JavacTestOptions {
 			EclipseBug510528 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=510528
 				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) : null,
 			EclipseBug531531 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=531531
-					new EclipseHasABug(MismatchType.EclipseErrorsJavacNone) : null,
-			EclipseBug529197 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=529197
 					new EclipseHasABug(MismatchType.EclipseErrorsJavacNone) : null;
 	}
 	// Justification based upon:
@@ -1709,14 +1723,14 @@ protected static class JavacTestOptions {
 		return DefaultJavaRuntimeEnvironment.getDefaultClassPaths();
 	}
 	/** Get class library paths built from default class paths plus the JDT null annotations. */
-	protected String[] getLibsWithNullAnnotations(long sourceLevel) throws IOException {
+	protected String[] getLibsWithNullAnnotations(long sourceLevel) {
 		String[] defaultLibs = getDefaultClassPaths();
 		int len = defaultLibs.length;
 		String[] libs = new String[len+1];
 		System.arraycopy(defaultLibs, 0, libs, 0, len);
 		String version = sourceLevel < ClassFileConstants.JDK1_8 ? "[1.1.0,2.0.0)" : "[2.0.0,3.0.0)";
 		Bundle[] bundles = Platform.getBundles("org.eclipse.jdt.annotation", version);
-		File bundleFile = FileLocator.getBundleFile(bundles[0]);
+		File bundleFile = FileLocator.getBundleFileLocation(bundles[0]).get();
 		if (bundleFile.isDirectory())
 			libs[len] = bundleFile.getPath()+"/bin";
 		else

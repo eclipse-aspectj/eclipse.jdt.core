@@ -26,6 +26,7 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.util.ArrayList;
 
 import org.eclipse.jdt.core.tests.compiler.util.HashtableOfObjectTest;
+import org.eclipse.jdt.core.tests.compiler.util.JrtUtilTest;
 import org.eclipse.jdt.core.tests.dom.StandAloneASTParserTest;
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
@@ -62,6 +63,7 @@ public static Test suite() {
 	standardTests.add(ProblemConstructorTest.class);
 	standardTests.add(ProblemTypeAndMethodTest.class);
 	standardTests.add(ScannerTest.class);
+	standardTests.add(PublicScannerTest.class);
 	standardTests.add(SwitchTest.class);
 	standardTests.add(TryStatementTest.class);
 	standardTests.add(UtilTest.class);
@@ -170,6 +172,7 @@ public static Test suite() {
 	since_9.add(NullAnnotationTests9.class);
 	since_9.add(AnnotationTest_9.class);
 	since_9.add(JavadocTestForModule.class);
+	since_9.add(TryStatement9Test.class);
 
 	// add 10 specific test here (check duplicates)
 	ArrayList since_10 = new ArrayList();
@@ -218,17 +221,23 @@ public static Test suite() {
 	 ArrayList since_17 = new ArrayList();
 	 since_17.add(SealedTypesTests.class);
 	 since_17.add(InstanceofPrimaryPatternTest.class);
+	 since_17.add(BatchCompilerTest_17.class);
 
 	 // add 18 specific test here (check duplicates)
 	 ArrayList since_18 = new ArrayList();
-	 since_18.add(SwitchPatternTest.class);
-	 since_18.add(NullAnnotationTests18.class);
 	 since_18.add(JavadocTest_18.class);
+
+	 // add 19 specific test here (check duplicates)
+	 ArrayList since_19 = new ArrayList();
+	 since_19.add(NullAnnotationTests18.class);
+	 since_19.add(SwitchPatternTest.class);
+	 since_19.add(RecordPatternTest.class);
 
 	 // Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());
 	all.addTest(new TestSuite(StandAloneASTParserTest.class));
 	all.addTest(new TestSuite(HashtableOfObjectTest.class));
+	all.addTest(new TestSuite(JrtUtilTest.class));
 	int possibleComplianceLevels = AbstractCompilerTest.getPossibleComplianceLevels();
 	if ((possibleComplianceLevels & AbstractCompilerTest.F_1_3) != 0) {
 		ArrayList tests_1_3 = (ArrayList)standardTests.clone();
@@ -441,6 +450,27 @@ public static Test suite() {
 		tests_18.addAll(since_18);
 		TestCase.resetForgottenFilters(tests_18);
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_18), tests_18));
+	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_19) != 0) {
+		ArrayList tests_19 = (ArrayList)standardTests.clone();
+		tests_19.addAll(since_1_4);
+		tests_19.addAll(since_1_5);
+		tests_19.addAll(since_1_6);
+		tests_19.addAll(since_1_7);
+		tests_19.addAll(since_1_8);
+		tests_19.addAll(since_9);
+		tests_19.addAll(since_10);
+		tests_19.addAll(since_11);
+		tests_19.addAll(since_12);
+		tests_19.addAll(since_13);
+		tests_19.addAll(since_14);
+		tests_19.addAll(since_15);
+		tests_19.addAll(since_16);
+		tests_19.addAll(since_17);
+		tests_19.addAll(since_18);
+		tests_19.addAll(since_19);
+		TestCase.resetForgottenFilters(tests_19);
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_19), tests_19));
 	}
 	all.addTest(new TestSuite(Jsr14Test.class));
 	return all;

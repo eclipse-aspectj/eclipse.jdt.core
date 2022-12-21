@@ -17,6 +17,7 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -43,6 +44,8 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.CompilationUnit;
+import org.eclipse.jdt.internal.core.JavaElement;
+import org.eclipse.jdt.internal.core.JavaModelCache;
 import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 import org.osgi.framework.Bundle;
@@ -188,7 +191,7 @@ protected void assertNoProblem(char[] source, ICompilationUnit unit) throws Inte
 	if (this.problemRequestor.problemCount > 0) {
 		// If errors then wait for indexes to finish
 		while (indexManager.awaitingJobsCount() > 0) {
-			Thread.sleep(100);
+			waitUntilIndexesReady();
 		}
 		// Reconcile again to see if error goes away
 		this.problemRequestor.initialize(source);
@@ -2465,6 +2468,47 @@ public void testMethodWithError07() throws CoreException {
 		deleteFile("/Reconciler/src/p1/Y.java");
 	}
 }
+
+/** tests that after closing a workingcopy all elements are removed from JavaModelCache**/
+public void testCloseMethodArgumentChildren() throws Exception {
+	this.workingCopy.discardWorkingCopy();
+	this.workingCopy = null;
+	try {
+		String contents = "package p1;\n" + "public class Y {\n" + "  void foo(int i) {\n" + "  }\n" + "}";
+		createFile("/Reconciler/src/p1/Y.java", contents);
+		this.problemRequestor = new ProblemRequestor();
+		this.problemRequestor.initialize(contents.toCharArray());
+		WorkingCopyOwner owner = new WorkingCopyOwner(){};
+
+		long owningCount0 = getCachedElementCount(owner);
+		// Create working copy
+		this.workingCopy = getCompilationUnit("Reconciler/src/p1/Y.java").getWorkingCopy(owner, null);
+		// Close working copy
+		long owningCount1 = getCachedElementCount(owner);
+		assertTrue(owningCount1 - owningCount0 > 0);
+		JavaModelManager.getJavaModelManager().removeInfoAndChildren((CompilationUnit) this.workingCopy);
+		long owningCount2 = getCachedElementCount(owner);
+		assertEquals(0, owningCount2 - owningCount0); // did fail with 1 element (the method argument)
+		assertEquals(0, owningCount0);
+		assertEquals(0, owningCount2);
+	} finally {
+		deleteFile("/Reconciler/src/p1/Y.java");
+	}
+}
+private static long getCachedElementCount(WorkingCopyOwner owner) throws Exception {
+	JavaModelManager javaModelManager = JavaModelManager.getJavaModelManager();
+	// private JavaModelCache javaModelCache=javaModelManager.cache:
+	Field cacheField = javaModelManager.getClass().getDeclaredField("cache");
+	cacheField.setAccessible(true);
+	JavaModelCache javaModelCache = (JavaModelCache) cacheField.get(javaModelManager);
+	// private Map<IJavaElement, Object> childrenCache=javaModelCache.childrenCache:
+	Field childrenCacheField = javaModelCache.getClass().getDeclaredField("childrenCache");
+	childrenCacheField.setAccessible(true);
+	Map<IJavaElement, Object> childrenCache = (Map<IJavaElement, Object>) childrenCacheField.get(javaModelCache);
+	return childrenCache.keySet().stream()
+			.filter(je -> ((((JavaElement) je).getCompilationUnit()==null)?null:((JavaElement) je).getCompilationUnit().getOwner()) == owner).count();
+}
+
 /*
  * Test that the units with similar names aren't presenting each other errors
  * (regression test for bug 39475)
@@ -5838,7 +5882,7 @@ public void testBug440592() throws Exception {
 		deleteProjects(new String[] { "P" });
 	}
 }
-public void testBug485092() throws CoreException, IOException, InterruptedException {
+public void testBug485092() throws CoreException, InterruptedException {
 
 	IJavaProject project15 = null;
 	IJavaProject project18 = null;
@@ -5883,7 +5927,7 @@ public void testBug485092() throws CoreException, IOException, InterruptedExcept
 
 		project18.setOption(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
 		Bundle[] bundles = Platform.getBundles("org.eclipse.jdt.annotation","[2.0.0,3.0.0)");
-		File bundleFile = FileLocator.getBundleFile(bundles[0]);
+		File bundleFile = FileLocator.getBundleFileLocation(bundles[0]).get();
 		String annotationsLib = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 		IClasspathEntry nullAnnotationsClassPathEntry = JavaCore.newLibraryEntry(new Path(annotationsLib), null, null);
 

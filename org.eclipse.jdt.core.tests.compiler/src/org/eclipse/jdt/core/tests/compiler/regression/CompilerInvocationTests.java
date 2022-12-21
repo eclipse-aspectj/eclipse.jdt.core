@@ -700,6 +700,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("InvalidUsageOfWildcard", new ProblemAttributes(CategorizedProblem.CAT_SYNTAX));
 		expectedProblemAttributes.put("InvalidVoidExpression", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("IsClassPathCorrect", new ProblemAttributes(CategorizedProblem.CAT_BUILDPATH));
+		expectedProblemAttributes.put("IsClassPathCorrectWithReferencingType", new ProblemAttributes(CategorizedProblem.CAT_BUILDPATH));
 		expectedProblemAttributes.put("JavadocAmbiguousConstructor", new ProblemAttributes(CategorizedProblem.CAT_JAVADOC));
 		expectedProblemAttributes.put("JavadocAmbiguousField", new ProblemAttributes(CategorizedProblem.CAT_JAVADOC));
 		expectedProblemAttributes.put("JavadocAmbiguousMethod", new ProblemAttributes(CategorizedProblem.CAT_JAVADOC));
@@ -861,6 +862,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("NonGenericConstructor", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 		expectedProblemAttributes.put("NonGenericMethod", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 		expectedProblemAttributes.put("NonGenericType", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
+		expectedProblemAttributes.put("NonNullArrayContentNotInitialized", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
 		expectedProblemAttributes.put("NonNullDefaultDetailIsNotEvaluated", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("NonNullExpressionComparisonYieldsFalse", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
 		expectedProblemAttributes.put("NonNullMessageSendComparisonYieldsFalse", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
@@ -1310,6 +1312,10 @@ public void test011_problem_categories() {
 	    expectedProblemAttributes.put("EnhancedSwitchMissingDefault", new ProblemAttributes(true));
 	    expectedProblemAttributes.put("DuplicateTotalPattern", new ProblemAttributes(true));
 	    expectedProblemAttributes.put("UnexpectedTypeinSwitchPattern", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("UnexpectedTypeinRecordPattern", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("RecordPatternMismatch", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("PatternTypeMismatch", new ProblemAttributes(true));
+	    expectedProblemAttributes.put("RawTypeInRecordPattern", new ProblemAttributes(true));
 	    expectedProblemAttributes.put("ClassExtendFinalRecord", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 	    expectedProblemAttributes.put("RecordErasureIncompatibilityInCanonicalConstructor", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 	    expectedProblemAttributes.put("JavadocInvalidModule", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
@@ -1783,6 +1789,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("InvalidUsageOfWildcard", SKIP);
 		expectedProblemAttributes.put("InvalidVoidExpression", SKIP);
 		expectedProblemAttributes.put("IsClassPathCorrect", SKIP);
+		expectedProblemAttributes.put("IsClassPathCorrectWithReferencingType", SKIP);
 		expectedProblemAttributes.put("JavadocAmbiguousConstructor", new ProblemAttributes(JavaCore.COMPILER_PB_INVALID_JAVADOC));
 		expectedProblemAttributes.put("JavadocAmbiguousField", new ProblemAttributes(JavaCore.COMPILER_PB_INVALID_JAVADOC));
 		expectedProblemAttributes.put("JavadocAmbiguousMethod", new ProblemAttributes(JavaCore.COMPILER_PB_INVALID_JAVADOC));
@@ -1946,6 +1953,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("NonGenericConstructor", SKIP);
 		expectedProblemAttributes.put("NonGenericMethod", SKIP);
 		expectedProblemAttributes.put("NonGenericType", SKIP);
+		expectedProblemAttributes.put("NonNullArrayContentNotInitialized", SKIP);
 		expectedProblemAttributes.put("NonNullDefaultDetailIsNotEvaluated", SKIP);
 		expectedProblemAttributes.put("NonNullExpressionComparisonYieldsFalse", new ProblemAttributes(JavaCore.COMPILER_PB_REDUNDANT_NULL_CHECK));
 		expectedProblemAttributes.put("NonNullSpecdFieldComparisonYieldsFalse", new ProblemAttributes(JavaCore.COMPILER_PB_REDUNDANT_NULL_CHECK));
@@ -2396,6 +2404,10 @@ public void test012_compiler_problems_tuning() {
 	    expectedProblemAttributes.put("EnhancedSwitchMissingDefault", SKIP);
 	    expectedProblemAttributes.put("DuplicateTotalPattern", SKIP);
 	    expectedProblemAttributes.put("UnexpectedTypeinSwitchPattern", SKIP);
+	    expectedProblemAttributes.put("UnexpectedTypeinRecordPattern", SKIP);
+	    expectedProblemAttributes.put("RecordPatternMismatch", SKIP);
+	    expectedProblemAttributes.put("PatternTypeMismatch", SKIP);
+	    expectedProblemAttributes.put("RawTypeInRecordPattern", SKIP);
 	    expectedProblemAttributes.put("ClassExtendFinalRecord", SKIP);
 	    expectedProblemAttributes.put("RecordErasureIncompatibilityInCanonicalConstructor", SKIP);
 	    expectedProblemAttributes.put("JavadocInvalidModule", SKIP);

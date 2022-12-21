@@ -37,7 +37,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 	}
 
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_18);
+		return buildMinimalComplianceTestSuite(testClass(), F_19);
 	}
 
 	public static Class<?> testClass() {
@@ -128,7 +128,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 		Runner runner = new Runner();
 		runner.classLibraries = this.LIBS;
 		Map<String,String> opts = getCompilerOptions();
-		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_18);
+		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_19);
 		opts.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		opts.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		runner.customOptions = opts;
@@ -540,5 +540,92 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 		runner.expectedCompilerLog = "";
 		runner.expectedOutputString = "0";
 		runner.runConformTest();
+	}
+
+	public void testInstanceOfPatternIsNonNull() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+				"X.java",
+				"import org.eclipse.jdt.annotation.*;\n" +
+				"public class X {\n" +
+				"	public static void consumeNonNull(@NonNull String s) {\n" +
+				"		System.out.println(\"nonnull\");\n" +
+				"	}\n" +
+				"	public static void main(String... args) {\n" +
+				"		Object o = Math.random() < 0 ? new Object() : \"blah\";\n" +
+				"		if (o instanceof String message) {\n" +
+				"			consumeNonNull(message);\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+			};
+		runner.expectedCompilerLog = "";
+		runner.expectedOutputString = "nonnull";
+		runner.runConformTest();
+	}
+
+	public void testInstanceOfPatternIsLaterAssignedNull() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+				"X.java",
+				"import org.eclipse.jdt.annotation.*;\n" +
+				"public class X {\n" +
+				"	public static void consumeNonNull(@NonNull String s) {\n" +
+				"		System.out.println(\"nonnull\");\n" +
+				"	}\n" +
+				"	public static void main(String... args) {\n" +
+				"		Object o = Math.random() >= 0 ? new Object() : \"blah\";\n" +
+				"		if (o instanceof String message) {\n" +
+				"			consumeNonNull(message);\n" +
+				"			message = null;\n" +
+				"			consumeNonNull(message);\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+			};
+		runner.expectedCompilerLog =
+				"----------\n" +
+				"1. ERROR in X.java (at line 11)\n" +
+				"	consumeNonNull(message);\n" +
+				"	               ^^^^^^^\n" +
+				"Null type mismatch: required \'@NonNull String\' but the provided value is null\n" +
+				"----------\n";
+		runner.runNegativeTest();
+	}
+
+	// since 11: uses 'var'
+	public void testNullableVar() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+				"Test.java",
+				"\n" +
+				"import org.eclipse.jdt.annotation.NonNull;\n" +
+				"\n" +
+				"public class Test {\n" +
+				"	public @NonNull Test getSomeValue() { return this; }\n" +
+				"	\n" +
+				"	void test(boolean rainyDay) {\n" +
+				"		var a = rainyDay ? getSomeValue() : null;\n" +
+				"		a.getSomeValue(); // problem not detected\n" +
+				"	}\n" +
+				"	void test2(boolean rainyDay) {\n" +
+				"		Test a = rainyDay ? getSomeValue() : null;\n" +
+				"		a.getSomeValue(); // Potential null pointer access: The variable a may be null at this location\n" +
+				"	}\n" +
+				"}\n"
+			};
+		runner.expectedCompilerLog =
+				"----------\n" +
+				"1. ERROR in Test.java (at line 9)\n" +
+				"	a.getSomeValue(); // problem not detected\n" +
+				"	^\n" +
+				"Potential null pointer access: The variable a may be null at this location\n" +
+				"----------\n" +
+				"2. ERROR in Test.java (at line 13)\n" +
+				"	a.getSomeValue(); // Potential null pointer access: The variable a may be null at this location\n" +
+				"	^\n" +
+				"Potential null pointer access: The variable a may be null at this location\n" +
+				"----------\n";
+		runner.runNegativeTest();
 	}
 }

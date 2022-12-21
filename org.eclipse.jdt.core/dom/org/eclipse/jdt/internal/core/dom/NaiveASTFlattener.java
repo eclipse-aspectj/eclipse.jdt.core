@@ -817,7 +817,7 @@ public class NaiveASTFlattener extends ASTVisitor {
 	public boolean visit(GuardedPattern node) {
 		if (DOMASTUtil.isPatternSupported(node.getAST())) {
 			node.getPattern().accept(this);
-			this.buffer.append(" && ");//$NON-NLS-1$
+			this.buffer.append(" when ");//$NON-NLS-1$
 			node.getExpression().accept(this);
 		}
 		return false;
@@ -896,6 +896,7 @@ public class NaiveASTFlattener extends ASTVisitor {
 		return false;
 	}
 
+
 	@Override
 	public boolean visit(PatternInstanceofExpression node) {
 		node.getLeftOperand().accept(this);
@@ -931,6 +932,12 @@ public class NaiveASTFlattener extends ASTVisitor {
 	@Override
 	public boolean visit(JavaDocRegion node) {
 		//ToDO
+		return false;
+	}
+
+	@Override
+	public boolean visit(JavaDocTextElement node) {
+		this.buffer.append(node.getText());
 		return false;
 	}
 
@@ -1421,6 +1428,53 @@ public class NaiveASTFlattener extends ASTVisitor {
 		this.buffer.append("}\n");//$NON-NLS-1$
 		return false;
 	}
+
+	@Override
+	public boolean visit(RecordPattern node) {
+		if (DOMASTUtil.isPatternSupported(node.getAST())) {
+
+			if (node.getPatternType() != null) {
+				node.getPatternType().accept(this);
+			}
+			boolean addBraces = node.patterns().size() >= 1;
+			if (addBraces) {
+				this.buffer.append("(");//$NON-NLS-1$
+			}
+			int size = 1;
+			for (Pattern pattern : node.patterns()) {
+					visitPattern(pattern);
+					if (addBraces && size < node.patterns().size()) {
+						this.buffer.append(", ");//$NON-NLS-1$
+					}
+					size++;
+			}
+			if (addBraces) {
+				this.buffer.append(")");//$NON-NLS-1$
+			}
+			if (node.getPatternName() != null) {
+				this.buffer.append(" ");//$NON-NLS-1$
+				node.getPatternName().accept(this);
+			}
+		}
+		return false;
+	}
+
+	private boolean visitPattern(Pattern node) {
+		if (!DOMASTUtil.isPatternSupported(node.getAST())) {
+			return false;
+		}
+		if (node instanceof RecordPattern) {
+			return visit((RecordPattern) node);
+		}
+		if (node instanceof GuardedPattern) {
+			return visit((GuardedPattern) node);
+		}
+		if (node instanceof TypePattern) {
+			return visit((TypePattern) node);
+		}
+		return false;
+	}
+
 
 	@Override
 	public boolean visit(RequiresDirective node) {

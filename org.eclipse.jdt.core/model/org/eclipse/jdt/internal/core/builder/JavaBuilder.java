@@ -27,6 +27,7 @@ import org.eclipse.jdt.internal.core.util.Util;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class JavaBuilder extends IncrementalProjectBuilder {
@@ -175,7 +176,8 @@ protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) thro
 	if (DEBUG)
 		System.out.println("\nJavaBuilder: Starting build of " + this.currentProject.getName() //$NON-NLS-1$
 			+ " @ " + new Date(System.currentTimeMillis())); //$NON-NLS-1$
-	this.notifier = createBuildNotifier(monitor, currentProject); // AspectJ Extension - use factory, was 'new BuildNotifier(monitor,currentProject)'
+	this.notifier = createBuildNotifier(monitor, kind, kind == IncrementalProjectBuilder.AUTO_BUILD ? this::isInterrupted : ()->false); // AspectJ Extension - use factory, was 'new BuildNotifier(monitor, kind, kind == IncrementalProjectBuilder.AUTO_BUILD ? this::isInterrupted : ()->false)'
+//###
 	this.notifier.begin();
 	boolean ok = false;
 	try {
@@ -263,9 +265,9 @@ protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) thro
 	return requiredProjects;
 }
 
-// AspectJ Extension
-protected BuildNotifier createBuildNotifier(IProgressMonitor monitor, IProject currentProject) {
-	return new BuildNotifier(monitor, currentProject);
+// AspectJ Extension - overridden by AspectJ's AspectJBuilder, returning an AjBuildNotifier
+protected BuildNotifier createBuildNotifier(IProgressMonitor monitor, int buildKind, BooleanSupplier interruptSupplier) {
+	return new BuildNotifier(monitor, buildKind, interruptSupplier);
 }
 // End AspectJ Extension
 
@@ -325,7 +327,7 @@ protected void clean(IProgressMonitor monitor) throws CoreException {
 	if (DEBUG)
 		System.out.println("\nJavaBuilder: Cleaning " + this.currentProject.getName() //$NON-NLS-1$
 			+ " @ " + new Date(System.currentTimeMillis())); //$NON-NLS-1$
-	this.notifier = new BuildNotifier(monitor, this.currentProject);
+	this.notifier = new BuildNotifier(monitor,CLEAN_BUILD, ()->false);
 	this.notifier.begin();
 	try {
 		this.notifier.checkCancel();
@@ -790,6 +792,7 @@ void mustPropagateStructuralChanges() {
 	LinkedHashSet cycleParticipants = new LinkedHashSet(3);
 	this.javaProject.updateCycleParticipants(new ArrayList(), cycleParticipants, new HashMap<>(), this.workspaceRoot, new HashSet(3), null);
 	IPath currentPath = this.javaProject.getPath();
+	Set<IProject> toRebuild = new HashSet<>();
 	Iterator i= cycleParticipants.iterator();
 	while (i.hasNext()) {
 		IPath participantPath = (IPath) i.next();
@@ -799,10 +802,12 @@ void mustPropagateStructuralChanges() {
 				if (DEBUG)
 					System.out.println("JavaBuilder: Requesting another build iteration since cycle participant " + project.getName() //$NON-NLS-1$
 						+ " has not yet seen some structural changes"); //$NON-NLS-1$
-				needRebuild();
-				return;
+				toRebuild.add(project);
 			}
 		}
+	}
+	if (!toRebuild.isEmpty()) {
+		requestProjectsRebuild(toRebuild);
 	}
 }
 

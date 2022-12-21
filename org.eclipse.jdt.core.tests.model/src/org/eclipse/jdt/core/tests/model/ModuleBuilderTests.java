@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2020 IBM Corporation and others.
+ * Copyright (c) 2016, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -35,6 +35,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IAccessRule;
 import org.eclipse.jdt.core.IClasspathAttribute;
+import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaModelMarker;
@@ -710,6 +711,41 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			options.put(CompilerOptions.OPTION_Compliance, "10");
 			options.put(CompilerOptions.OPTION_Source, "10");
 			options.put(CompilerOptions.OPTION_TargetPlatform, "10");
+			options.put(CompilerOptions.OPTION_Release, "enabled");
+			project.setOptions(options);
+			project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IPackageFragmentRoot[] roots = project.getPackageFragmentRoots();
+			IPackageFragmentRoot theRoot = null;
+			for (IPackageFragmentRoot root : roots) {
+				if (root.getElementName().equals("jdt.test")) {
+					theRoot = root;
+					break;
+				}
+			}
+			assertNotNull("should not be null", theRoot);
+			String[] modules = JavaCore.getReferencedModules(project);
+			if (isJRE12)
+				assertStringsEqual("incorrect result", new String[]{"java.desktop", "java.rmi", "java.sql"}, modules);
+			else if (isJRE11)
+				assertStringsEqual("incorrect result", new String[]{"java.datatransfer", "java.desktop", "java.net.http", "java.rmi", "java.sql"}, modules);
+			else if (isJRE10)
+				assertStringsEqual("incorrect result", new String[]{"java.datatransfer", "java.desktop", "java.rmi", "java.sql"}, modules);
+			else // 9
+				assertStringsEqual("incorrect result", new String[]{"java.desktop", "java.rmi", "java.sql"}, modules);
+		} finally {
+			this.deleteProject("ConvertToModule");
+			 JavaCore.setOptions(javaCoreOptions);
+		}
+	}
+	public void testConvertToModuleWithRelease9() throws CoreException, IOException {
+		Hashtable<String, String> javaCoreOptions = JavaCore.getOptions();
+		try {
+			IJavaProject project = setUpJavaProject("ConvertToModule");
+			Map<String, String> options = new HashMap<>();
+			// Make sure the new options map doesn't reset.
+			options.put(CompilerOptions.OPTION_Compliance, "9");
+			options.put(CompilerOptions.OPTION_Source, "9");
+			options.put(CompilerOptions.OPTION_TargetPlatform, "9");
 			options.put(CompilerOptions.OPTION_Release, "enabled");
 			project.setOptions(options);
 			project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
@@ -4764,6 +4800,52 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			assertMarkers("Unexpected markers",	"",  markers);
 		} finally {
 			deleteProject("morg.astro");
+			deleteProject("com.greetings");
+		}
+	}
+	public void testAddExportsIllegal() throws CoreException {
+		try {
+			// need to simulate a system library container (provided otherwise by jdt.launching)
+			ContainerInitializer.setInitializer(new TestContainerInitializer(IClasspathContainer.K_SYSTEM));
+
+			IJavaProject p = createJava10Project("com.greetings", new String[] {"src"}); // compliance 10 ensures that --release is effective
+			setClasspath(p, new IClasspathEntry[] {
+				JavaCore.newContainerEntry(new Path(TestContainerInitializer.TEST_CONTAINER_NAME), null,
+						new IClasspathAttribute[] {
+								new ClasspathAttribute("module", "true"),
+								new ClasspathAttribute(IClasspathAttribute.ADD_EXPORTS, "java.desktop/com.sun.imageio.plugins.png=ALL-UNNAMED") },
+						false),
+				JavaCore.newSourceEntry(new Path("/com.greetings/src"))
+			});
+			p.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
+			createSourceFiles(p, new String[] {
+					"src/Foo.java",
+					"import com.sun.imageio.plugins.png.PNGImageReader;\n" +
+					"\n" +
+					"public class Foo {\n" +
+					"	PNGImageReader r;\n" +
+					"}\n"
+			});
+			p.getProject().getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = p.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			sortMarkers(markers);
+			String expectedMarkers =
+					"Exporting a package from system module \'java.desktop\' is not allowed with --release.\n" +
+					"The project cannot be built until build path errors are resolved";
+			assertMarkers("Unexpected markers", expectedMarkers, markers);
+			// toggle to disabled should resolve the error:
+			p.setOption(JavaCore.COMPILER_RELEASE, JavaCore.DISABLED);
+			p.getProject().getWorkspace().build(IncrementalProjectBuilder.AUTO_BUILD, null);
+			markers = p.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			assertMarkers("Unexpected markers", "", markers);
+			// toggle back to enabled should resurface the error
+			p.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
+			p.getProject().getWorkspace().build(IncrementalProjectBuilder.AUTO_BUILD, null);
+			markers = p.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			sortMarkers(markers);
+			assertMarkers("Unexpected markers", expectedMarkers, markers);
+		} finally {
+			ContainerInitializer.setInitializer(null);
 			deleteProject("com.greetings");
 		}
 	}
@@ -8939,6 +9021,34 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 
 		} finally {
 			deleteProject("ztest");
+		}
+	}
+	public void testIssue23() throws CoreException {
+		IJavaProject p1 = createJava9Project("Issue23", "18");
+		Map<String, String> options = new HashMap<>();
+		// Make sure the new options map doesn't reset.
+		options.put(CompilerOptions.OPTION_Compliance, "16.8");
+		options.put(CompilerOptions.OPTION_Source, "16.8");
+		options.put(CompilerOptions.OPTION_TargetPlatform, "16.8");
+		options.put(CompilerOptions.OPTION_Release, "enabled");
+		p1.setOptions(options);
+		try {
+			createFolder("/Issue23/src/p1");
+			createFile("/Issue23/src/p1/X.java",
+					"package p1;\n" +
+					"public class X {\n" +
+					"	public java.util.stream.Stream<String> emptyStream() {\n" +
+					"		return null;\n" +
+					"	}\n" +
+					"}");
+
+			waitForManualRefresh();
+			waitForAutoBuild();
+			p1.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = p1.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			assertMarkers("Unexpected markers", "The project was not built due to \"Invalid value for --release argument:16.8\". Fix the problem, then try refreshing this project and building it since it may be inconsistent", markers);
+		} finally {
+			deleteProject(p1);
 		}
 	}
 	protected void assertNoErrors() throws CoreException {

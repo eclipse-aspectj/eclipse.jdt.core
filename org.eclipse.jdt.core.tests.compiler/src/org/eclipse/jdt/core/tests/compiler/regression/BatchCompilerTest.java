@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -33,6 +33,7 @@
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
  *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
+ *                              bug 413873 - Warning "Method can be static" on method referencing a non-static inner class
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -423,7 +424,6 @@ public void test007(){
         "\"" + OUTPUT_DIR +  File.separator + "X.java\""
         + " -1.5 -g -preserveAllLocals"
         + " -bootclasspath " + getLibraryClassesAsQuotedString()
-        + " -cp " + getJCEJarAsQuotedString()
         + " -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -verbose -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "[parsing    ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
@@ -462,7 +462,6 @@ public void test008(){
         "\"" + OUTPUT_DIR +  File.separator + "X.java\""
         + " -1.5 -g -preserveAllLocals"
         + " -bootclasspath " + getLibraryClassesAsQuotedString()
-        + " -cp " + getJCEJarAsQuotedString()
         + " -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
@@ -1015,7 +1014,7 @@ public void test012b(){
 		String logContents = Util.fileContent(logFileName);
 		String expectedLogContents =
 			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-			"<!DOCTYPE compiler PUBLIC \"-//Eclipse.org//DTD Eclipse JDT 3.2.006 Compiler//EN\" \"http://www.eclipse.org/jdt/core/compiler_32_006.dtd\">\n" +
+			"<!DOCTYPE compiler PUBLIC \"-//Eclipse.org//DTD Eclipse JDT 3.2.006 Compiler//EN\" \"https://www.eclipse.org/jdt/core/compiler_32_006.dtd\">\n" +
 			"<compiler copyright=\"{2}\" name=\"{1}\" version=\"{3}\">\n" +
 			"	<command_line>\n" +
 			"		<argument value=\"---OUTPUT_DIR_PLACEHOLDER---{0}X.java\"/>\n" +
@@ -1049,6 +1048,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.doc.comment.support\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.emulateJavacBug8031744\" value=\"enabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.generateClassFiles\" value=\"enabled\"/>\n" +
+			"		<option key=\"org.eclipse.jdt.core.compiler.ignoreUnnamedModuleForSplitPackage\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.maxProblemPerUnit\" value=\"100\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.APILeak\" value=\"warning\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.annotatedTypeArgumentToUnannotated\" value=\"info\"/>\n" +
@@ -2776,7 +2776,6 @@ public void test044(){
         "\"" + OUTPUT_DIR +  File.separator + "X.java\""
         + " -1.5 -g -preserveAllLocals"
         + " -bootclasspath " + getLibraryClassesAsQuotedString()
-        + " -cp " + getJCEJarAsQuotedString()
         + " -warn:+null"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
@@ -2804,7 +2803,6 @@ public void test045(){
         "\"" + OUTPUT_DIR +  File.separator + "X.java\""
         + " -1.5 -g -preserveAllLocals"
         + " -bootclasspath " + getLibraryClassesAsQuotedString()
-        + " -cp " + getJCEJarAsQuotedString()
         + " -warn:-null" // contrast with test036
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
@@ -5196,7 +5194,6 @@ public void test141_null_ref_option(){
      "\"" + OUTPUT_DIR +  File.separator + "X.java\""
      + " -1.5 -g -preserveAllLocals"
      + " -bootclasspath " + getLibraryClassesAsQuotedString()
-     + " -cp " + getJCEJarAsQuotedString()
      + " -warn:+nullDereference"
      + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
      "",
@@ -5225,7 +5222,6 @@ public void test142_null_ref_option(){
   "\"" + OUTPUT_DIR +  File.separator + "X.java\""
   + " -1.5 -g -preserveAllLocals"
   + " -bootclasspath " + getLibraryClassesAsQuotedString()
-  + " -cp " + getJCEJarAsQuotedString()
   + " -warn:+null"
   + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
   "",
@@ -5254,7 +5250,6 @@ public void test143_null_ref_option(){
 "\"" + OUTPUT_DIR +  File.separator + "X.java\""
 + " -1.5 -g -preserveAllLocals"
 + " -bootclasspath " + getLibraryClassesAsQuotedString()
-+ " -cp " + getJCEJarAsQuotedString()
 + " -warn:+nullDereference"
 + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
 "",
@@ -5295,7 +5290,6 @@ public void test145_declared_thrown_checked_exceptions(){
   "\"" + OUTPUT_DIR +  File.separator + "X.java\""
   + " -1.5 -g -preserveAllLocals"
   + " -bootclasspath " + getLibraryClassesAsQuotedString()
-  + " -cp " + getJCEJarAsQuotedString()
   + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
   "",
   "",
@@ -5314,7 +5308,6 @@ public void test146_declared_thrown_checked_exceptions(){
   "\"" + OUTPUT_DIR +  File.separator + "X.java\""
   + " -1.5 -g -preserveAllLocals"
   + " -bootclasspath " + getLibraryClassesAsQuotedString()
-  + " -cp " + getJCEJarAsQuotedString()
   + " -warn:+unusedThrown"
   + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
   "",
@@ -12821,6 +12814,66 @@ public void test408038e() {
 	        "1 problem (1 warning)\n",
 			true);
 }
+public void testBug574425() {
+	String path = LIB_DIR;
+	String libPath = null;
+	if (path.endsWith(File.separator)) {
+		libPath = path + "lib.jar";
+	} else {
+		libPath = path + File.separator + "lib.jar";
+	}
+	try {
+		Util.createJar(
+				new String[] {
+						"org/apache/accumulo/core/conf/Property.java",
+						"package org.apache.accumulo.core.conf;\n"
+						+ "import java.lang.annotation.Inherited;\n"
+						+ "import java.lang.annotation.Retention;\n"
+						+ "import java.lang.annotation.RetentionPolicy;\n"
+						+ "public enum Property {\n"
+						+ "	@Deprecated(since = \"2.1.0\")\n"
+						+ "	TSERV_WAL_SORT_MAX_CONCURRENT(\"tserver.wal.sort.concurrent.max\", \"2\", \"2\",\n"
+						+ "			\"The maximum number of threads to use to sort logs during recovery\", \"2.1.0\"),\n"
+						+ "	@Deprecated(since = \"2.1.0\")\n"
+						+ "	@ReplacedBy(property = Property.TSERV_WAL_SORT_MAX_CONCURRENT) \n"
+						+ "	TSERV_RECOVERY_MAX_CONCURRENT(\"tserver.recovery.concurrent.max\", \"2\", \"2\",\n"
+						+ "			\"The maximum number of threads to use to sort logs during recovery\", \"1.5.0\"),\n"
+						+ "	RPC_SSL_KEYSTORE_PASSWORD(\"rpc.javax.net.ssl.keyStorePassword\", \"\", \"2\",\n"
+						+ "			\"Password used to encrypt the SSL private keystore. \" + \"Leave blank to use the Accumulo instance secret\",\n"
+						+ "			\"1.6.0\"); \n"
+						+ "  Property(String name, String defaultValue, String type, String description,\n"
+						+ "      String availableSince) {\n"
+						+ "  }\n"
+						+ "}\n"
+						+ "@Inherited\n"
+						+ "@Retention(RetentionPolicy.RUNTIME)\n"
+						+ "@interface ReplacedBy { \n"
+						+ "  Property property();\n"
+						+ "}\n"
+				},
+				null,
+				libPath,
+				JavaCore.VERSION_1_8);
+		this.runConformTest(
+				new String[] {
+						"src/org/apache/accumulo/test/fate/zookeeper/X.java",
+						"package org.apache.accumulo.test.fate.zookeeper;\n"
+						+ "import org.apache.accumulo.core.conf.Property;\n"
+						+ "public class X {\n"
+						+ "}\n",
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "src/org/apache/accumulo/test/fate/zookeeper/X.java\""
+				+ " -classpath \"" + libPath + "\""
+				+ " -1.8 -nowarn"
+				+ " -d \"" + OUTPUT_DIR + File.separator + "bin\" ",
+				"",
+				"",
+		        true);
+	} catch (IOException e) {
+	} finally {
+		Util.delete(libPath);
+	}
+}
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=419351
 public void testBug419351() {
 	String backup = System.getProperty("java.endorsed.dirs");
@@ -13249,5 +13302,170 @@ public void testBug573153() {
 	template = "target level should be in '1.1'...'1.8','9'...'15' (or '5.0'..'15.0') or cldc1.1: 10";
 	template = template.replace("15", CompilerOptions.getLatestVersion());
 	assertEquals("configure.source is not updated", template, output);
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=413873
+public void test413873() {
+	this.runConformTest(
+		new String[] {
+			"OuterClass.java",
+			"public class OuterClass<T> {\n" +
+			"	private final class InnerClass {\n" +
+			"	}\n" +
+			"\n" +
+			"	private InnerClass foo(final InnerClass object) {\n" +
+			"		return object;\n" +
+			"	}\n" +
+			"	\n" +
+			"	public void doStuff() {\n" +
+			"		foo(new InnerClass());\n" +
+			"	}\n" +
+			"}"
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "OuterClass.java\""
+			+ " -1.6 -warn:all-static-method -proc:none -d none",
+			"",
+			"",
+			true);
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/89
+public void testIssue89_1() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.Set;\n"
+				+ "public class X<T> {\n"
+				+ "	public boolean method1(final Set<Integer> a) {\n"
+				+ "		return a.isEmpty();\n"
+				+ "	}\n"
+				+ "	public String method2(final X a) {\n"
+				+ "		return a.toString();\n"
+				+ "	}\n"
+				+ "}"
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "X.java\" "
+				+ " -failOnWarning"
+				+ " -1.6 -warn:all-static-method -proc:none -d none",
+				"",
+				"----------\n" +
+				"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 3)\n" +
+				"	public boolean method1(final Set<Integer> a) {\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"The method method1(Set<Integer>) from the type X<T> can potentially be declared as static\n" +
+				"----------\n" +
+				"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" +
+				"	public String method2(final X a) {\n" +
+				"	              ^^^^^^^^^^^^^^^^^^\n" +
+				"The method method2(X) from the type X<T> can potentially be declared as static\n" +
+				"----------\n" +
+				"2 problems (2 warnings)\n" +
+				"error: warnings found and -failOnWarning specified\n",
+				true);
+}
+public void testIssue89_2() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.util.Set;\n"
+				+ "public class X<T> {\n"
+				+ " @SuppressWarnings(\"static-method\")"
+				+ "	public boolean method1(final Set<Integer> a) {\n"
+				+ "		return a.isEmpty();\n"
+				+ "	}\n"
+				+ " @SuppressWarnings(\"static-method\")"
+				+ "	public String method2(final X a) {\n"
+				+ "		return a.toString();\n"
+				+ "	}\n"
+				+ "}"
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "X.java\" "
+				+ " -failOnWarning"
+				+ " -1.6 -warn:all-static-method -proc:none -d none",
+				"",
+				"",
+				true);
+}
+public void testIssue89_3() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.Set;\n"
+				+ "public class X<T> {\n"
+				+ " private final class InnerClass{}\n"
+				+ "	public boolean method1(final Set<Integer> a) {\n"
+				+ "		return a.isEmpty();\n"
+				+ "	}\n"
+				+ "	public String method2(final InnerClass i) {\n"
+				+ "		return i.toString();\n"
+				+ "	}\n"
+				+ "}"
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "X.java\" "
+				+ " -failOnWarning"
+				+ " -1.6 -warn:all-static-method -proc:none -d none",
+				"",
+				"----------\n" +
+				"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 4)\n" +
+				"	public boolean method1(final Set<Integer> a) {\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"The method method1(Set<Integer>) from the type X<T> can potentially be declared as static\n" +
+				"----------\n" +
+				"1 problem (1 warning)\n" +
+				"error: warnings found and -failOnWarning specified\n",
+				true);
+}
+public void testIssue89_4() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.Set;\n"
+				+ "public class X<T> {\n"
+				+ " private final class InnerClass{}\n"
+				+ "	public boolean method1(final Set<Integer> a) {\n"
+				+ "		return a.isEmpty();\n"
+				+ "	}\n"
+				+ "	public InnerClass method2() {\n"
+				+ "		return null;\n"
+				+ "	}\n"
+				+ "}"
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "X.java\" "
+				+ " -failOnWarning"
+				+ " -1.6 -warn:all-static-method -proc:none -d none",
+				"",
+				"----------\n" +
+				"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 4)\n" +
+				"	public boolean method1(final Set<Integer> a) {\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"The method method1(Set<Integer>) from the type X<T> can potentially be declared as static\n" +
+				"----------\n" +
+				"1 problem (1 warning)\n" +
+				"error: warnings found and -failOnWarning specified\n",
+				true);
+}
+public void testIssue89_5() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.Set;\n"
+				+ "public class X<T> {\n"
+				+ " private final class InnerClass{}"
+				+ "	public boolean method1(final Set<InnerClass> a) {\n"
+				+ "		return a.isEmpty();\n"
+				+ "	}\n"
+				+ "}"
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "X.java\" "
+				+ " -failOnWarning"
+				+ " -1.6 -warn:all-static-method -proc:none -d none",
+				"",
+				"----------\n" +
+				"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 3)\n" +
+				"	private final class InnerClass{}	public boolean method1(final Set<InnerClass> a) {\n" +
+				"	                                	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"The method method1(Set<X<T>.InnerClass>) from the type X<T> can potentially be declared as static\n" +
+				"----------\n" +
+				"1 problem (1 warning)\n" +
+				"error: warnings found and -failOnWarning specified\n",
+				true);
 }
 }

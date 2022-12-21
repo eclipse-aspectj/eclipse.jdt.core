@@ -2646,6 +2646,25 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 * @since 3.18
 	 */
 	public static final String COMPILER_PB_REPORT_PREVIEW_FEATURES = PLUGIN_ID + ".compiler.problem.reportPreviewFeatures"; //$NON-NLS-1$
+
+	/**
+	 * Compiler option ID: Ignore unnamed module for split package.
+	 * <p>
+	 * With this option the compiler will deliberately accept programs violating JLS in a specific way.
+	 * Instead the compiler will behave in accordance to the original, but unmaintained document
+	 * <a href="https://openjdk.org/projects/jigsaw/spec/sotms/#the-unnamed-module">"The State of the Module System"</a>,
+	 * which indicates that different semantics had been intended.
+	 * </p>
+	 *
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.ignoreUnnamedModuleForSplitPackage"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "enabled", "disabled" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"disabled"</code></dd>
+	 * </dl>
+	 * @category CompilerOptionID
+	 * @since 3.32
+	 */
+	public static final String COMPILER_IGNORE_UNNAMED_MODULE_FOR_SPLIT_PACKAGE = PLUGIN_ID + ".compiler.ignoreUnnamedModuleForSplitPackage"; //$NON-NLS-1$"
 	/**
 	 * Core option ID: Set the timeout value for retrieving the method's parameter names from javadoc.
 	 * <p>Timeout in milliseconds to retrieve the method's parameter names from javadoc.</p>
@@ -3152,10 +3171,16 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_17 = "17"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
-	 * @since 3.29
+	 * @since 3.30
 	 * @category OptionValue
 	 */
 	public static final String VERSION_18 = "18"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
+	 * @since 3.32
+	 * @category OptionValue
+	 */
+	public static final String VERSION_19 = "19"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
 	 * @since 3.4
@@ -3163,7 +3188,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
-			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17, VERSION_18));
+			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17, VERSION_18,
+			VERSION_19));
 
 	/**
 	 * Returns all {@link JavaCore}{@code #VERSION_*} levels in the order of their

@@ -42,7 +42,7 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which do not belong to the class are skipped...
 	static {
-			TESTS_NAMES = new String[] { "testBug578300" };
+//			TESTS_NAMES = new String[] { "testBug456584" };
 //			TESTS_NUMBERS = new int[] { 561 };
 //			TESTS_RANGE = new int[] { 1, 2049 };
 	}
@@ -3741,6 +3741,55 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 			"----------\n");
 	}
 
+	public void testArray4() {
+		Map options = getCompilerOptions();
+		options.put(JavaCore.COMPILER_PB_ANNOTATED_TYPE_ARGUMENT_TO_UNANNOTATED, JavaCore.WARNING);
+		runNegativeTestWithLibs(
+			new String[] {
+				"X.java",
+				"import org.eclipse.jdt.annotation.NonNull;\n" +
+				"\n" +
+				"public class X<T> {\n" +
+				"   \n" +
+				"	void ok() {\n" +
+				"		@NonNull String @NonNull [] s0 = new @NonNull String @NonNull [0];\n" + // array exists, but no contents that could be null
+				"		@NonNull String @NonNull[]@NonNull[] s2 = new @NonNull String @NonNull[2]@NonNull[0];\n" + // inner arrays will be null
+				"		String []@NonNull[] s4 = new String [getDims()]@NonNull[1];\n" + // leaves are null but that's ok
+				"		@NonNull String @NonNull[][] s5 = new @NonNull String @NonNull[5][];\n" + // OK: outer array exists, inner arrays are unannotated
+				"	}\n" +
+				"	void nok() {\n" +
+				"		@NonNull String @NonNull [] s1 = new @NonNull String @NonNull [1];\n" +
+				"		@NonNull String @NonNull[]@NonNull[] s2 = new @NonNull String @NonNull[2]@NonNull[];\n" + // inner arrays will be null
+				"		@NonNull String @NonNull[][] s3 = new @NonNull String @NonNull[1][3];\n" + // leaf cells will be null
+				"		@NonNull String @NonNull[]@NonNull[] s6 = new @NonNull String @NonNull[5]@NonNull[];\n" +
+				"	}\n" +
+				"	int getDims() { return 1; }\n" +
+				"}"
+			},
+			options,
+			"----------\n" +
+			"1. INFO in X.java (at line 12)\n" +
+			"	@NonNull String @NonNull [] s1 = new @NonNull String @NonNull [1];\n" +
+			"	                                                              ^^^\n" +
+			"This array dimension with declared element type @NonNull String will be initialized with \'null\' entries\n" +
+			"----------\n" +
+			"2. INFO in X.java (at line 13)\n" +
+			"	@NonNull String @NonNull[]@NonNull[] s2 = new @NonNull String @NonNull[2]@NonNull[];\n" +
+			"	                                                                      ^^^\n" +
+			"This array dimension with declared element type @NonNull String @NonNull[] will be initialized with \'null\' entries\n" +
+			"----------\n" +
+			"3. INFO in X.java (at line 14)\n" +
+			"	@NonNull String @NonNull[][] s3 = new @NonNull String @NonNull[1][3];\n" +
+			"	                                                                 ^^^\n" +
+			"This array dimension with declared element type @NonNull String will be initialized with \'null\' entries\n" +
+			"----------\n" +
+			"4. INFO in X.java (at line 15)\n" +
+			"	@NonNull String @NonNull[]@NonNull[] s6 = new @NonNull String @NonNull[5]@NonNull[];\n" +
+			"	                                                                      ^^^\n" +
+			"This array dimension with declared element type @NonNull String @NonNull[] will be initialized with \'null\' entries\n" +
+			"----------\n");
+	}
+
 	public void testBug417759() {
 		runNegativeTestWithLibs(
 			new String[] {
@@ -4456,7 +4505,12 @@ public void testBug427163c() {
 		"	                                         ^^^^^^^^^^^^^^^^^^\n" +
 		"Contradictory null specification; only one of @NonNull and @Nullable can be specified at any location\n" +
 		"----------\n" +
-		"5. ERROR in X.java (at line 8)\n" +
+		"5. INFO in X.java (at line 7)\n" +
+		"	String[] strings4 = new @NonNull String  @Nullable @NonNull[1];\n" +
+		"	                                                           ^^^\n" +
+		"This array dimension with declared element type @NonNull String will be initialized with \'null\' entries\n" +
+		"----------\n" +
+		"6. ERROR in X.java (at line 8)\n" +
 		"	String[][] strings5 = new String[] @NonNull @Nullable[] {};\n" +
 		"	                                   ^^^^^^^^^^^^^^^^^^\n" +
 		"Contradictory null specification; only one of @NonNull and @Nullable can be specified at any location\n" +
@@ -8599,10 +8653,43 @@ public void testBug446217() {
 	runner.javacTestOptions = new JavacTestOptions.SuppressWarnings("auxiliaryclass");
 	runner.runConformTest();
 }
-public void testBug456584() {
+public void testBug456584orig() {
 	Map compilerOptions = getCompilerOptions();
 	compilerOptions.put(JavaCore.COMPILER_PB_PESSIMISTIC_NULL_ANALYSIS_FOR_FREE_TYPE_VARIABLES, JavaCore.WARNING);
 	runWarningTestWithLibs(
+		true/*flush*/,
+		new String[] {
+			"MyObjects.java",
+			"public class MyObjects {\n" +
+			"	public static <T> T requireNonNull(T in) { return in; }\n" +
+			"}\n",
+			"Test.java",
+			"\n" +
+			"import java.util.function.*;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"\n" +
+			"@NonNullByDefault\n" +
+			"public class Test {\n" +
+			"\n" +
+			"  public static final <T,R> @NonNull R applyRequired(final T input, final Function<? super T,? extends R> function) { // Warning on '@NonNull R': \"The nullness annotation is redundant with a default that applies to this location\"\n" +
+			"    return MyObjects.requireNonNull(function.apply(input));\n" +
+			"  }\n" +
+			"\n" +
+			"}\n"
+		},
+		compilerOptions,
+		"----------\n" +
+		"1. WARNING in Test.java (at line 9)\n" +
+		"	return MyObjects.requireNonNull(function.apply(input));\n" +
+		"	                                ^^^^^^^^^^^^^^^^^^^^^\n" +
+		"Null type safety: required \'@NonNull\' but this expression has type \'capture#2-of ? extends R\', a free type variable that may represent a \'@Nullable\' type\n" +
+		"----------\n");
+}
+public void testBug456584() {
+	// the compiler now has special information regarding Objects.requireNonNull
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(JavaCore.COMPILER_PB_PESSIMISTIC_NULL_ANALYSIS_FOR_FREE_TYPE_VARIABLES, JavaCore.WARNING);
+	runConformTestWithLibs(
 		true/*flush*/,
 		new String[] {
 			"Test.java",
@@ -8620,17 +8707,7 @@ public void testBug456584() {
 			"}\n"
 		},
 		compilerOptions,
-		"----------\n" +
-		"1. INFO in Test.java (at line 9)\n" +
-		"	return Objects.requireNonNull(function.apply(input));\n" +
-		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Unsafe interpretation of method return type as \'@NonNull\' based on substitution \'T=@NonNull capture#of ? extends R\'. Declaring type \'Objects\' doesn\'t seem to be designed with null type annotations in mind\n" +
-		"----------\n" +
-		"2. WARNING in Test.java (at line 9)\n" +
-		"	return Objects.requireNonNull(function.apply(input));\n" +
-		"	                              ^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Null type safety: required \'@NonNull\' but this expression has type \'capture#2-of ? extends R\', a free type variable that may represent a \'@Nullable\' type\n" +
-		"----------\n");
+		"");
 }
 public void testBug447661() {
 	runConformTestWithLibs(
@@ -18301,4 +18378,33 @@ public void testBug578300() {
 			"----------\n";
 	runner.runNegativeTest();
 }
+
+public void testRequireNonNull() {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"	@Nullable Object o;\n" +
+			"	@NonNull X foo(X x) {\n" +
+			"		return java.util.Objects.requireNonNull(x);\n" + // was: Unsafe interpretation of method return type as '@NonNull' based on substitution 'T=@NonNull X'. Declaring type 'Objects' doesn't seem to be designed with null type annotations in mind
+			"	}\n" +
+			"	public static void main(String... args) {\n" +
+			"		try {\n" +
+			"			new X().foo(null);\n" +
+			"		} catch (NullPointerException e) {\n" +
+			"			System.out.print(\"caught\");\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n"
+		};
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(JavaCore.COMPILER_PB_NONNULL_TYPEVAR_FROM_LEGACY_INVOCATION, JavaCore.ERROR);
+	runner.classLibraries = this.LIBS;
+	runner.expectedCompilerLog = "";
+	runner.expectedOutputString = "caught";
+	runner.expectedErrorString = "";
+	runner.runConformTest();
+}
+
 }

@@ -15948,7 +15948,8 @@ public void testBug567016() {
  * https://bugs.eclipse.org/573949 - [17][switch pattern][formatter] JEP 406 changes
  */
 public void testBug573949() {
-	setComplianceLevel(CompilerOptions.VERSION_18);
+	setComplianceLevel(CompilerOptions.VERSION_19);
+	this.formatterOptions.put(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
 	String source =
 		"public class X {\n" +
 		" private static void foo(Object o) {\n" +
@@ -15960,7 +15961,7 @@ public void testBug573949() {
 		"\n" +
 		"static void testTriangle(Shape s) {\n" +
 		"    switch (s) {\n" +
-		"        case Triangle t&&(t.calculateArea() > 100) ->\n" +
+		"        case Triangle t when t.calculateArea() > 100 ->\n" +
 		"            System.out.println(\"Large triangle\");\n" +
 		"        default ->\n" +
 		"            System.out.println(\"A shape, possibly a small triangle\");\n" +
@@ -15980,7 +15981,7 @@ public void testBug573949() {
 		"\n" +
 		"	static void testTriangle(Shape s) {\n" +
 		"		switch (s) {\n" +
-		"		case Triangle t && (t.calculateArea() > 100) -> System.out.println(\"Large triangle\");\n" +
+		"		case Triangle t when t.calculateArea() > 100 -> System.out.println(\"Large triangle\");\n" +
 		"		default -> System.out.println(\"A shape, possibly a small triangle\");\n" +
 		"		}\n" +
 		"	}\n" +
@@ -16162,5 +16163,48 @@ public void testBug578361f() throws JavaModelException {
 	this.formatterPrefs.alignment_for_switch_case_with_arrow = Alignment.M_NO_ALIGNMENT;
 	String input = getCompilationUnit("Formatter", "", "test578361", "in.java").getSource();
 	formatSource(input, getCompilationUnit("Formatter", "", "test578361", "F_out.java").getSource());
+}
+/**
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/264 - [19] Formatter support for JEP 405: Record Patterns
+ */
+public void testIssue264a() {
+	setComplianceLevel(CompilerOptions.VERSION_19);
+	this.formatterOptions.put(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+	String source =
+		"public class X{int baz(Bar bar){return switch(bar){\n" +
+		"	case Bar(Foo(var a,var b),Foo(var c,var d))->a+b+c+d;\n" +
+		"};}}";
+	formatSource(source,
+		"public class X {\n" +
+		"	int baz(Bar bar) {\n" +
+		"		return switch (bar) {\n" +
+		"		case Bar(Foo(var a, var b), Foo(var c, var d)) -> a + b + c + d;\n" +
+		"		};\n" +
+		"	}\n" +
+		"}");
+}
+/**
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/264 - [19] Formatter support for JEP 405: Record Patterns
+ */
+public void testIssue264b() {
+	setComplianceLevel(CompilerOptions.VERSION_19);
+	this.formatterOptions.put(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+	this.formatterPrefs.insert_space_before_comma_in_record_components = false;
+	this.formatterPrefs.insert_space_after_comma_in_record_components = false;
+	this.formatterPrefs.insert_space_before_opening_paren_in_record_declaration = true;
+	this.formatterPrefs.insert_space_after_opening_paren_in_record_declaration = true;
+	this.formatterPrefs.insert_space_before_closing_paren_in_record_declaration = true;
+	String source =
+		"public class X{int baz(Bar bar){return switch(bar){\n" +
+		"	case Bar(Foo(var a,var b),Foo(var c,var d))->a+b+c+d;\n" +
+		"};}}";
+	formatSource(source,
+		"public class X {\n" +
+		"	int baz(Bar bar) {\n" +
+		"		return switch (bar) {\n" +
+		"		case Bar ( Foo ( var a,var b ),Foo ( var c,var d ) ) -> a + b + c + d;\n" +
+		"		};\n" +
+		"	}\n" +
+		"}");
 }
 }

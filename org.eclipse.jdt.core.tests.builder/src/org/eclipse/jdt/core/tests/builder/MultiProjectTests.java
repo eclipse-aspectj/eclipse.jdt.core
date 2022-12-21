@@ -174,7 +174,7 @@ public class MultiProjectTests extends BuilderTests {
 
 	public void testRemoveField() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
-		options.put(JavaCore.COMPILER_PB_UNUSED_LOCAL, JavaCore.IGNORE); //$NON-NLS-1$
+		options.put(JavaCore.COMPILER_PB_UNUSED_LOCAL, JavaCore.IGNORE);
 		JavaCore.setOptions(options);
 
 		//----------------------------
@@ -229,7 +229,7 @@ public class MultiProjectTests extends BuilderTests {
 	public void testCompileOrder() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
 		Hashtable newOptions = JavaCore.getOptions();
-		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING); //$NON-NLS-1$
+		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING);
 
 		JavaCore.setOptions(newOptions);
 
@@ -347,7 +347,7 @@ public class MultiProjectTests extends BuilderTests {
 	public void testCycle1() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
 		Hashtable newOptions = JavaCore.getOptions();
-		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING); //$NON-NLS-1$
+		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING);
 
 		JavaCore.setOptions(newOptions);
 
@@ -430,7 +430,7 @@ public class MultiProjectTests extends BuilderTests {
 			env.waitForAutoBuild();
 
 			expectingCompilingOrder(new String[] { "/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java",
-					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java", "/P1/src/p1/X.java" });
+					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P1/src/p1/X.java", "/P3/src/p3/Z.java" });
 			expectingOnlySpecificProblemFor(p1, new Problem("p1",
 					"One or more cycles were detected in the build path of project 'P1'. The paths towards the cycle and cycle are:\n" +
 					"->{P1, P2}\n" +
@@ -460,7 +460,7 @@ public class MultiProjectTests extends BuilderTests {
 	public void testCycle2() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
 		Hashtable newOptions = JavaCore.getOptions();
-		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING); //$NON-NLS-1$
+		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING);
 
 		JavaCore.setOptions(newOptions);
 
@@ -542,7 +542,7 @@ public class MultiProjectTests extends BuilderTests {
 			fullBuild();
 			env.waitForAutoBuild();
 			expectingCompilingOrder(new String[] { "/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java",
-					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java", "/P1/src/p1/X.java" });
+					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P1/src/p1/X.java", "/P3/src/p3/Z.java" });
 			expectingOnlySpecificProblemFor(p1,new Problem("p1",
 					"One or more cycles were detected in the build path of project 'P1'. The paths towards the cycle and cycle are:\n" +
 					"->{P1, P2}\n" +
@@ -574,7 +574,7 @@ public class MultiProjectTests extends BuilderTests {
 	public void testCycle3() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
 		Hashtable newOptions = JavaCore.getOptions();
-		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING); //$NON-NLS-1$
+		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING);
 
 		JavaCore.setOptions(newOptions);
 
@@ -657,7 +657,7 @@ public class MultiProjectTests extends BuilderTests {
 			env.waitForAutoBuild();
 
 			expectingCompilingOrder(new String[] { "/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java",
-					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P3/src/p3/Z.java", "/P1/src/p1/X.java" });
+					"/P1/src/p1/X.java", "/P2/src/p2/Y.java", "/P1/src/p1/X.java", "/P3/src/p3/Z.java" });
 			expectingOnlySpecificProblemFor(p1,new Problem("p1",
 					"One or more cycles were detected in the build path of project 'P1'. The paths towards the cycle and cycle are:\n" +
 					"->{P1, P2}\n" +
@@ -718,7 +718,7 @@ public class MultiProjectTests extends BuilderTests {
 	public void testCycle4() throws JavaModelException {
 		Hashtable options = JavaCore.getOptions();
 		Hashtable newOptions = JavaCore.getOptions();
-		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING); //$NON-NLS-1$
+		newOptions.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.WARNING);
 
 		JavaCore.setOptions(newOptions);
 
@@ -1696,7 +1696,7 @@ public void testCycle7() throws JavaModelException {
 			env.waitForAutoBuild();
 
 			expectingOnlySpecificProblemsFor(p1,new Problem[]{
-				new Problem("p1", "The type p3.Z cannot be resolved. It is indirectly referenced from required .class files", x, 48, 49, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),//$NON-NLS-1$ //$NON-NLS-2$
+				new Problem("p1", "The type p3.Z cannot be resolved. It is indirectly referenced from required type p2.Y", x, 48, 49, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),//$NON-NLS-1$ //$NON-NLS-2$
 				new Problem("p1", "The project was not built since its build path is incomplete. Cannot find the class file for p3.Z. Fix the build path then try building this project", p1, -1, -1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR)//$NON-NLS-1$ //$NON-NLS-2$
 			});
 		} finally {
@@ -1838,7 +1838,7 @@ public void test102_missing_required_binaries() throws JavaModelException {
 				"The project was not built since its build path is incomplete. Cannot find the class file for I. Fix the build path then try building this project",
 				p3, -1, -1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 			new Problem("p3",
-				"The type I cannot be resolved. It is indirectly referenced from required .class files",
+				"The type I cannot be resolved. It is indirectly referenced from required type X",
 				y, 23, 24, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 		});
 	} finally {
@@ -1900,7 +1900,7 @@ public void test103_missing_required_binaries() throws JavaModelException {
 					"The project was not built since its build path is incomplete. Cannot find the class file for I. Fix the build path then try building this project",
 					p3, -1, -1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 				new Problem("p3",
-					"The type I cannot be resolved. It is indirectly referenced from required .class files",
+					"The type I cannot be resolved. It is indirectly referenced from required type X",
 					y, 0, 1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 		});
 	} finally {
@@ -2200,7 +2200,7 @@ public void test461074_error() throws JavaModelException {
 				"The project was not built since its build path is incomplete. Cannot find the class file for pack.missing.MissingType. Fix the build path then try building this project",
 				p3, -1, -1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 			new Problem("p3",
-				"The type pack.missing.MissingType cannot be resolved. It is indirectly referenced from required .class files",
+				"The type pack.missing.MissingType cannot be resolved. It is indirectly referenced from required type pack.lib.SuperClass",
 				test, 0, 1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),
 	});
 	env.setBuildOrder(null);

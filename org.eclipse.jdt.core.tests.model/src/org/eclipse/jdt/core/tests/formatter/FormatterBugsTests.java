@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -29,6 +29,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.formatter.CodeFormatter;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
 import org.eclipse.jdt.core.formatter.IndentManipulation;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatter;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatterOptions;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatterOptions.Alignment;
@@ -7525,8 +7526,8 @@ public void testBug328240() {
 		"	 *            a <code>String</coe> value that will be the text of\n" +
 		"	\n" +
 		"	* the paragraph.\n" +
-		"	 * &#64;return a <code>Paragraph</code> containing the the text passed as\n" +
-		"	 *            the reportHeader parameter.\n" +
+		"	 * @return a <code>Paragraph</code> containing the the text passed as the\n" +
+		"	 *            reportHeader parameter.\n" +
 		"	 */\n" +
 		"\n" +
 		"	public static String createReportHeader(String reportHeader) {\n" +
@@ -12800,17 +12801,7 @@ public void testBug531981() {
 		" */\n" +
 		"class Test {\n" +
 		"}";
-	formatSource(source,
-		"/**\n" +
-		" * <code>a<code>\n" +
-		" *\n" +
-		" * &#64;param   b\n" +
-		" *               c\n" +
-		" *            d</code>\n" +
-		" */\n" +
-		"class Test {\n" +
-		"}"
-	);
+	formatSource(source);
 }
 /**
  * https://bugs.eclipse.org/373625 - [formatter] preserve whitespace between
@@ -13313,6 +13304,38 @@ public void testBug576954() {
 		"					default -> \"many\";\n" +
 		"				}).forEach(System.out::println);\n" +
 		"	}\n" +
+		"}");
+}
+/**
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/443
+ */
+public void testIssue443a() {
+	setComplianceLevel(CompilerOptions.VERSION_17);
+	this.formatterPrefs.insert_space_after_closing_angle_bracket_in_type_parameters = true;
+	formatSource(
+		"record MyRecord<A>() {\n" +
+		"}");
+}
+public void testIssue443b() {
+	setComplianceLevel(CompilerOptions.VERSION_17);
+	this.formatterPrefs.insert_space_after_closing_angle_bracket_in_type_parameters = false;
+	formatSource(
+		"class MyClass<A> extends AnotherClass {\n" +
+		"}\n" +
+		"\n" +
+		"sealed interface Expr<A> permits MathExpr {\n" +
+		"}");
+}
+/**
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/369
+ */
+public void testIssue369() {
+	setComplianceLevel(CompilerOptions.VERSION_17);
+	this.formatterPrefs.insert_space_after_opening_paren_in_record_declaration = true;
+	this.formatterPrefs.insert_space_before_closing_paren_in_record_declaration = true;
+	formatSource(
+		"@JsonPropertyOrder({ \"position\", \"value\" })\n" +
+		"public record ValueWithPosition( String position, String value ) {\n" +
 		"}");
 }
 }
