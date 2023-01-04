@@ -1352,6 +1352,11 @@ IntertypeClassHeaderName -> IntertypeClassHeaderName1
 IntertypeClassHeaderName1 ::= Modifiersopt 'class' OnType '.' JavaIdentifier
 /.$putCase consumeIntertypeClassHeaderName(false); $break ./
 
+-- TODO: Rename 'InterType*' to 'Intertype*'? Without renaming, Jikespg says:
+--   The following Non-Terminal is useless: InterTypeClassHeaderName1
+-- But after renaming, it says instead:
+--   Reduce/reduce conflict on "LESS" between rule 410 and 303
+--   Reduce/reduce conflict on "LESS" between rule 405 and 304
 InterTypeClassHeaderName1 ::= Modifiersopt 'class' OnType TypeParametersAsReference '.' JavaIdentifier
 /.$putCase consumeIntertypeClassHeaderName(true); $break ./
 /:$readableName IntertypeClassHeader:/
