@@ -2436,6 +2436,12 @@ PrimaryNoNewArray ::= PushLPAREN Expression_NotName PushRPAREN
 PrimaryNoNewArray ::= PushLPAREN Name PushRPAREN
 /.$putCase consumePrimaryNoNewArrayWithName(); $break ./
 
+-- AspectJ Extension: Cannot replace 'Name' in previous rule with 'NameOrAj', because then the grammar would no longer
+-- be LALR(1). Therefore, we have to duplicate the rule and change 'Name' to 'AjName'.
+PrimaryNoNewArray ::= PushLPAREN AjName PushRPAREN
+/.$putCase consumePrimaryNoNewArrayWithName(); $break ./
+-- End AspectJ Extension
+
 PrimaryNoNewArray -> ClassInstanceCreationExpression
 PrimaryNoNewArray -> FieldAccess
 --1.1 feature
