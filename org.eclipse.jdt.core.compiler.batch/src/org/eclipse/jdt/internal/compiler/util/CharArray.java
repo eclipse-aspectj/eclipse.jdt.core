@@ -31,34 +31,12 @@ final class CharArray implements Comparable<CharArray> {
 
 	@Override
 	public int compareTo(CharArray o) {
-		// AspectJ: keep Java 8 compatibility - original code:
-		// return Arrays.compare(this.key, o.key);
-		return compare(this.key, o.key);
+		return Arrays.compare(this.key, o.key);
 	}
 
 	public char[] getKey() {
 		return this.key;
 	}
-
-	// AspectJ begin: keep Java 8 compatibility
-	// Can be replaced with Arrays.compare once JDT core moves to BREE >= 9
-	private static int compare(char[] a, char[] b) {
-		if (a == b) {
-			return 0;
-		}
-		if (a == null || b == null) {
-			return a == null ? -1 : 1;
-		}
-		int shortestLenght = Math.min(a.length, b.length);
-		for (int i = 0; i < shortestLenght; i++) {
-			if (a[i] != b[i]) {
-				return Character.compare(a[i], b[i]);
-			}
-		}
-
-		return a.length - b.length;
-	}
-	// AspectJ end
 
 	@Override
 	public boolean equals(Object obj) {

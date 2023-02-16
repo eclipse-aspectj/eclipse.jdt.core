@@ -3421,7 +3421,7 @@ public SyntheticMethodBinding[] syntheticMethods() {
 		}
 	}
 	// sort them in according to their own indexes
-	Arrays.sort(bindings, new Comparator<SyntheticMethodBinding>() {  // AspectJ: replace Comparator<> for Java 8 compatibility
+	Arrays.sort(bindings, new Comparator<>() {
 		@Override
 		public int compare(SyntheticMethodBinding o1, SyntheticMethodBinding o2) {
 			return o1.index - o2.index;

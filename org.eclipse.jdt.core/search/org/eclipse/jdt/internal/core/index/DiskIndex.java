@@ -429,8 +429,8 @@ void initialize(boolean reuseExistingFile) throws IOException {
 		}
 	}
 	if (this.indexLocation.createNewFile()) {
-		// AspectJ: inline resource variable to Java 8 source compatibility
-		try (FileOutputStream stream = new FileOutputStream(this.indexLocation.getIndexFile(), false)) {
+		FileOutputStream stream = new FileOutputStream(this.indexLocation.getIndexFile(), false);
+		try (stream) {
 			this.streamBuffer = new byte[BUFFER_READ_SIZE];
 			this.bufferIndex = 0;
 			writeStreamChars(stream, SIGNATURE_CHARS);
@@ -628,8 +628,8 @@ private synchronized String[] readAllDocumentNames() throws IOException {
 	if (this.numberOfChunks <= 0)
 		return CharOperation.NO_STRINGS;
 
-	// AspectJ: inline resource variable to Java 8 source compatibility
-	try (InputStream stream = this.indexLocation.getInputStream()) {
+	InputStream stream = this.indexLocation.getInputStream();
+	try (stream) {
 		int offset = this.chunkOffsets[0];
 		stream.skip(offset);
 		this.streamBuffer = new byte[BUFFER_READ_SIZE];
@@ -783,8 +783,8 @@ synchronized String readDocumentName(int docNumber) throws IOException {
 			throw new IllegalArgumentException();
 		this.streamBuffer = new byte[numberOfBytes];
 		this.bufferIndex = 0;
-		// AspectJ: inline resource variable to Java 8 source compatibility
-		try (InputStream file = this.indexLocation.getInputStream()) {
+		InputStream file = this.indexLocation.getInputStream();
+		try (file) {
 			file.skip(start);
 			if (file.read(this.streamBuffer, 0, numberOfBytes) != numberOfBytes)
 				throw new IOException();
@@ -812,8 +812,8 @@ synchronized int[] readDocumentNumbers(Object arrayOffset) throws IOException {
 	if (arrayOffset instanceof int[])
 		return (int[]) arrayOffset;
 
-	// AspectJ: inline resource variable to Java 8 source compatibility
-	try (InputStream stream = this.indexLocation.getInputStream()) {
+	InputStream stream = this.indexLocation.getInputStream();
+	try (stream) {
 		int offset = ((Integer) arrayOffset).intValue();
 		stream.skip(offset);
 		this.streamBuffer = new byte[BUFFER_READ_SIZE];
@@ -1240,8 +1240,8 @@ private void writeHeaderInfo(FileOutputStream stream) throws IOException {
 }
 private void writeOffsetToHeader(int offsetToHeader) throws IOException {
 	if (offsetToHeader > 0) {
-		// AspectJ: inline resource variable to Java 8 source compatibility
-		try (RandomAccessFile file = new RandomAccessFile(this.indexLocation.getIndexFile(), "rw")) { //$NON-NLS-1$
+		RandomAccessFile file = new RandomAccessFile(this.indexLocation.getIndexFile(), "rw"); //$NON-NLS-1$
+		try (file) {
 			file.seek(this.headerInfoOffset); // offset to position in header
 			file.writeInt(offsetToHeader);
 			this.headerInfoOffset = offsetToHeader; // update to reflect the correct offset
