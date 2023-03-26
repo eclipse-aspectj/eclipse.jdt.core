@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2022 IBM Corporation and others.
+ * Copyright (c) 2022, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -100,7 +100,8 @@ public class GuardedPattern extends Pattern {
 
 	@Override
 	public boolean dominates(Pattern p) {
-		// Guarded pattern can never dominate another, even if the guards are identical
+		if (isAlwaysTrue())
+			return this.primaryPattern.dominates(p);
 		return false;
 	}
 
@@ -109,7 +110,10 @@ public class GuardedPattern extends Pattern {
 		if (this.resolvedType != null || this.primaryPattern == null)
 			return this.resolvedType;
 		this.resolvedType = this.primaryPattern.resolveType(scope);
-		this.condition.resolveType(scope);
+		// The following call (as opposed to resolveType() ensures that
+		// the implicitConversion code is set properly and thus the correct
+		// unboxing calls are generated.
+		this.condition.resolveTypeExpecting(scope, TypeBinding.BOOLEAN);
 		LocalDeclaration PatternVar = this.primaryPattern.getPatternVariable();
 		LocalVariableBinding lvb = PatternVar == null ? null : PatternVar.binding;
 		this.condition.traverse(new ASTVisitor() {

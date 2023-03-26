@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -100,10 +100,11 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 public class SourceTypeBinding extends ReferenceBinding {
 	public ReferenceBinding superclass;                    // MUST NOT be modified directly, use setter !
 	public ReferenceBinding[] superInterfaces;             // MUST NOT be modified directly, use setter !
-	// AspectJ Extension - raised visibility to public of these fields
+  // AspectJ Extension - raised visibility to public of these fields
 	public FieldBinding[] fields;                         // MUST NOT be modified directly, use setter !
-	public MethodBinding[] methods;                       // MUST NOT be modified directly, use setter !
-	// End AspectJ Extension - raised visibility to public of these fields
+  public RecordComponentBinding[] components; 		   // MUST NOT be modified directly, use setter !
+  public MethodBinding[] methods;                       // MUST NOT be modified directly, use setter !
+  // End AspectJ Extension - raised visibility to public of these fields
 	public ReferenceBinding[] memberTypes;                 // MUST NOT be modified directly, use setter !
 	public TypeVariableBinding[] typeVariables;            // MUST NOT be modified directly, use setter !
 	public ReferenceBinding[] permittedTypes;              // MUST NOT be modified directly, use setter !
@@ -156,8 +157,6 @@ public class SourceTypeBinding extends ReferenceBinding {
 	protected SourceTypeBinding nestHost;
 
 	private boolean isRecordDeclaration = false;
-	// AspectJ - raise visibility from private to protected, because BinaryTypeBinding references it
-	protected RecordComponentBinding[] components; // for Java 14 record declaration - preview
 	public boolean isVarArgs =  false; // for record declaration
 	private FieldBinding[] implicitComponentFields; // cache
 	private MethodBinding[] recordComponentAccessors = null; // hash maybe an overkill
@@ -1963,6 +1962,48 @@ public FieldBinding getFieldBase(char[] fieldName, boolean needResolve) {
 	return null;
 }
 
+//NOTE: the type of a record component of a source type is resolved when needed
+@Override
+public RecordComponentBinding getComponent(char[] componentName, boolean needResolve) {
+	if (!isPrototype())
+		return this.prototype.getComponent(componentName, needResolve);
+
+	if ((this.extendedTagBits & ExtendedTagBits.AreRecordComponentsComplete) != 0) {
+		// not sorted since the order is important. ReferenceBinding.binarySearch(fieldName, this.components)
+		return getRecordComponent(componentName);
+	}
+
+	// always resolve anyway on source types
+	RecordComponentBinding component = getRecordComponent(componentName);
+	if (component != null) {
+		RecordComponentBinding result = null;
+		try {
+			result = resolveTypeFor(component);
+			return result;
+		} finally {
+			if (result == null) {
+				// ensure record components are consistent reqardless of the error
+				int newSize = this.components.length - 1;
+				if (newSize == 0) {
+					setComponents(Binding.NO_COMPONENTS);
+				} else {
+					RecordComponentBinding[] newComponents = new RecordComponentBinding[newSize];
+					int index = 0;
+					for (int i = 0, length = this.components.length; i < length; i++) {
+						RecordComponentBinding rcb = this.components[i];
+						if (rcb == component) continue;
+						newComponents[index++] = rcb;
+					}
+					setComponents(newComponents);
+				}
+			}
+		}
+	}
+	return null;
+}
+
+// NOTE: the return type, arg & exception types of each method of a source type are resolved when needed
+
 // AspectJ Extension - replaced original impl with this
 @Override
 public MethodBinding[] getMethods(char[] selector) {
@@ -2389,7 +2430,7 @@ public MethodBinding[] methodsBase() {  // AspectJ Extension - added Base suffix
 			computeRecordComponents();
 			MethodBinding recordExplicitCanon = checkAndGetExplicitCanonicalConstructors();
 			if (recordExplicitCanon != null) {
-				if (recordCanonIndex != -1 ) {
+				if (recordCanonIndex != -1 && resolvedMethods[recordCanonIndex] instanceof SyntheticMethodBinding) {
 					removeSyntheticRecordCanonicalConstructor((SyntheticMethodBinding) resolvedMethods[recordCanonIndex]);
 					resolvedMethods[recordCanonIndex] = null;
 					failed++;
@@ -2601,6 +2642,15 @@ public MethodBinding[] methodsBase() {  // AspectJ Extension - added Base suffix
 		// handle forward references to potential default abstract methods
 		addDefaultAbstractMethods();
 		this.tagBits |= TagBits.AreMethodsComplete;
+		if (this.isRecordDeclaration) {
+			/* https://github.com/eclipse-jdt/eclipse.jdt.core/issues/365 */
+			for (int i = 0; i < this.methods.length; i++) {
+				MethodBinding method = this.methods[i];
+				if ((method.tagBits & TagBits.AnnotationSafeVarargs) == 0 && method.sourceMethod() != null) {
+					checkAndFlagHeapPollution(method, method.sourceMethod());
+				}
+			}
+		}
 	}
 	return this.methods;
 }
@@ -2774,7 +2824,7 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 					// enum constants neither have a type declaration nor can they be null
 					field.tagBits |= TagBits.AnnotationNonNull;
 				} else {
-					if (hasNonNullDefaultFor(DefaultLocationField, fieldDecl.sourceStart)) {
+					if (hasNonNullDefaultForType(fieldType, DefaultLocationField, fieldDecl.sourceStart)) {
 						field.fillInDefaultNonNullness(fieldDecl, initializationScope);
 					}
 					// validate null annotation:
@@ -2901,6 +2951,7 @@ private MethodBinding resolveTypesWithSuspendedTempErrorHandlingPolicy(MethodBin
 				// AspectJ - skip this for now, it sets resolvedType but not the other bits of an annotation so later the check
 				// annotation.resolvedType==null fails (at ASTNode.resolveAnnotations) to resolve the annotation doesn't work.
 				// ASTNode.handleNonNullByDefault(methodDecl.scope, arg.annotations, arg);
+        // don't pass optional 'location' arg, to avoid applying @NNBD before ImplicitNullAnnotationVerifier has run:
 				parameterType = arg.type.resolveType(methodDecl.scope, true /* check bounds*/);
 			} finally {
 				if (deferRawTypeCheck) {
@@ -2947,7 +2998,10 @@ private MethodBinding resolveTypesWithSuspendedTempErrorHandlingPolicy(MethodBin
 				methodDecl.scope.problemReporter().safeVarargsOnNonFinalInstanceMethod(method);
 			}
 		} else {
-			checkAndFlagHeapPollution(method, methodDecl);
+			/* https://github.com/eclipse-jdt/eclipse.jdt.core/issues/365 */
+			if (!this.isRecordDeclaration) {
+				checkAndFlagHeapPollution(method, methodDecl);
+			}
 		}
 	}
 
@@ -3154,12 +3208,15 @@ public void evaluateNullAnnotations() {
 
 private void maybeMarkTypeParametersNonNull() {
 	if (this.typeVariables != null && this.typeVariables.length > 0) {
-	// when creating type variables we didn't yet have the defaultNullness, fill it in now:
+		// when creating type variables we didn't yet have the defaultNullness, fill it in now:
 		if (this.scope == null || !this.scope.hasDefaultNullnessFor(DefaultLocationTypeParameter, this.sourceStart()))
-		return;
+			return;
 		AnnotationBinding[] annots = new AnnotationBinding[]{ this.environment.getNonNullAnnotation() };
 		for (int i = 0; i < this.typeVariables.length; i++) {
 			TypeVariableBinding tvb = this.typeVariables[i];
+			TypeParameter typeParameter = this.scope.referenceContext.typeParameters[i];
+			if (typeParameter.annotations != null && (tvb.tagBits & TagBits.AnnotationResolved) == 0)
+				continue; // not yet ready
 			if ((tvb.tagBits & TagBits.AnnotationNullMASK) == 0)
 				this.typeVariables[i] = (TypeVariableBinding) this.environment.createAnnotatedType(tvb, annots);
 		}
@@ -3167,13 +3224,15 @@ private void maybeMarkTypeParametersNonNull() {
 }
 
 @Override
-boolean hasNonNullDefaultFor(int location, int sourceStart) {
+boolean hasNonNullDefaultForType(TypeBinding type, int location, int sourceStart) {
 
 	if (!isPrototype()) throw new IllegalStateException();
 
 	if (this.scope == null) {
 		return (this.defaultNullness & location) != 0;
 	}
+	if (this.scope.environment().usesNullTypeAnnotations() && type != null && !type.acceptsNonNullDefault())
+		return false;
 	Scope skope = this.scope.referenceContext.initializerScope; // for @NNBD on a field
 	if (skope == null)
 		skope = this.scope;
@@ -3598,6 +3657,13 @@ public FieldBinding[] unResolvedFields() {
 	return this.fields;
 }
 
+@Override
+public RecordComponentBinding[] unResolvedComponents() {
+	if (!isPrototype())
+		return this.prototype.unResolvedComponents();
+	return this.components;
+}
+
 public void tagIndirectlyAccessibleMembers() {
 	if (!isPrototype()) {
 		this.prototype.tagIndirectlyAccessibleMembers();
@@ -3648,6 +3714,7 @@ public boolean isNestmateOf(SourceTypeBinding other) {
 public FieldBinding[] getImplicitComponentFields() {
 	return this.implicitComponentFields;
 }
+@Override
 public RecordComponentBinding getRecordComponent(char[] name) {
 	if (this.isRecordDeclaration && this.components != null) {
 		for (RecordComponentBinding rcb : this.components) {
@@ -3657,23 +3724,19 @@ public RecordComponentBinding getRecordComponent(char[] name) {
 	}
 	return null;
 }
-/**
- * Get the accessor method given the record component name
- * @param name name of the record component
- * @return the method binding of the accessor if found, else null
- */
+
+@Override
 public MethodBinding getRecordComponentAccessor(char[] name) {
-	MethodBinding accessor = null;
 	if (this.recordComponentAccessors != null) {
 		for (MethodBinding m : this.recordComponentAccessors) {
 			if (CharOperation.equals(m.selector, name)) {
-				accessor = m;
-				break;
+				return m;
 			}
 		}
 	}
-	return accessor;
+	return null;
 }
+
 public void computeRecordComponents() {
 	if (!this.isRecord() || this.implicitComponentFields != null)
 		return;

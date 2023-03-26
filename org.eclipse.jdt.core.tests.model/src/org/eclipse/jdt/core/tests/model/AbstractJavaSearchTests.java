@@ -741,6 +741,11 @@ public class AbstractJavaSearchTests extends ModifyingResourceTests implements I
 			}
 			return contents;
 		}
+		public void clear() {
+			this.lines.clear();
+			this.match = null;
+			this.count = 0;
+		}
 		public String toString() {
 	    	StringBuilder buffer = new StringBuilder();
 	    	List displayedLines = new ArrayList(this.lines);
@@ -1236,6 +1241,29 @@ protected JavaSearchResultCollector resultCollector;
 	}
 	protected void searchDeclarationsOfSentMessages(IJavaElement enclosingElement, SearchRequestor requestor) throws JavaModelException {
 		new SearchEngine().searchDeclarationsOfSentMessages(enclosingElement, requestor, null);
+	}
+	protected void buildAndExpectNoProblems(IJavaProject... javaProjects) throws CoreException {
+		List<IProject> projects = new ArrayList<>();
+		if (javaProjects != null) {
+			Arrays.stream(javaProjects).forEach(jp -> projects.add(jp.getProject()));
+		}
+		for (IProject project : projects) {
+			project.build(IncrementalProjectBuilder.AUTO_BUILD, new NullProgressMonitor());
+		}
+		waitForAutoBuild();
+		waitUntilIndexesReady();
+
+		for (IProject project : projects) {
+			assertProblemMarkers("Expected no build problems on project: " + project, "", project);
+		}
+	}
+	protected void buildAndExpectProblems(IJavaProject javaProject, String expectedMarkers) throws CoreException {
+		IProject project = javaProject.getProject();
+		project.build(IncrementalProjectBuilder.AUTO_BUILD, new NullProgressMonitor());
+		waitForAutoBuild();
+		waitUntilIndexesReady();
+		assertProblemMarkers("Expected build problems on project due to undefined type",
+				expectedMarkers, project);
 	}
 	@Override
 	protected void setUp () throws Exception {

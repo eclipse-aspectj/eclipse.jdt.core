@@ -3125,6 +3125,25 @@ public abstract class Scope {
 	*/
 	public final ReferenceBinding getMemberType(char[] typeName, ReferenceBinding enclosingType) {
 		ReferenceBinding memberType = findMemberType(typeName, enclosingType);
+		if (enclosingType.isHierarchyBeingConnected() && memberType == null && this.kind == CLASS_SCOPE) {
+			ClassScope scope = (ClassScope) this;
+			TypeReference superTypeReference = scope.referenceContext.superclass;
+			if (superTypeReference != null && superTypeReference.resolvedType instanceof ReferenceBinding) {
+				memberType = findMemberType(typeName, (ReferenceBinding) superTypeReference.resolvedType);
+			}
+			if (memberType == null && scope.referenceContext.superInterfaces != null
+					&& scope.referenceContext.superInterfaces.length > 0) {
+				TypeReference[] interfaces = scope.referenceContext.superInterfaces;
+				for (TypeReference reference : interfaces) {
+					if (reference != null && reference.resolvedType instanceof ReferenceBinding) {
+						memberType = findMemberType(typeName, (ReferenceBinding) reference.resolvedType);
+						if (memberType != null) {
+							break;
+						}
+					}
+				}
+			}
+		}
 		if (memberType != null) return memberType;
 		char[][] compoundName = new char[][] { typeName };
 		return new ProblemReferenceBinding(compoundName, null, ProblemReasons.NotFound);
@@ -5534,6 +5553,12 @@ public abstract class Scope {
 			return (nonNullByDefaultValue & location) != 0;
 		}
 		return this.parent.hasDefaultNullnessFor(location, sourceStart);
+	}
+
+	public boolean hasDefaultNullnessForType(TypeBinding type, int location, int sourceStart) {
+		if (environment().usesNullTypeAnnotations() && type != null && !type.acceptsNonNullDefault())
+			return false;
+		return hasDefaultNullnessFor(location, sourceStart);
 	}
 
 	/*

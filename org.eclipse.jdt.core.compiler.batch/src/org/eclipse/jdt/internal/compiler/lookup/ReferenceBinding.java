@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -61,6 +61,7 @@ import org.eclipse.jdt.core.compiler.InvalidInputException;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
@@ -136,6 +137,15 @@ abstract public class ReferenceBinding extends TypeBinding {
 
 public ReferenceBinding() {
 	super();
+}
+
+/**
+ * Get the accessor method given the record component name
+ * @param name name of the record component
+ * @return the method binding of the accessor if found, else null
+ */
+public MethodBinding getRecordComponentAccessor(char[] name) {
+	return null;
 }
 
 public static FieldBinding binarySearch(char[] name, FieldBinding[] sortedFields) {
@@ -418,12 +428,12 @@ public final boolean innerCanBeSeenBy(ReferenceBinding receiverType, ReferenceBi
 // AspectJ Extension: replace existing implementation with alternative that can access the privileged handler
 @Override
 public boolean canBeSeenBy(Scope scope) {
-	
+
 	boolean ret = innerCanBeSeenBy(scope);
 	if (ret) return true;
-	
+
 	SourceTypeBinding invocationType = scope.invocationType();
-//	System.err.println("trying to see (scope): " + new String(sourceName) + 
+//	System.err.println("trying to see (scope): " + new String(sourceName) +
 //			" from " + new String(invocationType.sourceName));
 
 	if (Scope.findPrivilegedHandler(invocationType) != null) {
@@ -1134,12 +1144,19 @@ public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes
 public FieldBinding getField(char[] fieldName, boolean needResolve) {
 	return null;
 }
+public RecordComponentBinding getComponent(char[] componentName, boolean needResolve) {
+	return null;
+}
+// adding this since we don't use sorting for components
+public RecordComponentBinding getRecordComponent(char[] name) {
+	return null;
+}
 
 //AspectJ Extension
 /**
  * Where multiple fields with the same name are defined, this will
  * return the one most visible one...
- * 
+ *
  * Added for AspectJ to allow proper lookup with inter-type fields
  */
 public FieldBinding getField(char[] fieldName, boolean resolve, InvocationSite site, Scope scope) {
@@ -1308,8 +1325,10 @@ public boolean hasMemberTypes() {
  * for 1.8 check if the default is applicable to the given kind of location.
  */
 // pre: null annotation analysis is enabled
-boolean hasNonNullDefaultFor(int location, int sourceStart) {
+boolean hasNonNullDefaultForType(TypeBinding type, int location, int sourceStart) {
 	// Note, STB overrides for correctly handling local types
+	if (type != null && !type.acceptsNonNullDefault())
+		return false;
 	ReferenceBinding currentType = this;
 	while (currentType != null) {
 		int nullDefault = ((ReferenceBinding)currentType.original()).getNullDefault();
@@ -1386,6 +1405,27 @@ public boolean implementsInterface(ReferenceBinding anInterface, boolean searchH
 				for (int b = 0; b < nextPosition; b++)
 					if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 				interfacesToVisit[nextPosition++] = next;
+			}
+		}
+	}
+	// see https://github.com/eclipse-jdt/eclipse.jdt.core/issues/629
+	if (nextPosition == 0 && this instanceof SourceTypeBinding) {
+		SourceTypeBinding sourceType = (SourceTypeBinding) this;
+		if (sourceType.scope != null && sourceType.scope.referenceContext != null && sourceType.scope.compilerOptions().isAnnotationBasedNullAnalysisEnabled) {
+			TypeReference[] references = sourceType.scope.referenceContext.superInterfaces;
+			if (references == null || references.length == 0) {
+				return false;
+			}
+			for (TypeReference reference: references) {
+				if (!(reference.resolvedType instanceof ReferenceBinding)) {
+					reference.resolveType(sourceType.scope);
+				}
+				if (reference.resolvedType instanceof ReferenceBinding) {
+					ReferenceBinding binding = (ReferenceBinding) reference.resolvedType;
+					if (binding.isEquivalentTo(anInterface)) {
+						return true;
+					}
+				}
 			}
 		}
 	}
@@ -2159,6 +2199,9 @@ public FieldBinding[] unResolvedFields() {
 	return Binding.NO_FIELDS;
 }
 
+public RecordComponentBinding[] unResolvedComponents() {
+	return Binding.NO_COMPONENTS;
+}
 /*
  * If a type - known to be a Closeable - is mentioned in one of our white lists
  * answer the typeBit for the white list (BitWrapperCloseable or BitResourceFreeCloseable).

@@ -78,10 +78,13 @@ import org.eclipse.jdt.core.search.TypeNameRequestor;
 import org.eclipse.jdt.core.search.TypeReferenceMatch;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.core.ClassFile;
 import org.eclipse.jdt.internal.core.JavaElement;
 import org.eclipse.jdt.internal.core.JavaModelManager;
+import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.LocalVariable;
+import org.eclipse.jdt.internal.core.SearchableEnvironment;
 import org.eclipse.jdt.internal.core.SourceMethod;
 import org.eclipse.jdt.internal.core.TypeParameter;
 import org.eclipse.jdt.internal.core.index.DiskIndex;
@@ -10716,10 +10719,10 @@ public void testBug251827c() throws CoreException {
  * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=261722"
  */
 public void testBug261722() throws Exception {
+	String libPath = getExternalResourcePath("lib261722.jar");
+	waitUntilIndexesReady();
 	IPath projectPath = null;
-	IJavaProject javaProject = null;
 	try {
-		// Create jar and project
 		final int MAX = 10;
 		final String[] pathsAndContents = new String[(1+MAX)*2];
 		pathsAndContents[0] = "p261722/X.java";
@@ -10731,9 +10734,13 @@ public void testBug261722() throws Exception {
 			pathsAndContents[i*2+1] = "package p261722;\n" +
 	        	"public class "+className+" extends X {}";
         }
-		javaProject = createJavaProject("P");
+		Util.createJar(
+			pathsAndContents,
+			new HashMap(),
+			libPath);
+
+		IJavaProject javaProject = createJavaProject("P", new String[0], new String[] {libPath}, "");
 		projectPath = javaProject.getProject().getLocation();
-		addLibrary(javaProject, "lib261722.jar", "lib261722.zip", pathsAndContents, "1.4");
 		waitUntilIndexesReady();
 
 		// Create a specific requestor slowed down to give the main thread
@@ -15318,4 +15325,237 @@ public void testBug573486_showReferences_inMethodsAndFields_whenNoSource() throw
 	}
 }
 
+/*
+ * Test that using a classpath filter doesn't result in
+ * not knowing a package is in the unnamed module.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/485
+ */
+public void testClasspathFilterUnnamedModuleBugGh485() throws Exception {
+	String testProject1Name = "gh485ClasspathFilterUnnamedModuleBugProject1";
+	String testProject2Name = "gh485ClasspathFilterUnnamedModuleBugProject2";
+	try {
+		JavaProject project1 = (JavaProject) setUpJavaProject(testProject1Name, "11", false);
+		String packageFolder1 = "/" + testProject1Name + "/src/t/t/t1/";
+		createFolder(packageFolder1);
+		String snippet1 = "package t.t.t1;\n" +
+				"import com.g.f.t.f.FWC;\n" +
+				"public class F {\n" +
+				"  public static final FWC EMPTY = null;\n" +
+				"}";
+		createFile(packageFolder1 + "/F.java", snippet1);
+		setUpJavaProject(testProject2Name, "11", false);
+		String packageFolder2 =  "/" + testProject2Name + "/src/com/g/f/t/f";
+		createFolder(packageFolder2);
+		String snippet2 = "package com.g.f.t.f;\n" +
+				"import com.g.f.t.f.FWC;\n" +
+				"public class FWC {\n" +
+				"  public static void main(String[] args) { }\n" +
+				"}";
+		createFile(packageFolder2 + "/FWC.java", snippet2);
+		waitForAutoBuild();
+		waitUntilIndexesReady();
+
+		IType type = project1.findType("t.t.t1.F");
+		ICompilationUnit[] cus = { type.getCompilationUnit() };
+
+		boolean excludeTests = false;
+		SearchableEnvironment search = new SearchableEnvironment(project1, cus, excludeTests);
+
+		char[][] packageName = { new char[] { 'c', 'o', 'm' } };
+		char[][] modules = search.getModulesDeclaringPackage(packageName, ModuleBinding.UNNAMED);
+		assertNotNull("Expected to find module for package: " + toString(packageName), modules);
+		assertEquals("Expected unnamed module for package: " + toString(packageName), "", toString(modules));
+	} finally {
+		JavaCore.setOptions(getDefaultJavaCoreOptions());
+		deleteProject(testProject1Name);
+		deleteProject(testProject2Name);
+	}
+}
+
+/*
+ * After fixing an compile error about a method reference to a not-existing method,
+ * no call hierarchy was found for the then-existing method.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/438
+ */
+public void testMethodReferenceAfterCompileErrorBugGh438() throws Exception {
+	String testProjectName = "gh438MethodReferenceAfterCompileErrorProject";
+	try {
+		IJavaProject project = createJava11Project(testProjectName, new String[] {"src"});
+		setUpProjectCompliance(project, "11", true);
+		String packageFolder = "/" + testProjectName + "/src/test";
+		createFolder(packageFolder);
+		String testSource = "package test;\n" +
+				"public class Test {\n" +
+				"  public void testMethod() {\n" +
+				"    MyClass myClass = new MyClass();\n" +
+				"    java.util.stream.Stream.of(\"hello\").forEach(myClass::doSomething);\n" +
+				"  }\n" +
+				"}";
+		createFile(packageFolder + "/Test.java", testSource);
+		buildAndExpectProblems(project, "MyClass cannot be resolved to a type\nMyClass cannot be resolved to a type");
+
+		String myClassSource = "package test;\n" +
+				"public class MyClass {\n" +
+				"  void doSomething(String s) {\n" +
+				"    System.out.println(s);\n" +
+				"  }\n" +
+				"}";
+		createFile(packageFolder + "/MyClass.java", myClassSource);
+		buildAndExpectNoProblems(project);
+
+		IType type = project.findType("test.MyClass");
+		IMethod method = type.getMethod("doSomething", new String[] { "QString;" });
+		search(method, REFERENCES, EXACT_RULE, SearchEngine.createWorkspaceScope(), this.resultCollector);
+		assertSearchResults(
+				"src/test/Test.java void test.Test.testMethod() [doSomething] EXACT_MATCH");
+	} finally {
+		deleteProject(testProjectName);
+	}
+}
+
+/*
+ * Test that having a module conflict in libraries that are on the compile classpath
+ * (and not the compile module path) doesn't affect searching for types in those projects.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/675
+ */
+public void testModuleConflictForClasspathProjectsBugGh675() throws Exception {
+	String projectName = "gh675ModuleConflictForClasspathProjectsBugProject";
+	try {
+		IJavaProject project = createJavaProject(projectName, new String[] {"src"}, new String[] {"JCL11_LIB"}, "bin", "11");
+		String packageFolder = "/" + projectName + "/src/test/";
+		createFolder(packageFolder);
+		String snippet =
+				"package test;\n" +
+				"import testpackage.TestClass;\n" +
+				"public class Test {\n" +
+				"  public TestClass testField = null;\n" +
+				"  public void testMethod() {\n" +
+				"      testField = null;\n" +
+				"  }\n" +
+				"}";
+		createFile(packageFolder + "/Test.java", snippet);
+
+		String ambiguousTypeDefinition =
+				"package testpackage;\n" +
+				"public class TestClass {\n" +
+				"}";
+
+		addLibrary(project,
+				"libGh675_1.jar",
+				"libGh675_1.src.zip",
+				new String[] {
+						"testpackage/TestClass.java",
+						ambiguousTypeDefinition },
+				JavaCore.VERSION_11);
+
+		addLibrary(project,
+				"libGh675_2.jar",
+				"libGh675_2.src.zip",
+				new String[]  {
+						"module-info.java",
+						"module testmodule {\n" +
+						"  exports testpackage;\n" +
+						"}",
+						"testpackage/TestClass.java",
+						ambiguousTypeDefinition },
+				JavaCore.VERSION_11);
+
+		buildAndExpectNoProblems(project);
+		waitUntilIndexesReady();
+
+		IType type = project.findType("test.Test");
+
+		IField field = type.getField("testField");
+		search(field, REFERENCES, EXACT_RULE, SearchEngine.createWorkspaceScope(), this.resultCollector);
+		assertSearchResults(
+				"src/test/Test.java void test.Test.testMethod() [testField] EXACT_MATCH");
+	} finally {
+		deleteProject(projectName);
+	}
+}
+
+/**
+ * A modular project refers to a modular library defining a type {@code TestClass},
+ * this project also references a non-modular project on its classpath.
+ * The non-modular project uses a non-modular library that defines the same type {@code TestClass}.
+ * Since neither project exports the library, there is no compile error and no module conflict for the type.
+ * This test ensures the search doesn't run into a module conflict due to not considering whether the libraries are exported.
+ *
+ * Originally the problem was observed by using a Java 8 project and a Java 11 project,
+ * with {@code java.util.Locale} as the type that causes the search to run into a module conflict.
+ *
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/723
+ */
+public void testModuleConflictGh723() throws Exception {
+	String projectName = "gh723Project";
+	String modularProjectName = "gh723ProjectModular";
+	try {
+		IJavaProject project = createJavaProject(projectName, new String[] {"src"}, new String[] {"JCL11_LIB"}, "bin", "11");
+		IJavaProject modularProject = createJavaProject(modularProjectName, new String[] {"src"}, new String[] {"JCL11_LIB"}, "bin", "11");
+
+		createFolder("/" + projectName + "/src/test/");
+		createFile("/" + projectName + "/src/test/Test.java",
+				"package test;\n" +
+				"public class Test {\n" +
+				"  public static void test(testpackage.TestClass t) {\n" +
+				"  }\n" +
+				"}");
+
+		createFolder("/" + modularProjectName + "/src/testmodular/");
+		createFile("/" + modularProjectName + "/src/testmodular/TestModular.java",
+				"package testmodular;\n" +
+				"public class TestModular {\n" +
+				"  public void testModular() {\n" +
+				"      test.Test.test(null);\n" +
+				"  }\n" +
+				"}");
+
+		String ambiguousTypeDefinition =
+				"package testpackage;\n" +
+				"public class TestClass {\n" +
+				"}";
+
+		addLibrary(project,
+				"libGh723.jar",
+				"libGh723.src.zip",
+				new String[] {
+						"testpackage/TestClass.java",
+						ambiguousTypeDefinition },
+				JavaCore.VERSION_1_8,
+				false);
+
+		addModularLibrary(modularProject,
+				"libGh723_modular.jar",
+				"libGh723_modular.src.zip",
+				new String[] {
+						"module-info.java",
+						"module testmodule {\n" +
+						"  exports testpackage;\n" +
+						"}",
+						"testpackage/TestClass.java",
+						ambiguousTypeDefinition },
+				JavaCore.VERSION_11);
+
+		addClasspathEntry(modularProject, JavaCore.newProjectEntry(project.getPath()));
+		buildAndExpectNoProblems(project, modularProject);
+
+		IType type = project.findType("test.Test");
+		IMethod method = type.getMethod("test", new String [] {"Qtestpackage.TestClass;"});
+		search(method, REFERENCES, EXACT_RULE, SearchEngine.createWorkspaceScope(), this.resultCollector);
+		assertSearchResults(
+				"src/testmodular/TestModular.java void testmodular.TestModular.testModular() [test(null)] EXACT_MATCH");
+	} finally {
+		deleteProject(projectName);
+		deleteProject(modularProjectName);
+	}
+}
+
+private static String toString(char[][] modules) {
+	StringBuilder sb = new StringBuilder();
+	for (char[] m : modules) {
+		sb.append(m);
+	}
+	String s = sb.toString();
+	return s;
+}
 }

@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -50,6 +50,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.net.URI;
 import java.util.ArrayList;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -114,6 +115,7 @@ public class BinaryTypeBinding extends SourceTypeBinding {
 //	protected ModuleBinding module;
 // End AspectJ Extension
 	private BinaryTypeBinding prototype;
+	public URI path;
 
 	// For the link with the principle structure
 	// AspectJ don't shadow SourceTypeBinding.environment
@@ -275,12 +277,14 @@ public BinaryTypeBinding(BinaryTypeBinding prototype) {
 	this.superInterfaces = prototype.superInterfaces;
 	this.permittedSubtypes = prototype.permittedSubtypes;
 	this.fields = prototype.fields;
+	this.components = prototype.components;
 	this.methods = prototype.methods;
 	this.memberTypes = prototype.memberTypes;
 	this.typeVariables = prototype.typeVariables;
 	this.prototype = prototype.prototype;
 	this.environment = prototype.environment;
 	this.storedAnnotations = prototype.storedAnnotations;
+	this.path = prototype.path;
 }
 
 /**
@@ -347,6 +351,7 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 	}
 	if (needFieldsAndMethods)
 		cachePartsFrom(binaryType, true);
+	this.path = binaryType.getURI();
 }
 @Override
 public boolean canBeSeenBy(Scope sco) {
@@ -1566,7 +1571,7 @@ public MethodBinding getExactMethod(char[] selector, TypeBinding[] argumentTypes
 	}
 	return null;
 }
-//NOTE: the type of a field of a binary type is resolved when needed
+//NOTE: the type of a record component of a binary type is resolved when needed
 @Override
 public FieldBinding getFieldBase(char[] fieldName, boolean needResolve) { // AspectJ Extension - added Base to name
 	if (!isPrototype())
@@ -1581,6 +1586,26 @@ public FieldBinding getFieldBase(char[] fieldName, boolean needResolve) { // Asp
 	}
 	FieldBinding field = ReferenceBinding.binarySearch(fieldName, this.fields);
 	return needResolve && field != null ? resolveTypeFor(field) : field;
+}
+
+@Override
+public RecordComponentBinding getRecordComponent(char[] name) {
+	if (this.components != null) {
+		for (RecordComponentBinding rcb : this.components) {
+			if (CharOperation.equals(name, rcb.name))
+				return rcb;
+		}
+	}
+	return null;
+}
+
+@Override
+public RecordComponentBinding getComponent(char[] componentName, boolean needResolve) {
+	if (!isPrototype())
+		return this.prototype.getComponent(componentName, needResolve);
+	// Note : components not sorted and hence not using binary search
+	RecordComponentBinding component = getRecordComponent(componentName);
+	return needResolve && component != null ? resolveTypeFor(component) : component;
 }
 
 /**
@@ -1934,6 +1959,18 @@ public boolean isRecord() {
 }
 
 @Override
+public MethodBinding getRecordComponentAccessor(char[] name) {
+	if (isRecord()) {
+		for (MethodBinding m : this.getMethods(name)) {
+			if (CharOperation.equals(m.selector, name)) {
+				return m;
+			}
+		}
+	}
+	return null;
+}
+
+@Override
 public ReferenceBinding containerAnnotationType() {
 	if (!isPrototype()) throw new IllegalStateException();
 	if (this.containerAnnotationType instanceof UnresolvedReferenceBinding) {
@@ -2072,7 +2109,7 @@ private void scanFieldForNullAnnotation(IBinaryField field, VariableBinding fiel
 				&& fieldType.acceptsNonNullDefault()) {
 				int nullDefaultFromField = getNullDefaultFrom(field.getAnnotations());
 				if (nullDefaultFromField == Binding.NO_NULL_DEFAULT
-						? hasNonNullDefaultFor(DefaultLocationField, -1)
+						? hasNonNullDefaultForType(fieldType, DefaultLocationField, -1)
 						: (nullDefaultFromField & DefaultLocationField) != 0) {
 					fieldBinding.type = this.environment.createAnnotatedType(fieldType,
 							new AnnotationBinding[] { this.environment.getNonNullAnnotation() });
@@ -2112,7 +2149,7 @@ private void scanFieldForNullAnnotation(IBinaryField field, VariableBinding fiel
 		this.externalAnnotationStatus = ExternalAnnotationStatus.TYPE_IS_ANNOTATED;
 	if (!explicitNullness) {
 		int nullDefaultFromField = getNullDefaultFrom(field.getAnnotations());
-		if (nullDefaultFromField == Binding.NO_NULL_DEFAULT ? hasNonNullDefaultFor(DefaultLocationField, -1)
+		if (nullDefaultFromField == Binding.NO_NULL_DEFAULT ? hasNonNullDefaultForType(fieldBinding.type, DefaultLocationField, -1)
 				: (nullDefaultFromField & DefaultLocationField) != 0) {
 			fieldBinding.tagBits |= TagBits.AnnotationNonNull;
 		}
@@ -2690,6 +2727,15 @@ public FieldBinding[] unResolvedFields() {
 
 	return this.fields;
 }
+
+@Override
+public RecordComponentBinding[] unResolvedComponents() {
+	if (!isPrototype())
+		return this.prototype.unResolvedComponents();
+	return this.components;
+}
+
+
 @Override
 public ModuleBinding module() {
 	if (!isPrototype())

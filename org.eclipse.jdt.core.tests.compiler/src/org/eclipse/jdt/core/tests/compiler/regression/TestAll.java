@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -113,7 +113,7 @@ public static Test suite() {
 	since_1_5.add(BatchCompilerTest.class);
 	since_1_5.add(NullAnnotationBatchCompilerTest.class);
 	since_1_5.add(ConcurrentBatchCompilerTest.class);
-	since_1_5.add(ExternalizeStringLiterals15Test.class);
+	since_1_5.add(ExternalizeStringLiteralsTest_1_5.class);
 	since_1_5.add(Deprecated15Test.class);
 	since_1_5.add(InnerEmulationTest_1_5.class);
 	since_1_5.add(AssignmentTest_1_5.class);
@@ -205,6 +205,7 @@ public static Test suite() {
 	 since_15.add(Unicode13Test.class);
 	 since_15.add(BatchCompilerTest_15.class);
 	 since_15.add(TextBlockTest.class);
+	 since_15.add(ExternalizeStringLiteralsTest_15.class);
 
 	 // add 16 specific test here (check duplicates)
 	 ArrayList since_16 = new ArrayList();
@@ -230,8 +231,11 @@ public static Test suite() {
 	 // add 19 specific test here (check duplicates)
 	 ArrayList since_19 = new ArrayList();
 	 since_19.add(NullAnnotationTests18.class);
-	 since_19.add(SwitchPatternTest.class);
-	 since_19.add(RecordPatternTest.class);
+
+	 // add 19 specific test here (check duplicates)
+	 ArrayList since_20 = new ArrayList();
+	 since_20.add(SwitchPatternTest.class);
+	 since_20.add(RecordPatternTest.class);
 
 	 // Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());
@@ -471,6 +475,28 @@ public static Test suite() {
 		tests_19.addAll(since_19);
 		TestCase.resetForgottenFilters(tests_19);
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_19), tests_19));
+	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_20) != 0) {
+		ArrayList tests_20 = (ArrayList)standardTests.clone();
+		tests_20.addAll(since_1_4);
+		tests_20.addAll(since_1_5);
+		tests_20.addAll(since_1_6);
+		tests_20.addAll(since_1_7);
+		tests_20.addAll(since_1_8);
+		tests_20.addAll(since_9);
+		tests_20.addAll(since_10);
+		tests_20.addAll(since_11);
+		tests_20.addAll(since_12);
+		tests_20.addAll(since_13);
+		tests_20.addAll(since_14);
+		tests_20.addAll(since_15);
+		tests_20.addAll(since_16);
+		tests_20.addAll(since_17);
+		tests_20.addAll(since_18);
+		tests_20.addAll(since_19);
+		tests_20.addAll(since_20);
+		TestCase.resetForgottenFilters(tests_20);
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_20), tests_20));
 	}
 	all.addTest(new TestSuite(Jsr14Test.class));
 	return all;

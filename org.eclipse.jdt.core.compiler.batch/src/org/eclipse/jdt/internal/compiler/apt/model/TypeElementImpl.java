@@ -181,17 +181,16 @@ public class TypeElementImpl extends ElementImpl implements TypeElement {
 
 	//@Override - AspectJ: does not compile with AspectJ Maven. This really is an Eclipse bug.
     public List<? extends RecordComponentElement> getRecordComponents() {
-		if (_binding instanceof SourceTypeBinding) {
-			SourceTypeBinding binding = (SourceTypeBinding) _binding;
+		if (this._binding instanceof ReferenceBinding) {
+			ReferenceBinding binding = (ReferenceBinding) this._binding;
 			List<RecordComponentElement> enclosed = new ArrayList<>();
 			for (RecordComponentBinding comp : binding.components()) {
-				RecordComponentElement variable = new RecordComponentElementImpl(_env, comp);
+				RecordComponentElement variable = new RecordComponentElementImpl(this._env, comp);
 				enclosed.add(variable);
 			}
 			Collections.sort(enclosed, new SourceLocationComparator());
 			return Collections.unmodifiableList(enclosed);
 		}
-		// TODO: Add code for BinaryTypeBinding, which, as of now doesn't seem to contain components
 		return Collections.emptyList();
     }
 

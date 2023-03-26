@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2021 IBM Corporation.
+ * Copyright (c) 2017, 2023 IBM Corporation.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -440,6 +440,62 @@ public class Java9ElementsTests extends TestCase {
 							File.pathSeparator + autoModuleJar);
 				});
 	}
+	public void testGetFileObjectOfJavac() throws IOException {
+		if (!canRunJava18()) {
+			return;
+		}
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		internalTest3(compiler, MODULE_PROC, "testGetFileObjectOf", null, true);
+	}
+	public void testGetFileObjectOf() throws IOException {
+		if (!canRunJava18()) {
+			return;
+		}
+		JavaCompiler compiler = BatchTestUtils.getEclipseCompiler();
+		internalTest3(compiler, MODULE_PROC, "testGetFileObjectOf", null, true);
+	}
+	public void testGetFileObjectOfRecordsJavac() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testGetFileObjectOfRecords", null, true);
+	}
+	public void testGetFileObjectOfRecords() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = BatchTestUtils.getEclipseCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testGetFileObjectOfRecords", null, true);
+	}
+	public void testElementsInTypeJavac() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testElementsInType", null, true);
+	}
+	public void testElementsInType() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = BatchTestUtils.getEclipseCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testElementsInType", null, true);
+	}
+	public void testDeeplyNestedTypesJavac() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testDeeplyNestedTypes", null, true);
+	}
+	public void testDeeplyNestedTypes() throws IOException {
+		if (!canRunJava20()) {
+			return;
+		}
+		JavaCompiler compiler = BatchTestUtils.getEclipseCompiler();
+		internalTest4(compiler, "20", MODULE_PROC, "testDeeplyNestedTypes", null, true);
+	}
 	protected void internalTestWithBinary(JavaCompiler compiler, String processor, String compliance, String testMethod, String testClass, String resourceArea) throws IOException {
 		if (!canRunJava9()) {
 			return;
@@ -553,7 +609,7 @@ public class Java9ElementsTests extends TestCase {
 		options.add("-A" + processor);
 		options.add("-A" + testMethod);
 		if (compiler instanceof EclipseCompiler) {
-			options.add("-9");
+			options.add("-17");
 		}
 		BatchTestUtils.compileInModuleMode(compiler, options, processor, srcRoot, null, true);
 		assertEquals("succeeded", System.getProperty(processor));
@@ -575,7 +631,33 @@ public class Java9ElementsTests extends TestCase {
 		options.add("-A" + processor);
 		options.add("-A" + testMethod);
 		if (compiler instanceof EclipseCompiler) {
-			options.add("-9");
+			options.add("-17");
+		}
+		BatchTestUtils.compileInModuleMode(compiler, options, processor, srcRoot, null, true, binaryMode);
+		assertEquals("succeeded", System.getProperty(processor));
+	}
+	/*
+	 * Tests are run in multi-module mode but only compiling a module path
+	 */
+	private void internalTest4(JavaCompiler compiler, String compliance, String processor, String testMethod, String testClass, boolean binaryMode) throws IOException {
+		if (!canRunJava9()) {
+			return;
+		}
+		System.clearProperty(processor);
+		File srcRoot = TestUtils.concatPath(BatchTestUtils.getSrcFolderName());
+		BatchTestUtils.copyResources("mod_locations/modules", srcRoot);
+
+		List<String> options = new ArrayList<String>();
+		options.add("-processor");
+		options.add(processor);
+		options.add("-A" + processor);
+		options.add("-A" + testMethod);
+		if (compiler instanceof EclipseCompiler) {
+			options.add("-" + compliance);
+		} else {
+			options.add("-source");
+			options.add(compliance);
+			options.add("--enable-preview");
 		}
 		BatchTestUtils.compileInModuleMode(compiler, options, processor, srcRoot, null, true, binaryMode);
 		assertEquals("succeeded", System.getProperty(processor));
@@ -583,6 +665,22 @@ public class Java9ElementsTests extends TestCase {
 	public boolean canRunJava17() {
 		try {
 			SourceVersion.valueOf("RELEASE_17");
+		} catch(IllegalArgumentException iae) {
+			return false;
+		}
+		return true;
+	}
+	public boolean canRunJava18() {
+		try {
+			SourceVersion.valueOf("RELEASE_18");
+		} catch(IllegalArgumentException iae) {
+			return false;
+		}
+		return true;
+	}
+	public boolean canRunJava20() {
+		try {
+			SourceVersion.valueOf("RELEASE_20");
 		} catch(IllegalArgumentException iae) {
 			return false;
 		}

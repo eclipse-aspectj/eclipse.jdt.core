@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2022 IBM Corporation and others.
+ * Copyright (c) 2022, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,6 +16,7 @@ import java.io.IOException;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IField;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.ILocalVariable;
@@ -144,7 +145,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 	}
 
 	// record pattern - just check if search for record pattern local declaration works as expected
-	public void testIssue215_001() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_001() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"public class X {\n"
@@ -191,7 +193,7 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 				"public class X {\n"
 						+ "  static void print(Rectangle r) {\n"
 						+ "    if (r instanceof (Rectangle(ColoredPoint(Point(int /*here*/xyz, int y), Color c),\n"
-						+ "                               ColoredPoint lr) r11)) {\n"
+						+ "                               ColoredPoint lr))) {\n"
 						+ "        System.out.println(\"Upper-left corner: \" + xyz);\n"
 						+ "    }\n"
 						+ "  }\n"
@@ -224,7 +226,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - just check if all occurence search for record pattern local declaration works
-	public void testIssue215_003() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_003() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"public class X {\n"
@@ -267,7 +270,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 
 
 	// record pattern - just check if all occurence search for component in record pattern local declaration works
-	public void testIssue215_004() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_004() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"public class X {\n"
@@ -308,7 +312,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - if search for "valid record pattern and make the pattern variable available in switch expression" works
-	public void testIssue215_005() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_005() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"@SuppressWarnings(\"preview\")"
@@ -353,7 +358,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - if search for component in "valid record pattern and make the pattern variable available in switch expression" works
-	public void testIssue215_006() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_006() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"@SuppressWarnings(\"preview\")"
@@ -398,7 +404,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - if search for enum in "valid record pattern and make the pattern variable available in switch expression" works
-	public void testIssue215_007() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_007() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"@SuppressWarnings(\"preview\")"
@@ -592,7 +599,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - just check if all occurence search for record pattern local declaration works
-	public void testIssue215_011() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_011() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"@SuppressWarnings(\"preview\")"
@@ -651,7 +659,8 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 		}
 	}
 	// record pattern - just check if search for record pattern local declaration works - another example
-	public void testIssue215_0012() throws CoreException {
+	// Enable with fix of https://github.com/eclipse-jdt/eclipse.jdt.core/issues/785
+	public void _testIssue215_0012() throws CoreException {
 		this.workingCopies = new ICompilationUnit[1];
 		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
 				"@SuppressWarnings(\"preview\")"
@@ -740,7 +749,7 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 				"public class X {\n"
 						+ "  static void print(Rectangle r) {\n"
 						+ "switch (r) {\n"
-						+ "case Rectangle r1 when (r instanceof (Rectangle(ColoredPoint upperLeft2, ColoredPoint lowerRight) r2)):\n"
+						+ "case Rectangle r1 when (r instanceof (Rectangle(ColoredPoint upperLeft2, ColoredPoint lowerRight))):\n"
 						+ "	System.out.println( /*here*/upperLeft2);\n"
 						+ "	break;\n"
 						+ "	default :\n"
@@ -775,7 +784,72 @@ public class JavaSearchBugs19Tests extends AbstractJavaSearchTests {
 			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
 		}
 	}
+	public void testIssue708_1() throws CoreException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
+				"public class Test1 {\n"
+				+ "	public void test(Type type, String string) {\n"
+				+ "		switch (type) {\n"
+				+ "		case openDeclarationFails -> {\n"
+				+ "			switch (string) {\n"
+				+ "			case \"Test\" -> method(Type.openDeclarationFails);\n"
+				+ "			}\n"
+				+ "			method(Type.openDeclarationFails);\n"
+				+ "		}\n"
+				+ "		case anotherValue -> {\n"
+				+ "			switch (string) {\n"
+				+ "			case \"Test\" -> method(Type.anotherValue);\n"
+				+ "			}\n"
+				+ "		}\n"
+				+ "		}\n"
+				+ "	}\n"
+				+ "	private void method(Type relay) {}\n"
+				+ "	static public enum Type {\n"
+				+ "		openDeclarationFails, anotherValue;\n"
+				+ "	}\n"
+				+ "}"
+				);
+		IJavaProject javaProject = this.workingCopies[0].getJavaProject(); // assuming single project for all
+		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
+		try {
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			String str = this.workingCopies[0].getSource();
+			String selection = "Type.openDeclarationFails";
+			int start = str.indexOf(selection);
+			int length = selection.length();
 
+			IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+			IField local = (IField) elements[0];
+			search(local, DECLARATIONS, EXACT_RULE);
+			assertSearchResults("src/X.java Test1$Type.openDeclarationFails [openDeclarationFails] EXACT_MATCH");
+
+			str = this.workingCopies[0].getSource();
+			selection = "Type.anotherValue";
+			start = str.indexOf(selection);
+			length = selection.length();
+
+			elements = this.workingCopies[0].codeSelect(start, length);
+			local = (IField) elements[0];
+			this.resultCollector.clear();
+			search(local, DECLARATIONS, EXACT_RULE);
+			assertSearchResults("src/X.java Test1$Type.anotherValue [anotherValue] EXACT_MATCH");
+
+			str = this.workingCopies[0].getSource();
+			selection = "openDeclarationFails";
+			start = str.lastIndexOf(selection);
+			length = selection.length();
+
+			elements = this.workingCopies[0].codeSelect(start, length);
+			local = (IField) elements[0];
+			this.resultCollector.clear();
+			search(local, ALL_OCCURRENCES, EXACT_RULE);
+			assertSearchResults("src/X.java void Test1.test(Type, String) [openDeclarationFails] EXACT_MATCH\n" +
+					"src/X.java void Test1.test(Type, String) [openDeclarationFails] EXACT_MATCH\n" +
+					"src/X.java void Test1.test(Type, String) [openDeclarationFails] EXACT_MATCH\n" +
+					"src/X.java Test1$Type.openDeclarationFails [openDeclarationFails] EXACT_MATCH");
+		} finally {
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, old);
+		}
+	}
 }
-
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -167,6 +167,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE17 = false;
 	protected static boolean isJRE18 = false;
 	protected static boolean isJRE19 = false;
+	protected static boolean isJRE20 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -179,6 +180,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK20) {
+			isJRE20 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK19) {
 			isJRE19 = true;
 		}
@@ -279,8 +283,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static final int AST_INTERNAL_JLS18 = AST.JLS18;
 	/**
 	 * Internal synonym for constant AST.JSL19
+	 * @deprecated
 	 */
 	protected static final int AST_INTERNAL_JLS19 = AST.JLS19;
+	/**
+	 * Internal synonym for constant AST.JSL20
+	 */
+	protected static final int AST_INTERNAL_JLS20 = AST.JLS20;
 	/**
 	 * Internal synonym for the latest AST level.
 	 *
@@ -693,6 +702,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected void addLibrary(IJavaProject javaProject, String jarName, String sourceZipName, String[] pathAndContents, String compliance) throws CoreException, IOException {
 		addLibrary(javaProject, jarName, sourceZipName, pathAndContents, null/*no non-Java resources*/, null, null, compliance, null);
 	}
+	protected void addLibrary(IJavaProject javaProject, String jarName, String sourceZipName, String[] pathAndContents, String compliance, boolean exported) throws CoreException, IOException {
+		addLibrary(javaProject, jarName, sourceZipName, pathAndContents, null/*no non-Java resources*/, null, null, compliance, null, exported);
+	}
 	protected void addLibrary(IJavaProject javaProject, String jarName, String sourceZipName, String[] pathAndContents, String[] nonJavaResources, String compliance) throws CoreException, IOException {
 		addLibrary(javaProject, jarName, sourceZipName, pathAndContents, nonJavaResources, null, null, compliance, null);
 	}
@@ -720,6 +732,19 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			String[] librariesExclusionPatterns,
 			String compliance,
 			Map options) throws CoreException, IOException {
+		addLibrary(javaProject, jarName, sourceZipName, pathAndContents, nonJavaResources, librariesInclusionPatterns, librariesExclusionPatterns, compliance, options, true);
+	}
+	private void addLibrary(
+			IJavaProject javaProject,
+			String jarName,
+			String sourceZipName,
+			String[] pathAndContents,
+			String[] nonJavaResources,
+			String[] librariesInclusionPatterns,
+			String[] librariesExclusionPatterns,
+			String compliance,
+			Map options,
+			boolean exported) throws CoreException, IOException {
 		IProject project = createLibrary(javaProject, jarName, sourceZipName, pathAndContents, nonJavaResources, compliance, options);
 		String projectPath = '/' + project.getName() + '/';
 		addLibraryEntry(
@@ -729,7 +754,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			null,
 			toIPathArray(librariesInclusionPatterns),
 			toIPathArray(librariesExclusionPatterns),
-			true
+			exported
 		);
 	}
 	protected IProject createLibrary(
@@ -4039,6 +4064,25 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		} catch (CoreException e) {
 			logError("exception occurred while waiting on indexing", e);
 		}
+	}
+
+	protected void makeJCLModular(IJavaProject javaProject) throws JavaModelException {
+		IClasspathEntry[] classpath = javaProject.getRawClasspath();
+		for (int i = 0, length = classpath.length; i < length; i++) {
+			IClasspathEntry entry = classpath[i];
+			final IPath path = entry.getPath();
+			if (isJCLPath(path)) {
+					classpath[i] = JavaCore.newVariableEntry(
+							entry.getPath(),
+							entry.getSourceAttachmentPath(),
+							entry.getSourceAttachmentRootPath(),
+							entry.getAccessRules(),
+							moduleAttribute(),
+							entry.isExported());
+					break;
+			}
+		}
+		javaProject.setRawClasspath(classpath, null);
 	}
 
 	private static void logError(String errorMessage, CoreException e) {

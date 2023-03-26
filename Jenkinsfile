@@ -10,12 +10,11 @@ pipeline {
 	}
 	tools {
 		maven 'apache-maven-latest'
-		jdk 'openjdk-jdk17-latest'
+		jdk 'temurin-jdk17-latest'
 	}
 	stages {
 		stage('Build') {
 			steps {
-				wrap([$class: 'Xvnc', useXauthority: true]) {
 					sh """#!/bin/bash -x
 					
 					/opt/tools/java/openjdk/jdk-11/latest/bin/java -version
@@ -31,16 +30,14 @@ pipeline {
 					# export MAVEN_OPTS="-Xmx2G"
 					
 					mvn -U clean verify --batch-mode --fail-at-end -Dmaven.repo.local=$WORKSPACE/.m2/repository \
-					-Pbuild-individual-bundles -Ptest-on-javase-19 -Pbree-libs -Papi-check \
+					-Pbuild-individual-bundles -Ptest-on-javase-20 -Pbree-libs -Papi-check \
 					-Djava.io.tmpdir=$WORKSPACE/tmp -Dproject.build.sourceEncoding=UTF-8 \
-					-Dtycho.surefire.argLine="--add-modules ALL-SYSTEM -Dcompliance=1.8,11,17,19 -Djdt.performance.asserts=disabled"
+					-Dtycho.surefire.argLine="--add-modules ALL-SYSTEM -Dcompliance=1.8,11,17,20 -Djdt.performance.asserts=disabled"
 					"""
-				}
 			}
 			post {
 				always {
 					archiveArtifacts artifacts: '*.log,*/target/work/data/.metadata/*.log,*/tests/target/work/data/.metadata/*.log,apiAnalyzer-workspace/.metadata/*.log', allowEmptyArchive: true
-					recordIssues aggregatingResults: true, enabledForFailure: true, qualityGates: [[threshold: 1, type: 'DELTA', unstable: false]], tools: [acuCobol()]
 					publishIssues issues:[scanForIssues(tool: java()), scanForIssues(tool: mavenConsole())]
 					junit '**/target/surefire-reports/*.xml'
 				}

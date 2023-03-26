@@ -1466,6 +1466,9 @@ public void resolve() {
 						 ((Initializer) field).lastVisibleFieldID = lastVisibleFieldID + 1;
 						break;
 				}
+				if (this.isRecord()) {
+					field.javadoc = this.javadoc;
+				}
 				field.resolve(field.isStatic() ? this.staticInitializerScope : this.initializerScope);
 			}
 		}
