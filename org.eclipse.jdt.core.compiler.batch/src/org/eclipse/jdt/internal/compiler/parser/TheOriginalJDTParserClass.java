@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -39,6 +39,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -3476,6 +3477,7 @@ protected void consumeEnhancedForStatement() {
 	// foreach statement is on the ast stack
 	ForeachStatement foreachStatement = (ForeachStatement) this.astStack[this.astPtr];
 	foreachStatement.action = statement;
+	foreachStatement.transformAction();
 	// remember useful empty statement
 	if (statement instanceof EmptyStatement) statement.bits |= ASTNode.IsUsefulEmptyStatement;
 
@@ -3499,6 +3501,16 @@ protected void consumeEnhancedForStatementHeader(){
 			this.lastErrorEndPositionBeforeRecovery < this.scanner.currentPosition) {
 		problemReporter().invalidUsageOfForeachStatements(statement.elementVariable, collection);
 	}
+}
+protected void consumeEnhancedForStatementHeaderInitRecord(boolean hasModifiers) {
+	this.astLengthPtr--;
+	RecordPattern recordPattern = (RecordPattern) this.astStack[this.astPtr--];
+	ForeachStatement forEachWithPattern =
+			new ForeachStatement(
+				recordPattern,
+				this.intStack[this.intPtr--]);
+		pushOnAstStack(forEachWithPattern);
+		this.forStartPosition = 0;
 }
 protected void consumeEnhancedForStatementHeaderInit(boolean hasModifiers) {
 	TypeReference type;
@@ -7764,12 +7776,15 @@ protected void consumeTextBlock() {
 						textBlock2,
 						this.scanner.startPosition,
 						this.scanner.currentPosition - 1,
-						Util.getLineNumber(this.scanner.startPosition, this.scanner.lineEnds, 0, this.scanner.linePtr));
+						Util.getLineNumber(this.scanner.startPosition, this.scanner.lineEnds, 0, this.scanner.linePtr),
+						Util.getLineNumber(this.scanner.currentPosition - 1, this.scanner.lineEnds, 0, this.scanner.linePtr));
+		this.compilationUnit.recordStringLiteral(textBlock, this.currentElement != null);
 	} else {
 		textBlock = new TextBlock(
 				textBlock2,
 			this.scanner.startPosition,
 			this.scanner.currentPosition - 1,
+			0,
 			0);
 	}
 	pushOnExpressionStack(textBlock);
@@ -8676,6 +8691,11 @@ protected void consumeRecordPattern() {
 				0,
 				length);
 		recPattern.patterns = patterns;
+		for (int i = 0; i < length; ++i) {
+			TypePattern pattern = (TypePattern) patterns[i];
+			pattern.setEnclosingPattern(recPattern);
+			pattern.index = i;
+		}
 	} else {
 		recPattern.patterns = ASTNode.NO_TYPE_PATTERNS;
 	}
@@ -8704,6 +8724,9 @@ protected void consumeRecordPatternWithId() {
 				0,
 				length);
 		recPattern.patterns = patterns;
+		for (Pattern pattern : patterns) {
+			pattern.setEnclosingPattern(recPattern);
+		}
 	} else {
 		recPattern.patterns = ASTNode.NO_TYPE_PATTERNS;
 	}
@@ -8714,12 +8737,14 @@ protected void consumeRecordPatternWithId() {
 	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORD_PATTERNS, type.sourceStart, local.declarationEnd);
 	pushOnAstStack(recPattern);
 }
-protected void consumeRecordStructure() {
-	//System.out.println("consumeRecordStructure");
-}
-protected void consumeRecordComponentPatternList() {
+protected void consumePatternList() {
+	// PatternList -> Pattern
+	// PatternList ::= PatternList ',' Pattern
 	optimizedConcatNodeLists();
-	//System.out.println("consumeRecordComponentPatternList");
+}
+protected void consumePatternListopt() {
+	//PatternListopt ::=  $empty
+	pushOnAstLengthStack(0);
 }
 protected void consumeZeroAdditionalBounds() {
 	if (this.currentToken == TokenNameRPAREN)  // Signal zero additional bounds - do this only when the cast type is fully seen (i.e not in error path)
@@ -8947,19 +8972,16 @@ protected void consumeRecordDeclaration() {
 	TypeDeclaration typeDecl = (TypeDeclaration) this.astStack[this.astPtr];
 	this.recordNestedMethodLevels.remove(typeDecl);
 	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORDS, typeDecl.sourceStart, typeDecl.sourceEnd);
+	/* create canonical constructor - check for the clash later at binding time */
+	/* https://github.com/eclipse-jdt/eclipse.jdt.core/issues/365 */
+	typeDecl.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);
 	//convert constructor that do not have the type's name into methods
 	ConstructorDeclaration cd = typeDecl.getConstructor((Parser) this);  // AspectJ
-	if (cd == null) {
-		/* create canonical constructor - check for the clash later at binding time */
-		cd = typeDecl.createDefaultConstructor(!(this.diet && this.dietInt == 0), true);
-	} else {
-		if (cd instanceof CompactConstructorDeclaration
-			|| ((typeDecl.recordComponents == null || typeDecl.recordComponents.length == 0)
-			&& (cd.arguments == null || cd.arguments.length == 0))) {
-			cd.bits |= ASTNode.IsCanonicalConstructor;
-		}
+	if (cd instanceof CompactConstructorDeclaration
+		|| ((typeDecl.recordComponents == null || typeDecl.recordComponents.length == 0)
+		&& (cd.arguments == null || cd.arguments.length == 0))) {
+		cd.bits |= ASTNode.IsCanonicalConstructor;
 	}
-
 	if (this.scanner.containsAssertKeyword) {
 		typeDecl.bits |= ASTNode.ContainsAssertion;
 	}
@@ -8968,7 +8990,10 @@ protected void consumeRecordDeclaration() {
 	if (length == 0 && !containsComment(typeDecl.bodyStart, typeDecl.bodyEnd)) {
 		typeDecl.bits |= ASTNode.UndocumentedEmptyBlock;
 	}
-	TypeReference superClass = new QualifiedTypeReference(TypeConstants.JAVA_LANG_RECORD, new long[] {0});
+	char[][] sources = TypeConstants.JAVA_LANG_RECORD;
+	long[] poss = new long[sources.length];
+	Arrays.fill(poss, 0);
+	TypeReference superClass = new QualifiedTypeReference(sources, poss);
 	superClass.bits |= ASTNode.IsSuperType;
 	typeDecl.superclass = superClass;
 	typeDecl.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
@@ -9104,9 +9129,6 @@ protected void consumeRecordComponentsopt() {
 	// RecordComponentsopt ::= $empty
 	pushOnAstLengthStack(0);
 }
-protected void consumeRecordComponentPatternsopt() {
-	pushOnAstLengthStack(0);
-}
 protected void consumeRecordComponents() {
 	// RecordComponents ::= RecordComponents ',' RecordComponent
 	optimizedConcatNodeLists();
@@ -9157,11 +9179,9 @@ protected void consumeRecordComponent(boolean isVarArgs) {
 	}
 	int modifierPositions = this.intStack[this.intPtr--];
 	RecordComponent recordComponent;
-	recordComponent = new RecordComponent(
-			identifierName,
-			namePositions,
-			type,
-			this.intStack[this.intPtr--] & ~ClassFileConstants.AccDeprecated); // modifiers
+	recordComponent = createComponent(identifierName, namePositions, type,
+			this.intStack[this.intPtr--] & ~ClassFileConstants.AccDeprecated // modifiers
+			, modifierPositions);
 	recordComponent.declarationSourceStart = modifierPositions;
 	recordComponent.bits |= (type.bits & ASTNode.HasTypeAnnotations);
 	// consume annotations
@@ -9481,6 +9501,11 @@ protected TypeReference augmentTypeWithAdditionalDimensions(TypeReference typeRe
 
 protected FieldDeclaration createFieldDeclaration(char[] fieldDeclarationName, int sourceStart, int sourceEnd) {
 	return new FieldDeclaration(fieldDeclarationName, sourceStart, sourceEnd);
+}
+
+protected RecordComponent createComponent(char[] identifierName, long namePositions, TypeReference type, int modifier,
+		int declStart) {
+	return new RecordComponent(identifierName, namePositions, type, modifier);
 }
 protected JavadocParser createJavadocParser() {
 	// AspectJ Extension: cast first param to parser
