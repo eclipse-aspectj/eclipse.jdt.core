@@ -8699,6 +8699,7 @@ protected void consumeRecordPattern() {
 	} else {
 		recPattern.patterns = ASTNode.NO_TYPE_PATTERNS;
 	}
+	checkForDiamond(recPattern.type);
 	this.intPtr -= 3; // 2 for '(' and ')' and one for the 0 pushed by consumeReferenceType()
 	problemReporter().validateJavaFeatureSupport(JavaFeature.RECORD_PATTERNS, type.sourceStart, sourceEnd);
 	pushOnAstStack(recPattern);
