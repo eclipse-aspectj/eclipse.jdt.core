@@ -1,20 +1,12 @@
-JDT Core
-========
+# AspectJ JDT Core
 
-This is the core part of Eclipse's Java development tools. It contains the non-UI support for compiling and working with Java code, including the following:
+This is an AspectJ-enhanced fork of [Eclipse JDT Core](https://github.com/eclipse-jdt/eclipse.jdt.core).
+The AspectJ Compiler (AJC) builds upon the Eclipse Java Compiler (ECJ) and its annotation processing (APT) support,
+adding native AspectJ syntax parsing and compilation to the JDT Core batch compiler.
 
-* an incremental or batch Java compiler that can run standalone or as part of the Eclipse IDE
-* Java source and class file indexer and search infrastructure
-* a Java source code formatter
-* APIs for code assist, access to the AST and structured manipulation of Java source.
+The rest of JDT Core is mostly ignored, and the subset of classes necessary for inclusion into AspectJ Core is built
+separately by Maven, completely bypassing the upstream build configuration.
 
-For more information and important links, refer to the [JDT wiki page] [1] or the [JDT project overview page] [2].
+## License
 
-License
--------
-
-[Eclipse Public License (EPL) v2.0][3]
-
-[1]: http://wiki.eclipse.org/JDT_Core
-[2]: http://www.eclipse.org/projects/project.php?id=eclipse.jdt
-[3]: http://wiki.eclipse.org/EPL
+[Eclipse Public License (EPL) v2.0](https://www.eclipse.org/legal/epl-2.0/)
