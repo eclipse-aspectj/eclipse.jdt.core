@@ -455,8 +455,21 @@ protected void ensureOpen() throws IOException {
 }
 
 private void closeSomeArchives(int n) {
-	for (int i = n - 1; i >= 0; i--) {
-		openArchives.get(0).close();
+	for (int i = 0; i < Math.min(n, openArchives.size()); i++) {
+		try {
+			ClasspathJar openArchive = openArchives.get(0);
+			// FIXME:
+			//   It is unclear how null entries can get into the list, because they are added via 'openArchives.add(this)',
+			//   but null values are certainly permitted in an ArrayList. Because the error
+			//     java.lang.NullPointerException: Cannot invoke
+			//       "org.aspectj.org.eclipse.jdt.internal.compiler.batch.ClasspathJar.close()" because the return value of
+			//       "java.util.List.get(int)" is null
+			//   definitely occurred while compiling AJDT in IntelliJ IDEA, it seems that somehow we need this safeguard.
+			if (openArchive != null)
+				openArchive.close();
+		}
+		// Just in case 'openArchive' is changed concurrently
+		catch (IndexOutOfBoundsException ignored) { }
 	}
 }
 
