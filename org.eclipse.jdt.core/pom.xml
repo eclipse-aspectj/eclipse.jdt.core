@@ -175,7 +175,11 @@
     <!-- Basic build properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <maven.compiler.source>11</maven.compiler.source>
+    <!--
+      Eclipse JDT Core now requires Java 17 and has started using more recent source code constructs.
+      At least for now, compiling to target 11 ist still possible.
+    -->
+    <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
 
     <!-- PARENT POM: By default, do not deploy artifacts - override for the ones which actually should be deployed -->
@@ -215,20 +219,6 @@
       <layout>default</layout>
       <snapshots>
         <enabled>false</enabled>
-      </snapshots>
-      <releases>
-        <enabled>true</enabled>
-        <updatePolicy>never</updatePolicy>
-      </releases>
-    </repository>
-    <repository>
-      <id>aspectj-dev</id>
-      <name>AspectJ artifacts on aspectj.dev</name>
-      <url>https://aspectj.dev/maven</url>
-      <layout>default</layout>
-      <snapshots>
-        <enabled>true</enabled>
-        <updatePolicy>always</updatePolicy>
       </snapshots>
       <releases>
         <enabled>true</enabled>
@@ -408,21 +398,22 @@
           <version>3.8.1</version>
         </plugin>
         <plugin>
-          <!-- We need the fork because the Mojohaus original does not support Java 9+ -->
           <groupId>dev.aspectj</groupId>
           <artifactId>aspectj-maven-plugin</artifactId>
-          <version>1.13</version>
+          <version>1.13.1</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.aspectj</groupId>
+              <artifactId>aspectjtools</artifactId>
+              <version>${aspectj.version}</version>
+            </dependency>
+          </dependencies>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <!--
-            TODO: Replace by release in which
-              - https://issues.apache.org/jira/browse/MSHADE-252,
-              - https://issues.apache.org/jira/browse/MSHADE-391,
-              - https://issues.apache.org/jira/browse/MSHADE-366 are fixed.
-          -->
-          <version>3.2.4.MSHADE-252-391</version>
+          <!-- TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-443 is fixed -->
+          <version>3.4.1.MSHADE-443</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -501,7 +492,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.2.0</version>
+          <version>3.5.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -689,8 +680,6 @@
           <!--<showWeaveInfo>true</showWeaveInfo>-->
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
-          <!-- TODO: remove after upgrading to new version in which 'complianceLevel' is optional -->
-          <complianceLevel>${maven.compiler.target}</complianceLevel>
           <Xlint>ignore</Xlint>
           <encoding>${project.build.sourceEncoding}</encoding>
           <!--<verbose>true</verbose>-->
@@ -779,7 +768,7 @@
                       prefix. The following exclusions relate to the option prefixes used in these two and many more
                       classes. We have to be careful to double-check for each exclusion to not intersect with actual
                       package names. this is why sometimes we cannot use '.*' but must name the exact properties.
-                      Otherwise this would not work and we would end up with excluded classes.
+                      Otherwise, this would not work, and we would end up with excluded classes.
                     -->
                     <exclude>org.eclipse.jdt.MODULE_PATH</exclude>
                     <exclude>org.eclipse.jdt.USER_LIBRARY</exclude>
@@ -833,24 +822,6 @@
                           sort |
                           uniq
                       If you want to inspect the full matches, just remove '| sed ... | sort | uniq' from the command.
-                    -->
-                    <!--
-                    FIXME:
-                      Maven Shade's DefaultShader.RelocatorRemapper extends org.objectweb.asm.commons.Remapper which
-                      respects these inclusions in strings found inside class files. So far, so good. Its home-brew
-                      search + replace in source files is not so subtle, though: If the file itself is not excluded as a
-                      whole because its path matches <pattern>, the plugin will blindly apply the replace from
-                      <pattern> to <shadedPattern> in the whole file. I.e., those two files in the source JAR are
-                      incorrect and different from the actual class files which are indeed correct.
-                      .
-                      The problematic method in Maven Shade is SimpleRelocator::applyToSourceContent, the problematic
-                      command is 'sourceContent.replaceAll( "\\b" + pattern, shadedPattern )', because 'replaceAll' is
-                      not what we want here. See also on GitHub: https://bit.ly/39DNr8f
-                      .
-                      I (kriegaex) fixed this issue old https://issues.apache.org/jira/browse/MSHADE-252 myself, so it
-                      works for me locally with the long excludes list above, but it makes the shading step very slow.
-                      Correct results are more important, though. See also my PR
-                      https://github.com/apache/maven-shade-plugin/pull/88.
                     -->
                   </excludes>
                 </relocation>
@@ -935,7 +906,7 @@
               <!-- Generate class use xref, making javadocs considerably bigger, but also more informative -->
               <use>true</use>
               <!-- FIXME: Why does it fail without this parameter? -->
-              <javadocVersion>8</javadocVersion>
+              <javadocVersion>${maven.compiler.source}</javadocVersion>
             </configuration>
           </execution>
         </executions>
@@ -963,9 +934,8 @@
 
         Tip: If you want a quick overview, run this from the project from the project root directory:
         mvn -P \!create-docs dependency:analyze | grep -E '\[(WARNING|INFO\] -+< .+:.+ >-+)' > dependency-analyze.txt
-        But be careful that all modules are actually listed - usually 'org.aspectj:installer' is the last one in the
-        list. You can make sure by running the command without 'grep' first, then you see if there are any compile
-        problems which 'grep' would filter out.
+        But be careful that all modules are actually listed. You can make sure by running the command without 'grep'
+        first, then you see if there are any compile problems which 'grep' would filter out.
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
