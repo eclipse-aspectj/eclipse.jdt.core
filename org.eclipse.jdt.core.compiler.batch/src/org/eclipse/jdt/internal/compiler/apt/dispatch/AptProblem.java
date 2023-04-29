@@ -49,7 +49,7 @@ public class AptProblem extends DefaultProblem {
 			endPosition,
 			line,
 			column);
-		_referenceContext = referenceContext;
+		this._referenceContext = referenceContext;
 	}
 
 	@Override

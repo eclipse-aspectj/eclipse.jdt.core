@@ -1500,6 +1500,16 @@ public IRecordComponent[] getRecordComponents() {
 public URI getURI() {
 	return this.path;
 }
+public boolean isStaticInner(char[] innerTypeName) {
+	if (this.innerInfos != null) {
+		for (InnerClassInfo innerClassInfo : this.innerInfos) {
+			if (Arrays.equals(innerTypeName, innerClassInfo.getName())) {
+				return (innerClassInfo.getModifiers() & ClassFileConstants.AccStatic) != 0;
+			}
+		}
+	}
+	return false;
+}
 // AspectJ Extension
 public byte[] getReferenceBytes() {
   return reference;
