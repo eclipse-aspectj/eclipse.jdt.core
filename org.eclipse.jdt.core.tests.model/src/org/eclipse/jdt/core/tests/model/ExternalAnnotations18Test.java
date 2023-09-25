@@ -690,8 +690,8 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		CompilationUnit reconciled = unit.reconcile(getJLS8(), true, null, new NullProgressMonitor());
 		IProblem[] problems = reconciled.getProblems();
 		assertProblems(problems, new String[] {
-			"Pb(955) Null type safety (type annotations): The expression of type 'String[]' needs unchecked conversion to conform to '@Nullable String @Nullable[]'",
-			"Pb(955) Null type safety (type annotations): The expression of type 'String[][]' needs unchecked conversion to conform to '@Nullable String @Nullable[] @NonNull[]'",
+			"Pb(986) Null type safety (type annotations): The expression of type 'String[]' needs unchecked conversion to conform to '@Nullable String @Nullable[]'",
+			"Pb(986) Null type safety (type annotations): The expression of type 'String[][]' needs unchecked conversion to conform to '@Nullable String @Nullable[] @NonNull[]'",
 		}, new int[] { 12, 16 });
 	}
 
@@ -1015,7 +1015,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
 		CompilationUnit reconciled = cu.reconcile(getJLS8(), true, null, new NullProgressMonitor());
 		assertProblems(reconciled.getProblems(), new String[] {
-				"Pb(955) Null type safety (type annotations): The expression of type 'String' needs unchecked conversion to conform to '@NonNull String'",
+				"Pb(986) Null type safety (type annotations): The expression of type 'String' needs unchecked conversion to conform to '@NonNull String'",
 		}, new int[] { 8 });
 
 		// acquire library AST:
@@ -2832,6 +2832,46 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		assertProblems(problems, new String[] {
 				"Pb(910) Null type mismatch: required '@NonNull String' but the provided value is null"
 			}, new int[] { 6 });
+	}
+
+	// reconcile client of a "generated" source+eea -- constant in nested interface
+	@SuppressWarnings("deprecation")
+	public void testSourceFolder1b() throws CoreException {
+		myCreateJavaProject("Bug509397");
+		addSourceFolderWithExternalAnnotations(this.project, "/Bug509397/src-gen", "/Bug509397/bin-gen", "/Bug509397/annot-gen");
+
+		createFileInProject("annot-gen/pgen", "CGen$Int.eea",
+				"class pgen/CGen$Int\n" +
+				"\n" +
+				"CONST\n" +
+				" Ljava/lang/Object;\n" +
+				" L1java/lang/Object;\n");
+
+		createFileInProject("src-gen/pgen", "CGen.java",
+				"package pgen;\n" +
+				"public class CGen {\n" +
+				"	public interface Int {\n" +
+				"		Object CONST = 1;\n" +
+				"	}\n" +
+				"}\n");
+
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("p", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Use.java",
+				"package p;\n" +
+				"import pgen.CGen;\n" +
+				"import org.eclipse.jdt.annotation.NonNull;\n" +
+				"public class Use {\n" +
+				"	@NonNull Object s = CGen.Int.CONST;\n" +
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		// this works:
+		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
+		assertNoMarkers(markers);
+		// this needs a fix
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertNoProblems(problems);
 	}
 
     // full build of a project with src-gen & annot-gen

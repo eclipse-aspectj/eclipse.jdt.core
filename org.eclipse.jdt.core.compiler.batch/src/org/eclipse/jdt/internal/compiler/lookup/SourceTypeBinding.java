@@ -51,6 +51,8 @@
  *                          	Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *      Sebastian Zarnekow - Contributions for
  *								bug 544921 - [performance] Poor performance with large source files
+ *      Christoph Läubrich - Contributions for
+ *								Issue 674 - Enhance the BuildContext with the discovered annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -1694,32 +1696,18 @@ public long getAnnotationTagBits() {
 		return this.prototype.getAnnotationTagBits();
 
 	if ((this.tagBits & TagBits.AnnotationResolved) == 0 && this.scope != null) {
-		if ((this.tagBits & TagBits.EndHierarchyCheck) == 0 && this.scope != null) { // AspectJ added final this.scope check because BinaryTypeBinding subclass won't have scope
-			CompilationUnitScope pkgCUS = this.scope.compilationUnitScope();
-			boolean current = pkgCUS.connectingHierarchy;
-			pkgCUS.connectingHierarchy = true;
-			try {
-				initAnnotationTagBits();
-			} finally {
-				pkgCUS.connectingHierarchy = current;
-			}
-		} else {
-			initAnnotationTagBits();
+		TypeDeclaration typeDecl = this.scope.referenceContext;
+		boolean old = typeDecl.staticInitializerScope.insideTypeAnnotation;
+		try {
+			typeDecl.staticInitializerScope.insideTypeAnnotation = true;
+			ASTNode.resolveAnnotations(typeDecl.staticInitializerScope, typeDecl.annotations, this);
+		} finally {
+			typeDecl.staticInitializerScope.insideTypeAnnotation = old;
 		}
+		if ((this.tagBits & TagBits.AnnotationDeprecated) != 0)
+			this.modifiers |= ClassFileConstants.AccDeprecated;
 	}
 	return this.tagBits;
-}
-private void initAnnotationTagBits() {
-	TypeDeclaration typeDecl = this.scope.referenceContext;
-	boolean old = typeDecl.staticInitializerScope.insideTypeAnnotation;
-	try {
-		typeDecl.staticInitializerScope.insideTypeAnnotation = true;
-		ASTNode.resolveAnnotations(typeDecl.staticInitializerScope, typeDecl.annotations, this);
-	} finally {
-		typeDecl.staticInitializerScope.insideTypeAnnotation = old;
-	}
-	if ((this.tagBits & TagBits.AnnotationDeprecated) != 0)
-		this.modifiers |= ClassFileConstants.AccDeprecated;
 }
 public MethodBinding[] getDefaultAbstractMethods() {
 	if (!isPrototype())
@@ -2177,6 +2165,7 @@ void initializeForStaticImports() {
 
 	if (this.superInterfaces == null)
 		this.scope.connectTypeHierarchy();
+	this.scope.buildComponents();
 	this.scope.buildFields();
 	this.scope.buildMethods();
 }
@@ -3439,6 +3428,12 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize, boolean forceStore)
 		this.storedAnnotations = new SimpleLookupTable(3);
 	}
 	return this.storedAnnotations;
+}
+
+@Override
+void storeAnnotations(Binding binding, AnnotationBinding[] annotations, boolean forceStore) {
+	super.storeAnnotations(binding, annotations, forceStore);
+	this.scope.referenceCompilationUnit().compilationResult.annotations.add(annotations);
 }
 
 @Override

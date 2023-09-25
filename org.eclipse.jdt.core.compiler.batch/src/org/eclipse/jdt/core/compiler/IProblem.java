@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1538,11 +1538,7 @@ void setSourceStart(int sourceStart);
     int ConstructorReferenceNotBelow18 = Internal + Syntax + 647;
     /** @since 3.10 */
     int ExplicitThisParameterNotInLambda = Internal + Syntax + 648;
-    /**
-     * @since 3.10
-     * @deprecated Per https://bugs.openjdk.java.net/browse/JDK-8231435 this problem is no longer raised
-     */
-    @Deprecated
+    /** @since 3.10 */
     int ExplicitAnnotationTargetRequired = TypeRelated + 649;
     /** @since 3.10 */
     int IllegalTypeForExplicitThis = Internal + Syntax + 650;
@@ -1908,7 +1904,7 @@ void setSourceStart(int sourceStart);
 	/** @since 3.10 */
 	int NullityMismatchingTypeAnnotationSuperHint = Internal + 954;
 	/** @since 3.10 */
-	int NullityUncheckedTypeAnnotationDetail = Internal + 955;
+	int NullityUncheckedTypeAnnotationDetail = Internal + 955; // see also NullityUncheckedTypeAnnotation
 	/** @since 3.10 */
 	int NullityUncheckedTypeAnnotationDetailSuperHint = Internal + 956;
 	/** @since 3.10 */
@@ -1969,6 +1965,17 @@ void setSourceStart(int sourceStart);
 	int AnnotatedTypeArgumentToUnannotatedSuperHint = Internal + 984;
 	/** @since 3.32 */
 	int NonNullArrayContentNotInitialized = Internal + 985;
+	/**
+	 * Both {@link #NullityUncheckedTypeAnnotationDetail} and {@link #NullityUncheckedTypeAnnotation}
+	 * signal that unchecked conversion is needed to pass a value between annotated and un-annotated code.
+	 * In the case of {@link #NullityUncheckedTypeAnnotationDetail} the mismatch was observed only on some
+	 * detail of the types involved (type arguments or array components), for which the UI does not (yet)
+	 * offer a quick fix, whereas {@link #NullityUncheckedTypeAnnotation} affects the toplevel type and thus
+	 * can be easily fixed by adding the appropriate null annotation.
+	 *
+	 * @since 3.36
+	 */
+	int NullityUncheckedTypeAnnotation = Internal + 986;
 
 
 	// Java 8 work
@@ -2211,6 +2218,9 @@ void setSourceStart(int sourceStart);
 	int VarIsNotAllowedHere = Syntax + 1511; // ''var'' is not allowed here
 	/** @since 3.16 */
 	int VarCannotBeMixedWithNonVarParams = Syntax + 1512; // ''var'' cannot be mixed with explicit or implicit parameters
+	/** @since 3.35 */
+	int VarCannotBeUsedWithTypeArguments = Syntax + 1513; // ''var'' cannot be used with type arguments (e.g. as in ''var<Integer> x = List.of(42)'')
+
 	/** @since 3.18
 	 * @deprecated preview related error - will be removed
 	 * @noreference preview related error */
@@ -2508,15 +2518,6 @@ void setSourceStart(int sourceStart);
 
 	/** @since 3.28
 	 * @noreference preview feature error */
-	int OnlyOnePatternCaseLabelAllowed = PreviewRelated + 1903;
-	/** @since 3.28
-	 * @noreference preview feature error */
-	int CannotMixPatternAndDefault = PreviewRelated + 1904;
-	/** @since 3.28
-	 * @noreference preview feature error */
-	int CannotMixNullAndNonTypePattern = PreviewRelated + 1905;
-	/** @since 3.28
-	 * @noreference preview feature error */
 	int PatternDominated = PreviewRelated + 1906;
 	/** @since 3.28
 	 * @noreference preview feature error */
@@ -2566,11 +2567,22 @@ void setSourceStart(int sourceStart);
 	/**
 	 * @since 3.32
 	 * @noreference preview feature
+	 * @deprecated
 	 */
 	int RawTypeInRecordPattern =  PreviewRelated + 1915;
+	/**
+	 * @since 3.36
+	 * @noreference preview feature
+	 */
+	int FalseConstantInGuard =  PreviewRelated + 1916;
 	/**
 	 * @since 3.34
 	 * @noreference preview feature
 	 */
 	int CannotInferRecordPatternTypes = PreviewRelated + 1940;
+
+	/**
+	 * @since 3.35
+	 */
+	int SyntheticAccessorNotEnclosingMethod = MethodRelated + 1990;
 }

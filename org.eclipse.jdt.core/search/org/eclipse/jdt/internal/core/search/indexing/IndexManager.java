@@ -353,14 +353,12 @@ public synchronized IndexLocation computeIndexLocation(IPath containerPath) {
 public final void deleteIndexFiles() {
 	deleteIndexFiles(null);
 }
-public void deleteIndexFiles(IProgressMonitor monitor) {
+public synchronized void deleteIndexFiles(IProgressMonitor monitor) {
 	if (DEBUG)
 		Util.verbose("Deleting index files"); //$NON-NLS-1$
 	this.nameRegistry.delete(); // forget saved indexes & delete each index file
 	deleteIndexFiles(null, monitor);
-	synchronized (this) {
-		this.metaIndex = null;
-	}
+	this.metaIndex = null;
 }
 private void deleteIndexFiles(SimpleSet pathsToKeep, IProgressMonitor monitor) {
 	File[] indexesFiles = getSavedIndexesDirectory().listFiles();
@@ -834,8 +832,8 @@ protected synchronized void moveToNextJob() {
  * No more job awaiting.
  */
 @Override
-protected void notifyIdle(long idlingTime){
-	if (idlingTime > INDEX_MANAGER_NOTIFY_IDLE_WAIT && this.needToSave) saveIndexes();
+protected void notifyIdle(long idlingMilliSeconds){
+	if (idlingMilliSeconds > INDEX_MANAGER_NOTIFY_IDLE_WAIT && this.needToSave) saveIndexes();
 }
 /**
  * Name of the background process
@@ -1654,7 +1652,18 @@ private MetaIndex loadMetaIndexIfNeeded() throws IOException {
 				if (VERBOSE) {
 					Util.verbose("-> load existing meta-index: "+indexLocation+" path: "+INDEX_META_CONTAINER); //$NON-NLS-1$ //$NON-NLS-2$
 				}
-				this.metaIndex = new MetaIndex(new Index(indexLocation, INDEX_META_CONTAINER, true));
+				try {
+					this.metaIndex = new MetaIndex(new Index(indexLocation, INDEX_META_CONTAINER, true));
+				} catch (IOException e) {
+					Util.log(e, "Failed to read saved meta index, re-creating"); //$NON-NLS-1$
+					if (VERBOSE) {
+						Util.verbose("-> failed to read saved meta-index: "+indexLocation+" path: "+INDEX_META_CONTAINER); //$NON-NLS-1$ //$NON-NLS-2$
+						Util.verbose("-> re-create meta-index: "+indexLocation+" path: "+INDEX_META_CONTAINER); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+					indexLocation.delete();
+					this.metaIndex = new MetaIndex(new Index(indexLocation, INDEX_META_CONTAINER, false));
+					updateIndexState(indexLocation, REUSE_STATE);
+				}
 			} else {
 				getIndexStates().put(indexLocation, UNKNOWN_STATE);
 				loadMetaIndexIfNeeded();
@@ -1729,13 +1738,9 @@ public Optional<MetaIndex> getMetaIndex() {
 
 void scheduleForMetaIndexUpdate(Index index) {
 	synchronized(this.metaIndexUpdates){
-		if (this.metaIndexUpdates.contains(index)) {
-			if (VERBOSE) {
-				Util.verbose("-> already waiting for meta-index update for " + index); //$NON-NLS-1$
-			}
-			return;
+		if (!this.metaIndexUpdates.add(index) && VERBOSE) {
+			Util.verbose("-> already waiting for meta-index update for " + index); //$NON-NLS-1$
 		}
-		this.metaIndexUpdates.add(index);
 	}
 	requestIfNotWaiting(new MetaIndexUpdateRequest());
 }

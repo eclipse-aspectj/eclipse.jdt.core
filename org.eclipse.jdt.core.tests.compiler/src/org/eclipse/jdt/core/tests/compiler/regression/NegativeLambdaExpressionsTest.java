@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2021 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -8601,12 +8601,12 @@ public void test428177() {
 		"4. ERROR in X.java (at line 36)\n" +
 		"	if(\"1\" == \"\") { return stream.collect(Collectors.toList()).stream(); // ERROR\n" +
 		"	                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from Stream<capture#24-of ? extends String> to Stream<String>\n" +
+		"Type mismatch: cannot convert from Stream<capture#14-of ? extends String> to Stream<String>\n" +
 		"----------\n" +
 		"5. ERROR in X.java (at line 38)\n" +
 		"	return stream.collect(Collectors.toList()); // NO ERROR\n" +
 		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from List<capture#27-of ? extends String> to Stream<String>\n" +
+		"Type mismatch: cannot convert from List<capture#17-of ? extends String> to Stream<String>\n" +
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428795, - [1.8]Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.ast.MessageSend.analyseCode
@@ -9884,7 +9884,7 @@ public void testGroundTargetTypeWithWithWildcards() {
 		"1. ERROR in X.java (at line 10)\n" +
 		"	return m((X x1, X x2) -> { return new Y(); });\n" +
 		"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from I<X,X,? extends C> to I<? extends A,? extends B,? extends C>\n" +
+		"Type mismatch: cannot convert from I<X,X,C> to I<? extends A,? extends B,? extends C>\n" +
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=474522, [1.8][compiler] ecj doesn't handle captured final fields correctly in lambdas
@@ -10084,6 +10084,191 @@ public void testBug458332() {
 		"450\n" +
 		"250");
 }
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/125
+// Java parser/compiler accepts invalid source code with lambdas
+public void testGH125() {
+	this.runNegativeTest(
+		new String[] {
+			"ParserBug.java",
+			"import java.util.function.Supplier;\n" +
+			"\n" +
+			"public class ParserBug {\n" +
+			"	Supplier<? extends Integer> how; \n" +
+			"	public ParserBug() {\n" +
+			"		//This is not executed, meaning the whole problematic statement does not begin to execute.\n" +
+			"		System.out.println(\"Constrctor\");\n" +
+			"	}\n" +
+			"	public ParserBug recompute(Supplier<? extends Integer> how) {\n" +
+			"		this.how = how;\n" +
+			"		return this;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		System.out.println(\"Parser is wonky:\");\n" +
+			"		if(false) { //condition is ignored\n" +
+			"			System.out.println(\"The following statement does not even begin execution\");\n" +
+			"\n" +
+			"\n" +
+			"			Math impossibleObject = new ParserBug()\n" +
+			"					.recompute(()->true?0:false?1:2)\n" +
+			"					)) //Umantched parentheses\n" +
+			".nonexistentMethod();\n" +
+			"//Wrong autoindent, no syntax highligting\n" +
+			"System.out.println(\"Statements after are not executed\");\n" +
+			"System.out.println(impossibleObject);\n" +
+			"\n" +
+			"Void impossibleObject //no complaint about redeclared variable\n" +
+			"= 42 ; //no typechecking here\n" +
+			"\n" +
+			"		}else {\n" +
+			"			System.out.println(\"Else branch (is never executed)\");\n" +
+			"		}\n" +
+			"	}\n" +
+			"	{\n" +
+			"		//Variable not declared? No problem!\n" +
+			"		doItAgain = new ParserBug()\n" +
+			"				.recompute(()->true?0:false?1:2)\n" +
+			"				))))))) // Not even for this many\n" +
+			".nonexistentMethod();\n" +
+			"	}\n" +
+			"\n" +
+			"}\n",
+		},
+		"----------\n" +
+		"1. WARNING in ParserBug.java (at line 9)\n" +
+		"	public ParserBug recompute(Supplier<? extends Integer> how) {\n" +
+		"	                                                       ^^^\n" +
+		"The parameter how is hiding a field from type ParserBug\n" +
+		"----------\n" +
+		"2. ERROR in ParserBug.java (at line 20)\n" +
+		"	.recompute(()->true?0:false?1:2)\n" +
+		"	                              ^\n" +
+		"Syntax error on token(s), misplaced construct(s)\n" +
+		"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/367
+// ECJ accepts invalid syntax without error
+public void testGH367() {
+	this.runNegativeTest(
+		new String[] {
+			"EclipseParserBug.java",
+			"public class EclipseParserBug  {\n" +
+			"    public static void copy(boolean[] src, boolean[] dst) {\n" +
+			"        long start=System.nanoTime();\n" +
+			"        IntStream.range(0, src.length).parallel().forEach(i -> dst[i] = src[i]))); 	  \n" +
+			"        System.out.println(\"Copy took: \" + (System.nanoTime() - start));\n" +
+			"  }\n" +
+			"}\n",
+		},
+		"----------\n" +
+		"1. ERROR in EclipseParserBug.java (at line 4)\n" +
+		"	IntStream.range(0, src.length).parallel().forEach(i -> dst[i] = src[i]))); 	  \n" +
+		"	                                                                     ^\n" +
+		"Syntax error on token(s), misplaced construct(s)\n" +
+		"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/859
+// Invalid code not rejected by compiler
+public void testGH859() {
+	this.runNegativeTest(
+		new String[] {
+			"CFSXXX.java",
+			"import java.util.function.Consumer;\n" +
+			"import java.util.function.Supplier;\n" +
+			"\n" +
+			"/**\n" +
+			" * CFSXXX\n" +
+			" * \n" +
+			" * @author connors\n" +
+			" */\n" +
+			"public class CFSXXX {\n" +
+			"\n" +
+			"    public static void main(String[] args) {\n" +
+			"        boolean mybool_XXXWhoopsGotTheWrongNameHereXXX = true;\n" +
+			"        if (mybool) {\n" +
+			"            System.out.println(\"within if - true part\");\n" +
+			"            setSupplier(() -> x -> System.out.println(\"x\" + x); );\n" +
+			"        } else {\n" +
+			"            System.out.println(\"within if - false part\");\n" +
+			"        }\n" +
+			"    }\n" +
+			"    \n" +
+			"    public static void setSupplier(Supplier<Consumer<String>> supplier) {\n" +
+			"        System.out.println(\"setSupplier called: \" + supplier);\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"----------\n" +
+		"1. ERROR in CFSXXX.java (at line 15)\n" +
+		"	setSupplier(() -> x -> System.out.println(\"x\" + x); );\n" +
+		"	                                                 ^\n" +
+		"Syntax error on token(s), misplaced construct(s)\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=553601
+// Compile without errors invalid source code
+public void test553601() {
+	this.runNegativeTest(
+		new String[] {
+			"TestOptional3.java",
+			"import java.util.function.Supplier;\n" +
+			"public class TestOptional3 {\n" +
+			"    public static void main(String[] args) throws Exception {\n" +
+			"        supplier.get();  // !!!!!!!!! NullPointerException\n" +
+			"    }\n" +
+			"    \n" +
+			"    public static Supplier<Object> supplier = () -> {\n" +
+			"        try {\n" +
+			"            Optional.ofNullable(null)\n" +
+			"                    .orElseThrow(() -> new Exception()))))))))))))))))))))))))))))))))))))))))))))));\n" +
+			"                    //                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"        } catch (Exception ex) { }\n" +
+			"        \n" +
+			"        return \"test\";\n" +
+			"    };\n" +
+			"}\n",
+		},
+		"----------\n" +
+		"1. ERROR in TestOptional3.java (at line 10)\n" +
+		"	.orElseThrow(() -> new Exception()))))))))))))))))))))))))))))))))))))))))))))));\n" +
+		"	                                                           ^\n" +
+		"Syntax error on token(s), misplaced construct(s)\n" +
+		"----------\n");
+}
+
+public void testIssue810() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"class Foo {\n"+
+				"static void foo() { \n"+
+				"run(Bar::privateMethod); // <-- warning: Access to enclosing method ... emulated by a synthetic accessor\n"+// method
+				"}\n" +
+				"public static void main(String[] args) {\n"+
+				"Zork z; \n"+
+				"}\n" +
+				"static class Bar { \n"+
+				"private static void privateMethod() { \n" +
+				/**/" }\n" +
+				"}\n" +
+				"static void run(Runnable r) { \n"+
+				"r.run(); \n"+
+				"} \n"+
+			    "}\n"},
+				"----------\n" +
+				"1. WARNING in X.java (at line 3)\n" +
+				"	run(Bar::privateMethod); // <-- warning: Access to enclosing method ... emulated by a synthetic accessor\n" +
+				"	    ^^^^^^^^^^^^^^^^^^\n" +
+				"Access to privateMethod() from the type Foo.Bar is emulated by a synthetic accessor method\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 6)\n" +
+				"	Zork z; \n" +
+				"	^^^^\n" +
+				"Zork cannot be resolved to a type\n" +
+				"----------\n");
+}
+
 public static Class testClass() {
 	return NegativeLambdaExpressionsTest.class;
 }

@@ -159,6 +159,7 @@ public static Test suite() {
 	since_1_8.add(GenericsRegressionTest_1_8.class);
 	since_1_8.add(Unicode18Test.class);
 	since_1_8.add(LambdaShapeTests.class);
+	since_1_8.add(StringConcatTest.class);
 
 	ArrayList since_9 = new ArrayList();
 	since_9.add(Unicode9Test.class);
@@ -217,6 +218,7 @@ public static Test suite() {
 	 since_16.add(PatternMatching16Test.class);
 	 since_16.add(RecordsRestrictedClassTest.class);
 	 since_16.add(JavadocTestForRecord.class);
+	 since_16.add(JavadocTest_16.class);
 
 	 // add 17 specific test here (check duplicates)
 	 ArrayList since_17 = new ArrayList();
@@ -228,11 +230,11 @@ public static Test suite() {
 	 ArrayList since_18 = new ArrayList();
 	 since_18.add(JavadocTest_18.class);
 
-	 // add 20 specific test here (check duplicates)
-	 ArrayList since_20 = new ArrayList();
-	 since_20.add(SwitchPatternTest.class);
-	 since_20.add(RecordPatternTest.class);
-	 since_20.add(NullAnnotationTests18.class);
+	 // add 21 specific test here (check duplicates)
+	 ArrayList since_21 = new ArrayList();
+	 since_21.add(SwitchPatternTest.class);
+	 since_21.add(RecordPatternTest.class);
+	 since_21.add(NullAnnotationTests18.class);
 
 	 // Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());
@@ -489,9 +491,30 @@ public static Test suite() {
 		tests_20.addAll(since_16);
 		tests_20.addAll(since_17);
 		tests_20.addAll(since_18);
-		tests_20.addAll(since_20);
 		TestCase.resetForgottenFilters(tests_20);
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_20), tests_20));
+	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_21) != 0) {
+		ArrayList tests_21 = (ArrayList)standardTests.clone();
+		tests_21.addAll(since_1_4);
+		tests_21.addAll(since_1_5);
+		tests_21.addAll(since_1_6);
+		tests_21.addAll(since_1_7);
+		tests_21.addAll(since_1_8);
+		tests_21.addAll(since_9);
+		tests_21.addAll(since_10);
+		tests_21.addAll(since_11);
+		tests_21.addAll(since_12);
+		tests_21.addAll(since_13);
+		tests_21.addAll(since_14);
+		tests_21.addAll(since_15);
+		tests_21.addAll(since_16);
+		tests_21.addAll(since_17);
+		tests_21.addAll(since_18);
+		tests_21.addAll(since_21);
+		TestCase.resetForgottenFilters(tests_21);
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(
+				ClassFileConstants.getComplianceLevelForJavaVersion(ClassFileConstants.MAJOR_VERSION_21), tests_21));
 	}
 	all.addTest(new TestSuite(Jsr14Test.class));
 	return all;

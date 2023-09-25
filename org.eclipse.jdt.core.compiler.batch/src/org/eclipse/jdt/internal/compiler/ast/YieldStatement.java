@@ -49,8 +49,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	// doesn't occur since it immediately follow '->' and hence identical to default break - ie the
 	// immediate breakable context is guaranteed to be the one intended;
 	// while explicit yield should move up the parent to the switch expression.
-	FlowContext targetContext = this.isImplicit ? flowContext.getTargetContextForDefaultBreak() :
-		flowContext.getTargetContextForDefaultYield();
+	FlowContext targetContext = flowContext.getTargetContextForYield(!this.isImplicit);
 
 	flowInfo = this.expression.analyseCode(currentScope, flowContext, flowInfo);
 	this.expression.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
@@ -260,8 +259,12 @@ public StringBuffer printStatement(int tab, StringBuffer output) {
 	if (!this.isImplicit)
 		printIndent(tab, output).append("yield"); //$NON-NLS-1$
 	if (this.expression != null) {
-		output.append(' ');
-		this.expression.printExpression(tab, output);
+		if (this.isImplicit) {
+			this.expression.print(tab, output);
+		} else {
+			output.append(' ');
+			this.expression.printExpression(tab, output);
+		}
 	}
 	return output.append(';');
 }

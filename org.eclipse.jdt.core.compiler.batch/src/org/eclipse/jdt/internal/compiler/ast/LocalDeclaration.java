@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -277,6 +277,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		boolean variableTypeInferenceError = false;
 		boolean isTypeNameVar = isTypeNameVar(scope);
 		if (isTypeNameVar && !isPatternVariable) {
+			if (this.type.isParameterizedTypeReference()) {
+				scope.problemReporter().varCannotBeUsedWithTypeArguments(this.type);
+			}
 			if ((this.bits & ASTNode.IsForeachElementVariable) == 0) {
 				// infer a type from the initializer
 				if (this.initialization != null) {

@@ -6215,9 +6215,9 @@ public void test476859() {
 			"}"
 		};
 	runner.expectedOutputString =
-		"private static java.lang.reflect.Method Test.lambda$0(java.lang.Void)";
+		"public static void Test.main(java.lang.String[])";
 	runner.expectedJavacOutputString =
-		"private static java.lang.reflect.Method Test.lambda$main$0(java.lang.Void)";
+		"public static void Test.main(java.lang.String[])";
 	runner.runConformTest();
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=476859 enclosing method not found error when EJC compiled, works fine with oracle jdk compiler
@@ -6250,11 +6250,11 @@ public void test476859a() {
 			"}\n"
 		};
 	runner.expectedOutputString =
-		"private static java.lang.reflect.Method Test.lambda$0(java.lang.Void)\n" +
-		"private java.lang.reflect.Method AnotherClass.lambda$0(java.lang.Void)";
+		"public static void Test.main(java.lang.String[])\n" +
+		"void AnotherClass.foo()";
 	runner.expectedJavacOutputString =
-			"private static java.lang.reflect.Method Test.lambda$main$0(java.lang.Void)\n" +
-			"private java.lang.reflect.Method AnotherClass.lambda$foo$0(java.lang.Void)";
+		"public static void Test.main(java.lang.String[])\n" +
+		"void AnotherClass.foo()";
 	runner.runConformTest();
 }
 public void testBug499258() {
@@ -6468,9 +6468,9 @@ public void test509804() {
 			"}\n"
 		};
 	runner.expectedOutputString =
-			"private static java.lang.Object Test.lambda$1()";
+			"null";
 	runner.expectedJavacOutputString =
-			"private static java.lang.Object Test.lambda$static$0()";
+			"null";
 	runner.runConformTest();
 }
 public void testBug514105() {
@@ -7398,6 +7398,997 @@ public void testBug529197_003() {
 			},
 			"SUCCESS.run"
 			);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/756
+public void testIssue756() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.GenericSignatureFormatError;\n" +
+				"import java.lang.reflect.Method;\n" +
+				"import java.util.function.Supplier;\n" +
+				"\n" +
+				"public class X<T> {\n" +
+				"    public X(T... elements) {\n" +
+				"    	System.out.println();\n" +
+				"    }\n" +
+				"\n" +
+				"    public static Supplier<? extends X<Object>> supplier() {\n" +
+				"        return X<Object>::new;\n" +
+				"    }\n" +
+				"\n" +
+				"    public static void main(String[] args) {\n" +
+				"		boolean OK = true;\n" +
+				"    	for (Method m : X.class.getDeclaredMethods()) {\n" +
+				"			try {\n" +
+				"				m.getGenericReturnType();\n" +
+				"			} catch (GenericSignatureFormatError e) {\n" +
+				"				System.out.println(\"Oops, bad signature in class file\");\n" +
+				"				OK = false;\n" +
+				"			}\n" +
+				"		}\n" +
+				"    	if (OK)\n" +
+				"    		System.out.println(\"All clear!\");\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"All clear!"
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=577466
+public void test577466() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import static java.util.function.Function.identity;\n" +
+				"import java.util.Map;\n" +
+				"import java.util.concurrent.ConcurrentHashMap;\n" +
+				"import java.util.stream.Collectors;\n" +
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class X {\n" +
+				"\n" +
+				"    private static final Map<Class<?>, Map<String, I>> LOOKUP = new ConcurrentHashMap<>();\n" +
+				"\n" +
+				"    @SuppressWarnings(\"unchecked\")\n" +
+				"    static <E extends Enum<E> & I> E lookupLiteral(Class<E> enumType, String literal) {\n" +
+				"        return (E) LOOKUP.computeIfAbsent(enumType, t ->\n" +
+				"            Stream.of(enumType.getEnumConstants()).collect(Collectors.<E, String, I>toMap(E::getLiteral, identity()))\n" +
+				"        ).get(literal);\n" +
+				"    }\n" +
+				" \n" +
+				"    public static void main(String[] args) {\n" +
+				"        System.out.println(X.lookupLiteral(EN.class, \"a\"));\n" +
+				"    }\n" +
+				"\n" +
+				"    interface I {\n" +
+				"        String getLiteral();\n" +
+				"    }\n" +
+				"\n" +
+				"    enum EN implements I { \n" +
+				"        A(\"a\");\n" +
+				"\n" +
+				"        final String literal;\n" +
+				"\n" +
+				"        EN(String literal) {\n" +
+				"            this.literal = literal;\n" +
+				"        }\n" +
+				"\n" +
+				"        @Override\n" +
+				"        public String getLiteral() {\n" +
+				"            return literal;\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+
+			},
+			"A"
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=570511#c2
+public void test570511_comment2() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.util.function.Supplier;\n" +
+				"\n" +
+				"  public class X {\n" +
+				"\n" +
+				"    public static void main(String[] args) {\n" +
+				"        System.out.println(getValue(Size.S));\n" +
+				"    }\n" +
+				"\n" +
+				"    enum Size implements Supplier<String> {\n" +
+				"        S, M, L;\n" +
+				"\n" +
+				"        @Override\n" +
+				"        public String get() {\n" +
+				"            return \"Size: \" + toString();\n" +
+				"        }\n" +
+				"    }\n" +
+				"\n" +
+				"    public static <V extends Enum<?> & Supplier<String>> String getValue(V t) {\n" +
+				"        return valueOf(t::get);\n" +
+				"    }\n" +
+				"\n" +
+				"    public static String valueOf(Supplier<String> id) {\n" +
+				"        return id.get();\n" +
+				"    }\n" +
+				"  }\n"
+			},
+			"Size: S"
+			);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=483219
+public void test483219_comment_0() {
+	this.runConformTest(
+			new String[] {
+				"Intersection.java",
+				"public class Intersection {\n" +
+				"  interface I {\n" +
+				"  }\n" +
+				"  interface J {\n" +
+				"    void foo();\n" +
+				"  }\n" +
+				"\n" +
+				"  static <T extends I & J> void bar(T t) {\n" +
+				"      Runnable r = t::foo;\n" +
+				"  } \n" +
+				"  \n" +
+				"  public static void main(String[] args) {\n" +
+				"    class A implements I, J { public void foo() {} }\n" +
+				"    bar(new A());\n" +
+				"  }\n" +
+				"}\n"
+
+			},
+			""
+			);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=483219
+public void test483219_comment_1() {
+	this.runConformTest(
+			new String[] {
+				"Main.java",
+				"import java.util.Arrays;\n" +
+				"import java.util.Comparator;\n" +
+				"import java.util.List;\n" +
+				"\n" +
+				"import static java.util.stream.Collectors.toList;\n" +
+				"\n" +
+				"public class Main {\n" +
+				"\n" +
+				"\n" +
+				"    public static void main(String[] args) {\n" +
+				"        Main main = new Main();\n" +
+				"        main.toInfoListError(Arrays.asList(new Base()));\n" +
+				"    }\n" +
+				"\n" +
+				"    public <H extends B & A> List<Info> toInfoListError(List<H> list) {\n" +
+				"        Comparator<B> byNameComparator = (B b1, B b2) -> b1.getB().compareToIgnoreCase(b2.getB());\n" +
+				"        return list.stream().sorted(byNameComparator).map(Info::new).collect(toList());\n" +
+				"    }\n" +
+				"\n" +
+				"    public <H extends B & A> List<Info> toInfoListWorks(List<H> list) {\n" +
+				"        Comparator<B> byNameComparator = (B b1, B b2) -> b1.getB().compareToIgnoreCase(b2.getB());\n" +
+				"        return list.stream().sorted(byNameComparator).map(s -> new Info(s)).collect(toList());\n" +
+				"    }\n" +
+				"}\n" +
+				"\n" +
+				"interface B {\n" +
+				"    public String getB();\n" +
+				"}\n" +
+				"\n" +
+				"interface A {\n" +
+				"    public long getA();\n" +
+				"}\n" +
+				"\n" +
+				"class Info {\n" +
+				"\n" +
+				"    private final long a;\n" +
+				"    private final String b;\n" +
+				"\n" +
+				"    <H extends A & B> Info(H h) {\n" +
+				"        a = h.getA();\n" +
+				"        b = h.getB();\n" +
+				"    }\n" +
+				"}\n" +
+				"\n" +
+				"class Base implements A, B {\n" +
+				"\n" +
+				"    @Override\n" +
+				"    public long getA() {\n" +
+				"        return 7L;\n" +
+				"    }\n" +
+				"\n" +
+				"    @Override\n" +
+				"    public String getB() {\n" +
+				"        return \"hello\";\n" +
+				"    }\n" +
+				"}\n"
+			},
+			""
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=483219
+public void test483219_comment_2a() {
+	this.runConformTest(
+			new String[] {
+				"MethodHandleTest.java",
+				"import java.awt.Component;\n" +
+				"import java.util.Collection;\n" +
+				"import java.util.Collections;\n" +
+				"\n" +
+				"public class MethodHandleTest {\n" +
+				"    public static void main(String... args) {\n" +
+				"        new MethodHandleTest().run();\n" +
+				"    }\n" +
+				"\n" +
+				"    private void run() {\n" +
+				"        ComponentWithSomeMethod myComp = new ComponentWithSomeMethod();\n" +
+				"        new Caller<ComponentWithSomeMethod>().callSomeMethod(Collections.singletonList(myComp));\n" +
+				"    }\n" +
+				"\n" +
+				"    private interface HasSomeMethod {\n" +
+				"        void someMethod();\n" +
+				"    }\n" +
+				"\n" +
+				"    static class ComponentWithSomeMethod extends Component implements HasSomeMethod {\n" +
+				"        @Override\n" +
+				"        public void someMethod() {\n" +
+				"            System.out.println(\"Some method\");\n" +
+				"        }\n" +
+				"    }\n" +
+				"\n" +
+				"    class Caller<T extends Component & HasSomeMethod> {\n" +
+				"        public void callSomeMethod(Collection<T> components) {\n" +
+				"            components.forEach(HasSomeMethod::someMethod); //  <-- crashes\n" +
+				"//          components.forEach(comp -> comp.someMethod());     <-- works fine\n" +
+				"\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+
+			},
+			"Some method"
+			);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=483219
+public void test483219_comment_2b() {
+	this.runConformTest(
+			new String[] {
+				"Foo.java",
+				"import java.util.stream.Stream;\n" +
+				"public final class Foo\n" +
+				"{\n" +
+				"    private interface X\n" +
+				"    {\n" +
+				"        default void x()\n" +
+				"        {\n" +
+				"        }\n" +
+				"    }\n" +
+				"\n" +
+				"    private enum E1\n" +
+				"        implements X\n" +
+				"    {\n" +
+				"        INSTANCE,\n" +
+				"        ;\n" +
+				"    }\n" +
+				"\n" +
+				"    private enum E2\n" +
+				"        implements X\n" +
+				"    {\n" +
+				"        INSTANCE,\n" +
+				"        ;\n" +
+				"    }\n" +
+				"\n" +
+				"    public static void main(final String... args)\n" +
+				"    {\n" +
+				"        Stream.of(E1.INSTANCE, E2.INSTANCE).forEach(X::x);\n" +
+				"    }\n" +
+				"}\n"
+			},
+			""
+			);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=483219
+public void test483219_comment_3() {
+	this.runConformTest(
+			new String[] {
+				"SortedInterfacesTest.java",
+				"import java.util.function.Consumer;\n" +
+				"public class SortedInterfacesTest {\n" +
+				"   <T> void forAll(Consumer<T> consumer, T... values) { }\n" +
+				"\n" +
+				"   public void secondTest() {\n" +
+				"       forAll(Picture::draw, new MyPicture(), new Universal());\n" +
+				"   }\n" +
+				"\n" +
+				"   interface Shape { void draw(); }\n" +
+				"   interface Marker { }\n" +
+				"   interface Picture { void draw(); }\n" +
+				"\n" +
+				"   class MyShape implements Marker, Shape { public void draw() { } }\n" +
+				"   class MyPicture implements Marker, Picture { public void draw() { } }\n" +
+				"   class Universal implements Marker, Picture, Shape { public void draw() { } }\n" +
+				"\n" +
+				"   public static void main(String[] args) {\n" +
+				"       new SortedInterfacesTest().secondTest();\n" +
+				"   }\n" +
+				"}\n"
+			},
+			""
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1048
+// Reflection APIs fail with NPE processing class file produced by JDT compiler
+public void testGHIssue1048() {
+	this.runConformTest(
+			new String[] {
+				"Reproducer.java",
+				"import java.io.IOException;\n" +
+				"import java.io.Serializable;\n" +
+				"import java.lang.reflect.Method;\n" +
+				"import java.util.Optional;\n" +
+				"import java.util.stream.Stream;\n" +
+				"public class Reproducer {\n" +
+				"    public static void main(String[] args) {\n" +
+				"        try {\n" +
+				"            new Reproducer().testClassWithStreamAndOptional2();\n" +
+				"        } catch (IOException e) {\n" +
+				"            e.printStackTrace();\n" +
+				"        }\n" +
+				"    }\n" +
+				"    private void testClassWithStreamAndOptional2() throws IOException {\n" +
+				"        Class<?> c = this.getClass();\n" +
+				"        for (Method m : c.getDeclaredMethods()) {\n" +
+				"            if (m.isSynthetic())\n" +
+				"                System.out.println(m.getGenericReturnType());\n" +
+				"        }\n" +
+				"    }\n" +
+				"    private Stream<Serializable> doMyStuff() {\n" +
+				"        Stream<Serializable> s = Stream.empty(); \n" +
+				"        return Optional.ofNullable(s).orElseGet(Stream::of);\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"interface java.util.stream.Stream"
+			);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1054
+// AIOOBE when checking implicit lambda generation requirement
+public void testGHIssue1054() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.invoke.MethodHandle;\n" +
+				"interface FI {\n" +
+				"    Object invokeMethodReference(String s, char c1, char c2) throws Throwable;\n" +
+				"}\n" +
+				"public class X {\n" +
+				"    private static MethodHandle createMethodHandle() {\n" +
+				"    	return null;\n" +
+				"    }\n" +
+				"    public static void run() throws Throwable {\n" +
+				"        MethodHandle ms = createMethodHandle(); \n" +
+				"        FI fi = ms::invoke;\n" +
+				"        fi.invokeMethodReference(\"\", (char)0, (char)0);\n" +
+				"    }\n" +
+				"    public static void main(String [] args) throws Throwable {\n" +
+				"        try { \n" +
+				"            run();\n" +
+				"        } catch(NullPointerException npe) {\n" +
+				"            System.out.println(\"NPE as expected\");\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"},
+			"NPE as expected"
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1054
+// AIOOBE when checking implicit lambda generation requirement
+public void testGHIssue1054_2() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.invoke.MethodHandle;\n" +
+				"interface FI {\n" +
+				"    <T extends Object & Runnable> Object invokeMethodReference(Object o, T t2) throws Throwable;\n" +
+				"}\n" +
+				"public class X {\n" +
+				"    private static MethodHandle createMethodHandle() {\n" +
+				"    	return null;\n" +
+				"    }\n" +
+				"    public static void run() throws Throwable {\n" +
+				"        MethodHandle ms = createMethodHandle(); \n" +
+				"        FI fi = ms::invoke;\n" +
+				"        fi.invokeMethodReference(null, ()-> {}); \n" +
+				"    }\n" +
+				"    public static void main(String[] args) throws Throwable {\n" +
+				"    	try {\n" +
+				"    		run();\n" +
+				"    	} catch (NullPointerException npe) {\n" +
+				"    		System.out.println(\"NPE as expected\");\n" +
+				"    	}\n" +
+				"	}\n" +
+				"}\n"},
+			"NPE as expected"
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/975
+// [Compiler] Reflection returns null for lambda capturing local method type variable
+public void testGHIssue975() {
+	this.runConformTest(
+			new String[] {
+				"Test.java",
+				"import java.lang.reflect.*;\n" +
+				"\n" +
+				"public class Test {\n" +
+				"    static class Capturing<T> {\n" +
+				"        protected Capturing() {\n" +
+				"            ParameterizedType paramT = (ParameterizedType) getClass().getGenericSuperclass();\n" +
+				"            Type t = paramT.getActualTypeArguments()[0];\n" +
+				"\n" +
+				"            if (t instanceof TypeVariable) {\n" +
+				"                System.out.println(\"Found expected type\");\n" +
+				"            } else {\n" +
+				"                throw new AssertionError(\"Unexpected type: \" + t);\n" +
+				"            }\n" +
+				"        }\n" +
+				"    }\n" +
+				"\n" +
+				"    static void run(Runnable r) {\n" +
+				"        r.run();\n" +
+				"    }\n" +
+				"\n" +
+				"    public static <T> void main(String... args) {\n" +
+				"        class Local {\n" +
+				"            <M> void runTest() {\n" +
+				"                run(() -> new Capturing<M>() {});\n" +
+				"            }\n" +
+				"        }\n" +
+				"\n" +
+				"        new Local().runTest();\n" +
+				"    }\n" +
+				"}\n"},
+			"Found expected type"
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/625
+public void testGHIssue625() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.io.Serializable;\n" +
+				"import java.util.Optional;\n" +
+				"\n" +
+				"public class X {\n" +
+				"	 public static void main(String[] argv) {\n" +
+				"	        System.out.println(dummy(\"foo\"));\n" +
+				"	    }\n" +
+				"	\n" +
+				"	    static <T extends Serializable & CharSequence> int dummy(T value) {\n" +
+				"	        return Optional.ofNullable(value).map(CharSequence::length).orElse(0);\n" +
+				"	    }\n" +
+				"}\n"},
+			"3"
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=551882
+// Invalid receiver type class X; not a subtype of implementation type interface Y
+public void testBug551882() {
+	this.runConformTest(
+			new String[] {
+				"Foo.java",
+				"class X {\n" +
+				"}\n" +
+				"\n" +
+				"interface Y {\n" +
+				"	void foo();\n" +
+				"}\n" +
+				"\n" +
+				"class Z extends X implements Y {\n" +
+				"\n" +
+				"	@Override\n" +
+				"	public void foo() {\n" +
+				"	}\n" +
+				"	\n" +
+				"}\n" +
+				"public class Foo {\n" +
+				"\n" +
+				"	<T extends X & Y> void run(T t) {\n" +
+				"		Runnable r = t::foo;\n" +
+				"		r.run();\n" +
+				"	}\n" +
+				"	\n" +
+				"	public static void main(String[] args) {\n" +
+				"		new Foo().run(new Z() {});\n" +
+				"	}\n" +
+				"\n" +
+				"}\n"},
+			""
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=511958
+// [1.8][compiler] Discrepancy with javac behavior when handling inner classes and lambdas
+public void testBug511958() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.util.function.Consumer;\n" +
+				"@SuppressWarnings(\"all\")\n" +
+				"public class X {\n" +
+				"  private final String text = \"Bug?\";\n" +
+				"  public static void main(String[] args) {\n" +
+				"    new X().doIt();\n" +
+				"  }\n" +
+				"  \n" +
+				"  private void doIt() {\n" +
+				"    new Sub();\n" +
+				"  }\n" +
+				"  private class Super<T> {\n" +
+				"	  public Super(String s) {}\n" +
+				"    public Super(Consumer<T> consumer) {\n" +
+				"    }\n" +
+				"  }\n" +
+				"  private class Sub extends Super<String> {\n" +
+				"    public Sub() {\n" +
+				"      super(s -> System.out.println(text));  \n" +
+				"    }\n" +
+				"    \n" +
+				"  }\n" +
+				"}\n"},
+			""
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1060
+// NPE when inspecting scrapbook expression that uses Java 8 features
+public void testGH1060() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		System.out.println(new X().foo());\n" +
+				"	}\n" +
+				"	\n" +
+				"	String foo() {\n" +
+				"		return java.time.format.DateTimeFormatter\n" +
+				"				.ofPattern(\"yyyyMMddHHmmss.SSS000\")\n" +
+				"				.format(java.time.format.DateTimeFormatter.ofPattern(\"dd.MM.yyyy HHmmss\").parse(\"30.03.2021 112430\", java.time.LocalDateTime::from));\n" +
+				"	}\n" +
+				"}\n"},
+			"20210330112430.000000"
+			);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=546161
+//LambdaConversionException due to invalid instantiated method type argument to LambdaMetafactory::metafactory
+public void testBug546161() {
+	this.runConformTest(
+			new String[] {
+				"Main.java",
+				"public class Main {\n" +
+				"    public static void main(String[] args) {\n" +
+				"    	((Widget<?>) new Widget<>()).addListener(evt -> {});\n" +
+				"    }\n" +
+				"}\n" +
+				"\n" +
+				"class Widget<E extends CharSequence> {\n" +
+				"    void addListener(Listener<? super E> listener) {}\n" +
+				"}\n" +
+				"\n" +
+				"interface Listener<E extends CharSequence> {\n" +
+				"    void m(E event);\n" +
+				"}\n"},
+			""
+			);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=546161
+//LambdaConversionException due to invalid instantiated method type argument to LambdaMetafactory::metafactory
+public void testBug546161_2() {
+	this.runConformTest(
+			new String[] {
+				"Main.java",
+				"public class Main {\n" +
+				"    public static void main(String[] args) {\n" +
+				"    	new Widget<>().addListener(evt -> {});\n" +
+				"    }\n" +
+				"}\n" +
+				"class Widget<E extends CharSequence> {\n" +
+				"    void addListener(Listener<? super E> listener) {}\n" +
+				"}\n" +
+				"interface Listener<E extends CharSequence> {\n" +
+				"    void m(E event);\n" +
+				"}\n"},
+			""
+			);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=574269
+//java.lang.invoke.LambdaConversionException: Invalid receiver type class java.lang.Object
+public void testBug574269() {
+	this.runConformTest(
+			new String[] {
+				"Test.java",
+				"import java.util.List;\n" +
+				"\n" +
+				"public class Test {\n" +
+				"\n" +
+				"	public static void main(String[] args) {\n" +
+				"		System.out.println(\"Testing with explicit type\");\n" +
+				"		MyGroup group = new MyGroup();\n" +
+				"\n" +
+				"		System.out.println(\"  Testing lambda\");\n" +
+				"		if (group.getPersons().stream().anyMatch(p -> p.isFoo())) {}\n" +
+				"		System.out.println(\"  Lambda is good\");\n" +
+				"		\n" +
+				"		System.out.println(\"  Testing method reference\");\n" +
+				"		if (group.getPersons().stream().anyMatch(Test.Person::isFoo)) {}\n" +
+				"		System.out.println(\"  Method reference is good\");\n" +
+				"\n" +
+				"		System.out.println(\"Testing with wildcard\");\n" +
+				"		Group<?> group2 = new MyGroup();\n" +
+				"\n" +
+				"		System.out.println(\"  Testing lambda\");\n" +
+				"		if (group2.getPersons().stream().anyMatch(p -> p.isFoo())) {}\n" +
+				"		System.out.println(\"  Lambda is good\");\n" +
+				"		\n" +
+				"		System.out.println(\"  Testing method reference\");\n" +
+				"		if (group2.getPersons().stream().anyMatch(Test.Person::isFoo)) {}\n" +
+				"		System.out.println(\"  Method reference is good\");\n" +
+				"	}\n" +
+				"\n" +
+				"	interface Group<T extends Person> {\n" +
+				"		List<T> getPersons();\n" +
+				"	}\n" +
+				"\n" +
+				"	interface Person {\n" +
+				"		boolean isFoo();\n" +
+				"	}\n" +
+				"\n" +
+				"	static class MyGroup implements Group<MyPerson> {\n" +
+				"\n" +
+				"		@Override\n" +
+				"		public List<MyPerson> getPersons() {\n" +
+				"			return List.of();\n" +
+				"		}\n" +
+				"	}\n" +
+				"\n" +
+				"	static class MyPerson implements Person {\n" +
+				"\n" +
+				"		@Override\n" +
+				"		public boolean isFoo() {\n" +
+				"			return true;\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"},
+			"Testing with explicit type\n" +
+			"  Testing lambda\n" +
+			"  Lambda is good\n" +
+			"  Testing method reference\n" +
+			"  Method reference is good\n" +
+			"Testing with wildcard\n" +
+			"  Testing lambda\n" +
+			"  Lambda is good\n" +
+			"  Testing method reference\n" +
+			"  Method reference is good"
+			);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=574269
+//java.lang.invoke.LambdaConversionException: Invalid receiver type class java.lang.Object
+public void testBug574269_2() {
+	this.runConformTest(
+			new String[] {
+				"TestX.java",
+				"import java.util.List;\n" +
+				"\n" +
+				"public class TestX {\n" +
+				"\n" +
+				"	public static void main(String[] args) {\n" +
+				"		Group<MyPerson> group1 = new MyGroup();\n" +
+				"		group1.getPersons().stream().anyMatch(TestX.Person::isFoo);\n" +
+				"		System.out.println(\"Method reference is good\");\n" +
+				"		\n" +
+				"		Group<?> group2 = new MyGroup();\n" +
+				"		group2.getPersons().stream().anyMatch(TestX.Person::isFoo);\n" +
+				"		System.out.println(\"Method reference is not bad\");\n" +
+				"	}\n" +
+				"\n" +
+				"	interface Group<T extends Person> {\n" +
+				"		List<T> getPersons();\n" +
+				"	}\n" +
+				"\n" +
+				"	interface Person {\n" +
+				"		boolean isFoo();\n" +
+				"	}\n" +
+				"\n" +
+				"	static class MyGroup implements Group<MyPerson> {\n" +
+				"		@Override\n" +
+				"		public List<MyPerson> getPersons() {\n" +
+				"			return List.of();\n" +
+				"		}\n" +
+				"	}\n" +
+				"\n" +
+				"	static class MyPerson implements Person {\n" +
+				"		@Override\n" +
+				"		public boolean isFoo() {\n" +
+				"			return true;\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"},
+			"Method reference is good\n" +
+			"Method reference is not bad"
+			);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=570511
+//java.lang.BootstrapMethodError in Eclipse compiled code that doesn't happen with javac
+public void testBug570511() {
+	this.runConformTest(
+			new String[] {
+				"T.java",
+				"// ---------------------------------------------------------------\n" +
+				"import java.util.function.Consumer;\n" +
+				"\n" +
+				"public class T {\n" +
+				"    public static void main(String[] args) {\n" +
+				"        new T().test(new X());\n" +
+				"    }\n" +
+				"\n" +
+				"    void test(I<?> i) {\n" +
+				"        i.m(\"a\", \"b\", this::m);\n" +
+				"    }\n" +
+				"\n" +
+				"    void m(I<?> i) {\n" +
+				"        System.out.println(\"T.m\");\n" +
+				"    }\n" +
+				"}\n" +
+				"\n" +
+				"interface I<C extends I<C>> {\n" +
+				"    C m(Object key, Object value, Consumer<? super C> consumer);\n" +
+				"}\n" +
+				"\n" +
+				"class X implements I<X> {\n" +
+				"    @Override\n" +
+				"    public X m(Object key, Object value, Consumer<? super X> consumer) {\n" +
+				"        consumer.accept(this);\n" +
+				"        System.out.println(\"X.m\");\n" +
+				"        return null;\n" +
+				"    }\n" +
+				"}\n"},
+			"T.m\n" +
+			"X.m"
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=577719
+// BootstrapMethodError: call site initialization exception
+public void testBug577719() {
+	this.runConformTest(
+			new String[] {
+				"WeirdCleanupAndCallSiteInitializationException.java",
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class WeirdCleanupAndCallSiteInitializationException {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		B b = () -> new A() {\n" +
+				"		};\n" +
+				"		A a = get();\n" +
+				"		System.out.println(\"done\");\n" +
+				"	}\n" +
+				"\n" +
+				"	public static A get(B<?>... sources) {\n" +
+				"		return Stream.of(sources) //\n" +
+				"				.map(B::getT) //\n" +
+				"				.filter(A::exists_testOpen) //\n" +
+				"				.findFirst() //\n" +
+				"				.orElse(null);\n" +
+				"	}\n" +
+				"\n" +
+				"	public interface B<T extends A> extends A {\n" +
+				"		T getT();\n" +
+				"	}\n" +
+				"\n" +
+				"	public interface A {\n" +
+				"		default boolean exists_testOpen() {\n" +
+				"			return true;\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"},
+			"done"
+			);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=577719
+// BootstrapMethodError: call site initialization exception
+public void testBug577719_2() {
+	this.runConformTest(
+			new String[] {
+				"WeirdCleanupAndCallSiteInitializationException.java",
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class WeirdCleanupAndCallSiteInitializationException {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		B b = () -> new A() {\n" +
+				"		};\n" +
+				"		A a = get();\n" +
+				"		System.out.println(\"done\");\n" +
+				"	}\n" +
+				"\n" +
+				"	public static A get(B<?>... sources) {\n" +
+				"		return Stream.of(sources) //\n" +
+				"				.map(B::getT) //\n" +
+				"				.filter(x -> x.exists_testOpen()) //\n" +
+				"				.findFirst() //\n" +
+				"				.orElse(null);\n" +
+				"	}\n" +
+				"\n" +
+				"	public interface B<T extends A> extends A {\n" +
+				"		T getT();\n" +
+				"	}\n" +
+				"\n" +
+				"	public interface A {\n" +
+				"		default boolean exists_testOpen() {\n" +
+				"			return true;\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"},
+			"done"
+			);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1162
+// Eclipse incorrectly requires catch for nested sneaky throws; OpenJDK compiles with no problem
+public void testGH1162() {
+	this.runNegativeTest(
+			new String[] {
+				"X11.java",
+				"import java.io.IOException;\n" +
+				"import java.nio.file.Path;\n" +
+				"import java.util.function.Consumer;\n" +
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class X11 {\n" +
+				"\n" +
+				"	public X11 parse() throws IOException {\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"	\n" +
+				"	Stream<Path> list() throws IOException {\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"\n" +
+				"	public void foo() throws IOException {\n" +
+				"\n" +
+				"		throwingConsumer((Path barDir) -> {\n" +
+				"			try (final Stream<Path> files = list()) {\n" +
+				"				throwingConsumer((Path file) -> {\n" +
+				"					final X11 document;// = parse();\n" +
+				"					document = parse();\n" +
+				"				});\n" +
+				"			}\n" +
+				"		});\n" +
+				"	}\n" +
+				"	public void goo() throws IOException {\n" +
+				"\n" +
+				"		throwingConsumer((Path barDir) -> {\n" +
+				"			try (final Stream<Path> files = list()) {\n" +
+				"				throwingConsumer((Path file) -> {\n" +
+				"					final X11 document = parse();\n" +
+				"				});\n" +
+				"			}\n" +
+				"		});\n" +
+				"	}\n" +
+				"\n" +
+				"	public static <T, X extends Throwable> ThrowingConsumer<T, X> throwingConsumer(\n" +
+				"			final ThrowingConsumer<T, X> consumer) {\n" +
+				"		return consumer;\n" +
+				"	}\n" +
+				"}\n" +
+				"\n" +
+				"\n" +
+				"interface ThrowingConsumer<T, X extends Throwable> extends Consumer<T> {\n" +
+				"\n" +
+				"	void tryAccept(T t) throws X;\n" +
+				"\n" +
+				"	default void accept(final T t) {\n" +
+				"		tryAccept(t);\n" +
+				"	}\n" +
+				"}\n"},
+			"----------\n" +
+			"1. ERROR in X11.java (at line 50)\n" +
+			"	tryAccept(t);\n" +
+			"	^^^^^^^^^^^^\n" +
+			"Unhandled exception type X\n" +
+			"----------\n");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1162
+// Eclipse incorrectly requires catch for nested sneaky throws; OpenJDK compiles with no problem
+public void testGH1162_2() {
+	this.runNegativeTest(
+			new String[] {
+				"X11.java",
+				"import java.io.IOException;\n" +
+				"import java.nio.file.Path;\n" +
+				"import java.util.function.Consumer;\n" +
+				"import java.util.stream.Stream;\n" +
+				"\n" +
+				"public class X11 {\n" +
+				"\n" +
+				"	public X11 parse() throws IOException {\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"	\n" +
+				"	Stream<Path> list() throws IOException {\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"\n" +
+				"	public void foo() throws IOException {\n" +
+				"\n" +
+				"		throwingConsumer(() -> {\n" +
+				"			try (final Stream<Path> files = list()) {\n" +
+				"				throwingConsumer(() -> {\n" +
+				"					final X11 document;// = parse();\n" +
+				"					document = parse();\n" +
+				"				});\n" +
+				"			}\n" +
+				"		});\n" +
+				"	}\n" +
+				"	public static <T, X extends Throwable> ThrowingConsumer<T, X> throwingConsumer(\n" +
+				"			final ThrowingConsumer<T, X> consumer) {\n" +
+				"		return consumer;\n" +
+				"	}\n" +
+				"}\n" +
+				"\n" +
+				"\n" +
+				"interface ThrowingConsumer<T, X extends Throwable> extends Consumer<T> {\n" +
+				"\n" +
+				"	void tryAccept() throws X;\n" +
+				"\n" +
+				"	default void accept(final T t) {\n" +
+				"		tryAccept();\n" +
+				"	}\n" +
+				"}\n"},
+			"----------\n" +
+			"1. ERROR in X11.java (at line 39)\n" +
+			"	tryAccept();\n" +
+			"	^^^^^^^^^^^\n" +
+			"Unhandled exception type X\n" +
+			"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=576252
+// Open declaration / Javadoc popup is confused by overloaded method with method reference
+public void testBug576252() {
+	this.runConformTest(
+			new String[] {
+				"LambdaTest.java",
+				"public class LambdaTest {\n" +
+				"	public static void method(String value) {\n" +
+				"		System.out.print(\"para\");\n" +
+				"	}\n" +
+				"\n" +
+				"	public static void method(java.util.function.Supplier<String> supplier) {\n" +
+				"		System.out.print(supplier.get());\n" +
+				"	}\n" +
+				"\n" +
+				"	public static void main(String[] args) {\n" +
+				"		LambdaTest.method(LambdaTest.class::toString);\n" +
+				"	}\n" +
+				"}\n"},
+			"class LambdaTest");
 }
 public static Class testClass() {
 	return LambdaExpressionsTest.class;

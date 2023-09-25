@@ -64,7 +64,6 @@ import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
-import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.flow.ExceptionHandlingFlowContext;
 import org.eclipse.jdt.internal.compiler.flow.ExceptionInferenceFlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -133,7 +132,6 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	private boolean hasIgnoredMandatoryErrors = false;
 	private ReferenceBinding classType;
 	private Set thrownExceptions;
-	public char[] text;  // source representation of the lambda.
 	private static final SyntheticArgumentBinding [] NO_SYNTHETIC_ARGUMENTS = new SyntheticArgumentBinding[0];
 	private static final Block NO_BODY = new Block(0);
 	private HashMap<TypeBinding, LambdaExpression> copiesPerTargetType;
@@ -141,6 +139,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	public InferenceContext18 inferenceContext; // when performing tentative resolve keep a back reference to the driving context
 	private Map<Integer/*sourceStart*/, LocalTypeBinding> localTypes; // support look-up of a local type from this lambda copy
 	public boolean argumentsTypeVar = false;
+	int firstLocalLocal; // analysis index of first local variable (if any) post parameter(s) in the lambda; ("local local" as opposed to "outer local")
 
 
 	public LambdaExpression(CompilationResult compilationResult, boolean assistNode, boolean requiresGenericSignature) {
@@ -474,6 +473,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 		this.binding.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
 
+		this.firstLocalLocal = this.scope.outerMostMethodScope().analysisIndex;
 		if (this.body instanceof Expression && ((Expression) this.body).isTrulyExpression()) {
 			Expression expression = (Expression) this.body;
 			new ReturnStatement(expression, expression.sourceStart, expression.sourceEnd, true).resolve(this.scope); // :-) ;-)
@@ -544,22 +544,13 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 						freshInferenceContext.cleanUp();
 					}
 				} else {
-					return findGroundTargetTypeForElidedLambda(blockScope, withWildCards);
+					return withWildCards.getNonWildcardParameterization(blockScope);
 				}
 			}
 			if (targetType instanceof ReferenceBinding)
 				return (ReferenceBinding) targetType;
 		}
 		return null;
-	}
-
-	public ReferenceBinding findGroundTargetTypeForElidedLambda(BlockScope blockScope, ParameterizedTypeBinding withWildCards) {
-		// non-wildcard parameterization (9.8) of the target type
-		TypeBinding[] types = withWildCards.getNonWildcardParameterization(blockScope);
-		if (types == null)
-			return null;
-		ReferenceBinding genericType = withWildCards.genericType();
-		return blockScope.environment().createParameterizedType(genericType, types, withWildCards.enclosingType());
 	}
 
 	@Override
@@ -575,7 +566,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		try {
 			this.body.analyseCode(this.scope,
 									 ehfc = new ExceptionInferenceFlowContext(null, this, Binding.NO_EXCEPTIONS, null, this.scope, FlowInfo.DEAD_END),
-									 UnconditionalFlowInfo.fakeInitializedFlowInfo(this.scope.outerMostMethodScope().analysisIndex, this.scope.referenceType().maxFieldCount));
+									 UnconditionalFlowInfo.fakeInitializedFlowInfo(this.firstLocalLocal, this.scope.referenceType().maxFieldCount));
 			this.thrownExceptions = ehfc.extendedExceptions == null ? Collections.emptySet() : new HashSet<TypeBinding>(ehfc.extendedExceptions);
 		} catch (Exception e) {
 			// drop silently.
@@ -1008,6 +999,9 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 				copy = copy();
 				if (copy == null)
 					throw new CopyFailureException();
+				if (InferenceContext18.DEBUG) {
+					System.out.println("Copy lambda "+this+" for target "+targetType.debugName()); //$NON-NLS-1$ //$NON-NLS-2$
+				}
 
 				copy.setExpressionContext(this.expressionContext);
 				copy.setExpectedType(targetType);
@@ -1136,17 +1130,23 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		return false;
 	}
 
+	/**
+	 * @return a virgin copy of `this' by reparsing the stashed textual form.
+	 */
 	LambdaExpression copy() {
 		final Parser parser = new Parser(this.enclosingScope.problemReporter(), false);
-		final ICompilationUnit compilationUnit = this.compilationResult.getCompilationUnit();
-		char[] source = compilationUnit != null ? compilationUnit.getContents() : this.text;
-		LambdaExpression copy =  (LambdaExpression) parser.parseLambdaExpression(source, compilationUnit != null ? this.sourceStart : 0, this.sourceEnd - this.sourceStart + 1,
+		char [] source = new char [this.sourceEnd+1];
+		System.arraycopy(this.text, 0, source, this.sourceStart, this.sourceEnd - this.sourceStart + 1);
+		LambdaExpression copy =  (LambdaExpression) parser.parseLambdaExpression(source,this.sourceStart, this.sourceEnd - this.sourceStart + 1,
 										this.enclosingScope.referenceCompilationUnit(), false /* record line separators */);
 
 		if (copy != null) { // ==> syntax errors == null
+			if (copy.sourceStart != this.sourceStart || copy.sourceEnd != this.sourceEnd)
+				return null; // something wrong
 			copy.original = this;
 			copy.assistNode = this.assistNode;
 			copy.enclosingScope = this.enclosingScope;
+			copy.text = this.text; // discard redundant textual copy
 		}
 		return copy;
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2019 GK Software AG, and others.
+ * Copyright (c) 2013, 2022 GK Software AG, and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.FunctionalExpression;
@@ -110,6 +111,8 @@ import org.eclipse.jdt.internal.compiler.util.Sorting;
  */
 public class InferenceContext18 {
 
+	public final static boolean DEBUG = false;
+
 	/** to conform with javac regarding https://bugs.openjdk.java.net/browse/JDK-8026527 */
 	static final boolean SIMULATE_BUG_JDK_8026527 = true;
 
@@ -173,6 +176,9 @@ public class InferenceContext18 {
 	private boolean directlyAcceptingInnerBounds = false;
 	/** Not per JLS: pushing bounds from inner to outer may have to be deferred till after overload resolution, store here a runnable to perform the push. */
 	private Runnable pushToOuterJob = null;
+	// the following two flags control to what degree we continue with incomplete information:
+	private boolean isInexactVarargsInference = false;
+	boolean prematureOverloadResolution = false;
 
 	public static boolean isSameSite(InvocationSite site1, InvocationSite site2) {
 		if (site1 == site2)
@@ -332,18 +338,21 @@ public class InferenceContext18 {
 		}
 	}
 
-	/** Add new inference variables for the given type variables. */
-	public InferenceVariable[] addTypeVariableSubstitutions(TypeBinding[] typeVariables) {
-		int len2 = typeVariables.length;
+	/**
+	 * Add new inference variables for the given type arguments.
+	 * CAVEAT: when passing capturesOnly as true, then the result array may contain nulls!
+	 */
+	public InferenceVariable[] addTypeVariableSubstitutions(TypeBinding[] typeArguments, boolean capturesOnly) {
+		int len2 = typeArguments.length;
 		InferenceVariable[] newVariables = new InferenceVariable[len2];
 		InferenceVariable[] toAdd = new InferenceVariable[len2];
 		int numToAdd = 0;
-		for (int i = 0; i < typeVariables.length; i++) {
-			if (typeVariables[i] instanceof InferenceVariable)
-				newVariables[i] = (InferenceVariable) typeVariables[i]; // prevent double substitution of an already-substituted inferenceVariable
-			else
+		for (int i = 0; i < typeArguments.length; i++) {
+			if (typeArguments[i] instanceof InferenceVariable)
+				newVariables[i] = (InferenceVariable) typeArguments[i]; // prevent double substitution of an already-substituted inferenceVariable
+			else if (!capturesOnly || typeArguments[i] instanceof CaptureBinding)
 				toAdd[numToAdd++] =
-					newVariables[i] = InferenceVariable.get(typeVariables[i], i, this.currentInvocation, this.scope, this.object, false);
+					newVariables[i] = InferenceVariable.get(typeArguments[i], i, this.currentInvocation, this.scope, this.object, false);
 		}
 		if (numToAdd > 0) {
 			int start = 0;
@@ -482,6 +491,7 @@ public class InferenceContext18 {
 				this.currentBounds = solution; // this is final, keep the result:
 			return solution;
 		} finally {
+			assert !(step == TYPE_INFERRED_FINAL && this.isInexactVarargsInference);
 			this.stepCompleted = step;
 		}
 	}
@@ -708,7 +718,7 @@ public class InferenceContext18 {
 			if (innerMethod instanceof ParameterizedGenericMethodBinding)
 				 innerContext = invocation.getInferenceContext((ParameterizedGenericMethodBinding) innerMethod);
 
-			if (innerContext != null) {
+			if (innerContext != null && !innerContext.isInexactVarargsInference()) {
 				MethodBinding shallowMethod = innerMethod.shallowOriginal();
 				innerContext.outerContext = this;
 				if (innerContext.stepCompleted < InferenceContext18.APPLICABILITY_INFERRED) // shouldn't happen, but let's play safe
@@ -759,21 +769,39 @@ public class InferenceContext18 {
 	{
 		TypeBinding[] q = createBoundsForFunctionalInterfaceParameterizationInference(targetTypeWithWildCards);
 		if (q == null || q.length != lambda.arguments().length) {
-			// fail  TODO: can this still happen here?
+			return null;
 		} else {
 			if (reduceWithEqualityConstraints(lambda.argumentTypes(), q)) {
 				ReferenceBinding genericType = targetTypeWithWildCards.genericType();
 				TypeBinding[] a = targetTypeWithWildCards.arguments; // a is not-null by construction of parameterizedWithWildcard()
 				TypeBinding[] aprime = getFunctionInterfaceArgumentSolutions(a);
-				// If F<A'1, ..., A'm> is a well-formed type, ...
-				ParameterizedTypeBinding ptb = blockScope.environment().createParameterizedType(genericType, aprime, targetTypeWithWildCards.enclosingType());
-				TypeVariableBinding[] vars = ptb.genericType().typeVariables();
-				ParameterizedTypeBinding captured = ptb.capture(blockScope, lambda.sourceStart, lambda.sourceEnd);
+				// If F<A'1, ..., A'm> is not a well-formed type, ...
+				ParameterizedTypeBinding f_aprime = blockScope.environment().createParameterizedType(genericType, aprime, targetTypeWithWildCards.enclosingType());
+				TypeVariableBinding[] vars = f_aprime.genericType().typeVariables();
+				boolean hasWildcard = false;
 				for (int i = 0; i < vars.length; i++) {
-					if (vars[i].boundCheck(captured, aprime[i], blockScope, lambda) == BoundCheckStatus.MISMATCH)
-						return null;
+					if (vars[i].boundCheck(f_aprime, aprime[i], blockScope, lambda) == BoundCheckStatus.MISMATCH)
+						return null; // ... no valid parameterization exists
+					hasWildcard |= aprime[i].kind() == Binding.WILDCARD_TYPE;
 				}
-				return ptb;
+				/* as per spec we should do the following:
+				 *
+				 * // or if F<A'1, ..., A'm> is not a subtype of F<A1, ..., Am>
+				 * if (!f_aprime.isSubtypeOf(targetTypeWithWildCards, false))
+				 * 	return null; // ... no valid parameterization exists
+				 *
+				 * but that would surface as
+				 * "The target type of this expression is not a well formed parameterized type due to bound(s) mismatch"
+				 * whereas the ill-formed type only emerged during inference.
+				 * So let final checks detect the incompatibility for a better error message.
+				 */
+				// ... the inferred parameterization is either F<A'1, ..., A'm>, if all the type arguments are types,
+				// or the non-wildcard parameterization (§9.9) of F<A'1, ..., A'm>, if one or more type arguments are still wildcards.
+				if (hasWildcard) {
+					return f_aprime.getNonWildcardParameterization(blockScope);
+				} else {
+					return f_aprime;
+				}
 			}
 		}
 		return targetTypeWithWildCards;
@@ -790,38 +818,17 @@ public class InferenceContext18 {
 		TypeBinding[] a = functionalInterface.arguments;
 		if (a == null)
 			return null;
-		InferenceVariable[] alpha = addInitialTypeVariableSubstitutions(a);
+		addInitialTypeVariableSubstitutions(a);
 
-		createAdditionalBounds(a, alpha);
 		TypeBinding falpha = substitute(functionalInterface);
 		return falpha.getSingleAbstractMethod(this.scope, true).parameters;
 	}
 
-	private void createAdditionalBounds(TypeBinding[] a, InferenceVariable[] alpha) {
-		for (int i = 0; i < a.length; i++) {
-			TypeBound bound;
-			if (a[i].kind() == Binding.WILDCARD_TYPE) {
-				WildcardBinding wildcard = (WildcardBinding) a[i];
-				switch(wildcard.boundKind) {
-    				case Wildcard.EXTENDS :
-    					bound = new TypeBound(alpha[i], wildcard.allBounds(), ReductionResult.SUBTYPE);
-    					break;
-    				case Wildcard.SUPER :
-    					bound = new TypeBound(alpha[i], wildcard.bound, ReductionResult.SUPERTYPE);
-    					break;
-    				case Wildcard.UNBOUND :
-    					bound = new TypeBound(alpha[i], this.object, ReductionResult.SUBTYPE);
-    					break;
-    				default:
-    					continue; // cannot
-				}
-			} else {
-				bound = new TypeBound(alpha[i], a[i], ReductionResult.SAME);
-			}
-			this.currentBounds.addBound(bound, this.environment);
-		}
-	}
-
+	/**
+	 * from 18.5.3:
+	 * Otherwise, a set of constraint formulas is formed with, for all i (1 ≤ i ≤ n), ‹Pi = Qi›.
+	 * This constraint formula set is reduced to form the bound set B.
+	 */
 	public boolean reduceWithEqualityConstraints(TypeBinding[] p, TypeBinding[] q) {
 		if (p != null) {
 			for (int i = 0; i < p.length; i++) {
@@ -1087,6 +1094,9 @@ public class InferenceContext18 {
 				return false;
 		}
 		this.initialConstraints = null;
+		if (DEBUG) {
+			System.out.println("reduced to\n"+this); //$NON-NLS-1$
+		}
 		return true;
 	}
 
@@ -1821,6 +1831,13 @@ public class InferenceContext18 {
 		return null;
 	}
 
+	/**
+	 * From 18.5.3:
+	 * <ul>
+	 * <li>If B contains an instantiation (§18.1.3) for αi, T, then A'i = T.
+	 * <li>Otherwise, A'i = Ai.
+	 * </ul>
+	 */
 	public TypeBinding[] getFunctionInterfaceArgumentSolutions(TypeBinding[] a) {
 		int m = a.length;
 		TypeBinding[] aprime = new TypeBinding[m];
@@ -1881,6 +1898,7 @@ public class InferenceContext18 {
 		if (targetType != null)
 			invocation.registerResult(targetType, pmb);
 		Expression[] arguments = invocation.arguments();
+		updateInnerDiamonds(pmb, arguments);
 		for (int i = 0, length = arguments == null ? 0 : arguments.length; i < length; i++) {
 			Expression [] expressions = arguments[i].getPolyExpressions();
 			for (int j = 0, jLength = expressions.length; j < jLength; j++) {
@@ -1930,6 +1948,19 @@ public class InferenceContext18 {
 		}
 	}
 
+	public static void updateInnerDiamonds(ParameterizedMethodBinding pmb, Expression[] arguments) {
+		for (int i = 0, length = arguments == null ? 0 : arguments.length; i < length; i++) {
+			if (arguments[i] instanceof AllocationExpression) {
+				// do we need to suppress "Redundant specification of type arguments" warnings?
+				TypeBinding pmbParam = getParameter(pmb.parameters, i, pmb.isVarargs());
+				TypeBinding origParam = getParameter(pmb.originalMethod.parameters, i, pmb.isVarargs());
+				if (TypeBinding.notEquals(pmbParam, origParam)) {
+					((AllocationExpression) arguments[i]).expectedTypeWasInferred = true;
+				}
+			}
+		}
+	}
+
 	public void cleanUp() {
 		this.b2 = null;
 		this.currentBounds = null;
@@ -1960,7 +1991,7 @@ public class InferenceContext18 {
 		InferenceVariable[] alphas = createInitialBoundSet(typeVariables); // creates initial bound set B
 
 		// 3. A type T' is derived from T, as follows:
-		TypeBinding tPrime = deriveTPrime(candidateT, alphas, typeBinding);
+		TypeBinding tPrime = deriveTPrime(recordPattern, candidateT, alphas, typeBinding);
 		if (tPrime == null)
 			return null;
 
@@ -2065,21 +2096,21 @@ public class InferenceContext18 {
 		} /* else part: Otherwise, B2 is the same as B1.*/
 		return true;
 	}
-	private TypeBinding deriveTPrime(TypeBinding candidateT, InferenceVariable[] alphas, TypeBinding typeBinding) {
+	private TypeBinding deriveTPrime(RecordPattern recordPattern, TypeBinding candidateT, InferenceVariable[] alphas, TypeBinding typeBinding) {
 		ParameterizedTypeBinding parameterizedType = null;
 		TypeBinding tPrime = null;
 		if (candidateT.isParameterizedType()) {
 			parameterizedType = InferenceContext18.parameterizedWithWildcard(candidateT);
 		}
 		if (parameterizedType != null && parameterizedType.arguments != null) {
-			TypeBinding[] arguments = parameterizedType.arguments;
+			TypeBinding[] arguments = parameterizedType.capture(this.scope, recordPattern.sourceStart, recordPattern.sourceEnd).arguments;
 			/* addTypeVariableSubstitutions() gives a beta for every argument which is
 			 * a super set of betas required by 18_5_5_item_3_bullet_1 betas.
 			 * this happens since we are just reusing 18.5.2.1 utility
 			 * And hence the name notJust18_5_5_item_3_bullet_1Betas
 			 * TODO: a Just18_5_5_item_3_bullet_1Betas utility?
 			 */
-			InferenceVariable[] notJust18_5_5_item_3_bullet_1Betas = addTypeVariableSubstitutions(arguments);
+			InferenceVariable[] notJust18_5_5_item_3_bullet_1Betas = addTypeVariableSubstitutions(arguments, true);
 			TypeVariableBinding[] typeVariables = getTPrimeArgumentsAndCreateBounds(parameterizedType,
 					notJust18_5_5_item_3_bullet_1Betas);
 			tPrime = this.environment.createParameterizedType(
@@ -2098,7 +2129,7 @@ public class InferenceContext18 {
 
 			if (allBoundCandidates != null) {
 				for (TypeBinding t : allBoundCandidates) {
-					TypeBinding ttPrime = deriveTPrime(t, alphas, typeBinding);
+					TypeBinding ttPrime = deriveTPrime(recordPattern, t, alphas, typeBinding);
 					if (!findRPrimeAndResultingBounds(typeBinding, alphas, ttPrime))
 						return null;
 				}
@@ -2116,7 +2147,7 @@ public class InferenceContext18 {
 		TypeBinding[] aArr = tPrime.typeArguments();
 		for (int i = 0, l = notJust18_5_5_item_3_bullet_1Betas.length; i < l; ++i) {
 			InferenceVariable beta = notJust18_5_5_item_3_bullet_1Betas[i];
-			if (!beta.equals(typeVariables[i])) continue; //not an expected inference variable.
+			if (beta == null || !beta.equals(typeVariables[i])) continue; //not an expected inference variable.
 
 			TypeBinding[] uArr = typeParams[i]!= null ? typeParams[i].allUpperBounds() : null;
 			if (uArr == null || uArr.length == 0) {
@@ -2152,17 +2183,20 @@ public class InferenceContext18 {
 			InferenceVariable[] beta) {
 		TypeBinding[] arguments = parameterizedType.typeArguments();
 		TypeVariableBinding[] typeVariables = new TypeVariableBinding[arguments.length];
+		InferenceSubstitution theta = new InferenceSubstitution(this.environment, beta, this.currentInvocation);
 		TypeBound bound;
 		for (int i = 0, l = arguments.length; i < l; ++i) {
 			bound = null;
-			if (arguments[i].kind() == Binding.WILDCARD_TYPE) {
+			if (arguments[i].kind() == Binding.WILDCARD_TYPE && beta[i] != null) {
 				WildcardBinding wildcard = (WildcardBinding) arguments[i];
 				switch(wildcard.boundKind) {
 					case Wildcard.EXTENDS :
-						bound = new TypeBound(beta[i], wildcard.allBounds(), ReductionResult.SUBTYPE);
+						TypeBinding uTheta = Scope.substitute(theta, wildcard.allBounds());
+						bound = new TypeBound(beta[i], uTheta, ReductionResult.SUBTYPE);
 						break;
 					case Wildcard.SUPER :
-						bound = new TypeBound(beta[i], wildcard.bound, ReductionResult.SUPERTYPE);
+						TypeBinding lTheta = Scope.substitute(theta, wildcard.bound);
+						bound = new TypeBound(beta[i], lTheta, ReductionResult.SUPERTYPE);
 						break;
 					case Wildcard.UNBOUND :
 						bound = new TypeBound(beta[i], this.object, ReductionResult.SUBTYPE);
@@ -2184,5 +2218,25 @@ public class InferenceContext18 {
 			}
 		}
 		return typeVariables;
+	}
+
+	public boolean isInexactVarargsInference() {
+		return this.isInexactVarargsInference;
+	}
+
+	public void setInexactVarargsInference(boolean isInexactVarargsInference) {
+		this.isInexactVarargsInference = isInexactVarargsInference;
+	}
+
+	public boolean hasPrematureOverloadResolution() {
+		if (this.prematureOverloadResolution)
+			return true;
+		if (this.seenInnerContexts != null) {
+			for (InferenceContext18 inner : this.seenInnerContexts) {
+				if (inner.hasPrematureOverloadResolution())
+					return true;
+			}
+		}
+		return false;
 	}
 }

@@ -18748,4 +18748,277 @@ public void testRedundantNonNull_field() {
 	runner.classLibraries = this.LIBS;
 	runner.runWarningTest();
 }
+public void testGH1007_srikanth() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"SubClass.java",
+			"// ECJ error in next line: Type mismatch: cannot convert from Class<SubClass> to Class<? extends SuperClass>[]\n" +
+			"@AnnotationWithArrayInitializer(annotationArgument = SubClass.class)\n" +
+			"class AnnotatedClass2 extends AnnotatedSuperClass {}\n" +
+			"\n" +
+			"//ECJ error in next line: Type mismatch: cannot convert from Class<SubClass> to Class<? extends SuperClass>\n" +
+			"@AnnotationWithArrayInitializer(annotationArgument = {SubClass.class})\n" +
+			"class AnnotatedClass extends AnnotatedSuperClass {}\n" +
+			"\n" +
+			"\n" +
+			"class AnnotatedSuperClass {}\n" +
+			"\n" +
+			"@interface AnnotationWithArrayInitializer {\n" +
+			"    Class<? extends SuperClass>[] annotationArgument();\n" +
+			"}\n" +
+			"\n" +
+			"class SubClass extends SuperClass {}\n" +
+			"abstract class SuperClass {}"
+		};
+	runner.runConformTest();
+}
+public void testGH854() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"Annot.java",
+			"public @interface Annot {\n" +
+			"    Class<? extends Init<? extends Configuration>>[] inits(); \n" +
+			"}\n",
+			"Configuration.java",
+			"public interface Configuration {\n" +
+			"}\n",
+			"Init.java",
+			"public interface Init<C extends Configuration> {\n" +
+			"}\n",
+			"App.java",
+			"interface I<T> {}\n" +
+			"class IImpl<T> implements I<String>, Init<Configuration> {}\n" +
+			"@Annot(inits = {App.MyInit.class})\n" +
+			"public class App {\n" +
+			"	static class MyInit extends IImpl<Configuration> {}\n" +
+			"}\n"
+		};
+	runner.runConformTest();
+}
+// duplicate of #1077
+public void testGH476() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"Controller.java",
+			"public class Controller<T> {\n" +
+			"    final static String ENDPOINT = \"controll\";\n" +
+			"}\n",
+			"RequestMapping.java",
+			"import java.lang.annotation.ElementType;\n" +
+			"import java.lang.annotation.Retention;\n" +
+			"import java.lang.annotation.RetentionPolicy;\n" +
+			"import java.lang.annotation.Target;\n" +
+			"\n" +
+			"@Target(ElementType.TYPE)\n" +
+			"@Retention(RetentionPolicy.RUNTIME)\n" +
+			"public @interface RequestMapping {\n" +
+			"	String name() default \"\";\n" +
+			"	String[] value() default {};\n" +
+			"}\n",
+			"CtlImpl.java",
+			"@RequestMapping(CtlImpl.CTL_ENDPOINT)\n" +
+			"public class CtlImpl extends Controller<String> {\n" +
+			"    final static String CTL_ENDPOINT = ENDPOINT + \"/ctl\";\n" +
+			"    static String value;\n" +
+			"}\n"
+		};
+	runner.runConformTest();
+}
+public void testVSCodeIssue3076() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"demo/cache/AbstractCache.java",
+			"package demo.cache;\n" +
+			"\n" +
+			"public abstract class AbstractCache {\n" +
+			"    public enum Expiry {\n" +
+			"        ONE, TWO, THREE\n" +
+			"    }\n" +
+			"\n" +
+			"    protected abstract void cacheThis(int param1, Expiry param2);\n" +
+			"}\n",
+			"demo/Annot.java",
+			"package demo;\n" +
+			"public @interface Annot {\n" +
+			"	String defaultProperty();\n" +
+			"}\n",
+			"demo/cache/MyCache.java",
+			"package demo.cache;\n" +
+			"\n" +
+			"import demo.Annot;\n" +
+			"\n" +
+			"/**\n" +
+			" * This annotation is what causes the confusion around the nested Expiry type.\n" +
+			" *\n" +
+			" * If you comment out this annotation the language server has no problem\n" +
+			" * figuring it out.\n" +
+			" *\n" +
+			" * It can be *any* annotation.\n" +
+			" * So it would seem that referring to your own class outside of the\n" +
+			" * class definition is what triggers this particular bug.\n" +
+			" */\n" +
+			"@Annot(defaultProperty = MyCache.DEFAULT_PROPERTY_NAME)\n" +
+			"public class MyCache extends AbstractCache {\n" +
+			"    public static final String DEFAULT_PROPERTY_NAME = \"WHATEVER\";\n" +
+			"\n" +
+			"    @Override\n" +
+			"    protected void cacheThis(int param1, Expiry param2) {\n" +
+			"        throw new UnsupportedOperationException(\"Unimplemented method 'doSomethingElse'\");\n" +
+			"    }\n" +
+			"}\n"
+		};
+	runner.runConformTest();
+}
+public void testGH986() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"mypackage/Example.java",
+			"package mypackage;\n" +
+			"\n" +
+			"import java.io.Serializable;\n" +
+			"\n" +
+			"@Deprecated(since = Example.SINCE)\n" +
+			"public class Example<T> implements Serializable {\n" +
+			"	\n" +
+			"	static final String SINCE = \"...\";\n" +
+			"\n" +
+			"	private T target;\n" +
+			"\n" +
+			"}"
+		};
+	runner.runConformTest();
+}
+public void testGHjdtls2386() {
+	Runner runner = new Runner();
+	runner.testFiles =
+		new String[] {
+			"ConfigurableApplicationContext.java",
+			"public class ConfigurableApplicationContext { }\n",
+			"ApplicationContextInitializer.java",
+			"public interface ApplicationContextInitializer<T> {\n" +
+			"	void initialize(T context);\n" +
+			"}\n",
+			"ContextConfiguration.java",
+			"""
+			import static java.lang.annotation.ElementType.*;
+			import static java.lang.annotation.RetentionPolicy.*;
+			import java.lang.annotation.*;
+
+			@Target(TYPE)
+			@Retention(RUNTIME)
+			public @interface ContextConfiguration {
+				Class<? extends ApplicationContextInitializer<?>>[] initializers();
+			}
+			""",
+			"AbstractTest.java",
+			"""
+			@ContextConfiguration(initializers = {AbstractTest.Initializer.class})
+			public abstract class AbstractTest {
+
+			  static class Initializer
+			      implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+
+			    @Override
+			    public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
+
+			    }
+			  }
+			}
+			"""
+		};
+	runner.runConformTest();
+}
+public void testGH1311() {
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_SyntacticNullAnalysisForFields, CompilerOptions.ENABLED);
+	runner.testFiles = new String[] {
+		"nullable/Foo.java",
+		"""
+		package nullable;
+
+		import org.eclipse.jdt.annotation.Nullable;
+
+		public class Foo {
+
+			@Nullable
+			private String text;
+
+			public Foo(String text) {
+				this.text = text;
+			}
+
+			public int getTextSize() {
+				return (text == null)? 0: text.length();
+			}
+		}
+		"""
+		};
+	runner.classLibraries = this.LIBS;
+	runner.runConformTest();
+}
+public void testGH1311_expiry() {
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_SyntacticNullAnalysisForFields, CompilerOptions.ENABLED);
+	runner.testFiles = new String[] {
+		"nullable/Foo.java",
+		"""
+		package nullable;
+
+		import org.eclipse.jdt.annotation.Nullable;
+
+		public class Foo {
+
+			@Nullable
+			private String text;
+
+			public Foo(String text) {
+				this.text = text;
+			}
+
+			public int getTextSize1() {
+				int length = (text == null)? 0: text.length();
+				return text.length();
+			}
+			public int getTextSize2() {
+				int length = (text != null)? text.length() : 0;
+				return text.length();
+			}
+			public int getTextSize3() {
+				return (text == null)? 0:
+							b() ? text.length() : -1;
+			}
+			boolean b() { return true; }
+		}
+		"""
+		};
+	runner.expectedCompilerLog =
+		"""
+		----------
+		1. ERROR in nullable\\Foo.java (at line 16)
+			return text.length();
+			       ^^^^
+		Potential null pointer access: this expression has a \'@Nullable\' type
+		----------
+		2. ERROR in nullable\\Foo.java (at line 20)
+			return text.length();
+			       ^^^^
+		Potential null pointer access: this expression has a \'@Nullable\' type
+		----------
+		3. ERROR in nullable\\Foo.java (at line 24)
+			b() ? text.length() : -1;
+			      ^^^^
+		Potential null pointer access: this expression has a \'@Nullable\' type
+		----------
+		""";
+
+	runner.classLibraries = this.LIBS;
+	runner.runNegativeTest();
+}
 }

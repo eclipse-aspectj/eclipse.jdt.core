@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2021 IBM Corporation and others.
+ * Copyright (c) 2003, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -365,7 +365,21 @@ public void test009() throws Exception {
 			classFileBytes,
 			"\n",
 			ClassFileBytesDisassembler.DETAILED);
-
+	String substring1 = this.complianceLevel < ClassFileConstants.JDK1_5 ?
+								"StringBuffer" : "StringBuilder";
+	String substring2 = this.complianceLevel < ClassFileConstants.JDK9 ?
+								"    21  new java.lang." + substring1 + " [32]\n"
+								+ "    24  dup\n"
+								+ "    25  ldc <String \"[\"> [34]\n"
+								+ "    27  invokespecial java.lang." + substring1 + "(java.lang.String) [36]\n"
+								+ "    30  aconst_null\n"
+								+ "    31  invokevirtual java.lang." + substring1 + ".append(java.lang.Object) : java.lang." + substring1 + " [38]\n"
+								+ "    34  ldc <String \"]\"> [42]\n"
+								+ "    36  invokevirtual java.lang." + substring1 + ".append(java.lang.String) : java.lang." + substring1 + " [44]\n"
+								+ "    39  invokevirtual java.lang." + substring1 + ".toString() : java.lang.String [47]\n"
+									:
+									"    21  aconst_null\n" +
+									"    22  invokedynamic 0 makeConcatWithConstants(java.lang.String) : java.lang.String [32]\n";
 	String expectedOutput =
 			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" +
 			"  // Stack: 3, Locals: 4\n" +
@@ -379,15 +393,7 @@ public void test009() throws Exception {
 			"    13  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
 			"    16  ldc <String \"2\"> [30]\n" +
 			"    18  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
-			"    21  new java.lang.StringBuffer [32]\n" +
-			"    24  dup\n" +
-			"    25  ldc <String \"[\"> [34]\n" +
-			"    27  invokespecial java.lang.StringBuffer(java.lang.String) [36]\n" +
-			"    30  aconst_null\n" +
-			"    31  invokevirtual java.lang.StringBuffer.append(java.lang.Object) : java.lang.StringBuffer [38]\n" +
-			"    34  ldc <String \"]\"> [42]\n" +
-			"    36  invokevirtual java.lang.StringBuffer.append(java.lang.String) : java.lang.StringBuffer [44]\n" +
-			"    39  invokevirtual java.lang.StringBuffer.toString() : java.lang.String [47]\n" +
+			substring2 +
 			"    42  ldc <String \"[null]\"> [51]\n" +
 			"    44  if_acmpne 51\n" +
 			"    47  iconst_1\n" +
@@ -427,9 +433,9 @@ public void test009() throws Exception {
 			"        [pc: 63, pc: 87] local: s index: 2 type: java.lang.String\n" +
 			"        [pc: 78, pc: 87] local: s2 index: 3 type: java.lang.String\n";
 
-	String expectedOutput15 =
+	String expectedOutput9OrLater =
 			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" +
-			"  // Stack: 3, Locals: 4\n" +
+			"  // Stack: 2, Locals: 4\n" +
 			"  public static void main(java.lang.String[] args);\n" +
 			"     0  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
 			"     3  ldc <String \"1\"> [22]\n" +
@@ -440,61 +446,52 @@ public void test009() throws Exception {
 			"    13  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
 			"    16  ldc <String \"2\"> [30]\n" +
 			"    18  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
-			"    21  new java.lang.StringBuilder [32]\n" +
-			"    24  dup\n" +
-			"    25  ldc <String \"[\"> [34]\n" +
-			"    27  invokespecial java.lang.StringBuilder(java.lang.String) [36]\n" +
-			"    30  aconst_null\n" +
-			"    31  invokevirtual java.lang.StringBuilder.append(java.lang.Object) : java.lang.StringBuilder [38]\n" +
-			"    34  ldc <String \"]\"> [42]\n" +
-			"    36  invokevirtual java.lang.StringBuilder.append(java.lang.String) : java.lang.StringBuilder [44]\n" +
-			"    39  invokevirtual java.lang.StringBuilder.toString() : java.lang.String [47]\n" +
-			"    42  ldc <String \"[null]\"> [51]\n" +
-			"    44  if_acmpne 51\n" +
-			"    47  iconst_1\n" +
-			"    48  goto 52\n" +
-			"    51  iconst_0\n" +
-			"    52  istore_1 [b]\n" +
-			"    53  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
-			"    56  ldc <String \"3\"> [53]\n" +
-			"    58  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
-			"    61  aconst_null\n" +
-			"    62  astore_2 [s]\n" +
-			"    63  aload_2 [s]\n" +
-			"    64  ifnonnull 75\n" +
-			"    67  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
-			"    70  ldc <String \"4\"> [55]\n" +
-			"    72  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
-			"    75  ldc <String \"aaa\"> [57]\n" +
-			"    77  astore_3 [s2]\n" +
-			"    78  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
-			"    81  ldc <String \"5\"> [59]\n" +
-			"    83  invokevirtual java.io.PrintStream.println(java.lang.String) : void [61]\n" +
-			"    86  return\n" +
+			substring2 +
+			"    27  ldc <String \"[null]\"> [36]\n" +
+			"    29  if_acmpne 36\n" +
+			"    32  iconst_1\n" +
+			"    33  goto 37\n" +
+			"    36  iconst_0\n" +
+			"    37  istore_1 [b]\n" +
+			"    38  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
+			"    41  ldc <String \"3\"> [38]\n" +
+			"    43  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
+			"    46  aconst_null\n" +
+			"    47  astore_2 [s]\n" +
+			"    48  aload_2 [s]\n" +
+			"    49  ifnonnull 60\n" +
+			"    52  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
+			"    55  ldc <String \"4\"> [40]\n" +
+			"    57  invokevirtual java.io.PrintStream.print(java.lang.String) : void [24]\n" +
+			"    60  ldc <String \"aaa\"> [42]\n" +
+			"    62  astore_3 [s2]\n" +
+			"    63  getstatic java.lang.System.out : java.io.PrintStream [16]\n" +
+			"    66  ldc <String \"5\"> [44]\n" +
+			"    68  invokevirtual java.io.PrintStream.println(java.lang.String) : void [46]\n" +
+			"    71  return\n" +
 			"      Line numbers:\n" +
 			"        [pc: 0, line: 3]\n" +
 			"        [pc: 8, line: 4]\n" +
 			"        [pc: 13, line: 5]\n" +
 			"        [pc: 21, line: 6]\n" +
-			"        [pc: 53, line: 7]\n" +
-			"        [pc: 61, line: 8]\n" +
-			"        [pc: 63, line: 9]\n" +
-			"        [pc: 75, line: 10]\n" +
-			"        [pc: 78, line: 11]\n" +
-			"        [pc: 86, line: 12]\n" +
+			"        [pc: 38, line: 7]\n" +
+			"        [pc: 46, line: 8]\n" +
+			"        [pc: 48, line: 9]\n" +
+			"        [pc: 60, line: 10]\n" +
+			"        [pc: 63, line: 11]\n" +
+			"        [pc: 71, line: 12]\n" +
 			"      Local variable table:\n" +
-			"        [pc: 0, pc: 87] local: args index: 0 type: java.lang.String[]\n" +
-			"        [pc: 53, pc: 87] local: b index: 1 type: boolean\n" +
-			"        [pc: 63, pc: 87] local: s index: 2 type: java.lang.String\n" +
-			"        [pc: 78, pc: 87] local: s2 index: 3 type: java.lang.String\n";
-
-	if (this.complianceLevel >= ClassFileConstants.JDK1_5) {
-		int index = actualOutput.indexOf(expectedOutput15);
-		if (index == -1 || expectedOutput15.length() == 0) {
+			"        [pc: 0, pc: 72] local: args index: 0 type: java.lang.String[]\n" +
+			"        [pc: 38, pc: 72] local: b index: 1 type: boolean\n" +
+			"        [pc: 48, pc: 72] local: s index: 2 type: java.lang.String\n" +
+			"        [pc: 63, pc: 72] local: s2 index: 3 type: java.lang.String\n";
+	if (this.complianceLevel >= ClassFileConstants.JDK9) {
+		int index = actualOutput.indexOf(expectedOutput9OrLater);
+		if (index == -1 || expectedOutput9OrLater.length() == 0) {
 			System.out.println(Util.displayString(actualOutput, 2));
 		}
 		if (index == -1) {
-			assertEquals("Wrong contents", expectedOutput15, actualOutput);
+			assertEquals("Wrong contents", expectedOutput9OrLater, actualOutput);
 		}
 	} else {
 		int index = actualOutput.indexOf(expectedOutput);
@@ -1625,6 +1622,21 @@ public void testBug569498() {
 				+ "}",
 			},
 			"");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1256
+public void testGH1256() throws Exception {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n"
+			+ "	public static void main(String[] args) {\n"
+			+ "		String value = \"12345\";\n"
+			+ "		value.equalsIgnoreCase(\"\" + null);\n"
+			+ "		System.out.println(value.substring(1));\n"
+			+ "	}\n"
+			+ "}",
+		 },
+	"2345");
 }
 public static Class testClass() {
 	return ConstantTest.class;

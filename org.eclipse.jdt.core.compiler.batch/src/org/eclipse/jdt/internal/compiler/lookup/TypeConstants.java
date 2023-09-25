@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -42,6 +42,7 @@ public interface TypeConstants {
 	char[] JAVA = "java".toCharArray(); //$NON-NLS-1$
 	char[] JAVAC = "javac".toCharArray(); //$NON-NLS-1$
 	char[] JAVAX = "javax".toCharArray(); //$NON-NLS-1$
+	char[] JAKARTA = "jakarta".toCharArray(); //$NON-NLS-1$
 	char[] LANG = "lang".toCharArray(); //$NON-NLS-1$
 	char[] IO = "io".toCharArray(); //$NON-NLS-1$
 	char[] NIO = "nio".toCharArray(); //$NON-NLS-1$
@@ -117,6 +118,8 @@ public interface TypeConstants {
     char[] UPPER_MODULE = "MODULE".toCharArray(); //$NON-NLS-1$
     char[] UPPER_RECORD_COMPONENT = "RECORD_COMPONENT".toCharArray(); //$NON-NLS-1$
     char[] YIELD = "yield".toCharArray(); //$NON-NLS-1$
+    // Duplicated since java.lang.invoke.StringConcatFactory.TAG_ARG isn't public
+    char[] STRING_CONCAT_MARKER_1 = new char[] {'\u0001'};
 
     // JEP 286
 	char[] VAR = "var".toCharArray(); //$NON-NLS-1$
@@ -247,11 +250,16 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_INVOKE_METHODHANDLES = {JAVA, LANG, INVOKE, "MethodHandles".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_INVOKE_METHODHANDLE = {JAVA, LANG, INVOKE, "MethodHandle".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_INVOKE_VARHANDLE = {JAVA, LANG, INVOKE, "VarHandle".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_INVOKE_STRING_CONCAT_FACTORY = {JAVA, LANG, INVOKE, "StringConcatFactory".toCharArray()}; //$NON-NLS-1$
 
 	char[][] JAVA_LANG_AUTOCLOSEABLE =  {JAVA, LANG, "AutoCloseable".toCharArray()}; //$NON-NLS-1$
 	char[] CLOSE = "close".toCharArray(); //$NON-NLS-1$
 	char[][] JAVA_LANG_RUNTIME_OBJECTMETHODS = {JAVA, LANG, RUNTIME, "ObjectMethods".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_RUNTIME_SWITCHBOOTSTRAPS = {JAVA, LANG, RUNTIME, "SwitchBootstraps".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_INVOKE_CONSTANTBOOTSTRAP = {JAVA, LANG, INVOKE, "ConstantBootstraps".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_ENUM_ENUMDESC = {JAVA, LANG, "Enum$EnumDesc".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_CONSTANT_CLASSDESC = {JAVA, LANG, "constant".toCharArray(), "ClassDesc".toCharArray()}; //$NON-NLS-1$ //$NON-NLS-2$
+
 	// known helper functions for closing a Closeable (all receive a Closeable as their first argument):
 	public static class CloseMethodRecord {
 		public char[][] typeName;
@@ -417,6 +425,7 @@ public interface TypeConstants {
 	char[] INJECT_PACKAGE = "inject".toCharArray(); //$NON-NLS-1$
 	char[] INJECT_TYPE = "Inject".toCharArray(); //$NON-NLS-1$
 	char[][] JAVAX_ANNOTATION_INJECT_INJECT = new char[][] { JAVAX, INJECT_PACKAGE, INJECT_TYPE };
+	char[][] JAKARTA_ANNOTATION_INJECT_INJECT = new char[][] { JAKARTA, INJECT_PACKAGE, INJECT_TYPE };
 	char[][] COM_GOOGLE_INJECT_INJECT = new char[][] {COM, GOOGLE, INJECT_PACKAGE, INJECT_TYPE };
 	//    detail for the above:
 	char[] OPTIONAL = "optional".toCharArray(); //$NON-NLS-1$

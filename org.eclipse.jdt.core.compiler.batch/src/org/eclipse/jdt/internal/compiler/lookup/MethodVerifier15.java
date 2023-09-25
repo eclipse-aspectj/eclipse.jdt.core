@@ -1043,7 +1043,7 @@ void verify() {
 				? (ReferenceBinding) itsInterfaces[j].erasure()
 				: itsInterfaces[j];
 		}
-		computeInheritedMethods(superclass, superInterfaces);
+		computeInheritedMethods(superclass, superInterfaces, true);
 		checkTypeVariableMethods(this.type.scope.referenceContext.typeParameters[i]);
 	}
 }

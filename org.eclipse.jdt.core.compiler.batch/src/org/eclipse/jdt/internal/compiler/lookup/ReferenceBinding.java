@@ -61,7 +61,6 @@ import org.eclipse.jdt.core.compiler.InvalidInputException;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
@@ -540,7 +539,7 @@ public void computeId() {
 
 		case 3 :
 			char[] packageName = this.compoundName[0];
-			// expect only java.*.* and javax.*.* and junit.*.* and org.junit.*
+			// expect only java.*.* and javax.*.* and jakarta.*.* and junit.*.* and org.junit.*
 			switch (packageName.length) {
 				case 3: // only one type in this group, yet:
 					if (CharOperation.equals(TypeConstants.ORG_JUNIT_ASSERT, this.compoundName))
@@ -553,7 +552,7 @@ public void computeId() {
 					if (!CharOperation.equals(TypeConstants.JAVA, packageName))
 						return;
 					break; // continue below ...
-				case 5:
+				case 5: // javax
 					switch (packageName[1]) {
 						case 'a':
 							if (CharOperation.equals(TypeConstants.JAVAX_ANNOTATION_INJECT_INJECT, this.compoundName))
@@ -562,6 +561,14 @@ public void computeId() {
 						case 'u':
 							if (CharOperation.equals(TypeConstants.JUNIT_FRAMEWORK_ASSERT, this.compoundName))
 								this.id = TypeIds.T_JunitFrameworkAssert;
+							return;
+					}
+					return;
+				case 7: // jakarta
+					switch (packageName[1]) {
+						case 'a':
+							if (CharOperation.equals(TypeConstants.JAKARTA_ANNOTATION_INJECT_INJECT, this.compoundName))
+								this.id = TypeIds.T_JavaxInjectInject;
 							return;
 					}
 					return;
@@ -1405,27 +1412,6 @@ public boolean implementsInterface(ReferenceBinding anInterface, boolean searchH
 				for (int b = 0; b < nextPosition; b++)
 					if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 				interfacesToVisit[nextPosition++] = next;
-			}
-		}
-	}
-	// see https://github.com/eclipse-jdt/eclipse.jdt.core/issues/629
-	if (nextPosition == 0 && this instanceof SourceTypeBinding) {
-		SourceTypeBinding sourceType = (SourceTypeBinding) this;
-		if (sourceType.scope != null && sourceType.scope.referenceContext != null && sourceType.scope.compilerOptions().isAnnotationBasedNullAnalysisEnabled) {
-			TypeReference[] references = sourceType.scope.referenceContext.superInterfaces;
-			if (references == null || references.length == 0) {
-				return false;
-			}
-			for (TypeReference reference: references) {
-				if (!(reference.resolvedType instanceof ReferenceBinding)) {
-					reference.resolveType(sourceType.scope);
-				}
-				if (reference.resolvedType instanceof ReferenceBinding) {
-					ReferenceBinding binding = (ReferenceBinding) reference.resolvedType;
-					if (binding.isEquivalentTo(anInterface)) {
-						return true;
-					}
-				}
 			}
 		}
 	}

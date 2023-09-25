@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 BEA Systems, Inc.
+ * Copyright (c) 2008, 2023 BEA Systems, Inc.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -26,8 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.Map.Entry;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -165,8 +163,7 @@ public class XMLComparer implements IXMLNames {
 			"</model>\n";
 
 		// create "actual" model
-		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-		Document actualModel = factory.newDocumentBuilder().newDocument();
+		Document actualModel = org.eclipse.core.internal.runtime.XmlProcessorFactory.createDocumentBuilderWithErrorOnDOCTYPE().newDocument();
 		Element modelNode = actualModel.createElement(MODEL_TAG);
 		// primary type
 		Element typeNode = actualModel.createElement(TYPE_ELEMENT_TAG);
@@ -204,7 +201,7 @@ public class XMLComparer implements IXMLNames {
 
 		// load reference model
     	InputSource source = new InputSource(new StringReader(XML_FRAMEWORK_TEST_MODEL));
-        Document expectedModel = factory.newDocumentBuilder().parse(source);
+        Document expectedModel = org.eclipse.core.internal.runtime.XmlProcessorFactory.createDocumentBuilderWithErrorOnDOCTYPE().parse(source);
 
         // compare actual and reference
         ByteArrayOutputStream out = new ByteArrayOutputStream();

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -428,10 +428,11 @@ public void test007(){
         + " -verbose -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "[parsing    ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
 		"[reading    java/lang/Object.class]\n" +
-		"[analyzing  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
-		"[reading    java/util/List.class]\n" +
 		"[reading    java/lang/SuppressWarnings.class]\n" +
 		"[reading    java/lang/String.class]\n" +
+		"[analyzing  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
+		"[reading    java/util/List.class]\n" +
+		"[reading    java/lang/Throwable.class]\n" +
 		"[writing    X.class - #1]\n" +
 		"[completed  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
 		"[1 unit compiled]\n" +
@@ -560,10 +561,11 @@ public void test010(){
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "[parsing    ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
 		"[reading    java/lang/Object.class]\n" +
-		"[analyzing  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
-		"[reading    java/util/List.class]\n" +
 		"[reading    java/lang/SuppressWarnings.class]\n" +
 		"[reading    java/lang/String.class]\n" +
+		"[analyzing  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
+		"[reading    java/util/List.class]\n" +
+		"[reading    java/lang/Throwable.class]\n" +
 		"[writing    X.class - #1]\n" +
 		"[completed  ---OUTPUT_DIR_PLACEHOLDER---/X.java - #1/1]\n" +
 		"[1 unit compiled]\n" +
@@ -1041,6 +1043,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.shareCommonFinallyBlocks\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.targetPlatform\" value=\"1.5\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.unusedLocal\" value=\"optimize out\"/>\n" +
+			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.useStringConcatFactory\" value=\"enabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.compliance\" value=\"1.5\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.debug.lineNumber\" value=\"generate\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.debug.localVariable\" value=\"do not generate\"/>\n" +
@@ -8394,6 +8397,7 @@ public void test230_sourcepath_vs_classpath() throws IOException, InterruptedExc
 		"[reading    java/lang/System.class]\n" +
 		"[reading    java/io/PrintStream.class]\n" +
 		"[reading    X.class]\n" +
+		"[reading    java/lang/Throwable.class]\n" +
 		"[writing    Y.class - #1]\n" +
 		"[completed  ---OUTPUT_DIR_PLACEHOLDER---/Y.java - #1/1]\n" +
 		"[1 unit compiled]\n" +
@@ -8422,6 +8426,7 @@ public void test230_sourcepath_vs_classpath() throws IOException, InterruptedExc
 			"[reading    java/lang/System.class]\n" +
 			"[reading    java/io/PrintStream.class]\n" +
 			"[parsing    ---OUTPUT_DIR_PLACEHOLDER---/src2/X.java - #2/2]\n" +
+			"[reading    java/lang/Throwable.class]\n" +
 			"[writing    Y.class - #1]\n" +
 			"[completed  ---OUTPUT_DIR_PLACEHOLDER---/Y.java - #1/2]\n" +
 			"[analyzing  ---OUTPUT_DIR_PLACEHOLDER---/src2/X.java - #2/2]\n" +
@@ -13467,5 +13472,54 @@ public void testIssue89_5() {
 				"1 problem (1 warning)\n" +
 				"error: warnings found and -failOnWarning specified\n",
 				true);
+}
+
+public void testGitHub316(){
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+					"void m() { (1+2) = 3; }"+// was IllegalArgumentException in InfixExpression#setOperator
+			"}"},
+        "\"" + OUTPUT_DIR +  File.separator +
+        	"X.java\"",
+		"",
+		"----------\n"
+		+ "1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 2)\n"
+		+ "	void m() { (1+2) = 3; }}\n"
+		+ "	           ^^^^^\n"
+		+ "The left-hand side of an assignment must be a variable\n"
+		+ "----------\n"
+		+ "1 problem (1 error)\n"
+		+ "",
+		true);
+}
+public void testGitHub1122(){
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+					"void m() {"
+					+ ".a() >0);"// was IllegalArgumentException in InfixExpression#setOperator
+					+ " }"+
+			"}"},
+        "\"" + OUTPUT_DIR +  File.separator +
+        	"X.java\"",
+		"",
+		"----------\n"
+		+ "1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 2)\n"
+		+ "	void m() {.a() >0); }}\n"
+		+ "	          ^\n"
+		+ "Syntax error on token \".\", invalid (\n"
+		+ "----------\n"
+		+ "2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 2)\n"
+		+ "	void m() {.a() >0); }}\n"
+		+ "	                 ^\n"
+		// XXX ASTParser instead reports "The left-hand side of an assignment must be a variable":
+		+ "Syntax error, insert \"AssignmentOperator Expression\" to complete Expression\n"
+		+ "----------\n"
+		+ "2 problems (2 errors)\n"
+		+ "",
+		true);
 }
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -20,7 +20,6 @@ import java.util.List;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -42,11 +41,10 @@ public class TableBuilder {
 		List<String> result = new ArrayList<>();
 		SAXParser saxParser = null;
 		try {
-			saxParser = SAXParserFactory.newInstance().newSAXParser();
-		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
-			return null;
-		} catch (SAXException e) {
+			@SuppressWarnings("restriction")
+			SAXParser p = org.eclipse.core.internal.runtime.XmlProcessorFactory.createSAXParserWithErrorOnDOCTYPE();
+			saxParser =p;
+		} catch (SAXException | ParserConfigurationException e) {
 			e.printStackTrace();
 			return null;
 		}

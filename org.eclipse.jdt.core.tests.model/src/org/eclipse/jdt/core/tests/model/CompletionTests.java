@@ -57,6 +57,7 @@ public void setUpSuite() throws Exception {
 		COMPLETION_PROJECT = setUpJavaProject("Completion");
 	} else {
 		setUpProjectCompliance(COMPLETION_PROJECT, "1.4");
+		this.currentProject = COMPLETION_PROJECT;
 	}
 	super.setUpSuite();
 }
@@ -5664,13 +5665,15 @@ public void testCompletionFindConstructor() throws JavaModelException {
     this.wc.codeComplete(cursorLocation, requestor, this.wcOwner);
 
     assertResults(
-            "expectedTypesSignatures=null\n"+
-            "expectedTypesKeys=null",
+            "expectedTypesSignatures={I}\n"+
+            "expectedTypesKeys={I}",
             requestor.getContext());
 
    assertResults(
 			"CompletionFindConstructor[ANONYMOUS_CLASS_DECLARATION]{, LCompletionFindConstructor;, (I)V, null, (i), "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED)+"}\n" +
-			"CompletionFindConstructor[METHOD_REF<CONSTRUCTOR>]{, LCompletionFindConstructor;, (I)V, CompletionFindConstructor, (i), "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED)+"}",
+			"CompletionFindConstructor[METHOD_REF<CONSTRUCTOR>]{, LCompletionFindConstructor;, (I)V, CompletionFindConstructor, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"x[LOCAL_VARIABLE_REF]{x, null, I, x, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 }
 
@@ -5755,13 +5758,14 @@ public void testCompletionFindConstructor4() throws JavaModelException {
     this.wc.codeComplete(cursorLocation, requestor, this.wcOwner);
 
     assertResults(
-            "expectedTypesSignatures=null\n"+
-            "expectedTypesKeys=null",
+            "expectedTypesSignatures={I}\n"+
+            "expectedTypesKeys={I}",
             requestor.getContext());
 
 	assertEquals(
 			"Constructor4[ANONYMOUS_CLASS_DECLARATION]{, Lzconstructors.Constructor4;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Constructor4[METHOD_REF<CONSTRUCTOR>]{, Lzconstructors.Constructor4;, (I)V, Constructor4, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Constructor4[METHOD_REF<CONSTRUCTOR>]{, Lzconstructors.Constructor4;, (I)V, Constructor4, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 }
 
@@ -5785,13 +5789,14 @@ public void testCompletionFindConstructor5() throws JavaModelException {
     this.wc.codeComplete(cursorLocation, requestor, this.wcOwner);
 
     assertResults(
-            "expectedTypesSignatures=null\n"+
-            "expectedTypesKeys=null",
+            "expectedTypesSignatures={I}\n"+
+            "expectedTypesKeys={I}",
             requestor.getContext());
 
 	assertEquals(
 			"Constructor5[ANONYMOUS_CLASS_DECLARATION]{, Lzconstructors.Constructor5;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Constructor5[METHOD_REF<CONSTRUCTOR>]{, Lzconstructors.Constructor5;, (I)V, Constructor5, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Constructor5[METHOD_REF<CONSTRUCTOR>]{, Lzconstructors.Constructor5;, (I)V, Constructor5, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 }
 
@@ -12761,7 +12766,8 @@ public void testCompletionMethodDeclaration17() throws JavaModelException {
 
 		assertResults(
 				"Bar1[METHOD_REF<CONSTRUCTOR>]{, Lpkg.Foo1$Bar1;, (II)V, Bar1, (a, b), "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED)+ "}\n" +
-				"Foo1.Bar1[ANONYMOUS_CLASS_DECLARATION]{, Lpkg.Foo1$Bar1;, (II)V, null, (a, b), "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED)+"}",
+				"Foo1.Bar1[ANONYMOUS_CLASS_DECLARATION]{, Lpkg.Foo1$Bar1;, (II)V, null, (a, b), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+				"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 				requestor.getResults());
 	} finally {
 		this.currentProject.setRawClasspath(classpath, null);
@@ -23355,7 +23361,9 @@ public void testBug346454c() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 			"Test[METHOD_REF<CONSTRUCTOR>]{, Ltest.Test<>;, (I)V, Test, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Ltest.Test<>;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Ltest.Test<>;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"j[LOCAL_VARIABLE_REF]{j, null, I, j, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23395,7 +23403,11 @@ public void testBug346454c_2() throws JavaModelException {
 			"Test[METHOD_REF<CONSTRUCTOR>]{, Ltest.Test<>;, (I)V, Test, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
 			"Test[METHOD_REF<CONSTRUCTOR>]{, Ltest.Test<>;, (TT;)V, Test, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
 			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Ltest.Test<>;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Ltest.Test<>;, (TT;)V, null, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Ltest.Test<>;, (TT;)V, null, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23442,7 +23454,11 @@ public void testBug346454d() throws JavaModelException {
 				"Test[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<>;, (I)V, Test, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
 				"Test[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<>;, (TT;)V, Test, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
 				"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>;, (I)V, null, (i), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-				"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>;, (TT;)V, null, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+				"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>;, (TT;)V, null, (t), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+				"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 				requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23532,7 +23548,10 @@ public void testBug346454f() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 			"T2[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<Ljava.lang.Object;>.T2<>;, (TZ;)V, T2, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Test<java.lang.Object>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.Object;>.T2<>;, (TZ;)V, null, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Test<java.lang.Object>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.Object;>.T2<>;, (TZ;)V, null, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " +  (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23579,8 +23598,11 @@ public void testBug346454g() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 				"T2[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<>.T2<>;, (TZ;)V, T2, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-				"Test<>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>.T2<>;, (TZ;)V, null, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
-				requestor.getResults());
+				"Test<>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>.T2<>;, (TZ;)V, null, (z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+				"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " +  (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
+					requestor.getResults());
 	} finally {
 		// Restore compliance settings.
 		options.put(CompilerOptions.OPTION_Compliance, savedOptionCompliance);
@@ -23625,7 +23647,10 @@ public void testBug346454h() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 			"Test[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<>;, <Z:Ljava.lang.Object;>(TT;TZ;)V, Test, (t, z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>;, <Z:Ljava.lang.Object;>(TT;TZ;)V, null, (t, z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+			"Test<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>;, <Z:Ljava.lang.Object;>(TT;TZ;)V, null, (t, z), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23675,7 +23700,10 @@ public void testBug346454i() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 				"T2[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<>.T2<>;, (TU;)V, T2, (u), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
-				"Test<>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>.T2<>;, (TU;)V, null, (u), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}",
+				"Test<>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<>.T2<>;, (TU;)V, null, (u), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED) + "}\n" +
+				"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " +  (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 				requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23721,7 +23749,11 @@ public void testBug346454j() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 			"T2[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, T2, (z), 39}\n" +
-			"Test<java.lang.String>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, null, (z), 39}",
+			"Test<java.lang.String>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, null, (z), 39}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " +  (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"str[LOCAL_VARIABLE_REF]{str, null, Ljava.lang.String;, str, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -23768,7 +23800,11 @@ public void testBug346454k() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults(
 			"T2[METHOD_REF<CONSTRUCTOR>]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, T2, (z), 39}\n" +
-			"Test<java.lang.String>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, null, (z), 39}",
+			"Test<java.lang.String>.T2<>[ANONYMOUS_CLASS_DECLARATION]{, Lpack.Test<Ljava.lang.String;>.T2<>;, (TZ;)V, null, (z), 39}\n" +
+			"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, " +  (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"str[LOCAL_VARIABLE_REF]{str, null, Ljava.lang.String;, str, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+			"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			requestor.getResults());
 	} finally {
 		// Restore compliance settings.
@@ -26501,6 +26537,27 @@ public void testGH504PrimitiveArrayTypeRecieverExpectArrayCompletion() throws Ja
 					"int[TYPE_REF<ARRAY>]{int, null, I, null, null, "
 					+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED
 							+ R_EXACT_EXPECTED_TYPE)
+					+ "}",
+			requestor.getResults());
+}
+public void testGH1021OnSourceTypeArrayExpectArrayCompletion() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy("Completion/src/ArrayTest.java", """
+			public class ArrayTest {
+			  public void test() {
+			 		ArrayTest[] arr = new\s
+			  }
+			}
+			""");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "new ";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertResults("ArrayTest[TYPE_REF<ARRAY>]{ArrayTest, , LArrayTest;, null, null, " + (R_DEFAULT + R_RESOLVED
+							+ R_INTERESTING + R_CASE + R_NON_RESTRICTED + R_EXACT_EXPECTED_TYPE + R_UNQUALIFIED)
 					+ "}",
 			requestor.getResults());
 }

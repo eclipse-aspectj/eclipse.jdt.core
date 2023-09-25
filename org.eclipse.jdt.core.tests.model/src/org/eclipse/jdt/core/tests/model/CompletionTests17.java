@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021, 2022 IBM Corporation and others.
+ * Copyright (c) 2021, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -36,13 +36,12 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 
 	public void setUpSuite() throws Exception {
 		if (COMPLETION_PROJECT == null) {
-
-			COMPLETION_PROJECT = setUpJavaProject("Completion", "17");
+			COMPLETION_PROJECT = setUpJavaProject("Completion", "21");
 		} else {
-			setUpProjectCompliance(COMPLETION_PROJECT, "17");
+			setUpProjectCompliance(COMPLETION_PROJECT, "21");
 		}
 		super.setUpSuite();
-		COMPLETION_PROJECT.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+		COMPLETION_PROJECT.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 	}
 
 	public static Test suite() {
@@ -651,6 +650,36 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 		int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 		assertResults("null[KEYWORD]{null, null, null, null, null, "+keyword_Rel+"}",
+				requestor.getResults());
+
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1100
+	// ContentAssist / CompletionScanner running into deadlock
+	public void testGH1100() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"import java.lang.StackWalker.Option;\n" +
+				"public class X {\n" +
+				"	private void test() {\n" +
+				"		Option opt = Option.RETAIN_CLASS_REFERENCE;\n" +
+				"		boolean testswitch (opt) { // <- remove pipe and press CTRL+Space\n" +
+				"			case RETAIN_CLASS_REFERENCE -> {\n" +
+				"			}\n" +
+				"			case SHOW_HIDDEN_FRAMES -> {\n" +
+				"			}\n" +
+				"			case SHOW_REFLECT_FRAMES -> throw new UnsupportedOperationException(\"Unimplemented case: \");\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+				);
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "test";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		assertResults("",
 				requestor.getResults());
 
 	}

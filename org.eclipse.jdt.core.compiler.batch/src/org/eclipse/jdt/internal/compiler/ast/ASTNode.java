@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -74,6 +74,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
@@ -107,7 +108,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	public final static int Bit11 = 0x400;				// depth (name ref, msg) | operator (operator) | is member type (type decl)
 	public final static int Bit12 = 0x800;				// depth (name ref, msg) | operator (operator) | has abstract methods (type decl)
 	public final static int Bit13 = 0x1000;			// depth (name ref, msg) | operator (operator) | is secondary type (type decl)
-	public final static int Bit14 = 0x2000;			// strictly assigned (reference lhs) | operator (operator) | discard enclosing instance (explicit constr call) | hasBeenGenerated (type decl)
+	public final static int Bit14 = 0x2000;			// strictly assigned (reference lhs) | discard enclosing instance (explicit constr call) | hasBeenGenerated (type decl)
 	public final static int Bit15 = 0x4000;			// is unnecessary cast (expression) | is varargs (type ref) | isSubRoutineEscaping (try statement) | superAccess (javadoc allocation expression/javadoc message send/javadoc return statement)
 	public final static int Bit16 = 0x8000;			// in javadoc comment (name ref, type ref, msg)
 	public final static int Bit17 = 0x10000;			// compound assigned (reference lhs) | unchecked (msg, alloc, explicit constr call)
@@ -166,7 +167,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	// for operators
 	public static final int ReturnTypeIDMASK = Bit1|Bit2|Bit3|Bit4;
 	public static final int OperatorSHIFT = 8;	// Bit9 -> Bit14
-	public static final int OperatorMASK = Bit9|Bit10|Bit11|Bit12|Bit13|Bit14; // 6 bits for operator ID
+	public static final int OperatorMASK = Bit9|Bit10|Bit11|Bit12|Bit13; // 5 bits for operator ID - see org.eclipse.jdt.internal.compiler.ast.OperatorIds
 
 	// for binary expressions
 	public static final int IsReturnedValue = Bit5;
@@ -354,7 +355,18 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	}
 	private static int checkInvocationArgument(BlockScope scope, Expression argument, TypeBinding parameterType, TypeBinding argumentType, TypeBinding originalParameterType) {
 		argument.computeConversion(scope, parameterType, argumentType);
-
+		if (argument instanceof AllocationExpression) {
+			AllocationExpression allocExp = (AllocationExpression) argument;
+			// we need this only when the error is not reported in AllocationExpression#checkTypeArgumentRedundancy()
+			if (allocExp.typeExpected == null && !allocExp.expectedTypeWasInferred) {
+				final boolean isDiamond = allocExp.type != null && (allocExp.type.bits & ASTNode.IsDiamond) != 0;
+				allocExp.typeExpected = parameterType;
+				if (!isDiamond && allocExp.resolvedType.isParameterizedTypeWithActualArguments()) {
+					ParameterizedTypeBinding pbinding = (ParameterizedTypeBinding) allocExp.resolvedType;
+					scope.problemReporter().redundantSpecificationOfTypeArguments(allocExp.type, pbinding.arguments);
+				}
+			}
+		}
 		if (argumentType != TypeBinding.NULL && parameterType.kind() == Binding.WILDCARD_TYPE) { // intersection types are tolerated
 			WildcardBinding wildcard = (WildcardBinding) parameterType;
 			if (wildcard.boundKind != Wildcard.SUPER) {
@@ -776,7 +788,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		}
 		if (method instanceof ParameterizedGenericMethodBinding) {
 			InferenceContext18 ic18 = invocation.getInferenceContext((ParameterizedMethodBinding) method);
-			if (ic18 != null)
+			if (ic18 != null && !ic18.isInexactVarargsInference())
 				ic18.flushBoundOutbox(); // overload resolution is done, now perform the push of bounds from inner to outer
 		}
 		if (problemMethod != null)

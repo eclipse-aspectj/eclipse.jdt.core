@@ -2217,7 +2217,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 				"othersrc/module-info.java",
 				"module com.greetings1 {\n" +
 				"	requires org.astro;\n" +
-				"	exports com.greetings;\n" +
 				"}",
 				"othersrc/com/greetings/AnotherWorld.java",
 				"package com.greetings;\n" +
@@ -2231,11 +2230,13 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			IClasspathEntry dep = JavaCore.newContainerEntry(new Path(JavaCore.MODULE_PATH_CONTAINER_ID));
 			IJavaProject p2 = setupModuleProject("com.greetings", new String[]{"src", "othersrc"}, src, new IClasspathEntry[] { dep });
 			p2.getProject().getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
-			IMarker[] markers = p2.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, IResource.DEPTH_ZERO);
+
+			String duplicatedModuleFile = new Path("othersrc").append(TypeConstants.MODULE_INFO_FILE_NAME_STRING).toOSString();
+			IMarker[] markers = p2.getProject().getFile(duplicatedModuleFile).findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, IResource.DEPTH_ZERO);
 			assertEquals(1, markers.length);
 			String msg = markers[0].getAttribute(IMarker.MESSAGE, "");
-			String expected = Messages.bind(Messages.classpath_duplicateEntryPath, TypeConstants.MODULE_INFO_FILE_NAME_STRING, p2.getElementName());
-			assertTrue("Unexpected result", msg.indexOf(expected) != -1);
+			String expected = Messages.build_duplicateModuleInfo;
+			assertEquals("Unexpected problem reported", expected, msg);
 		} finally {
 			deleteProject("org.astro");
 			deleteProject("com.greetings");
@@ -2265,15 +2266,15 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			IJavaProject p1 = setupModuleProject("org.astro", new String[]{"src", "othersrc"}, sources, null);
 			this.createFile("org.astro/othersrc/module-info.java",
 					"module org.astro1 {\n" +
-					"	exports org.astro;\n" +
 					"}");
 			waitForAutoBuild();
 			p1.getProject().getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
-			IMarker[] markers = p1.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, IResource.DEPTH_ZERO);
+			String duplicatedModuleFile = new Path("othersrc").append(TypeConstants.MODULE_INFO_FILE_NAME_STRING).toOSString();
+			IMarker[] markers = p1.getProject().getFile(duplicatedModuleFile).findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, IResource.DEPTH_ZERO);
 			assertEquals(1, markers.length);
 			String msg = markers[0].getAttribute(IMarker.MESSAGE, "");
-			String expected = Messages.bind(Messages.classpath_duplicateEntryPath, TypeConstants.MODULE_INFO_FILE_NAME_STRING, p1.getElementName());
-			assertTrue("Unexpected result", msg.indexOf(expected) != -1);
+			String expected = Messages.build_duplicateModuleInfo;
+			assertEquals("Unexpected problem reported", expected, msg);
 		} finally {
 			deleteProject("org.astro");
 		}
@@ -7044,6 +7045,9 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	}
 	public void testBug527569d() throws CoreException {
 		IJavaProject p1 = createJava9Project("Bug527569", "9");
+		String problem = isJRE21 ?
+				"java.lang.Compiler cannot be resolved to a type" :
+				"The type Compiler has been deprecated since version 9 and marked for removal";
 		try {
 			createFolder("/Bug527569/src/p1");
 			createFile("/Bug527569/src/p1/X.java",
@@ -7058,7 +7062,7 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			waitForAutoBuild();
 			p1.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 			IMarker[] markers = p1.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
-			assertMarkers("Unexpected markers", "The type Compiler has been deprecated since version 9 and marked for removal", markers);
+			assertMarkers("Unexpected markers", problem, markers);
 		} finally {
 			deleteProject(p1);
 		}

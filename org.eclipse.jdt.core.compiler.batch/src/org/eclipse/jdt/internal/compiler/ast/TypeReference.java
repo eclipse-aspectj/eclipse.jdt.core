@@ -40,6 +40,7 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -57,13 +58,14 @@ import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
-import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
+import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
+import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Substitution;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -101,7 +103,6 @@ static class AnnotationCollector extends ASTVisitor {
 	Annotation[][] annotationsOnDimensions;
 	int dimensions;
 	Wildcard currentWildcard;
-	RecordComponentBinding recordComponentBinding;
 
 	public AnnotationCollector(
 			TypeParameter typeParameter,
@@ -190,14 +191,17 @@ static class AnnotationCollector extends ASTVisitor {
 		this.annotationContexts = annotationContexts;
 		this.typeReference = recordComponent.type;
 		this.targetType = targetType;
-		this.recordComponentBinding = recordComponent.binding;
+	}
+
+	private boolean targetingTypeParameter() {
+		return this.targetType == AnnotationTargetTypeConstants.CLASS_TYPE_PARAMETER || this.targetType == AnnotationTargetTypeConstants.METHOD_TYPE_PARAMETER;
 	}
 
 	private boolean internalVisit(Annotation annotation) {
 		AnnotationContext annotationContext = null;
-		if (annotation.isRuntimeTypeInvisible()) {
+		if (annotation.isRuntimeTypeInvisible(targetingTypeParameter())) {
 			annotationContext = new AnnotationContext(annotation, this.typeReference, this.targetType, AnnotationContext.INVISIBLE);
-		} else if (annotation.isRuntimeTypeVisible()) {
+		} else if (annotation.isRuntimeTypeVisible(targetingTypeParameter())) {
 			annotationContext = new AnnotationContext(annotation, this.typeReference, this.targetType, AnnotationContext.VISIBLE);
 		}
 		if (annotationContext != null) {
@@ -294,6 +298,12 @@ static class AnnotationCollector extends ASTVisitor {
 				return true;
 			}
 		}
+		return false;
+	}
+	@Override
+	public boolean visit(TypeParameter typeParameter, BlockScope scope) {
+		// never implicitly traverse type parameters
+		// their annotations are explicitly handled in TypeParameter.getAllAnnotationContexts(int, int, List<AnnotationContext>)
 		return false;
 	}
 	@Override
@@ -672,7 +682,43 @@ public abstract void traverse(ASTVisitor visitor, BlockScope scope);
 @Override
 public abstract void traverse(ASTVisitor visitor, ClassScope scope);
 
+public void updateWithAnnotations(Scope scope, int location) {
+	// resolving annotations now is needed and safe because during connectTypeHierarchy()
+	// resolving via internalResolveType() we had readyForAnnotations = false.
+	resolveAnnotations(scope, location);
+}
+/* shared part of Parameterized{Single,Qualified}TypeReference: */
+protected TypeBinding updateParameterizedTypeWithAnnotations(Scope scope, TypeBinding type, TypeReference[] argRefs) {
+	if (argRefs != null) {
+		for (TypeReference argRef : argRefs) {
+			argRef.updateWithAnnotations(scope, Binding.DefaultLocationTypeArgument);
+		}
+		if (type instanceof ParameterizedTypeBinding) {
+			ParameterizedTypeBinding parameterizedType = (ParameterizedTypeBinding) type;
+			TypeBinding[] argumentBindings = parameterizedType.arguments;
+			TypeBinding[] updatedArgs = null;
+			if (argumentBindings.length == argRefs.length) {
+				for (int i = 0; i < argRefs.length; i++) {
+					TypeReference argRef = argRefs[i];
+					TypeBinding argBinding = argumentBindings[i];
+					if (argRef.resolvedType != null && argRef.resolvedType.isValidBinding() && argRef.resolvedType != argBinding) { //$IDENTITY-COMPARISON$
+						if (updatedArgs == null)
+							updatedArgs = Arrays.copyOf(argumentBindings, argumentBindings.length);
+						updatedArgs[i] = argRef.resolvedType;
+					}
+				}
+			}
+			if (updatedArgs != null) {
+				return scope.environment().createParameterizedType(parameterizedType.genericType(), updatedArgs, parameterizedType.enclosingType());
+			}
+		}
+	}
+	return type;
+}
+
 protected void resolveAnnotations(Scope scope, int location) {
+	if (!hasCompletedHierarchyCheckWithMembers(scope.enclosingReceiverType()))
+		return;
 	Annotation[][] annotationsOnDimensions = getAnnotationsOnDimensions();
 	if (this.annotations != null || annotationsOnDimensions != null) {
 		BlockScope resolutionScope = Scope.typeAnnotationsResolutionScope(scope);
@@ -727,6 +773,23 @@ protected void resolveAnnotations(Scope scope, int location) {
 		}
 	}
 }
+
+protected static boolean hasCompletedHierarchyCheckWithMembers(TypeBinding type) {
+ 	if (type != null && (type.original() instanceof SourceTypeBinding stb)) {
+		if ((stb.tagBits & TagBits.EndHierarchyCheck) == 0) {
+			return false;
+		}
+		ReferenceBinding[] memberTypes = stb.memberTypes;
+		if (memberTypes != null) {
+			for (ReferenceBinding member : memberTypes) {
+				if (!hasCompletedHierarchyCheckWithMembers(member))
+					return false;
+			}
+		}
+	}
+ 	return true;
+}
+
 public Annotation[] getTopAnnotations() {
 	if (this.annotations != null)
 		return this.annotations[getAnnotatableLevels()-1];

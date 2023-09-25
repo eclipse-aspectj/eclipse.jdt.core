@@ -35,13 +35,13 @@ import org.eclipse.jdt.internal.compiler.ast.Block;
 import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.EmptyStatement;
 import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ForeachStatement;
 import org.eclipse.jdt.internal.compiler.ast.ImportReference;
 import org.eclipse.jdt.internal.compiler.ast.Initializer;
-import org.eclipse.jdt.internal.compiler.ast.InstanceOfExpression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.MessageSend;
@@ -137,7 +137,14 @@ public abstract class AssistParser extends Parser {
 	AssistParser[] snapShotStack = new AssistParser[3];
 	int[] snapShotPositions = new int[3];
 	int snapShotPtr = -1;
-	AssistParser lastResumeState;
+
+	static class ResumeState {
+		AssistParser parser;
+		int scannerCurrentPosition;
+		int currentToken;
+	}
+
+	ResumeState lastResumeState;
 	int resumeCount = 0;
 
 	public int cursorLocation = Integer.MAX_VALUE;
@@ -255,7 +262,7 @@ public RecoveredElement buildInitialRecoveryState(){
 	int blockIndex = 1;	// ignore first block start, since manually rebuilt here
 
 	ASTNode node = null, lastNode = null;
-	for (int i = 0; i <= this.astPtr; i++, lastNode = node) {
+	for (int i = 0, end = this.cookedAstPtr(); i <= end; i++, lastNode = node) {
 		node = this.astStack[i];
 		/* check for intermediate block creation, so recovery can properly close them afterwards */
 		int nodeStart = node.sourceStart;
@@ -362,6 +369,7 @@ public RecoveredElement buildInitialRecoveryState(){
 					this.lastCheckPoint = stmt.sourceEnd + 1;
 				} else if (stmt.containsPatternVariable()) {
 					if(stmt instanceof CaseStatement) {
+						// Only relevant for Completion{Engine/ParSer}
 						// Kludge, for the unfortunate case where recovery can't
 						// construct a switch expression but simply creates a case statement (with type patterns)
 						// and leaves it in the astStack
@@ -392,6 +400,9 @@ public RecoveredElement buildInitialRecoveryState(){
 							element.add(local, 0);
 						}
 					}
+					// We add full statement below, opportunities exist for pruning bodies in some cases
+					// but care needs to be exercised to account for bodies ending with throw; adding full
+					// body is wasteful, but is not incorrect, so ...
 					element.add(stmt, 0);
 					this.lastCheckPoint = stmt.sourceEnd + 1;
 				}
@@ -404,41 +415,7 @@ public RecoveredElement buildInitialRecoveryState(){
 			this.lastCheckPoint = importRef.declarationSourceEnd + 1;
 		}
 	}
-	// This is  copy of the code that processes astStack early in this method
-	for (int i = 0; i <= this.expressionPtr; i++, lastNode = node) {
-		node = this.expressionStack[i];
-		if (node == null || !(node instanceof InstanceOfExpression)) continue;
-		/* check for intermediate block creation, so recovery can properly close them afterwards */
-		int nodeStart = node.sourceStart;
-		for (int j = blockIndex; j <= this.realBlockPtr; j++){
-			if (this.blockStarts[j] >= 0) {
-				if (this.blockStarts[j] > nodeStart){
-					blockIndex = j; // shift the index to the new block
-					break;
-				}
-				if (this.blockStarts[j] != lastStart){ // avoid multiple block if at same position
-					block = new Block(0);
-					block.sourceStart = lastStart = this.blockStarts[j];
-					element = element.add(block, 1);
-				}
-			} else {
-				if (-this.blockStarts[j] > nodeStart){
-					blockIndex = j; // shift the index to the new block
-					break;
-				}
-				block = new Block(0);
-				block.sourceStart = lastStart = -this.blockStarts[j];
-				element = element.add(block, 1);
-			}
-			blockIndex = j+1; // shift the index to the new block
-		}
 
-		InstanceOfExpression pattern = (InstanceOfExpression) node;
-		LocalDeclaration local = pattern.elementVariable;
-		if (local != null)
-			element = element.add(local, 0);
-		continue;
-	}
 	if (this.currentToken == TokenNameRBRACE) {
 		 if (isIndirectlyInsideLambdaExpression())
 			 this.ignoreNextClosingBrace = true;
@@ -468,6 +445,10 @@ public RecoveredElement buildInitialRecoveryState(){
 	}
 
 	return element;
+}
+
+protected int cookedAstPtr() {
+	return this.astPtr;
 }
 
 private void initModuleInfo(RecoveredElement element) {
@@ -1419,9 +1400,10 @@ protected void consumeToken(int token) {
 				break;
 			case TokenNameLBRACE:
 				if (this.previousToken == TokenNameARROW) {
-					popElement(K_LAMBDA_EXPRESSION_DELIMITER);
-					if (topKnownElementKind(ASSIST_PARSER) != K_SWITCH_EXPRESSION_DELIMITTER)
+					if (topKnownElementKind(ASSIST_PARSER) == K_LAMBDA_EXPRESSION_DELIMITER) {
+						popElement(K_LAMBDA_EXPRESSION_DELIMITER);
 						pushOnElementStack(K_LAMBDA_EXPRESSION_DELIMITER, BLOCK_BODY, this.previousObjectInfo);
+					}
 				}
 				break;
 		}
@@ -2004,7 +1986,9 @@ public void parseBlockStatements(ConstructorDeclaration cd, CompilationUnitDecla
 	}
 
 	if (this.lastAct == ERROR_ACTION) {
-		cd.bits |= ASTNode.HasSyntaxErrors;
+		if (this.hasError) {
+			cd.bits |= ASTNode.HasSyntaxErrors;
+		}
 		return;
 	}
 
@@ -2076,7 +2060,9 @@ public void parseBlockStatements(
 	}
 
 	if (this.lastAct == ERROR_ACTION) {
-		initializer.bits |= ASTNode.HasSyntaxErrors;
+		if (this.hasError) {
+			initializer.bits |= ASTNode.HasSyntaxErrors;
+		}
 		return;
 	}
 
@@ -2136,7 +2122,9 @@ public void parseBlockStatements(MethodDeclaration md, CompilationUnitDeclaratio
 	}
 
 	if (this.lastAct == ERROR_ACTION) {
-		md.bits |= ASTNode.HasSyntaxErrors;
+		if (this.hasError) {
+			md.bits |= ASTNode.HasSyntaxErrors;
+		}
 		return;
 	}
 
@@ -2413,7 +2401,7 @@ protected int fallBackToSpringForward(Statement unused) {
 		if (nextToken == TokenNameRBRACE)
 			ignoreNextClosingBrace(); // having ungotten it, recoveryTokenCheck will see this again.
 	}
-	// OK, next token is no good to resume "in place", attempt some local repair. FIXME: need to make sure we don't get stuck keep reducing empty statements !!
+	// OK, next token is no good to resume "in place", attempt some local repair.
 	for (int i = 0, length = RECOVERY_TOKENS.length; i < length; i++) {
 		if (automatonWillShift(RECOVERY_TOKENS[i], automatonState)) {
 			this.currentToken = RECOVERY_TOKENS[i];
@@ -2546,18 +2534,33 @@ private boolean safeToResume() {
 	} else {
 		this.resumeCount = 0;
 	}
-	this.lastResumeState = createSnapShotParser();
-	this.lastResumeState.copyState(this);
+	if (this.lastResumeState == null)
+		this.lastResumeState = new ResumeState();
+	this.lastResumeState.parser = createSnapShotParser();
+	this.lastResumeState.parser.copyState(this);
+	this.lastResumeState.scannerCurrentPosition = this.scanner.currentPosition;
+	this.lastResumeState.currentToken = this.currentToken;
 	return true;
 }
-private boolean noProgressSince(AssistParser previous) {
+private boolean noProgressSince(ResumeState previous) {
 	int stateTop = this.stateStackTop;
 	int astTop = this.astPtr;
 	int exprTop = this.expressionPtr;
-	return stateTop == previous.stateStackTop && astTop == previous.astPtr && exprTop == previous.expressionPtr
-			&& Arrays.equals(this.stack, 0, stateTop, previous.stack, 0, stateTop)
-			&& (astTop == -1 || Arrays.equals(this.astStack, 0, astTop, previous.astStack, 0, astTop))
-			&& (exprTop == -1 || Arrays.equals(this.expressionStack, 0, exprTop, previous.expressionStack, 0, exprTop));
+	if (stateTop == previous.parser.stateStackTop && astTop == previous.parser.astPtr && exprTop == previous.parser.expressionPtr
+			&& Arrays.equals(this.stack, 0, stateTop, previous.parser.stack, 0, stateTop)
+			&& (astTop == -1 || Arrays.equals(this.astStack, 0, astTop, previous.parser.astStack, 0, astTop))
+			&& (exprTop == -1 || Arrays.equals(this.expressionStack, 0, exprTop, previous.parser.expressionStack, 0, exprTop)))
+		return true; // Parser didn't budge.
+
+	ASTNode node;
+	if (previous.scannerCurrentPosition == this.scanner.currentPosition &&
+			previous.currentToken == this.currentToken &&
+			astTop == previous.parser.astPtr + 1 &&
+			((node = this.astStack[this.astPtr]) instanceof EmptyStatement) &&
+			(node.bits & ASTNode.IsUsefulEmptyStatement) == 0)
+		return true; // scanner didn't advance either, attempts to nudge recovery along, merely is producing useless empty statements ...
+
+	return false;
 }
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=292087

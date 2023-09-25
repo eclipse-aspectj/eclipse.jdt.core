@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -7,6 +7,7 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -658,7 +659,7 @@ public class ASTRewriteFlattener extends ASTVisitor {
 	public boolean visit(PatternInstanceofExpression node) {
 		getChildNode(node, PatternInstanceofExpression.LEFT_OPERAND_PROPERTY).accept(this);
 		this.result.append(" instanceof "); //$NON-NLS-1$
-		if (node.getAST().apiLevel() >= AST.JLS20 && node.getAST().isPreviewEnabled()) {
+		if (node.getAST().apiLevel() >= AST.JLS20) {
 			getChildNode(node, PatternInstanceofExpression.PATTERN_PROPERTY).accept(this);
 		} else {
 			getChildNode(node, PatternInstanceofExpression.RIGHT_OPERAND_PROPERTY).accept(this);
@@ -919,7 +920,7 @@ public class ASTRewriteFlattener extends ASTVisitor {
 		visitList(node, RecordDeclaration.SUPER_INTERFACE_TYPES_PROPERTY, String.valueOf(','), "implements ", Util.EMPTY_STRING); //$NON-NLS-1$
 
 		this.result.append('{');
-		visitList(node, RecordDeclaration.BODY_DECLARATIONS_PROPERTY, Util.EMPTY_STRING, String.valueOf(';'), Util.EMPTY_STRING);
+		visitList(node, RecordDeclaration.BODY_DECLARATIONS_PROPERTY, Util.EMPTY_STRING);
 		this.result.append('}');
 		return false;
 	}
@@ -945,10 +946,6 @@ public class ASTRewriteFlattener extends ASTVisitor {
 			}
 			if (addBraces) {
 				this.result.append(")");//$NON-NLS-1$
-			}
-			if (node.getPatternName() != null) {
-				this.result.append(" ");//$NON-NLS-1$
-				node.getPatternName().accept(this);
 			}
 		}
 		return false;
@@ -1635,15 +1632,14 @@ public class ASTRewriteFlattener extends ASTVisitor {
 
 	@Override
 	public boolean visit(YieldStatement node) {
-		if (node.getAST().apiLevel() >= JLS14_INTERNAL && node.isImplicit()  && node.getExpression() == null) {
-			return false;
+		if (!node.isImplicit()) {
+			this.result.append("yield"); //$NON-NLS-1$
 		}
-
-		this.result.append("yield"); //$NON-NLS-1$
-
 		ASTNode expression = getChildNode(node, YieldStatement.EXPRESSION_PROPERTY);
-		if (expression != null ) {
-			this.result.append(' ');
+		if (expression != null) {
+			if (!node.isImplicit()) {
+				this.result.append(' ');
+			}
 			expression.accept(this);
 		}
 		this.result.append(';');

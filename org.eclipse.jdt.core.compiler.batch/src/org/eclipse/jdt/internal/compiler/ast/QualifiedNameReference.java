@@ -595,6 +595,8 @@ public FieldBinding generateReadSequence(BlockScope currentScope, CodeStream cod
 			lastGenericCast = null;
 			LocalVariableBinding localBinding = (LocalVariableBinding) this.binding;
 			lastReceiverType = localBinding.type;
+			// checkEffectiveFinality() returns if it's outer local
+			boolean capturedInOuter = checkEffectiveFinality(localBinding, currentScope);
 			if (!needValue) break; // no value needed
 			// regular local variable read
 			Constant localConstant = localBinding.constant();
@@ -602,8 +604,7 @@ public FieldBinding generateReadSequence(BlockScope currentScope, CodeStream cod
 				codeStream.generateConstant(localConstant, 0);
 				// no implicit conversion
 			} else {
-				// checkEffectiveFinality() returns if it's outer local
-				if (checkEffectiveFinality(localBinding, currentScope)) {
+				if (capturedInOuter) {
 					// outer local can be reached either through a synthetic arg or a synthetic field
 					VariableBinding[] path = currentScope.getEmulationPath(localBinding);
 					codeStream.generateOuterAccess(path, this, localBinding, currentScope);
@@ -778,7 +779,7 @@ public TypeBinding getOtherFieldBindings(BlockScope scope) {
 				fieldReceiverType = fieldReceiverType.getErasureCompatibleType(field.declaringClass);// handle indirect inheritance thru variable secondary bound
 				FieldBinding originalBinding = previousField.original();
 				if (TypeBinding.notEquals(fieldReceiverType, oldReceiverType) || originalBinding.type.leafComponentType().isTypeVariable()) { // record need for explicit cast at codegen
-			    	setGenericCast(index-1,originalBinding.type.genericCast(fieldReceiverType)); // type cannot be base-type even in boxing case
+			    	setGenericCast(place,originalBinding.type.genericCast(fieldReceiverType)); // type cannot be base-type even in boxing case
 				}
 		    }
 			// only last field is actually a write access if any

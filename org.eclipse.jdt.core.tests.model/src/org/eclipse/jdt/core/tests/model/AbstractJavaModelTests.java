@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -168,6 +169,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE18 = false;
 	protected static boolean isJRE19 = false;
 	protected static boolean isJRE20 = false;
+	protected static boolean isJRE21 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -180,6 +182,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK21) {
+			isJRE21 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK20) {
 			isJRE20 = true;
 		}
@@ -291,6 +296,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	 */
 	protected static final int AST_INTERNAL_JLS20 = AST.JLS20;
 	/**
+	 * Internal synonym for constant AST.JSL21
+	 */
+	protected static final int AST_INTERNAL_JLS21 = AST.JLS21;
+	/**
 	 * Internal synonym for the latest AST level.
 	 *
 	 */
@@ -369,8 +378,15 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				System.arraycopy(this.deltas, 0, copy, 0, this.deltas.length);
 				copy[this.deltas.length]= event.getDelta();
 				this.deltas= copy;
-
-				new Throwable("Caller of IElementChangedListener#elementChanged with delta " + event.getDelta()).printStackTrace(new PrintStream(this.stackTraces));
+				StringBuilder message = new StringBuilder();
+				Job currentJob = Job.getJobManager().currentJob();
+				if (currentJob != null) {
+					message.append(currentJob.getName()).append(' ');
+				}
+				message.append('[').append(Thread.currentThread().getName());
+				message.append("] Caller of IElementChangedListener#elementChanged with delta ");
+				message.append(event.getDelta());
+				new Throwable(message.toString()).printStackTrace(new PrintStream(this.stackTraces));
 			}
 		}
 		public synchronized CompilationUnit getCompilationUnitAST(ICompilationUnit workingCopy) {
@@ -545,7 +561,26 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	protected DeltaListener deltaListener = new DeltaListener();
 
-	protected ILogListener logListener;
+	public static class LogListenerWithHistory implements ILogListener {
+		private StringBuffer buffer = new StringBuffer();
+		private List<IStatus> logs = new ArrayList<>();
+
+		public void logging(IStatus status, String plugin) {
+			this.logs.add(status);
+			this.buffer.append(status);
+			this.buffer.append('\n');
+		}
+
+		public String toString() {
+			return this.buffer.toString();
+		}
+
+		public List<IStatus> getLogs() {
+			return this.logs;
+		}
+	}
+
+	protected LogListenerWithHistory logListener;
 	protected ILog log;
 
 	protected static boolean systemConfigReported;
@@ -2050,6 +2085,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		final IJavaProject[] result = new IJavaProject[1];
 		IWorkspaceRunnable create = new IWorkspaceRunnable() {
 			public void run(IProgressMonitor monitor) throws CoreException {
+
+				// Always delete first, in case there is a leftover from some broken test
+				deleteProject(projectName);
+
 				// create project
 				if (locationURI != null)
 					createExternalProject(projectName, locationURI);
@@ -2340,8 +2379,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_17);
 					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_17);
 					javaProject.setOptions(options);
+				} else if ("21".equals(compliance)) {
+					Map options = new HashMap();
+					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_21);
+					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_21);
+					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_21);
+					javaProject.setOptions(options);
 				}
-
 				result[0] = javaProject;
 			}
 		};
@@ -3494,7 +3538,11 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				newJclSrcString = "JCL18_SRC"; // Use the same source
 			}
 		} else {
-			if (compliance.equals("19")) {
+			if (compliance.equals("21")) {
+				// Reuse the same 14 stuff as of now. No real need for a new one
+				newJclLibString = "JCL_17_LIB";
+				newJclSrcString = "JCL_17_SRC";
+			} else if (compliance.equals("19")) {
 				// Reuse the same 14 stuff as of now. No real need for a new one
 				newJclLibString = "JCL_19_LIB";
 				newJclSrcString = "JCL_19_SRC";
@@ -3526,8 +3574,8 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				newJclLibString = "JCL10_LIB";
 				newJclSrcString = "JCL10_SRC";
 			} else if (compliance.length() < 3) {
-					newJclLibString = "JCL19_LIB";
-					newJclSrcString = "JCL19_SRC";
+				newJclLibString = "JCL19_LIB";
+				newJclSrcString = "JCL19_SRC";
 			} else if (compliance.charAt(2) > '7') {
 				newJclLibString = "JCL18_LIB";
 				newJclSrcString = "JCL18_SRC";
@@ -3580,11 +3628,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		IPath jcl13Lib = new Path("JCL13_LIB");
 		IPath jcl14Lib = new Path("JCL14_LIB");
 		IPath jcl17Lib = new Path("JCL_17_LIB");
+		IPath jcl21Lib = new Path("JCL_21_LIB");
 		IPath jclFull = new Path("JCL18_FULL");
 
 		return path.equals(jclLib) || path.equals(jcl5Lib) || path.equals(jcl8Lib) || path.equals(jcl9Lib)
 				|| path.equals(jcl10Lib) ||  path.equals(jcl11Lib) || path.equals(jcl12Lib) || path.equals(jcl13Lib)
-				|| path.equals(jcl14Lib) || path.equals(jcl17Lib) || path.equals(jclFull);
+				|| path.equals(jcl14Lib) || path.equals(jcl17Lib) || path.equals(jcl21Lib) || path.equals(jclFull);
 	}
 	public void setUpJCLClasspathVariables(String compliance) throws JavaModelException, IOException {
 		setUpJCLClasspathVariables(compliance, false);
@@ -3689,6 +3738,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		} else if ("17".equals(compliance)) {
 			if (JavaCore.getClasspathVariable("JCL_17_LIB") == null) {
+				setupExternalJCL("jclMin17");
+				JavaCore.setClasspathVariables(
+					new String[] {"JCL_17_LIB", "JCL_17_SRC", "JCL_SRCROOT"},
+					new IPath[] {getExternalJCLPath("17"), getExternalJCLSourcePath("17"), getExternalJCLRootSourcePath()},
+					null);
+			}
+		} else if ("21".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("JCL_21_LIB") == null) {
 				setupExternalJCL("jclMin17");
 				JavaCore.setClasspathVariables(
 					new String[] {"JCL_17_LIB", "JCL_17_SRC", "JCL_SRCROOT"},
@@ -3889,16 +3946,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected void startLogListening(ILog logToListen) {
 		stopLogListening(); // cleanup if we forgot to stop listening
 		this.log = logToListen;
-		this.logListener = new ILogListener(){
-			private StringBuffer buffer = new StringBuffer();
-			public void logging(IStatus status, String plugin) {
-				this.buffer.append(status);
-				this.buffer.append('\n');
-			}
-			public String toString() {
-				return this.buffer.toString();
-			}
-		};
+		this.logListener = new LogListenerWithHistory();
 		if (logToListen == null) {
 			Platform.addLogListener(this.logListener);
 		} else {

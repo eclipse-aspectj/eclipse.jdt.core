@@ -4593,6 +4593,54 @@ public void test_nonnull_field_17() {
 		"----------\n");
 }
 
+//Using jakarta.inject.Inject
+//jakarta.inject.Inject not treated properly with annotation-based null analysis
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1112
+public void test_nonnull_field_18() {
+	runConformTestWithLibs(
+		new String[] {
+			JAKARTA_INJECT_NAME,
+			JAKARTA_INJECT_CONTENT,
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"import jakarta.inject.Inject;\n" +
+			"public class X {\n" +
+			"    @NonNull @Inject Object o;\n" +
+			"    @NonNullByDefault class Inner {\n" +
+			"        @Inject String s;\n" +
+			"    }\n" +
+			"}\n",
+		},
+		null /*customOptions*/,
+		"");
+}
+
+//Using jakarta.inject.Inject, slight variations
+//jakarta.inject.Inject not treated properly with annotation-based null analysis
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1112
+public void test_nonnull_field_19() {
+	runNegativeTestWithLibs(
+		new String[] {
+			JAKARTA_INJECT_NAME,
+			JAKARTA_INJECT_CONTENT,
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"import jakarta.inject.Inject;\n" +
+			"public class X {\n" +
+			"    @NonNull @Inject static String s; // warn since injection of static field is less reliable\n" + // variation: static field
+			"    @NonNull @Inject @Deprecated Object o;\n" +
+			"    public X() {}\n" + // variation: with explicit constructor
+			"}\n",
+		},
+		null /*customOptions*/,
+		"----------\n" +
+		"1. ERROR in X.java (at line 4)\n" +
+		"	@NonNull @Inject static String s; // warn since injection of static field is less reliable\n" +
+		"	                               ^\n" +
+		"The @NonNull field s may not have been initialized\n" +
+		"----------\n");
+}
+
 // access to a nullable field - field reference
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_1() {
@@ -10701,13 +10749,22 @@ public void testBug548418_001a() {
 			"	}\n"+
 			"}\n"
 				},
-		"----------\n" +
-		"1. ERROR in X.java (at line 13)\n" +
-		"	break x;\n" +
-		"	^^^^^^^^\n" +
-		"Breaking out of switch expressions not permitted\n" +
-		"----------\n"
-	);
+			"----------\n" +
+			"1. ERROR in X.java (at line 12)\n" +
+			"	x = null;\n" +
+			"	    ^^^^\n" +
+			"Null type mismatch: required '@NonNull X' but the provided value is null\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 13)\n" +
+			"	break x;\n" +
+			"	^^^^^^^^\n" +
+			"Breaking out of switch expressions not permitted\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 15)\n" +
+			"	default -> null;\n" +
+			"	           ^^^^\n" +
+			"Null type mismatch: required '@NonNull X' but the provided value is null\n" +
+			"----------\n");
 }
 public void testBug548418_001b() {
 	if (this.complianceLevel < ClassFileConstants.JDK14) return;

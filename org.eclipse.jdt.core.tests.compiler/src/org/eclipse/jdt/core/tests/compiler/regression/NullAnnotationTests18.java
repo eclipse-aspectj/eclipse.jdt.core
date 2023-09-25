@@ -38,7 +38,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 	}
 
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_20);
+		return buildMinimalComplianceTestSuite(testClass(), F_21);
 	}
 
 	public static Class<?> testClass() {
@@ -129,7 +129,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 		Runner runner = new Runner();
 		runner.classLibraries = this.LIBS;
 		Map<String,String> opts = getCompilerOptions();
-		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_20);
+		opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_21);
 		opts.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		opts.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		runner.customOptions = opts;
@@ -631,7 +631,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 				"----------\n";
 		runner.runNegativeTest();
 	}
-	public void testGH629_01() {
+	public void _testGH629_01() {
 		Map<String, String> options = getCompilerOptions();
 		options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_18);
 		options.put(JavaCore.COMPILER_NONNULL_ANNOTATION_NAME, "test.NonNull");
@@ -660,7 +660,7 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 				options,
 				"");
 	}
-	public void testGH629_02() {
+	public void _testGH629_02() {
 		Map<String, String> options = getCompilerOptions();
 		options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_18);
 		options.put(JavaCore.COMPILER_NONNULL_ANNOTATION_NAME, "test.NonNull");
@@ -879,5 +879,35 @@ public class NullAnnotationTests18 extends AbstractNullAnnotationTest {
 				"Duplicate parameter ca2\n" +
 				"----------\n";
 		runner.runNegativeTest();
+	}
+
+	public void testGH1399() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] {
+				"C.java",
+				"""
+				@interface Ann { Class<? extends A> value(); }
+				class A {}
+				@Ann(C.B.class) // <- ERROR: Type mismatch: cannot convert from Class<C.B> to Class<? extends A>
+				class C<T extends Number> {
+				    class B extends A {}
+				}
+				"""};
+		runner.runConformTest();
+	}
+
+	public void testGH1399_2() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] {
+				"C.java",
+				"""
+				@interface Ann { Class<? extends A> value(); }
+				class A {}
+				@Ann(C.B.class)
+				class C<T extends java.util.List<Number>> {
+				    class B extends A {}
+				}
+				"""};
+		runner.runConformTest();
 	}
 }

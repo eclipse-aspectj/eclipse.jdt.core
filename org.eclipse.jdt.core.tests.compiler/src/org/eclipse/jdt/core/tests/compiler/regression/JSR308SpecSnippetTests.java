@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -188,13 +188,14 @@ public class JSR308SpecSnippetTests extends AbstractRegressionTest {
 				"abstract class X<T> implements @Readonly List<@Readonly T> { }\n",
 		},
 		"");
+		String pos = isJRE21Plus ? "28" : "23";
 		String expectedOutput =
 				"  RuntimeInvisibleTypeAnnotations: \n" +
-				"    #23 @Readonly(\n" +
+				"    #" + pos + " @Readonly(\n" +
 				"      target type = 0x10 CLASS_EXTENDS\n" +
 				"      type index = 0\n" +
 				"    )\n" +
-				"    #23 @Readonly(\n" +
+				"    #" + pos + " @Readonly(\n" +
 				"      target type = 0x10 CLASS_EXTENDS\n" +
 				"      type index = 0\n" +
 				"      location = [TYPE_ARGUMENT(0)]\n" +
@@ -889,10 +890,11 @@ public class JSR308SpecSnippetTests extends AbstractRegressionTest {
 		checkDisassembledClassFile(OUTPUT_DIR + File.separator + "X$Y.class", "Y", expectedOutput, ClassFileBytesDisassembler.SYSTEM);
 	}
 	public void test018() throws Exception {
-		Runner runner = new Runner();
-		runner.testFiles =
+		this.runNegativeTest(
 			new String[] {
 				"X.java",
+				"import java.lang.annotation.*;\n" +
+				"import static java.lang.annotation.ElementType.*;  \n" +
 				"@interface Receiver {}\n" +
 				"class Document {}\n" +
 				"interface I {\n" +
@@ -904,9 +906,18 @@ public class JSR308SpecSnippetTests extends AbstractRegressionTest {
 				"		 Y(@Receiver X X.this, boolean b) { }\n" +
 				"	}\n" +
 				"}\n",
-			};
-		runner.javacTestOptions = JavacTestOptions.JavacHasABug.JavacBug8231436;
-		runner.runConformTest();
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 9)\n" +
+			"	void foo(@Receiver X this) {}\n" +
+			"	         ^^^^^^^^^\n" +
+			"Annotation types that do not specify explicit target element types cannot be applied here\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 11)\n" +
+			"	Y(@Receiver X X.this, boolean b) { }\n" +
+			"	  ^^^^^^^^^\n" +
+			"Annotation types that do not specify explicit target element types cannot be applied here\n" +
+			"----------\n");
 	}
 	public void test019() throws Exception {
 		this.runConformTest(

@@ -320,6 +320,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.NeedToEmulateFieldWriteAccess :
 		case IProblem.NeedToEmulateMethodAccess :
 		case IProblem.NeedToEmulateConstructorAccess :
+		case IProblem.SyntheticAccessorNotEnclosingMethod :
 			return CompilerOptions.AccessEmulation;
 
 		case IProblem.NonExternalizedStringLiteral :
@@ -519,6 +520,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.RequiredNonNullButProvidedPotentialNull:
 			return CompilerOptions.NullAnnotationInferenceConflict;
 		case IProblem.RequiredNonNullButProvidedUnknown:
+		case IProblem.NullityUncheckedTypeAnnotation:
 		case IProblem.NullityUncheckedTypeAnnotationDetail:
 		case IProblem.NullityUncheckedTypeAnnotationDetailSuperHint:
 		case IProblem.ReferenceExpressionParameterNullityUnchecked:
@@ -2030,6 +2032,13 @@ public void disallowedTargetForAnnotation(Annotation annotation) {
 		new String[] {new String(annotation.resolvedType.shortReadableName())},
 		annotation.sourceStart,
 		annotation.sourceEnd);
+}
+public void explitAnnotationTargetRequired(Annotation annotation) {
+	this.handle(IProblem.ExplicitAnnotationTargetRequired,
+			NoArgument,
+			NoArgument,
+			annotation.sourceStart,
+			annotation.sourceEnd);
 }
 public void polymorphicMethodNotBelow17(ASTNode node) {
 	this.handle(
@@ -7088,6 +7097,27 @@ public void needToEmulateMethodAccess(
 		location.sourceStart,
 		location.sourceEnd);
 }
+public void checkSyntheticAccessor(MethodBinding method, ASTNode location) {
+    if (!method.isSynthetic()) {
+        int severity = computeSeverity(IProblem.SyntheticAccessorNotEnclosingMethod);
+        if (severity == ProblemSeverities.Ignore) return;
+        this.handle(
+            IProblem.SyntheticAccessorNotEnclosingMethod,
+            new String[] {
+                new String(method.declaringClass.readableName()),
+                new String(method.selector),
+                typesAsString(method, false)
+            },
+            new String[] {
+                new String(method.declaringClass.shortReadableName()),
+                new String(method.selector),
+                typesAsString(method, true)
+            },
+            severity,
+            location.sourceStart,
+            location.sourceEnd);
+    }
+}
 public void noAdditionalBoundAfterTypeVariable(TypeReference boundReference) {
 	this.handle(
 		IProblem.NoAdditionalBoundAfterTypeVariable,
@@ -10003,6 +10033,14 @@ public void varCannotBeMixedWithNonVarParams(ASTNode astNode) {
 		astNode.sourceStart,
 		astNode.sourceEnd);
 }
+public void varCannotBeUsedWithTypeArguments(ASTNode astNode) {
+	this.handle(
+			IProblem.VarCannotBeUsedWithTypeArguments,
+			NoArgument,
+			NoArgument,
+			astNode.sourceStart,
+			astNode.sourceEnd);
+}
 public void variableTypeCannotBeVoidArray(AbstractVariableDeclaration varDecl) {
 	this.handle(
 		IProblem.CannotAllocateVoidArray,
@@ -10991,13 +11029,7 @@ public void nullityMismatchingTypeAnnotation(Expression expression, TypeBinding 
 		superHint = status.superTypeHintName(this.options, false);
 		superHintShort = status.superTypeHintName(this.options, true);
 	} else {
-		problemId = (status.isAnnotatedToUnannotated()
-					? IProblem.AnnotatedTypeArgumentToUnannotated
-					: (status.isUnchecked()
-						? IProblem.NullityUncheckedTypeAnnotationDetail
-						: (requiredType.isTypeVariable() && !requiredType.hasNullTypeAnnotations())
-							? IProblem.NullityMismatchAgainstFreeTypeVariable
-							: IProblem.NullityMismatchingTypeAnnotation));
+		problemId = status.getProblemId(requiredType);
 		if (problemId == IProblem.NullityMismatchAgainstFreeTypeVariable) {
 			arguments      = new String[] { null, null, new String(requiredType.sourceName()) }; // don't show bounds here
 			shortArguments = new String[] { null, null, new String(requiredType.sourceName()) };
@@ -11704,6 +11736,7 @@ public void switchExpressionMixedCase(ASTNode statement) {
 		statement.sourceStart,
 		statement.sourceEnd);
 }
+// Is this redundant ?? See switchExpressionsBreakOutOfSwitchExpression
 public void switchExpressionBreakNotAllowed(ASTNode statement) {
 	this.handle(
 		IProblem.SwitchExpressionsYieldBreakNotAllowed,
@@ -12353,25 +12386,9 @@ public void illegalFallthroughFromAPattern(Statement statement) {
 		statement.sourceStart,
 		statement.sourceEnd);
 	}
-public void switchPatternOnlyOnePatternCaseLabelAllowed(Expression element) {
+public void illegalCaseConstantCombination(Expression element) {
 	this.handle(
-			IProblem.OnlyOnePatternCaseLabelAllowed,
-			NoArgument,
-			NoArgument,
-			element.sourceStart,
-			element.sourceEnd);
-}
-public void switchPatternBothPatternAndDefaultCaseLabelsNotAllowed(Expression element) {
-	this.handle(
-			IProblem.CannotMixPatternAndDefault,
-			NoArgument,
-			NoArgument,
-			element.sourceStart,
-			element.sourceEnd);
-}
-public void cannotMixNullAndNonTypePattern(Expression element) {
-	this.handle(
-			IProblem.CannotMixNullAndNonTypePattern,
+			IProblem.ConstantWithPatternIncompatible,
 			NoArgument,
 			NoArgument,
 			element.sourceStart,
@@ -12465,5 +12482,13 @@ public void cannotInferRecordPatternTypes(RecordPattern pattern) {
 			arguments,
 			pattern.sourceStart,
 			pattern.sourceEnd);
+}
+public void falseLiteralInGuard(Expression exp) {
+	this.handle(
+			IProblem.FalseConstantInGuard,
+			NoArgument,
+			NoArgument,
+			exp.sourceStart,
+			exp.sourceEnd);
 }
 }

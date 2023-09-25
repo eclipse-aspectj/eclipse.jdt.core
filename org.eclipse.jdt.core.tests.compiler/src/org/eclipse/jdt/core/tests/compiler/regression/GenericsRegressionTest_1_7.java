@@ -2051,12 +2051,22 @@ public void test0052() {
 			"	                         ^\n" +
 			"Redundant specification of type arguments <AX<String>>\n" +
 			"----------\n" +
-			"5. ERROR in X.java (at line 10)\n" +
+			"5. ERROR in X.java (at line 9)\n" +
+			"	X<? extends AX> x5 = new X<AX<String>>(new AX<String>());\n" +
+			"	                                           ^^\n" +
+			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"6. ERROR in X.java (at line 10)\n" +
 			"	X<?> x6 = new X<AX<String>>(new AX<String>());\n" +
 			"	              ^\n" +
 			"Redundant specification of type arguments <AX<String>>\n" +
 			"----------\n" +
-			"6. ERROR in X.java (at line 11)\n" +
+			"7. ERROR in X.java (at line 10)\n" +
+			"	X<?> x6 = new X<AX<String>>(new AX<String>());\n" +
+			"	                                ^^\n" +
+			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"8. ERROR in X.java (at line 11)\n" +
 			"	X<Class<? extends Object>> x7 = new X<Class<? extends Object>>();\n" +
 			"	                                    ^\n" +
 			"Redundant specification of type arguments <Class<? extends Object>>\n" +
@@ -2088,12 +2098,22 @@ public void test0052() {
 			"	                         ^\n" +
 			"Redundant specification of type arguments <AX<String>>\n" +
 			"----------\n" +
-			"6. ERROR in X.java (at line 10)\n" +
+			"6. ERROR in X.java (at line 9)\n" +
+			"	X<? extends AX> x5 = new X<AX<String>>(new AX<String>());\n" +
+			"	                                           ^^\n" +
+			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"7. ERROR in X.java (at line 10)\n" +
 			"	X<?> x6 = new X<AX<String>>(new AX<String>());\n" +
 			"	              ^\n" +
 			"Redundant specification of type arguments <AX<String>>\n" +
 			"----------\n" +
-			"7. ERROR in X.java (at line 11)\n" +
+			"8. ERROR in X.java (at line 10)\n" +
+			"	X<?> x6 = new X<AX<String>>(new AX<String>());\n" +
+			"	                                ^^\n" +
+			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"9. ERROR in X.java (at line 11)\n" +
 			"	X<Class<? extends Object>> x7 = new X<Class<? extends Object>>();\n" +
 			"	                                    ^\n" +
 			"Redundant specification of type arguments <Class<? extends Object>>\n" +
@@ -2150,6 +2170,11 @@ public void test0052b() {
 			"	String s = foo(new X<String>(\"aaa\"));\n" +
 			"	                   ^\n" +
 			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"5. ERROR in X.java (at line 12)\n" +
+			"	String s2 = foo(new X<String>(1,\"aaa\"));\n" +
+			"	                    ^\n" +
+			"Redundant specification of type arguments <String>\n" +
 			"----------\n"
 		: // additional error at line 7 due to better inference
 			"----------\n" +
@@ -2176,6 +2201,11 @@ public void test0052b() {
 			"5. ERROR in X.java (at line 11)\n" +
 			"	String s = foo(new X<String>(\"aaa\"));\n" +
 			"	                   ^\n" +
+			"Redundant specification of type arguments <String>\n" +
+			"----------\n" +
+			"6. ERROR in X.java (at line 12)\n" +
+			"	String s2 = foo(new X<String>(1,\"aaa\"));\n" +
+			"	                    ^\n" +
 			"Redundant specification of type arguments <String>\n" +
 			"----------\n"
 		),
@@ -2209,7 +2239,12 @@ public void test0052c() {
 		"	                   ^\n" +
 		"Redundant specification of type arguments <Integer>\n" +
 		"----------\n" +
-		"2. ERROR in X.java (at line 8)\n" +
+		"2. ERROR in X.java (at line 5)\n" +
+		"	foo3(new X<Integer>(\"\",\"\"));\n" +
+		"	         ^\n" +
+		"Redundant specification of type arguments <Integer>\n" +
+		"----------\n" +
+		"3. ERROR in X.java (at line 8)\n" +
 		"	return new X<Integer>(\"\",\"\");\n" +
 		"	           ^\n" +
 		"Redundant specification of type arguments <Integer>\n" +
@@ -3080,6 +3115,71 @@ public void testBug488649_JDK6791481_ex1() {
 		"	         ^^^^^\n" +
 		"Class is a raw type. References to generic type Class<T> should be parameterized\n" +
 		"----------\n");
+}
+public void testGH1326() {
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles = new String[] {
+		"Foo.java",
+		"""
+		class Inner<T> {}
+		class Outer<T> {
+			Outer(T t) {}
+			Outer<T> self() { return this; }
+		}
+		public class Foo {
+			Outer<Inner<String>> x = new Outer<>(new Inner<String>()).self();
+		}
+		"""
+	};
+	runner.runConformTest();
+}
+public void testGH1326_alt() {
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles = new String[] {
+		"Foo.java",
+		"""
+		class Inner<T> {}
+		class Outer<T> {
+			Outer(Inner<String> t1, T t2) {}
+			Outer<T> self() { return this; }
+		}
+		public class Foo {
+			Inner<String> inner = new Inner<>();
+			Outer<Inner<String>> x = new Outer<>(new Inner<String>(), inner).self();
+			Outer<Inner<String>> xok = new Outer<>(new Inner<>(), inner).self();
+		}
+		"""
+	};
+	runner.expectedCompilerLog =
+			this.complianceLevel >= ClassFileConstants.JDK1_8
+			?
+			"""
+			----------
+			1. ERROR in Foo.java (at line 8)
+				Outer<Inner<String>> x = new Outer<>(new Inner<String>(), inner).self();
+				                                         ^^^^^
+			Redundant specification of type arguments <String>
+			----------
+			"""
+			: // 1.7 inference is less capable:
+			"""
+			----------
+			1. ERROR in Foo.java (at line 8)
+				Outer<Inner<String>> x = new Outer<>(new Inner<String>(), inner).self();
+				                                         ^^^^^
+			Redundant specification of type arguments <String>
+			----------
+			2. ERROR in Foo.java (at line 9)
+				Outer<Inner<String>> xok = new Outer<>(new Inner<>(), inner).self();
+				                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Cannot infer type arguments for Outer<>
+			----------
+			""";
+	runner.runNegativeTest();
 }
 public static Class testClass() {
 	return GenericsRegressionTest_1_7.class;

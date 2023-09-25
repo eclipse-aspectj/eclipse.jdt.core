@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -40,7 +40,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// org.eclipse.jdt.internal.core.search.BasicSearchEngine.VERBOSE = true;
 		// TESTS_NUMBERS = new int[] { 19 };
 		// TESTS_RANGE = new int[] { 1, -1 };
-		// TESTS_NAMES = new String[] {"testBug542559_001"};
+//		 TESTS_NAMES = new String[] {"testBug573943_022"};
 	}
 
 	public JavaSearchBugs17Tests(String name) {
@@ -132,7 +132,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 	@Override
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
-		JAVA_PROJECT = setUpJavaProject("JavaSearchBugs", "19");
+		JAVA_PROJECT = setUpJavaProject("JavaSearchBugs", "21");
 	}
 
 	public void tearDownSuite() throws Exception {
@@ -168,7 +168,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -243,7 +243,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/field";
 			int start = str.indexOf(selection);
@@ -283,7 +283,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/local";
 			int start = str.indexOf(selection);
@@ -321,7 +321,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/local";
 			int start = str.indexOf(selection);
@@ -349,7 +349,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 						"}\n" +
 						"private static void foo(Object o) {\n" +
 						" switch (o) {\n" +
-						"	case Integer i && field > 0  -> System.out.println(\"Integer:\" + i);\n" +
+						"	case Integer i when field > 0  -> System.out.println(\"Integer:\" + i);\n" +
 						"	case String s     -> System.out.println(\"String:\" + s + field);\n" +
 						"	default       -> System.out.println(\"Object\" + o);\n" +
 						" 	}\n" +
@@ -360,7 +360,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/field";
 			int start = str.indexOf(selection);
@@ -400,7 +400,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/local";
 			int start = str.indexOf(selection);
@@ -439,7 +439,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -478,7 +478,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -517,7 +517,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -557,7 +557,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -596,7 +596,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -636,7 +636,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -672,7 +672,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			System.out.println(str);
 			String selection = "/*here*/s";
@@ -710,7 +710,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -749,7 +749,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -789,7 +789,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/a";
 			int start = str.indexOf(selection);
@@ -827,7 +827,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -862,7 +862,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -900,7 +900,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/i";
 			int start = str.indexOf(selection);
@@ -937,7 +937,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/i";
 			int start = str.indexOf(selection);
@@ -955,8 +955,8 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 	//not a working copy test
 	public void testBug573943_022() throws Exception {
 		try {
-			IJavaProject project = createJavaProject("first", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "17");
-			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			IJavaProject project = createJavaProject("first", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "21");
+			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			project.open(null);
 			createFolder("/first/src/p1");
 			createFile("/first/src/p1/BClass.java",
@@ -1019,7 +1019,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 
 			search("fieldj17", FIELD, REFERENCES);
 			assertSearchResults("src/X.java void X.foo(Object) [fieldj17] EXACT_MATCH\n"
@@ -1051,7 +1051,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 
 			search("fieldj17", FIELD, ALL_OCCURRENCES);
 			assertSearchResults("src/X.java X.fieldj17 [fieldj17] EXACT_MATCH\n"+
@@ -1085,7 +1085,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			search("AJ17", CLASS, ALL_OCCURRENCES);
 			assertSearchResults("src/X.java AJ17 [AJ17] EXACT_MATCH\n"
 					+ "src/X.java void X.foo(S) [AJ17] EXACT_MATCH");
@@ -1117,7 +1117,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			search("AJ17", CLASS, REFERENCES);
 			assertSearchResults("src/X.java void X.foo(S) [AJ17] EXACT_MATCH");
 		} finally {
@@ -1148,7 +1148,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			search("AJ17", CLASS, REFERENCES);
 			assertSearchResults("src/X.java void X.foo(S) [AJ17] EXACT_MATCH");
 		} finally {
@@ -1158,8 +1158,8 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 	// find all occurrence on a class in switch pattern - without select
 	public void testBug573943_029() throws Exception {
 		try {
-			IJavaProject project = createJavaProject("first", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "17");
-			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			IJavaProject project = createJavaProject("first", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "21");
+			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			project.open(null);
 			createFolder("/first/src/p1");
 			createFile("/first/src/p1/BClass.java",
@@ -1177,8 +1177,8 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 							"}\n" +
 							"private static void foo(Object o) {\n" +
 							" switch (o) {\n" +
-							"	case BClass i && field_j17>0  -> System.out.println(\"Integer:\" + i);\n" +
-							"	default       -> System.out.println(\"Object\" + o);\n" +
+							"	case BClass i when field_j17>0  -> System.out.println(\"Integer:\" + i);\n" +
+							"	default -> System.out.println(\"Object\" + o);\n" +
 							" 	}\n" +
 							"}\n" +
 							"}\n"
@@ -1205,7 +1205,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 	public void testBug573943_030() throws Exception {
 		try {
 			IJavaProject project = createJavaProject("first", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "17");
-			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			project.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			project.open(null);
 			createFolder("/first/src/p1");
 			createFile("/first/src/p1/BClass.java",
@@ -1267,7 +1267,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s";
 			int start = str.indexOf(selection);
@@ -1305,7 +1305,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s1";
 			int start = str.indexOf(selection);
@@ -1346,7 +1346,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s1";
 			int start = str.indexOf(selection);
@@ -1387,7 +1387,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "/*here*/s1";
 			int start = str.indexOf(selection);
@@ -1423,7 +1423,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "strGP";
 			int start = str.indexOf(selection);
@@ -1459,7 +1459,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 		// working copies
 		String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 		try {
-			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+			javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 			String str = this.workingCopies[0].getSource();
 			String selection = "strGP";
 			int start = str.indexOf(selection);
@@ -1497,7 +1497,7 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 			// working copies
 			String old = javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true);
 			try {
-				javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.ENABLED);
+				javaProject.setOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, JavaCore.DISABLED);
 				String str = this.workingCopies[0].getSource();
 				String selection = "strGP";
 				int start = str.indexOf(selection);
@@ -1516,7 +1516,213 @@ public class JavaSearchBugs17Tests extends AbstractJavaSearchTests {
 			}
 		}
 
+		// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/968
+		// JavaElementHyperlinkDetector: Parser runs into NegativeArraySizeException in some cases
+		public void testGH968() throws CoreException {
+			try {
+				IJavaProject project = createJavaProject("p", new String[] {"src"}, new String[] {"JCL17_LIB"}, "bin", "17");
+				project.open(null);
+				createFile("/p/src/TestEcl.java",
+						"import java.lang.StackWalker.Option;\n" +
+						"\n" +
+						"public class TestEcl {\n" +
+						"\n" +
+						"	@FunctionalInterface\n" +
+						"	public interface Callable<V> {\n" +
+						"	    /**\n" +
+						"	     * Computes a result, or throws an exception if unable to do so.\n" +
+						"	     *\n" +
+						"	     * @return computed result\n" +
+						"	     * @throws Exception if unable to compute a result\n" +
+						"	     */\n" +
+						"	    V call() throws Exception;\n" +
+						"	}\n" +
+						"	\n" +
+						"	@FunctionalInterface\n" +
+						"	public interface Function<T, R> {\n" +
+						"\n" +
+						"	    /**\n" +
+						"	     * Applies this function to the given argument.\n" +
+						"	     *\n" +
+						"	     * @param t the function argument\n" +
+						"	     * @return the function result\n" +
+						"	     */\n" +
+						"	    R apply(T t);\n" +
+						"	}\n" +
+						"	\n" +
+						"	public static final Callable<Void> test = new Callable<>() {\n" +
+						"		@Override\n" +
+						"		public Void call() throws Exception {\n" +
+						"			Option opt = Option.RETAIN_CLASS_REFERENCE;\n" +
+						"			\n" +
+						"			boolean a = switch (/*here*/opt) {\n" +
+						"				case RETAIN_CLASS_REFERENCE -> true;\n" +
+						"				// Enabling this line breaks eclipse\n" +
+						"				// CTRL+SHIFT+G Will throw exception Code resolve error 'java.lang.NegativeArraySizeException: -1'\n" +
+						"				case SHOW_HIDDEN_FRAMES -> true; \n" +
+						"				default -> throw new IllegalArgumentException(\"Unexpected value\");\n" +
+						"			};\n" +
+						"	\n" +
+						"			boolean b = switch (opt) {\n" +
+						"				case RETAIN_CLASS_REFERENCE -> true;\n" +
+						"				default -> throw new IllegalArgumentException(\"Unexpected value\");\n" +
+						"			};\n" +
+						"			return null;\n" +
+						"		}\n" +
+						"	};\n" +
+						"	\n" +
+						"	public static final Function<Object, Object> test2 = new Function<>() {\n" +
+						"		@Override\n" +
+						"		public Object apply(Object t) {\n" +
+						"			return null;\n" +
+						"		}\n" +
+						"	};\n" +
+						"}\n");
+				project.close();
+				project.open(null);
+				waitUntilIndexesReady();
+				SearchPattern pattern = SearchPattern.createPattern("Callable", IJavaSearchConstants.TYPE, REFERENCES, SearchPattern.R_EXACT_MATCH | SearchPattern.R_ERASURE_MATCH);
+				IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaProject[]
+						{project});
+				search(pattern, scope, this.resultCollector);
+				assertSearchResults(
+						"src/TestEcl.java TestEcl.test:<anonymous>#1 [Callable] EXACT_MATCH\n" +
+						"src/TestEcl.java TestEcl.test [Callable] EXACT_MATCH",
+						this.resultCollector);
+			}
+			finally {
+				deleteProject("p");
+			}
+		}
 
+		public void testGH968_2() throws CoreException {
+			try {
+				this.workingCopies = new ICompilationUnit[1];
+				this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/OptionActions.java",
+						"public class OptionActions {\n" +
+						"\n" +
+						"	public enum TestEnum {\n" +
+						"		X\n" +
+						"	}\n" +
+						"	\n" +
+						"	@FunctionalInterface\n" +
+						"	public interface Callable<V> {\n" +
+						"	    /**\n" +
+						"	     * Computes a result, or throws an exception if unable to do so.\n" +
+						"	     *\n" +
+						"	     * @return computed result\n" +
+						"	     * @throws Exception if unable to compute a result\n" +
+						"	     */\n" +
+						"	    V call() throws Exception;\n" +
+						"	}\n" +
+						"	public final record TestDraft<T >() {}\n" +
+						"	public final record TestDraft2<T, U >() {}\n" +
+						"	\n" +
+						"	public static final /*here*/Callable<Void> test = new Callable<>() {\n" +
+						"		@Override\n" +
+						"		public Void call() throws Exception {\n" +
+						"			TestEnum p = TestEnum.X;\n" +
+						"			\n" +
+						"			Object v = switch (p) {\n" +
+						"				case X -> null;\n" +
+						"			};\n" +
+						"	\n" +
+						"			/*here*/TestDraft<Integer> draft = new TestDraft(); // This line is fine\n" +
+						"			TestDraft2<Integer, Integer> draft2 = new TestDraft2(); \n" +
+						"			return null;\n" +
+						"		}\n" +
+						"	};\n" +
+						"}\n");
+
+				String str = this.workingCopies[0].getSource();
+				String selection = "/*here*/Callable";
+				int start = str.indexOf(selection);
+				int length = selection.length();
+				IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+				assertElementsEqual(
+					"Unexpected elements",
+					"Callable [in OptionActions [in [Working copy] OptionActions.java [in <default> [in src [in JavaSearchBugs]]]]]",
+					elements
+				);
+			}
+			finally {
+				deleteProject("p");
+			}
+		}
+		// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/968
+		// JavaElementHyperlinkDetector: Parser runs into NegativeArraySizeException in some cases
+		public void testGH968_3() throws CoreException {
+			this.workingCopies = new ICompilationUnit[1];
+			this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/TestEcl.java",
+					"import java.lang.StackWalker.Option;\n" +
+					"\n" +
+					"public class TestEcl {\n" +
+					"\n" +
+					"	@FunctionalInterface\n" +
+					"	public interface Callable {\n" +
+					"	    /**\n" +
+					"	     * Computes a result, or throws an exception if unable to do so.\n" +
+					"	     *\n" +
+					"	     * @return computed result\n" +
+					"	     * @throws Exception if unable to compute a result\n" +
+					"	     */\n" +
+					"	    void call() throws Exception;\n" +
+					"	}\n" +
+					"	\n" +
+					"	@FunctionalInterface\n" +
+					"	public interface Function<T, R> {\n" +
+					"\n" +
+					"	    /**\n" +
+					"	     * Applies this function to the given argument.\n" +
+					"	     *\n" +
+					"	     * @param t the function argument\n" +
+					"	     * @return the function result\n" +
+					"	     */\n" +
+					"	    R apply(T t);\n" +
+					"	}\n" +
+					"	\n" +
+					"	public static final Callable test = new Callable() {\n" +
+					"		@Override\n" +
+					"		public Void call() throws Exception {\n" +
+					"			Option opt = Option.RETAIN_CLASS_REFERENCE;\n" +
+					"			\n" +
+					"			boolean a = switch (/*here*/opt) {\n" +
+					"				case RETAIN_CLASS_REFERENCE -> true;\n" +
+					"				// Enabling this line breaks eclipse\n" +
+					"				// CTRL+SHIFT+G Will throw exception Code resolve error 'java.lang.NegativeArraySizeException: -1'\n" +
+					"				case SHOW_HIDDEN_FRAMES -> true; \n" +
+					"				default -> throw new IllegalArgumentException(\"Unexpected value\");\n" +
+					"			};\n" +
+					"	\n" +
+					"			boolean b = switch (opt) {\n" +
+					"				case RETAIN_CLASS_REFERENCE -> true;\n" +
+					"				default -> throw new IllegalArgumentException(\"Unexpected value\");\n" +
+					"			};\n" +
+					"			return;\n" +
+					"		}\n" +
+					"	};\n" +
+					"	\n" +
+					"	public static final Function<Object, Object> test2 = new Function<>() {\n" +
+					"		@Override\n" +
+					"		public Object apply(Object t) {\n" +
+					"			return null;\n" +
+					"		}\n" +
+					"	};\n" +
+					"}\n");
+
+			String str = this.workingCopies[0].getSource();
+			String selection =  "/*here*/opt";
+			int start = str.indexOf(selection);
+			int length = selection.length();
+
+			IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+			assertTrue(elements.length ==1);
+			assertTrue(elements[0] instanceof LocalVariable);
+			search(elements[0], REFERENCES, EXACT_RULE);
+			assertSearchResults(
+					"src/TestEcl.java Void TestEcl.test:<anonymous>#1.call() [opt] EXACT_MATCH\n" +
+					"src/TestEcl.java Void TestEcl.test:<anonymous>#1.call() [opt] EXACT_MATCH");
+		}
 }
 
 

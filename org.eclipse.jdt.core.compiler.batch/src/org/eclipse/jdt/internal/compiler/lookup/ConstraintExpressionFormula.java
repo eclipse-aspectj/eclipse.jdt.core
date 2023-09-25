@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2019 GK Software AG.
+ * Copyright (c) 2013, 2022 GK Software AG.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -122,6 +122,12 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 								return FALSE;
 							return ConstraintTypeFormula.create(exprType, this.right, COMPATIBLE, this.isSoft);
 						}
+						if (innerCtx.isInexactVarargsInference()) {
+							// See https://github.com/eclipse-jdt/eclipse.jdt.core/pull/524
+							// Skip the inner inference result for now until the varargs method
+							// is inferred a second time by a proper target type.
+							return TRUE;
+						}
 						if (innerCtx.stepCompleted >= InferenceContext18.APPLICABILITY_INFERRED) {
 							inferenceContext.integrateInnerInferenceB2(innerCtx);
 						} else {
@@ -228,7 +234,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 													LambdaExpression lambda, ParameterizedTypeBinding targetTypeWithWildCards)
 	{
 		if (lambda.argumentsTypeElided()) {
-			return lambda.findGroundTargetTypeForElidedLambda(scope, targetTypeWithWildCards);
+			return targetTypeWithWildCards.getNonWildcardParameterization(scope);
 		} else {
 			SuspendedInferenceRecord previous = inferenceContext.enterLambda(lambda);
 			try {
@@ -416,7 +422,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			ParameterizedTypeBinding parameterizedType = InferenceContext18.parameterizedWithWildcard(rTheta);
 			if (parameterizedType != null && parameterizedType.arguments != null) {
 				TypeBinding[] arguments = parameterizedType.arguments;
-				InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments);
+				InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments, false);
 				ParameterizedTypeBinding gbeta = inferenceContext.environment.createParameterizedType(
 						parameterizedType.genericType(), betas, parameterizedType.enclosingType(), parameterizedType.getTypeAnnotations());
 				inferenceContext.currentBounds.captures.put(gbeta, parameterizedType); // established: both types have nonnull arguments

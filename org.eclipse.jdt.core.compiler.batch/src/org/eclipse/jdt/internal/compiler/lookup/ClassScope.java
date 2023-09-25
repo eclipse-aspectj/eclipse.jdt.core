@@ -65,7 +65,7 @@ public class ClassScope extends Scope {
 
 	public TypeDeclaration referenceContext;
 	public TypeReference superTypeReference;
-	java.util.ArrayList<Object> deferredBoundChecks; // contains TypeReference or Runnable. TODO consider making this a List<Runnable>
+	java.util.ArrayList<TypeReference> deferredBoundChecks;
 
 	public ClassScope(Scope parent, TypeDeclaration context) {
 		super(Scope.CLASS_SCOPE, parent);
@@ -146,6 +146,7 @@ public class ClassScope extends Scope {
 			referenceContext.binding.memberFinder = ((SourceTypeBinding) supertype).memberFinder;
 		}
 		// End AspectJ Extension
+		anonymousType.tagBits |= TagBits.EndHierarchyCheck;
 		connectMemberTypes();
 		buildFieldsAndMethods();
 		anonymousType.faultInTypesForFieldsAndMethods();
@@ -1173,13 +1174,8 @@ public class ClassScope extends Scope {
 
 	// Perform deferred bound checks for parameterized type references (only done after hierarchy is connected)
 	public void  checkParameterizedTypeBounds() {
-		for (int i = 0, l = this.deferredBoundChecks == null ? 0 : this.deferredBoundChecks.size(); i < l; i++) {
-			Object toCheck = this.deferredBoundChecks.get(i);
-			if (toCheck instanceof TypeReference)
-				((TypeReference) toCheck).checkBounds(this);
-			else if (toCheck instanceof Runnable)
-				((Runnable) toCheck).run();
-		}
+		for (int i = 0, l = this.deferredBoundChecks == null ? 0 : this.deferredBoundChecks.size(); i < l; i++)
+			this.deferredBoundChecks.get(i).checkBounds(this);
 		this.deferredBoundChecks = null;
 
 		ReferenceBinding[] memberTypes = this.referenceContext.binding.memberTypes;
@@ -1497,27 +1493,20 @@ public class ClassScope extends Scope {
 
 	void connectTypeHierarchy() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
-		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
-		compilationUnitScopeLocal.connectingHierarchy = true;
-		try {
-			if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) == 0) {
-				sourceType.tagBits |= TagBits.BeginHierarchyCheck;
-				environment().typesBeingConnected.add(sourceType);
-				boolean noProblems = connectSuperclass();
-				noProblems &= connectSuperInterfaces();
-				environment().typesBeingConnected.remove(sourceType);
-				sourceType.tagBits |= TagBits.EndHierarchyCheck;
-				connectPermittedTypes();
-				noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
-				sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
-				if (noProblems && sourceType.isHierarchyInconsistent())
-					problemReporter().hierarchyHasProblems(sourceType);
-			}
-			connectMemberTypes();
-		} finally {
-			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
+		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) == 0) {
+			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
+			environment().typesBeingConnected.add(sourceType);
+			boolean noProblems = connectSuperclass();
+			noProblems &= connectSuperInterfaces();
+			environment().typesBeingConnected.remove(sourceType);
+			sourceType.tagBits |= TagBits.EndHierarchyCheck;
+			connectPermittedTypes();
+			noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
+			sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
+			if (noProblems && sourceType.isHierarchyInconsistent())
+				problemReporter().hierarchyHasProblems(sourceType);
 		}
+		connectMemberTypes();
 		LookupEnvironment env = environment();
 		try {
 			env.missingClassFileLocation = this.referenceContext;
@@ -1527,18 +1516,6 @@ public class ClassScope extends Scope {
 			throw e;
 		} finally {
 			env.missingClassFileLocation = null;
-		}
-	}
-
-	@Override
-	public boolean deferCheck(Runnable check) {
-		if (compilationUnitScope().connectingHierarchy) {
-			if (this.deferredBoundChecks == null)
-				this.deferredBoundChecks = new ArrayList<>();
-			this.deferredBoundChecks.add(check);
-			return true;
-		} else {
-			return false;
 		}
 	}
 
@@ -1557,24 +1534,17 @@ public class ClassScope extends Scope {
 		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) != 0)
 			return;
 
-		CompilationUnitScope compilationUnitScopeLocal = compilationUnitScope();
-		boolean wasAlreadyConnecting = compilationUnitScopeLocal.connectingHierarchy;
-		compilationUnitScopeLocal.connectingHierarchy = true;
-		try {
-			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
-			environment().typesBeingConnected.add(sourceType);
-			boolean noProblems = connectSuperclass();
-			noProblems &= connectSuperInterfaces();
-			environment().typesBeingConnected.remove(sourceType);
-			sourceType.tagBits |= TagBits.EndHierarchyCheck;
-			connectPermittedTypes();
-			noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
-			sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
-			if (noProblems && sourceType.isHierarchyInconsistent())
-				problemReporter().hierarchyHasProblems(sourceType);
-		} finally {
-			compilationUnitScopeLocal.connectingHierarchy = wasAlreadyConnecting;
-		}
+		sourceType.tagBits |= TagBits.BeginHierarchyCheck;
+		environment().typesBeingConnected.add(sourceType);
+		boolean noProblems = connectSuperclass();
+		noProblems &= connectSuperInterfaces();
+		environment().typesBeingConnected.remove(sourceType);
+		sourceType.tagBits |= TagBits.EndHierarchyCheck;
+		connectPermittedTypes();
+		noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
+		sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
+		if (noProblems && sourceType.isHierarchyInconsistent())
+			problemReporter().hierarchyHasProblems(sourceType);
 	}
 
 	public boolean detectHierarchyCycle(TypeBinding superType, TypeReference reference) {
@@ -1722,9 +1692,6 @@ public class ClassScope extends Scope {
 			typeReference.aboutToResolve(this); // allows us to trap completion & selection nodes
 			unitScope.recordQualifiedReference(typeReference.getTypeName());
 			this.superTypeReference = typeReference;
-			if (this.compilerOptions().isAnnotationBasedNullAnalysisEnabled) {
-				this.hasDefaultNullnessFor(0 /*location*/, typeReference.sourceStart);
-			}
 			ReferenceBinding superType = (ReferenceBinding) typeReference.resolveSuperType(this);
 			return superType;
 		} catch (AbortCompilation e) {
@@ -1746,6 +1713,14 @@ public class ClassScope extends Scope {
 			env.missingClassFileLocation = typeReference;
 			typeReference.aboutToResolve(this); // allows us to trap completion & selection nodes
 			unitScope.recordQualifiedReference(typeReference.getTypeName());
+			if (typeReference.isParameterizedTypeReference()) {
+				for (TypeReference [] typeArguments : typeReference.getTypeArguments()) {
+					if (typeArguments != null && typeArguments.length > 0) {
+						problemReporter().invalidTypeArguments(typeArguments);
+					}
+				}
+			}
+			typeReference.bits |= ASTNode.IgnoreRawTypeCheck;
 			ReferenceBinding permittedType = (ReferenceBinding) typeReference.resolveType(this);
 			return permittedType;
 		} catch (AbortCompilation e) {

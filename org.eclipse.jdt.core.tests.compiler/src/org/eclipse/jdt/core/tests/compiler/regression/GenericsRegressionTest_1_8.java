@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 GK Software SE, and others.
+ * Copyright (c) 2013, 2023 GK Software SE, and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -537,7 +537,12 @@ public void testBug424710() {
 			"				.forEach(System.out::println);\n" +
 			"    }\n" +
 			"}\n"
-		});
+		},
+		"abc\n" +
+		"a\n" +
+		"123\n" +
+		"1"
+		);
 }
 
 public void testBug424075() {
@@ -2909,6 +2914,11 @@ public void testBug429203() {
 		"	DTest<String> t1 = new DTest<String>(new DTest<Integer>());\n" +
 		"	                       ^^^^^\n" +
 		"Redundant specification of type arguments <String>\n" +
+		"----------\n" +
+		"2. ERROR in DTest.java (at line 11)\n" +
+		"	DTest<String> t1 = new DTest<String>(new DTest<Integer>());\n" +
+		"	                                         ^^^^^\n" +
+		"Redundant specification of type arguments <Integer>\n" +
 		"----------\n",
 		null, true, customOptions);
 }
@@ -2943,7 +2953,7 @@ public void testBug430296() {
 		"2. ERROR in AnnotationCollector.java (at line 9)\n" +
 		"	return persons.collect(Collectors.toMap((Person p) -> p.getLastName(),\n" +
 		"	                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from Function<Person,? extends K> to Function<? super T,? extends K>\n" +
+		"Type mismatch: cannot convert from Function<Person,K> to Function<? super T,? extends K>\n" +
 		"----------\n" +
 		"3. ERROR in AnnotationCollector.java (at line 10)\n" +
 		"	Function::identity,\n" +
@@ -10377,6 +10387,112 @@ public void testBug508834_comment0() {
 				"			.orElse(BigDecimal.ZERO);\n" +
 				"	}\n" +
 				"}\n"
+			});
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/506
+	// Verify that ECJ can infer the case including nested generic method invocation.
+	public void testGH506_a() {
+		this.runConformTest(
+			new String[] {
+				"Convert.java",
+				"import java.util.function.Function;\n"
+				+ "class Convert<A> {\n"
+				+ "    public static <B> void test(final B a) {\n"
+				+ "        Convert<B> res1 = convert(arg -> create(arg), a); // ok\n"
+				+ "\n"
+				+ "        Convert<B> res2 = convert(arg -> wrap(create(arg)), a); // error: Type mismatch\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <C, D> Convert<D> convert(final Function<C, Convert<D>> func, final C value) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <E> E wrap(final E a) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <F> Convert<F> create(final F initial) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "}"
+			}
+		);
+	}
+
+	// Verify that ECJ still infers well when the nested method invocation is a varargs method.
+	public void testGH506_b() {
+		this.runConformTest(
+			new String[] {
+				"Convert.java",
+				"import java.util.function.Function;\n"
+				+ "class Convert<A> {\n"
+				+ "    public static <B> void test(final B a) {\n"
+				+ "        Convert<B> res1 = convert(arg -> create(arg), a); // ok\n"
+				+ "\n"
+				+ "        Convert<B> res2 = convert(arg -> wrap(create(arg)), a); // error: Type mismatch\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <C, D> Convert<D> convert(final Function<C, Convert<D>> func, final C value) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <E> E wrap(final E a) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "\n"
+				+ "    public static <F> Convert<F> create(final F... initial) {\n"
+				+ "        return null;\n"
+				+ "    }\n"
+				+ "}"
+			}
+		);
+	}
+	public void testGH1261() {
+		runConformTest(
+			new String[] {
+				"GH1261.java",
+				"""
+				import java.io.IOException;
+				import java.util.AbstractMap;
+				import java.util.function.BiConsumer;
+				import java.util.Collections;
+				import java.util.Map;
+
+				class Matcher<T extends Object> {}
+
+				public class GH1261 {
+					private static final Map<String, String> PARAMETER_VALUE_STRINGS_BY_VALUE = Collections.emptyMap();
+
+					public void testParameterAppendValueTo() throws IOException {
+						PARAMETER_VALUE_STRINGS_BY_VALUE.forEach(throwingBiConsumer((value, valueString) -> {
+							assertThat(Parameter.appendValueTo(new StringBuilder(), value).toString(), is(valueString));
+						}));
+					}
+					public static <T, R, X extends Throwable> ThrowingBiConsumer<T, R, X> throwingBiConsumer(
+							final ThrowingBiConsumer<T, R, X> consumer) {
+						return consumer;
+					}
+					public static <T extends java.lang.Object> Matcher<T> is(Matcher<T> m) { return null; }
+					public static <T extends java.lang.Object> Matcher<T> is(T t) { return null; }
+
+					public static <T extends java.lang.Object> void assertThat(T t, Matcher<? super T> m) { }
+					// original has overloads of assertThat, which are not relevant here
+				}
+				interface ThrowingBiConsumer<T, U, X extends Throwable> extends BiConsumer<T, U> {
+					void tryAccept(T t, U u) throws X;
+					default void accept(final T t, final U u) { }
+				}
+				@SuppressWarnings("serial")
+				final class Parameter extends AbstractMap.SimpleImmutableEntry<String, String> {
+					public static <A extends Appendable> A appendValueTo(final A appendable, CharSequence parameterValue) throws IOException {
+						return appendable;
+					}
+					public Parameter(final String name, final String value) {
+						super("", "");
+					}
+				}
+				"""
 			});
 	}
 }

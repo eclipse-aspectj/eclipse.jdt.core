@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -35,6 +35,7 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -58,6 +59,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
@@ -68,7 +70,6 @@ import org.eclipse.jdt.internal.compiler.util.Messages;
 public abstract class Expression extends Statement {
 
 	public Constant constant;
-
 	public int statementEnd = -1;
 
 	//Some expression may not be used - from a java semantic point
@@ -931,7 +932,59 @@ public void generateOptimizedStringConcatenationCreation(BlockScope blockScope, 
 	}
 	codeStream.invokeStringConcatenationStringConstructor();
 }
-
+private void addArgumentToRecipe(BlockScope blockScope, CodeStream codeStream, StringBuilder recipe, TypeBinding argType, List<TypeBinding> args) {
+	recipe.append(STRING_CONCAT_MARKER_1);
+	args.add(argType);
+	if (args.size() > 190) {
+		// StringConcatFactory#makeConcatWithConstants() can take only 200 arguments
+		// Commit whatever we have accumulated so far
+		// Get the result pushed to the stack and to be used as an operand
+		// for the subsequent concat operation
+		codeStream.invokeDynamicForStringConcat(recipe, args);
+		// Clear the arguments for the next batch
+		args.clear();
+		recipe.delete(0, recipe.length());
+		recipe.append(TypeConstants.STRING_CONCAT_MARKER_1);
+		args.add(blockScope.getJavaLangString());
+		// We popped 190 and adding 1 for the invokeDynamic
+		codeStream.stackDepth -= 189;
+	}
+}
+public void buildStringForConcatation(BlockScope blockScope, CodeStream codeStream, int typeID, StringBuilder recipe, List<TypeBinding> argTypes) {
+	if (this.constant == Constant.NotAConstant) {
+		switch (typeID) {
+			case T_JavaLangString :
+			case TypeIds.T_int :
+			case TypeIds.T_byte :
+			case TypeIds.T_short :
+			case TypeIds.T_long :
+			case TypeIds.T_float :
+			case TypeIds.T_double :
+			case TypeIds.T_char :
+			case TypeIds.T_boolean :
+				generateCode(blockScope, codeStream, true);
+				addArgumentToRecipe(blockScope, codeStream, recipe, this.resolvedType, argTypes);
+				break;
+			default :
+				if (this.resolvedType.id == TypeIds.T_null) {
+					codeStream.aconst_null();
+				} else {
+					generateCode(blockScope, codeStream, true);
+					codeStream.invokeStringValueOf(typeID);
+				}
+				addArgumentToRecipe(blockScope, codeStream, recipe, blockScope.getJavaLangString(), argTypes);
+				break;
+		}
+	} else {
+		// StringLiteral and CharLiteral may contain special characters
+		if (this.constant.stringValue().indexOf('\u0001') != -1 || this.constant.stringValue().indexOf('\u0002') != -1) {
+			codeStream.ldc(this.constant.stringValue());
+			addArgumentToRecipe(blockScope, codeStream, recipe, blockScope.getJavaLangString(), argTypes);
+		} else {
+			recipe.append(this.constant.stringValue());
+		}
+	}
+}
 private MethodBinding[] getAllOriginalInheritedMethods(ReferenceBinding binding) {
 	ArrayList<MethodBinding> collector = new ArrayList<>();
 	getAllInheritedMethods0(binding, collector);

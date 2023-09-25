@@ -39,7 +39,6 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.eclipse.core.resources.ICommand;
 import org.eclipse.core.resources.IFile;
@@ -545,8 +544,8 @@ public class JavaProject
 			module = root.getModuleDescription();
 			if (module != null) {
 				if (current != null) {
-					throw new JavaModelException(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID,
-							Messages.bind(Messages.classpath_duplicateEntryPath, TypeConstants.MODULE_INFO_FILE_NAME_STRING, getElementName())));
+					// Error will be reported by the compiler
+					return false;
 				}
 				current = module;
 				JavaModelManager.getModulePathManager().addEntry(module, this);
@@ -1002,7 +1001,7 @@ public class JavaProject
 				}
 			}, JRTUtil.NOTIFY_MODULES);
 		} catch (IOException e) {
-			Util.log(IStatus.ERROR, "Error reading modules from " + imagePath.toOSString()); //$NON-NLS-1$
+			Util.log(e, "Error reading modules from " + imagePath.toOSString()); //$NON-NLS-1$
 		}
 	}
 
@@ -1317,7 +1316,8 @@ public class JavaProject
 		StringReader reader = new StringReader(xmlClasspath);
 		Element cpElement;
 		try {
-			DocumentBuilder parser = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+			@SuppressWarnings("restriction")
+			DocumentBuilder parser = org.eclipse.core.internal.runtime.XmlProcessorFactory.createDocumentBuilderWithErrorOnDOCTYPE();
 			cpElement = parser.parse(new InputSource(reader)).getDocumentElement();
 		} catch (SAXException | ParserConfigurationException e) {
 			throw new IOException(Messages.file_badFormat, e);
@@ -1378,8 +1378,9 @@ public class JavaProject
 			Element node;
 
 			try {
+				@SuppressWarnings("restriction")
 				DocumentBuilder parser =
-					DocumentBuilderFactory.newInstance().newDocumentBuilder();
+						org.eclipse.core.internal.runtime.XmlProcessorFactory.createDocumentBuilderWithErrorOnDOCTYPE();
 				node = parser.parse(new InputSource(reader)).getDocumentElement();
 			} catch (SAXException | ParserConfigurationException e) {
 				return null;
