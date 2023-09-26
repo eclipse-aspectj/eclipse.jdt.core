@@ -297,7 +297,7 @@ public TheOriginalJDTScannerClass( // Aspectj Extension: new name
 		isPreviewEnabled);
 }
 
-public TheOriginalJDTScannerClass( // AspectJ
+public TheOriginalJDTScannerClass( // Aspectj Extension: new name
 		boolean tokenizeComments,
 		boolean tokenizeWhiteSpace,
 		boolean checkNonExternalizedStringLiterals,
@@ -1404,7 +1404,6 @@ public void ungetToken(int unambiguousToken) {
 protected void updateCase(int token) {
 	if (token == TokenNamecase) {
 		this.caseStartPosition = this.startPosition;
-		this.breakPreviewAllowed = true;
 	}
 }
 public int getNextToken() throws InvalidInputException {
@@ -5101,9 +5100,6 @@ protected boolean mayBeAtGuard(int token) {
 	}
 	return false;
 }
-protected final boolean mayBeAtBreakPreview() {
-	return !isInModuleDeclaration() && this.breakPreviewAllowed && this.lookBack[1] != TokenNameARROW;
-}
 
 protected final boolean maybeAtLambdaOrCast() { // Could the '(' we saw just now herald a lambda parameter list or a cast expression ? (the possible locations for both are identical.)
 
@@ -5542,7 +5538,6 @@ protected int disambiguateArrowWithCaseExpr(TheOriginalJDTScannerClass scanner, 
  * Assumption: mayBeAtCasePattern(token) is true before calling this method.
  */
 int disambiguateCasePattern(int token, TheOriginalJDTScannerClass scanner) {  // AspectJ
-	assert mayBeAtCasePattern(token);
 	int delta = token == TokenNamecase ? 4 : 0; // 4 for case.
 	final VanguardParser parser = getNewVanguardParser();
 	parser.scanner.resetTo(parser.scanner.currentPosition + delta, parser.scanner.eofPosition);
