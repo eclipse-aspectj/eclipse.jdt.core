@@ -4,7 +4,8 @@
 -- previous versions, Adrian Colyer, Jim Hugunin
 --main options
 %options ACTION, AN=JavaAction.java, GP=java,
-%options FILE-PREFIX=java, ESCAPE=$, PREFIX=TokenName, OUTPUT-SIZE=125 ,
+-- ASPECTJ: OUTPUT-SIZE=200 (from 125) since Java 21 merge
+%options FILE-PREFIX=java, ESCAPE=$, PREFIX=TokenName, OUTPUT-SIZE=200 ,
 %options NOGOTO-DEFAULT, SINGLE-PRODUCTIONS, LALR=1 , TABLE,
 
 --error recovering options.....
