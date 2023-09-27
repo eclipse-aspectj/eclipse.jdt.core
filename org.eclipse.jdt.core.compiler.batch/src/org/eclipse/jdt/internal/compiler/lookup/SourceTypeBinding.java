@@ -3433,6 +3433,13 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize, boolean forceStore)
 @Override
 void storeAnnotations(Binding binding, AnnotationBinding[] annotations, boolean forceStore) {
 	super.storeAnnotations(binding, annotations, forceStore);
+	// AspectJ extension: Add null guard for BinaryTypeBinding which for AJ was hackily changed into extending
+	// SourceTypeBinding instead of the original ReferenceBinding. Without this change, BinaryFormsTestCase fails.
+	// See also unmerged https://github.com/eclipse-jdt/eclipse.jdt.core/pull/1455 and discussion at
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/commit/8d512be7b8594e8c6dfefff06b36a0b95d7250d7#r128469112.
+	if (this instanceof BinaryTypeBinding && this.scope == null)
+		return;
+	// End AspectJ extension
 	this.scope.referenceCompilationUnit().compilationResult.annotations.add(annotations);
 }
 
