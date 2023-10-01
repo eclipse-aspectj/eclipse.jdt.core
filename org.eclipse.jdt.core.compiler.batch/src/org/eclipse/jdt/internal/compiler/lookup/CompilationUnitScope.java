@@ -417,8 +417,15 @@ public void connectTypeHierarchy1() { // AspectJ Extension - raised to public
 public void connectTypeHierarchy2() { // AspectJ Extension - raised to public
 	// Only now that all hierarchy information is built we're ready for ...
 	// ... integrating annotations
+	// AspectJ extension - deactivate call to TypeDeclaration.updateSupertypesWithAnnotations(..), re-establishing
+	// previous JDT Core behaviour, because otherwise several ITD tests fail in AspectJ. See also:
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/commit/32961cfe47d06434b73a05f44e81fb6b94d9f87f#r128824102
+	// TODO: Wait for feedback on GitHub question above and act accordingly.
+	/*
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.referenceType().updateSupertypesWithAnnotations(Collections.emptyMap());
+	*/
+	// AspectJ extension end
 	// ... checking on permitted types
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.connectImplicitPermittedTypes();
