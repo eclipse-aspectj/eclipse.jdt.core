@@ -345,7 +345,7 @@ public class MethodDeclaration extends BodyDeclaration {
 	 * Defaults to an empty list.
 	 */
 	// AspectJ extension - made protected instead of private
-	protected ASTNode.NodeList parameters =
+	protected final ASTNode.NodeList parameters =
 		new ASTNode.NodeList(PARAMETERS_PROPERTY);
 
 	/**
@@ -1245,4 +1245,3 @@ public class MethodDeclaration extends BodyDeclaration {
 			+ (this.optionalBody == null ? 0 : getBody().treeSize());
 	}
 }
-

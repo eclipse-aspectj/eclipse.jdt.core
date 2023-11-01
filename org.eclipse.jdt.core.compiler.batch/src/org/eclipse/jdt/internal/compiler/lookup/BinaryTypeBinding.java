@@ -108,13 +108,13 @@ public class BinaryTypeBinding extends SourceTypeBinding {
 	// AspectJ - TODO kriegaex: Is there anything to be done if this new field is active?
 	protected ReferenceBinding[] permittedSubtypes;
 //	protected FieldBinding[] fields;
-//  protected RecordComponentBinding[] components;
+//	protected RecordComponentBinding[] components;
 //	protected MethodBinding[] methods;
 //	protected ReferenceBinding[] memberTypes;
 //	protected TypeVariableBinding[] typeVariables;
 //	protected ModuleBinding module;
 // End AspectJ Extension
-	private BinaryTypeBinding prototype;
+	private final BinaryTypeBinding prototype;
 	public URI path;
 
 	// For the link with the principle structure

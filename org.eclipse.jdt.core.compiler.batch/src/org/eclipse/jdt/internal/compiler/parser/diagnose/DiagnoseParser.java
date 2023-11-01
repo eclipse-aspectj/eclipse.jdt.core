@@ -29,7 +29,7 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, ConflictedParser {
 	private static final boolean DEBUG = false;
-	private boolean DEBUG_PARSECHECK = false;
+	private final boolean DEBUG_PARSECHECK = false;
 
 	private static final int STACK_INCREMENT = 256;
 
@@ -50,9 +50,9 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	private static final int MAX_DISTANCE = 30;
 	private static final int MIN_DISTANCE = 3;
 
-	private CompilerOptions options;
+	private final CompilerOptions options;
 
-	private LexStream lexStream;
+	private final LexStream lexStream;
 	private int errorToken;
 	private int errorTokenStart;
 
@@ -86,9 +86,9 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	int statePoolTop;
 	StateInfo[] statePool;
 
-	private Parser parser;
+	private final Parser parser;
 
-	private RecoveryScanner recoveryScanner;
+	private final RecoveryScanner recoveryScanner;
 
 	private boolean reportProblem;
 	private int deferredErrorStart;
@@ -199,12 +199,14 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			this.deferredErrorStart = this.deferredErrorEnd = -1;
 			diagnoseParse0(record);
 		} finally {
-			ReferenceContext referenceContext = this.problemReporter().referenceContext;
-			CompilationResult compilationResult = referenceContext != null ? referenceContext.compilationResult() : null;
-			if (compilationResult != null && !compilationResult.hasSyntaxError) {
-				reportMisplacedConstruct(this.deferredErrorStart, this.deferredErrorEnd, true);
+			try (ProblemReporter problemReporter = this.problemReporter()) {
+				ReferenceContext referenceContext = problemReporter.referenceContext;
+				CompilationResult compilationResult = referenceContext != null ? referenceContext.compilationResult() : null;
+				if (compilationResult != null && !compilationResult.hasSyntaxError) {
+					reportMisplacedConstruct(this.deferredErrorStart, this.deferredErrorEnd, true);
+				}
+				this.deferredErrorStart = this.deferredErrorEnd = -1;
 			}
-			this.deferredErrorStart = this.deferredErrorEnd = -1;
 		}
 	}
 
@@ -405,9 +407,11 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 						return;
 					}
 
-					if(this.parser.problemReporter().options.maxProblemsPerUnit < this.parser.compilationUnit.compilationResult.problemCount) {
-						if(this.recoveryScanner == null || !this.recoveryScanner.record) return;
-						this.reportProblem = false;
+					try (ProblemReporter problemReporter = this.parser.problemReporter()) {
+						if(problemReporter.options.maxProblemsPerUnit < this.parser.compilationUnit.compilationResult.problemCount) {
+							if(this.recoveryScanner == null || !this.recoveryScanner.record) return;
+							this.reportProblem = false;
+						}
 					}
 
 					act = this.stack[this.stateStackTop];
@@ -2615,6 +2619,11 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		   error. See that this is not a problem for the regular/normal parser.
 		*/
 		return (token == TokenNameLPAREN || token == TokenNameAT || (token == TokenNameLESS && !this.lexStream.awaitingColonColon()));
+	}
+
+	@Override
+	public boolean automatonWillShift(int token) {
+		return false; // Some day we will understand the world well enough, for now say no and deal with it (sigh)
 	}
 
 	@Override

@@ -68,7 +68,7 @@ public class CompilationResult {
 	public ICompilationUnit compilationUnit;
 	private Map<CategorizedProblem, ReferenceContext> problemsMap;
 	private Set firstErrors;
-	private int maxProblemPerUnit;
+	private final int maxProblemPerUnit;
 	public char[][][] qualifiedReferences;
 	public char[][] simpleNameReferences;
 	public char[][] rootReferences;
@@ -87,6 +87,7 @@ public class CompilationResult {
 	private int numberOfErrors;
 	private boolean hasMandatoryErrors;
 	public List<AnnotationBinding[]> annotations = new ArrayList<>(1);
+	private List<Runnable> scheduledProblems;
 
 	private static final int[] EMPTY_LINE_ENDS = Util.EMPTY_INT_ARRAY;
 	private static final Comparator PROBLEM_COMPARATOR = new Comparator() {
@@ -138,7 +139,7 @@ private int computePriority(CategorizedProblem problem){
 	} else {
 		priority += P_OUTSIDE_METHOD;
 	}
-	if (this.firstErrors!=null && // AspectJ Extension - too many routes get us to here with a null firstErrors 
+	if (this.firstErrors!=null && // AspectJ Extension - too many routes get us to here with a null firstErrors
 			this.firstErrors.contains(problem)){
 			priority += P_FIRST_ERROR;
 		}
@@ -484,34 +485,48 @@ public String toString(){
 	return buffer.toString();
 }
 
+public void scheduleProblem(Runnable task) {
+	if (this.scheduledProblems == null)
+		this.scheduledProblems = new ArrayList<>();
+	this.scheduledProblems.add(task);
+}
+
+public void materializeProblems() {
+	if (this.scheduledProblems != null) {
+		for (Runnable task : this.scheduledProblems) {
+			task.run();
+		}
+	}
+}
+
 	// AspectJ Extension
 	private boolean fromBinarySource = false;
 	public boolean isFromBinarySource() { return fromBinarySource; }
 	public void noSourceAvailable() { fromBinarySource = true; }
-	
+
 	/**
 	 * Can be used to tidy up the problems set, if a problem is accepted by the
 	 * filter, it will be removed. Returns number of problems removed.
 	 */
 	public int removeProblems(ProblemsForRemovalFilter pf) {
 		if (problemCount==0) return 0;
-		
+
 		// Quick first pass - check if anything to do
 		boolean problemsNeedRemoving = false;
 		for (int i = 0; i < problemCount && !problemsNeedRemoving; i++) {
 			if (pf.accept(problems[i])) problemsNeedRemoving = true;
-        }
+		}
 		if (!problemsNeedRemoving) return 0;
-		
+
 		// Second pass, do the removal - is this expensive?
 		int removed = 0;
 		for (int i = 0; i < problemCount; i++) {
 			if (pf.accept(problems[i])) {
-			  if (problemsMap!=null) problemsMap.remove(problems[i]);
-			  if (firstErrors!=null) firstErrors.remove(problems[i]);
-			  problems[i] = null;
-			  removed++;
-			} 
+				if (problemsMap!=null) problemsMap.remove(problems[i]);
+				if (firstErrors!=null) firstErrors.remove(problems[i]);
+				problems[i] = null;
+				removed++;
+			}
 		}
 		if (removed > 0) {
 			for (int i = 0, index = 0; i < this.problemCount; i++) {
@@ -526,12 +541,12 @@ public String toString(){
 			}
 			this.problemCount -= removed;
 		}
-		
+
 		// Don't adjust the array size as the same deows are likely just to get readded
 		// in the imminent weave...
 		return removed;
 	}
-	
+
 	public interface ProblemsForRemovalFilter {
 		boolean accept(IProblem p);
 	}

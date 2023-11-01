@@ -21,14 +21,14 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class DefaultProblem extends CategorizedProblem {
 	private char[] fileName;
-	private int id;
+	private final int id;
 	private int startPosition;
 	private int endPosition;
 	private int line;
 	public int column;
 	public int severity;
-	private String[] arguments;
-	private String message;
+	private final String[] arguments;
+	private final String message;
 	// AspectJ Extension
 	private IProblem[] seeAlso = new IProblem[0];
 	private String supplementaryInfo;
@@ -293,18 +293,18 @@ public String toString() {
 	public void setSeeAlsoProblems(IProblem[] problems) {
 		this.seeAlso = problems;
 	}
-	
+
 	@Override
 	public IProblem[] seeAlso() {
 		return this.seeAlso;
 	}
-	
-	
+
+
 	@Override
 	public String getSupplementaryMessageInfo() {
 		return this.supplementaryInfo;
 	}
-	
+
 	@Override
 	public void setSupplementaryMessageInfo(String msg) {
 		this.supplementaryInfo = msg;

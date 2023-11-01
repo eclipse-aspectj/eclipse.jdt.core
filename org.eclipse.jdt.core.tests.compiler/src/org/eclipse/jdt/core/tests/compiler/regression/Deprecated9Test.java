@@ -1007,6 +1007,59 @@ public class Deprecated9Test extends AbstractRegressionTest9 {
 				"----------\n";
 		runner.runNegativeTest();
 	}
+	public void testGH1431() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] {
+				"Parent.java",
+				"""
+				@Deprecated(since = AbstractChild.TEST_CONSTANT) // this now fails
+				public class Parent extends AbstractChild {
+				    private static final String REF_OK = AbstractChild.TEST_CONSTANT; // this compiles OK
+				}
+				""",
+				"AbstractChild.java",
+				"""
+				public abstract class AbstractChild implements Constants {
+				    // redacted for brevity
+				}
+				""",
+				"Constants.java",
+				"""
+				public interface Constants {
+				    public static final String TEST_CONSTANT = "this is a test";
+				}
+				"""
+			};
+		runner.runConformTest();
+	}
+	public void testGH1412() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] {
+			"AbstractClass.java",
+			"""
+			public abstract class AbstractClass<T> {}
+			""",
+			"AnnotationWithClassValue.java",
+			"""
+			public @interface AnnotationWithClassValue {
+				Class<? extends AbstractClass<?>> value();
+			}
+			""",
+			"ConcreteClass.java",
+			"""
+			//Adding @Deprecated here fixes the bug
+			//@Deprecated
+			public class ConcreteClass extends AbstractClass<AnnotatedClass> {}
+			""",
+			"AnnotatedClass.java",
+			"""
+			@Deprecated
+			@AnnotationWithClassValue(ConcreteClass.class) //Type mismatch: cannot convert from Class<ConcreteClass> to Class<? extends AbstractClass<?>>
+			public class AnnotatedClass {}
+			"""
+		};
+		runner.runConformTest();
+	}
 	public static Class<?> testClass() {
 		return Deprecated9Test.class;
 	}

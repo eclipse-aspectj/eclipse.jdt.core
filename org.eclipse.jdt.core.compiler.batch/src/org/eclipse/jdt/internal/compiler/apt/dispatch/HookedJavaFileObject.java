@@ -218,7 +218,7 @@ public class HookedJavaFileObject extends
 	 */
 	private boolean _closed = false;
 
-	private String _typeName;
+	private final String _typeName;
 
 	public HookedJavaFileObject(JavaFileObject fileObject, String fileName, String typeName, BatchFilerImpl filer) {
 		super(fileObject);

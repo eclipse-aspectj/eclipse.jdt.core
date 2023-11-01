@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -410,11 +410,11 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 	return candidateName;
 }
 
-public void connectTypeHierarchy1() { // AspectJ Extension - raised to public
+void connectTypeHierarchy() {
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.connectTypeHierarchy();
 }
-public void connectTypeHierarchy2() { // AspectJ Extension - raised to public
+void integrateAnnotationsInHierarchy() {
 	// Only now that all hierarchy information is built we're ready for ...
 	// ... integrating annotations
 	// AspectJ extension - deactivate call to TypeDeclaration.updateSupertypesWithAnnotations(..), re-establishing
@@ -427,8 +427,15 @@ public void connectTypeHierarchy2() { // AspectJ Extension - raised to public
 	*/
 	// AspectJ extension end
 	// ... checking on permitted types
+	connectPermittedTypes();
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.connectImplicitPermittedTypes();
+}
+private void connectPermittedTypes() {
+	for (int i = 0, length = this.topLevelTypes.length; i < length; i++) {
+		SourceTypeBinding sourceType = this.topLevelTypes[i];
+		sourceType.scope.connectPermittedTypes();
+	}
 }
 void faultInImports() {
 	if (this.tempImports != null)

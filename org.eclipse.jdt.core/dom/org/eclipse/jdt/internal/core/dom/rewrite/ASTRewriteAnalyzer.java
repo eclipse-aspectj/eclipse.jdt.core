@@ -36,6 +36,7 @@ import org.eclipse.jdt.internal.compiler.parser.Scanner;
 import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
 import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
 import org.eclipse.jdt.internal.compiler.util.Util;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.dom.rewrite.ASTRewriteFormatter.BlockContext;
 import org.eclipse.jdt.internal.core.dom.rewrite.ASTRewriteFormatter.NodeMarker;
 import org.eclipse.jdt.internal.core.dom.rewrite.ASTRewriteFormatter.Prefix;
@@ -197,7 +198,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 	Map options;
 
-	private RecoveryScannerData recoveryScannerData;
+	private final RecoveryScannerData recoveryScannerData;
 
 	/**
 	 * Constructor for ASTRewriteAnalyzer.
@@ -1141,8 +1142,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 		public final static int DEFAULT_SPACING= 1;
 
-		private int initialIndent;
-		private int separatorLines;
+		private final int initialIndent;
+		private final int separatorLines;
 
 		public ParagraphListRewriter(int initialIndent, int separator) {
 			this.initialIndent= initialIndent;
@@ -2146,7 +2147,9 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			try {
 				offset = getScanner().getPreviousTokenEndOffset(token, offset);
 			} catch (CoreException e1) {
-				e1.printStackTrace();
+				if (JavaModelManager.VERBOSE) {
+					JavaModelManager.trace("", e1); //$NON-NLS-1$
+				}
 			}
 		}
 		return offset;
@@ -2178,7 +2181,9 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 					delEnd = getScanner().getNextStartOffset(delStart, false);
 					doTextRemove(delStart, delEnd - delStart, null); /* remove spaces after the annotation */
 				} catch (CoreException e) {
-					e.printStackTrace();
+					if (JavaModelManager.VERBOSE) {
+						JavaModelManager.trace("", e); //$NON-NLS-1$
+					}
 				}
 			} else if (oldAnnotationSize == 0 && newAnnotationSize > 0) { /* inserting first annotation */
 				if (ScannerHelper.isWhitespace(this.content[node.getStartPosition() - 1])) {
@@ -4695,7 +4700,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		}
 
 		try {
-			int offset= node.isImplicit() ? node.getStartPosition() : getScanner().getTokenEndOffset(TerminalTokens.TokenNamebreak, node.getStartPosition());
+			int offset= node.isImplicit() ? node.getStartPosition() : getScanner().getTokenEndOffset(TerminalTokens.TokenNameSEMICOLON, node.getStartPosition());
 			if ((node.getAST().apiLevel() >= JLS14_INTERNAL)) {
 				rewriteNode(node, YieldStatement.EXPRESSION_PROPERTY, offset, ASTRewriteFormatter.SPACE); // space between yield and label
 			}

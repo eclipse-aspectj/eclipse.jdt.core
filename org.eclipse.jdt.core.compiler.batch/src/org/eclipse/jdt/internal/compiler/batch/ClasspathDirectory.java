@@ -57,9 +57,9 @@ import java.util.stream.Stream;
 public class ClasspathDirectory extends ClasspathLocation {
 
 private Hashtable directoryCache;
-private String[] missingPackageHolder = new String[1];
-private int mode; // ability to only consider one kind of files (source vs. binaries), by default use both
-private String encoding; // only useful if referenced in the source path
+private final String[] missingPackageHolder = new String[1];
+private final int mode; // ability to only consider one kind of files (source vs. binaries), by default use both
+private final String encoding; // only useful if referenced in the source path
 private Hashtable<String, Hashtable<String, String>> packageSecondaryTypes = null;
 Map options;
 
@@ -80,6 +80,9 @@ ClasspathDirectory(File directory, String encoding, int mode,
 	this.encoding = encoding;
 }
 String[] directoryList(String qualifiedPackageName) {
+	if (File.separatorChar != '/' && qualifiedPackageName.indexOf('/') != -1) {
+		qualifiedPackageName = qualifiedPackageName.replace('/', File.separatorChar);
+	}
 	String[] dirList = (String[]) this.directoryCache.get(qualifiedPackageName);
 	if (dirList == this.missingPackageHolder) return null; // package exists in another classpath directory or jar
 	if (dirList != null) return dirList;

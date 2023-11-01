@@ -974,7 +974,7 @@ public class AST {
 	 */
 	int apiLevel;
 
-	private boolean previewEnabled;
+	private final boolean previewEnabled;
 
 	/**
 	 * Tag bit value. This represents internal state of the tree.
