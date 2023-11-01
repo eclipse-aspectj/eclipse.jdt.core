@@ -410,11 +410,11 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 	return candidateName;
 }
 
-void connectTypeHierarchy() {
+public void connectTypeHierarchy() { // AspectJ Extension - raised to public
 	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
 		this.topLevelTypes[i].scope.connectTypeHierarchy();
 }
-void integrateAnnotationsInHierarchy() {
+public void integrateAnnotationsInHierarchy() { // AspectJ Extension - raised to public
 	// Only now that all hierarchy information is built we're ready for ...
 	// ... integrating annotations
 	// AspectJ extension - deactivate call to TypeDeclaration.updateSupertypesWithAnnotations(..), re-establishing
