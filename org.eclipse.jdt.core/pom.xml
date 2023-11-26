@@ -181,13 +181,10 @@
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
 
-    <!-- PARENT POM: By default, do not deploy artifacts - override for the ones which actually should be deployed -->
-    <!--<maven.deploy.skip>true</maven.deploy.skip>-->
-    <!-- CHILD POM: By default, do not deploy artifacts - but deploy this public one -->
+    <!-- By default, deploy this public artifact -->
     <maven.deploy.skip>false</maven.deploy.skip>
-    <!-- By default, do not create javadoc - override in release profile or manually -->
+    <!-- By default, do not create javadoc - override in profile 'release' or manually -->
     <maven.javadoc.skip>true</maven.javadoc.skip>
-<!--    <maven.javadoc.skip>false</maven.javadoc.skip>-->
 
     <!-- Dependency versions -->
     <aspectj.version>1.9.20.1</aspectj.version>
