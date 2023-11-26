@@ -243,6 +243,7 @@
         <updatePolicy>never</updatePolicy>
       </releases>
     </pluginRepository>
+    <!--
     <pluginRepository>
       <id>aspectj-dev</id>
       <name>AspectJ artifacts on aspectj.dev</name>
@@ -257,6 +258,7 @@
         <updatePolicy>never</updatePolicy>
       </releases>
     </pluginRepository>
+    -->
   </pluginRepositories>
 
   <profiles>
@@ -408,8 +410,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <!-- TODO: Replace by release in which https://issues.apache.org/jira/browse/MSHADE-443 is fixed -->
-          <version>3.4.1.MSHADE-443</version>
+          <version>3.5.1</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
