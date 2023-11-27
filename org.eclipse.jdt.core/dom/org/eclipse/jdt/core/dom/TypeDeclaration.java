@@ -62,7 +62,7 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 	// org.aspectj.ajdt.core module.
 	private static final String AJ_TYPE_DECLARATION_FACTORY = "org.aspectj.ajdt.core.dom.AjTypeDeclFactory"; //$NON-NLS-1$
 	private static ITypeDeclFactory declarationFactory;
-	
+
 	static {
 		try{
 			declarationFactory = (ITypeDeclFactory) Class.forName(AJ_TYPE_DECLARATION_FACTORY).newInstance();
@@ -75,14 +75,14 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 			//throw new ExceptionInInitializerError(ex.getMessage());
 		}
 	}
-	
+
 	/**
 	 * @since 3.10
 	 */
 	public interface ITypeDeclFactory {
 		public TypeDeclaration createTypeFor(AST ast);
 	}
-	
+
 	/**
 	 * @since 3.10
 	 */
@@ -90,7 +90,7 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 		return declarationFactory.createTypeFor(ast);
 	}
 	// AspectJ Extension end
-		
+
 	/**
 	 * The "javadoc" structural property of this node type (child type: {@link Javadoc}).
 	 * @since 3.0
@@ -926,4 +926,3 @@ public class TypeDeclaration extends AbstractTypeDeclaration {
 		return this.restrictedIdentifierStartPosition;
 	}
 }
-

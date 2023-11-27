@@ -3760,10 +3760,6 @@ final public byte[] getContents() {
 
 /**
  * Returns the type that should be substituted to original binding declaring class as the proper receiver type
- * @param currentScope
- * @param codegenBinding
- * @param actualReceiverType
- * @param isImplicitThisReceiver
  * @return the receiver type to use in constant pool
  */
 public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, FieldBinding codegenBinding, TypeBinding actualReceiverType, boolean isImplicitThisReceiver) {
@@ -3798,10 +3794,6 @@ public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, Fiel
 
 /**
  * Returns the type that should be substituted to original binding declaring class as the proper receiver type
- * @param currentScope
- * @param codegenBinding
- * @param actualReceiverType
- * @param isImplicitThisReceiver
  * @return the receiver type to use in constant pool
  */
 public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, MethodBinding codegenBinding, TypeBinding actualReceiverType, boolean isImplicitThisReceiver) {

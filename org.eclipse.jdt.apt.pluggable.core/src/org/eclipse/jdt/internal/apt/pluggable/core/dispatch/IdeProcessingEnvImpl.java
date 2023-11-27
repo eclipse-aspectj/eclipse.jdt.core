@@ -50,6 +50,7 @@ import org.eclipse.jdt.internal.compiler.apt.model.IElementInfo;
  * {@link IdeAnnotationProcessorManager} that owns it.
  * @see org.eclipse.jdt.internal.compiler.apt.dispatch.BatchProcessingEnvImpl
  */
+@SuppressWarnings("restriction")
 public abstract class IdeProcessingEnvImpl extends BaseProcessingEnvImpl {
 
 	private final IdeAnnotationProcessorManager _dispatchManager;
@@ -139,7 +140,6 @@ public abstract class IdeProcessingEnvImpl extends BaseProcessingEnvImpl {
 	 * of some sort (nested type, method, etc.) then get the IFile corresponding
 	 * to the containing top-level type.
 	 * If the element is not a source type at all, then return null.
-	 * @param elem
 	 * @return may be null
 	 */
 	public IFile getEnclosingIFile(Element elem) {

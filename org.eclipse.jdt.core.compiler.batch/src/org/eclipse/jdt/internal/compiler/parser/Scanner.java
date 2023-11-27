@@ -124,7 +124,6 @@ public class Scanner implements TerminalTokens {
 	boolean breakPreviewAllowed = false;
 	/**
 	 * The current context of the scanner w.r.t restricted keywords
-	 *
 	 */
 	enum ScanContext {
 		EXPECTING_KEYWORD, EXPECTING_IDENTIFIER, AFTER_REQUIRES, INACTIVE
@@ -1050,16 +1049,17 @@ private final void consumeDigits(int radix, boolean expectingDigitFirst) throws 
 	switch(consumeDigits0(radix, USING_UNDERSCORE, INVALID_POSITION, expectingDigitFirst)) {
 		case USING_UNDERSCORE :
 			if (this.sourceLevel < ClassFileConstants.JDK1_7) {
-				throw new InvalidInputException(UNDERSCORES_IN_LITERALS_NOT_BELOW_17);
+				throw invalidUnderscoresInLiterals();
 			}
 			break;
 		case INVALID_POSITION :
 			if (this.sourceLevel < ClassFileConstants.JDK1_7) {
-				throw new InvalidInputException(UNDERSCORES_IN_LITERALS_NOT_BELOW_17);
+				throw invalidUnderscoresInLiterals();
 			}
-			throw new InvalidInputException(INVALID_UNDERSCORE);
+			throw invalidUnderscore();
 	}
 }
+
 private final int consumeDigits0(int radix, int usingUnderscore, int invalidPosition, boolean expectingDigitFirst) throws InvalidInputException {
 	int kind = 0;
 	if (getNextChar('_')) {
@@ -1382,20 +1382,20 @@ public int scanIdentifier() throws InvalidInputException {
 		boolean isJavaIdStart;
 		if (c >= HIGH_SURROGATE_MIN_VALUE && c <= HIGH_SURROGATE_MAX_VALUE) {
 			if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-				throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+				throw invalidUnicodeEscape();
 			}
 			// Unicode 4 detection
 			char low = (char) getNextCharWithBoundChecks();
 			if (low < LOW_SURROGATE_MIN_VALUE || low > LOW_SURROGATE_MAX_VALUE) {
 				// illegal low surrogate
-				throw new InvalidInputException(INVALID_LOW_SURROGATE);
+				throw invalidLowSurrogate();
 			}
 			isJavaIdStart = ScannerHelper.isJavaIdentifierStart(this.complianceLevel, c, low);
 		} else if (c >= LOW_SURROGATE_MIN_VALUE && c <= LOW_SURROGATE_MAX_VALUE) {
 			if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-				throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+				throw invalidUnicodeEscape();
 			}
-			throw new InvalidInputException(INVALID_HIGH_SURROGATE);
+			throw invalidHighSurrogate();
 		} else {
 			// optimized case already checked
 			isJavaIdStart = ScannerHelper.isJavaIdentifierStart(this.complianceLevel, c);
@@ -1840,7 +1840,7 @@ protected int getNextToken0() throws InvalidInputException {
 								int firstTag = 0;
 								while ((this.currentCharacter != '/') || (!star)) {
 									if (this.currentPosition >= this.eofPosition) {
-										throw new InvalidInputException(UNTERMINATED_COMMENT);
+										throw unterminatedComment();
 									}
 									if ((this.currentCharacter == '\r') || (this.currentCharacter == '\n')) {
 										if (this.recordLineSeparator) {
@@ -1893,7 +1893,7 @@ protected int getNextToken0() throws InvalidInputException {
 								}
 							} catch (IndexOutOfBoundsException e) {
 								this.currentPosition--;
-								throw new InvalidInputException(UNTERMINATED_COMMENT);
+								throw unterminatedComment();
 							}
 							break;
 						}
@@ -1905,7 +1905,7 @@ protected int getNextToken0() throws InvalidInputException {
 					if (atEnd())
 						return TokenNameEOF;
 					//the atEnd may not be <currentPosition == source.length> if source is only some part of a real (external) stream
-					throw new InvalidInputException("Ctrl-Z"); //$NON-NLS-1$
+					throw invalidEof();
 				default :
 					char c = this.currentCharacter;
 					if (c < ScannerHelper.MAX_OBVIOUS) {
@@ -1920,21 +1920,21 @@ protected int getNextToken0() throws InvalidInputException {
 					boolean isJavaIdStart;
 					if (c >= HIGH_SURROGATE_MIN_VALUE && c <= HIGH_SURROGATE_MAX_VALUE) {
 						if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+							throw invalidUnicodeEscape();
 						}
 						// Unicode 4 detection
 						char low = (char) getNextChar();
 						if (low < LOW_SURROGATE_MIN_VALUE || low > LOW_SURROGATE_MAX_VALUE) {
 							// illegal low surrogate
-							throw new InvalidInputException(INVALID_LOW_SURROGATE);
+							throw invalidLowSurrogate();
 						}
 						isJavaIdStart = ScannerHelper.isJavaIdentifierStart(this.complianceLevel, c, low);
 					}
 					else if (c >= LOW_SURROGATE_MIN_VALUE && c <= LOW_SURROGATE_MAX_VALUE) {
 						if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+							throw invalidUnicodeEscape();
 						}
-						throw new InvalidInputException(INVALID_HIGH_SURROGATE);
+						throw invalidHighSurrogate();
 					} else {
 						// optimized case already checked
 						isJavaIdStart = ScannerHelper.isJavaIdentifierStart(this.complianceLevel, c);
@@ -1962,7 +1962,7 @@ protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputExc
 	{
 		int test;
 		if ((test = getNextChar('\n', '\r')) == 0) {
-			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+			throw invalidCharacter();
 		}
 		if (test > 0) {
 			// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
@@ -1976,7 +1976,7 @@ protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputExc
 					break;
 				}
 			}
-			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+			throw invalidCharacter();
 		}
 	}
 	if (getNextChar('\'')) {
@@ -1991,7 +1991,7 @@ protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputExc
 				break;
 			}
 		}
-		throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+		throw invalidCharacter();
 	}
 	if (getNextChar('\\')) {
 		if (this.unicodeAsBackSlash) {
@@ -2016,7 +2016,7 @@ protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputExc
 			&& (this.source[this.currentPosition] == 'u');
 		} catch(IndexOutOfBoundsException e) {
 			this.currentPosition--;
-			throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+			throw invalidCharacter();
 		}
 		if (checkIfUnicode) {
 			getNextUnicodeChar();
@@ -2039,7 +2039,7 @@ protected int processSingleQuotes(boolean checkIfUnicode) throws InvalidInputExc
 			break;
 		}
 	}
-	throw new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+	throw invalidCharacter();
 }
 protected int scanForStringLiteral() throws InvalidInputException {
 	boolean isTextBlock = false;
@@ -2067,7 +2067,7 @@ protected int scanForStringLiteral() throws InvalidInputException {
 
 			while (this.currentCharacter != '"') {
 				if (this.currentPosition >= this.eofPosition) {
-					throw new InvalidInputException(UNTERMINATED_STRING);
+					throw unterminatedString();
 				}
 				/**** \r and \n are not valid in string literals ****/
 				if ((this.currentCharacter == '\n') || (this.currentCharacter == '\r')) {
@@ -2090,13 +2090,13 @@ protected int scanForStringLiteral() throws InvalidInputException {
 								break;
 							}
 							if (this.currentCharacter == '\"') {
-								throw new InvalidInputException(INVALID_CHAR_IN_STRING);
+								throw invalidCharInString();
 							}
 						}
 					} else {
 						this.currentPosition--; // set current position on new line character
 					}
-					throw new InvalidInputException(INVALID_CHAR_IN_STRING);
+					throw invalidCharInString();
 				}
 				if (this.currentCharacter == '\\') {
 					if (this.unicodeAsBackSlash) {
@@ -2139,7 +2139,7 @@ protected int scanForStringLiteral() throws InvalidInputException {
 			}
 		} catch (IndexOutOfBoundsException e) {
 			this.currentPosition--;
-			throw new InvalidInputException(UNTERMINATED_STRING);
+			throw unterminatedString();
 		} catch (InvalidInputException e) {
 			if (e.getMessage().equals(INVALID_ESCAPE)) {
 				// relocate if finding another quote fairly close: thus unicode '/u000D' will be fully consumed
@@ -2255,10 +2255,10 @@ protected int scanForTextBlock() throws InvalidInputException {
 		if (lastQuotePos > 0)
 			this.currentPosition = lastQuotePos;
 		this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
-		throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
+		throw unterminatedTextBlock();
 	} catch (IndexOutOfBoundsException e) {
 		this.currentPosition = (lastQuotePos > 0) ? lastQuotePos : this.startPosition + this.rawStart;
-		throw new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
+		throw unterminatedTextBlock();
 	}
 }
 public void getNextUnicodeChar()
@@ -2277,18 +2277,18 @@ public void getNextUnicodeChar()
 			this.currentPosition++;
 			if (this.currentPosition >= this.eofPosition) {
 				this.currentPosition--;
-				throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+				throw invalidUnicodeEscape();
 			}
 			unicodeSize++;
 		}
 	} else {
 		this.currentPosition--;
-		throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+		throw invalidUnicodeEscape();
 	}
 
 	if ((this.currentPosition + 4) > this.eofPosition) {
 		this.currentPosition += (this.eofPosition - this.currentPosition);
-		throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+		throw invalidUnicodeEscape();
 	}
 	if ((c1 = ScannerHelper.getHexadecimalValue(this.source[this.currentPosition++])) > 15
     		|| c1 < 0
@@ -2298,7 +2298,7 @@ public void getNextUnicodeChar()
     		|| c3 < 0
     		|| (c4 = ScannerHelper.getHexadecimalValue(this.source[this.currentPosition++])) > 15
     		|| c4 < 0){
-		throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+		throw invalidUnicodeEscape();
 	}
 	this.currentCharacter = (char) (((c1 * 16 + c2) * 16 + c3) * 16 + c4);
 	//need the unicode buffer
@@ -2710,7 +2710,7 @@ public final void jumpOverMethodBody() {
 						boolean isJavaIdStart;
 						if (c >= HIGH_SURROGATE_MIN_VALUE && c <= HIGH_SURROGATE_MAX_VALUE) {
 							if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-								throw new InvalidInputException(INVALID_UNICODE_ESCAPE);
+								throw invalidUnicodeEscape();
 							}
 							// Unicode 4 detection
 							char low = (char) getNextChar();
@@ -3107,7 +3107,7 @@ protected final void scanEscapeCharacter() throws InvalidInputException {
 			break;
 		case 's' :
 			if (this.sourceLevel < ClassFileConstants.JDK15) {
-				throw new InvalidInputException(INVALID_ESCAPE);
+				throw invalidEscape();
 			}
 			this.currentCharacter = ' ';
 			break;
@@ -3148,12 +3148,13 @@ protected final void scanEscapeCharacter() throws InvalidInputException {
 					this.currentPosition--;
 				}
 				if (number > 255)
-					throw new InvalidInputException(INVALID_ESCAPE);
+					throw invalidEscape();
 				this.currentCharacter = (char) number;
 			} else
-				throw new InvalidInputException(INVALID_ESCAPE);
+				throw invalidEscape();
 	}
 }
+
 public int scanIdentifierOrKeywordWithBoundCheck() {
 	//test keywords
 
@@ -4017,7 +4018,7 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 			int end = this.currentPosition;
 			if (getNextChar('l', 'L') >= 0) {
 				if (end == start) {
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				}
 				return TokenNameLongLiteral;
 			} else if (getNextChar('.')) {
@@ -4029,9 +4030,9 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 				end = this.currentPosition;
 				if (hasNoDigitsBeforeDot && end == start) {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				}
 
 				if (getNextChar('p', 'P') >= 0) { // consume next character
@@ -4059,50 +4060,50 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 					}
 					if (!ScannerHelper.isDigit(this.currentCharacter)) {
 						if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+							throw illegalHexaLiteral();
 						}
 						if (this.currentCharacter == '_') {
 							// wrongly place '_'
 							consumeDigits(10);
-							throw new InvalidInputException(INVALID_UNDERSCORE);
+							throw invalidUnderscore();
 						}
-						throw new InvalidInputException(INVALID_HEXA);
+						throw invalidHexa();
 					}
 					consumeDigits(10);
 					if (getNextChar('f', 'F') >= 0) {
 						if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+							throw illegalHexaLiteral();
 						}
 						return TokenNameFloatingPointLiteral;
 					}
 					if (getNextChar('d', 'D') >= 0) {
 						if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+							throw illegalHexaLiteral();
 						}
 						return TokenNameDoubleLiteral;
 					}
 					if (getNextChar('l', 'L') >= 0) {
 						if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-							throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+							throw illegalHexaLiteral();
 						}
-						throw new InvalidInputException(INVALID_HEXA);
+						throw invalidHexa();
 					}
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
 					return TokenNameDoubleLiteral;
 				} else {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				}
 			} else if (getNextChar('p', 'P') >= 0) { // consume next character
 				if (end == start) { // Has no digits before exponent
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				}
 				this.unicodeAsBackSlash = false;
 				if (((this.currentCharacter = this.source[this.currentPosition++]) == '\\')
@@ -4128,41 +4129,41 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 				}
 				if (!ScannerHelper.isDigit(this.currentCharacter)) {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
 					if (this.currentCharacter == '_') {
 						// wrongly place '_'
 						consumeDigits(10);
-						throw new InvalidInputException(INVALID_UNDERSCORE);
+						throw invalidUnderscore();
 					}
-					throw new InvalidInputException(INVALID_FLOAT);
+					throw invalidFloat();
 				}
 				consumeDigits(10);
 				if (getNextChar('f', 'F') >= 0) {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
 					return TokenNameFloatingPointLiteral;
 				}
 				if (getNextChar('d', 'D') >= 0) {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
 					return TokenNameDoubleLiteral;
 				}
 				if (getNextChar('l', 'L') >= 0) {
 					if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-						throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+						throw illegalHexaLiteral();
 					}
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				}
 				if (this.sourceLevel < ClassFileConstants.JDK1_5) {
-					throw new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+					throw illegalHexaLiteral();
 				}
 				return TokenNameDoubleLiteral;
 			} else {
 				if (end == start)
-					throw new InvalidInputException(INVALID_HEXA);
+					throw invalidHexa();
 				return TokenNameIntegerLiteral;
 			}
 		} else if (getNextChar('b', 'B') >= 0) { //----------binary-----------------
@@ -4171,18 +4172,18 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 			int end = this.currentPosition;
 			if (end == start) {
 				if (this.sourceLevel < ClassFileConstants.JDK1_7) {
-					throw new InvalidInputException(BINARY_LITERAL_NOT_BELOW_17);
+					throw invalidBinaryLiteral();
 				}
-				throw new InvalidInputException(INVALID_BINARY);
+				throw invalidBinary();
 			}
 			if (getNextChar('l', 'L') >= 0) {
 				if (this.sourceLevel < ClassFileConstants.JDK1_7) {
-					throw new InvalidInputException(BINARY_LITERAL_NOT_BELOW_17);
+					throw invalidBinaryLiteral();
 				}
 				return TokenNameLongLiteral;
 			}
 			if (this.sourceLevel < ClassFileConstants.JDK1_7) {
-				throw new InvalidInputException(BINARY_LITERAL_NOT_BELOW_17);
+				throw invalidBinaryLiteral();
 			}
 			return TokenNameIntegerLiteral;
 		}
@@ -4236,9 +4237,9 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 						if (this.currentCharacter == '_') {
 							// wrongly place '_'
 							consumeDigits(10);
-							throw new InvalidInputException(INVALID_UNDERSCORE);
+							throw invalidUnderscore();
 						}
-						throw new InvalidInputException(INVALID_FLOAT);
+						throw invalidFloat();
 					}
 					consumeDigits(10);
 				}
@@ -4294,9 +4295,9 @@ public int scanNumber(boolean dotPrefix) throws InvalidInputException {
 			if (this.currentCharacter == '_') {
 				// wrongly place '_'
 				consumeDigits(10);
-				throw new InvalidInputException(INVALID_UNDERSCORE);
+				throw invalidUnderscore();
 			}
-			throw new InvalidInputException(INVALID_FLOAT);
+			throw invalidFloat();
 		}
 		// current character is a digit so we expect no digit first (the next character could be an underscore)
 		consumeDigits(10);
@@ -5671,4 +5672,65 @@ public int fastForward(Statement unused) {
 protected int getNextNotFakedToken() throws InvalidInputException {
 	return getNextToken();
 }
+
+protected static InvalidInputException invalidCharacter() {
+	return new InvalidInputException(INVALID_CHARACTER_CONSTANT);
+}
+protected static InvalidInputException invalidCharInString() {
+	return new InvalidInputException(INVALID_CHAR_IN_STRING);
+}
+protected static InvalidInputException unterminatedString() {
+	return new InvalidInputException(UNTERMINATED_STRING);
+}
+protected static InvalidInputException invalidUnicodeEscape() {
+	return new InvalidInputException(INVALID_UNICODE_ESCAPE);
+}
+protected static InvalidInputException invalidLowSurrogate() {
+	return new InvalidInputException(INVALID_LOW_SURROGATE);
+}
+protected static InvalidInputException invalidHighSurrogate() {
+	return new InvalidInputException(INVALID_HIGH_SURROGATE);
+}
+protected static InvalidInputException unterminatedComment() {
+	return new InvalidInputException(UNTERMINATED_COMMENT);
+}
+protected static InvalidInputException unterminatedTextBlock() {
+	return new InvalidInputException(UNTERMINATED_TEXT_BLOCK);
+}
+protected static InvalidInputException invalidEof() {
+	return new InvalidInputException("Ctrl-Z"); //$NON-NLS-1$
+}
+protected static InvalidInputException invalidUnderscore() {
+	return new InvalidInputException(INVALID_UNDERSCORE);
+}
+protected static InvalidInputException invalidUnderscoresInLiterals() {
+	return new InvalidInputException(UNDERSCORES_IN_LITERALS_NOT_BELOW_17);
+}
+protected static InvalidInputException invalidEscape() {
+	return new InvalidInputException(INVALID_ESCAPE);
+}
+protected static InvalidInputException invalidHexa() {
+	return new InvalidInputException(INVALID_HEXA);
+}
+protected static InvalidInputException illegalHexaLiteral() {
+	return new InvalidInputException(ILLEGAL_HEXA_LITERAL);
+}
+protected static InvalidInputException invalidFloat() {
+	return new InvalidInputException(INVALID_FLOAT);
+}
+protected static InvalidInputException invalidBinaryLiteral() {
+	return new InvalidInputException(BINARY_LITERAL_NOT_BELOW_17);
+}
+protected static InvalidInputException invalidBinary() {
+	return new InvalidInputException(INVALID_BINARY);
+}
+public static InvalidInputException invalidToken(int token) {
+	return new InvalidInputException("Unknown token (check Scanner/TerminalTokens): " + token); //$NON-NLS-1$
+}
+public static InvalidInputException invalidInput() {
+	return new InvalidInputException();
+}
+
+
+
 }

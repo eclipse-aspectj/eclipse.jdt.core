@@ -92,6 +92,24 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 			options);
 	}
 	public void test002() {
+		String expectedDiagnostics = this.complianceLevel < ClassFileConstants.JDK20 ?
+				"----------\n" +
+				"1. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof (String s)) {\n" +
+				"	                   ^\n" +
+				"Syntax error on token \"(\", delete this token\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof (String s)) {\n" +
+				"	                             ^\n" +
+				"Syntax error on token \")\", delete this token\n" +
+				"----------\n" :
+							"----------\n" +
+							"1. ERROR in X.java (at line 3)\n" +
+							"	if (obj instanceof (String s)) {\n" +
+							"	        ^^^^^^^^^^\n" +
+							"Syntax error on token \"instanceof\", ReferenceType expected after this token\n" +
+							"----------\n";
 		runNegativeTest(
 			new String[] {
 				"X.java",
@@ -106,14 +124,49 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 				"	}\n" +
 				"}\n",
 			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 3)\n" +
-			"	if (obj instanceof (String s)) {\n" +
-			"	        ^^^^^^^^^^\n" +
-			"Syntax error on token \"instanceof\", ReferenceType expected after this token\n" +
-			"----------\n");
+			expectedDiagnostics);
 	}
 	public void test003() {
+
+		String expectedDiagnostics = this.complianceLevel < ClassFileConstants.JDK20 ?
+				"----------\n" +
+				"1. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof ((String s))) {\n" +
+				"	        ^^^^^^^^^^\n" +
+				"Syntax error, insert \"Type\" to complete InstanceofClassic\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof ((String s))) {\n" +
+				"	        ^^^^^^^^^^\n" +
+				"Syntax error, insert \") Statement\" to complete BlockStatements\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof ((String s))) {\n" +
+				"	                     ^^^^^^\n" +
+				"Syntax error on token \"String\", ( expected after this token\n" +
+				"----------\n" +
+				"4. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof ((String s))) {\n" +
+				"	                               ^\n" +
+				"Syntax error, insert \"AssignmentOperator Expression\" to complete Assignment\n" +
+				"----------\n" +
+				"5. ERROR in X.java (at line 3)\n" +
+				"	if (obj instanceof ((String s))) {\n" +
+				"	                               ^\n" +
+				"Syntax error, insert \";\" to complete Statement\n" +
+				"----------\n" :
+									"----------\n" +
+									"1. ERROR in X.java (at line 3)\n" +
+									"	if (obj instanceof ((String s))) {\n" +
+									"	                   ^\n" +
+									"Syntax error on token \"(\", invalid ReferenceType\n" +
+									"----------\n" +
+									"2. ERROR in X.java (at line 3)\n" +
+									"	if (obj instanceof ((String s))) {\n" +
+									"	                               ^\n" +
+									"Syntax error on token \")\", delete this token\n" +
+									"----------\n";
+
 		runNegativeTest(
 			new String[] {
 				"X.java",
@@ -128,17 +181,7 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 				"	}\n" +
 				"}\n",
 			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 3)\n" +
-			"	if (obj instanceof ((String s))) {\n" +
-			"	                   ^\n" +
-			"Syntax error on token \"(\", invalid ReferenceType\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 3)\n" +
-			"	if (obj instanceof ((String s))) {\n" +
-			"	                               ^\n" +
-			"Syntax error on token \")\", delete this token\n" +
-			"----------\n");
+			expectedDiagnostics);
 	}
 	public void test007() {
 		runNegativeTest(
@@ -210,5 +253,35 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 			"	                 ^^^^^^^^^^^^^\n" +
 			"Syntax error, modifiers are not allowed here\n" +
 			"----------\n");
+	}
+
+	public void testGH1621() {
+		runConformTest(
+			new String[] {
+				"ConsumerEndpointSpec.java",
+				"""
+				import java.util.function.Consumer;
+
+				public class ConsumerEndpointSpec {
+					public void setNotPropagatedHeaders(String... headers) {
+						for (String s: headers) System.out.print(s);
+					}
+					void foo(Object h) {
+						if (h instanceof ConsumerEndpointSpec producingMessageHandler) {
+							acceptIfNotEmpty(new String[] {"OK"}, producingMessageHandler::setNotPropagatedHeaders);
+						}
+					}
+					public <T> void acceptIfNotEmpty(T[] value, Consumer<T[]> consumer) {
+						consumer.accept(value);
+					}
+					public static void main(String... args) {
+						ConsumerEndpointSpec obj = new ConsumerEndpointSpec();
+						obj.foo(obj);
+					}
+				}
+				"""
+			},
+			"OK",
+			getCompilerOptions());
 	}
 }

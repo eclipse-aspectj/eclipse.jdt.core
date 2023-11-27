@@ -737,7 +737,6 @@ public static int getIrritant(int problemID) {
 }
 /**
  * Compute problem category ID based on problem ID
- * @param problemID
  * @return a category ID
  * @see CategorizedProblem
  */

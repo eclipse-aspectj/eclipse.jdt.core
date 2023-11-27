@@ -478,8 +478,6 @@ public class ASTConverter {
 	}
 	/**
 	 * Internal access method to SwitchCase#setExpression() for avoiding deprecated warnings
-	 * @param switchCase
-	 * @param exp
 	 * @deprecated
 	 */
 	private static void internalSetExpression(SwitchCase switchCase, Expression exp) {
@@ -488,8 +486,6 @@ public class ASTConverter {
 	/**
 	 * Internal access method to SingleVariableDeclaration#setExtraDimensions() for avoiding deprecated warnings
 	 *
-	 * @param node
-	 * @param dimensions
 	 * @deprecated
 	 */
 	private static void internalSetExtraDimensions(SingleVariableDeclaration node, int dimensions) {
@@ -498,8 +494,6 @@ public class ASTConverter {
 	/**
 	 * Internal access method to VariableDeclarationFragment#setExtraDimensions() for avoiding deprecated warnings
 	 *
-	 * @param node
-	 * @param dimensions
 	 * @deprecated
 	 */
 	private static void internalSetExtraDimensions(VariableDeclarationFragment node, int dimensions) {
@@ -508,8 +502,6 @@ public class ASTConverter {
 	/**
 	 * Internal access method to MethodDeclaration#setExtraDimension() for avoiding deprecated warnings
 	 *
-	 * @param node
-	 * @param dimensions
 	 * @deprecated
 	 */
 	private static void internalSetExtraDimensions(MethodDeclaration node, int dimensions) {
@@ -518,17 +510,12 @@ public class ASTConverter {
 	/**
 	 * Internal access method to MethodDeclaration#thrownExceptions() for avoiding deprecated warnings
 	 *
-	 * @param node
 	 * @deprecated
 	 */
 	private static List internalThownExceptions(MethodDeclaration node) {
 		return node.thrownExceptions();
 	}
 
-	/**
-	 * @param compilationUnit
-	 * @param comments
-	 */
 	void buildCommentsTable(CompilationUnit compilationUnit, int[][] comments) {
 		// Build comment table
 		this.commentsTable = new Comment[comments.length];
@@ -5839,9 +5826,6 @@ public class ASTConverter {
 		this.setModifiers(annotationTypeMemberDecl, annotationTypeMemberDeclaration.annotations, annotationTypeMemberDeclaration.sourceStart);
 	}
 
-	/**
-	 * @param bodyDeclaration
-	 */
 	protected void setModifiers(BodyDeclaration bodyDeclaration, org.eclipse.jdt.internal.compiler.ast.Annotation[] annotations, int modifiersEnd) {
 		setModifiers(bodyDeclaration.modifiers(), annotations, modifiersEnd);
 	}
@@ -5947,10 +5931,6 @@ public class ASTConverter {
 		}
 	}
 
-	/**
-	 * @param fieldDeclaration
-	 * @param fieldDecl
-	 */
 	protected void setModifiers(FieldDeclaration fieldDeclaration, org.eclipse.jdt.internal.compiler.ast.FieldDeclaration fieldDecl) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -5965,10 +5945,6 @@ public class ASTConverter {
 		}
 	}
 
-	/**
-	 * @param initializer
-	 * @param oldInitializer
-	 */
 	protected void setModifiers(Initializer initializer, org.eclipse.jdt.internal.compiler.ast.Initializer oldInitializer) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL:
@@ -5982,10 +5958,6 @@ public class ASTConverter {
 				this.setModifiers(initializer, oldInitializer.annotations, oldInitializer.bodyStart);
 		}
 	}
-	/**
-	 * @param methodDecl
-	 * @param methodDeclaration
-	 */
 	protected void setModifiers(MethodDeclaration methodDecl, AbstractMethodDeclaration methodDeclaration) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -6011,10 +5983,6 @@ public class ASTConverter {
 			moduleDecl.annotations().add(ie);
 		}
 	}
-	/**
-	 * @param variableDecl
-	 * @param argument
-	 */
 	protected void setModifiers(SingleVariableDeclaration variableDecl, Argument argument) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -6166,7 +6134,6 @@ public class ASTConverter {
 	}
 
 	/**
-	 * @param variableDecl
 	 * @param component
 	 *
 	 * TODO: just plain copy of sM(SVD, Argument) - need to cut the flab here.
@@ -6245,10 +6212,6 @@ public class ASTConverter {
 				}
 		}
 	}
-	/**
-	 * @param typeDecl
-	 * @param typeDeclaration
-	 */
 	protected void setModifiers(TypeDeclaration typeDecl, org.eclipse.jdt.internal.compiler.ast.TypeDeclaration typeDeclaration) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -6266,10 +6229,6 @@ public class ASTConverter {
 		}
 	}
 
-	/**
-	 * @param variableDeclarationExpression
-	 * @param localDeclaration
-	 */
 	protected void setModifiers(VariableDeclarationExpression variableDeclarationExpression, LocalDeclaration localDeclaration) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -6347,10 +6306,6 @@ public class ASTConverter {
 		}
 	}
 
-	/**
-	 * @param variableDeclarationStatement
-	 * @param localDeclaration
-	 */
 	protected void setModifiers(VariableDeclarationStatement variableDeclarationStatement, LocalDeclaration localDeclaration) {
 		switch(this.ast.apiLevel) {
 			case AST.JLS2_INTERNAL :
@@ -6597,8 +6552,6 @@ public class ASTConverter {
 
 	/** extracts the subArrayType for a given declaration for AST levels less
 	 * @param arrayType parent type
-	 * @param remainingDimensions
-	 * @param dimensionsToRemove
 	 * @return an ArrayType
 	 */
 	private ArrayType extractSubArrayType(ArrayType arrayType, int remainingDimensions, int dimensionsToRemove) {

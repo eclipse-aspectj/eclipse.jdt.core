@@ -1384,4 +1384,322 @@ public void testBug567497() throws JavaModelException {
 		elements
 	);
 }
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1420
+// Sporadic errors reported for Java hover or Ctrl+Click
+public void testGH1420() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+					"""
+                    public class X {\n" +
+
+					    class Job {}
+
+						public void foo(boolean b) {
+							if (!b) {
+							} else {
+								Job j = new Job() {
+									protected void run() {
+										/*here*/getTarget();
+									}
+									void getTarget() {
+									}
+								};
+							}
+						}
+					}
+					""");
+	String str = this.wc.getSource();
+	String selection = "/*here*/getTarget";
+	int start = str.indexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"getTarget() [in <anonymous #1> [in foo(boolean) [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1420
+// Sporadic errors reported for Java hover or Ctrl+Click
+public void testGH1420_2() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+					"""
+                 public class X {\n" +
+
+					    class Job {}
+
+						public void foo(Job j) {}
+
+						public void foo(boolean b) {
+							if (!b) {
+							} else {
+								foo(new Job() {
+									protected void run() {
+										/*here*/getTarget();
+									}
+									void getTarget() {
+									}
+								});
+							}
+						}
+					}
+					""");
+	String str = this.wc.getSource();
+	String selection = "/*here*/getTarget";
+	int start = str.indexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"getTarget() [in <anonymous #1> [in foo(boolean) [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1420
+// Sporadic errors reported for Java hover or Ctrl+Click
+public void testGH1420_3() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+					"""
+              public class X {\n" +
+
+					    class Job {}
+
+						public void foo(Job j) {}
+
+						public void foo(boolean b) {
+							if (!b) {
+							} else {
+								class LocalClass {
+									protected void run() {
+										/*here*/getTarget();
+									}
+									void getTarget() {
+									}
+								};
+							}
+						}
+					}
+					""");
+	String str = this.wc.getSource();
+	String selection = "/*here*/getTarget";
+	int start = str.indexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"getTarget() [in LocalClass [in foo(boolean) [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/860
+// Field assignment to anonymous type breaks selection
+public void testGH860() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/eclipse_bug/CurrentTextSelectionCannotBeOpened.java",
+					"""
+           			package eclipse_bug;
+
+					public class CurrentTextSelectionCannotBeOpened {
+						public static class Super {
+							public boolean boolMethod(){return true;}
+						}
+
+						Object obj;
+						public boolean somecode(){
+							obj=new Object(){
+								public boolean somecode(){
+									Super sup=new Super();
+									return sup.boolMethod();
+								}
+							};
+							return false;
+						}
+					}
+					""");
+	String str = this.wc.getSource();
+	String selection = "boolMethod";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"boolMethod() [in Super [in CurrentTextSelectionCannotBeOpened [in [Working copy] CurrentTextSelectionCannotBeOpened.java [in eclipse_bug [in src [in Resolve15]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1568
+// Current text selection cannot be opened in an editor
+public void testGH1568() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/RowRenderData.java",
+			"""
+			import java.util.ArrayList;
+			import java.util.List;
+
+			public class RowRenderData {
+
+			    private List<Object> cells = new ArrayList<>();
+
+			    public List<Object> getCells() {
+			        return cells;
+			    }
+
+			    public void setCells(List<Object> cells) {
+			        this.cells = cells;
+			    }
+
+			    public static void main(String[] args) {
+			        List<RowRenderData> rows = new ArrayList<>();
+			        if (true) {
+			            for (RowRenderData row : rows) {
+			                row.getCells();
+			            }
+			        }
+			    }
+			}
+			""");
+	String str = this.wc.getSource();
+	String selection = "row";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"row [in main(String[]) [in RowRenderData [in [Working copy] RowRenderData.java [in <default> [in src [in Resolve15]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1568
+// Current text selection cannot be opened in an editor
+public void testGH1568_2() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+			"""
+			public class X {
+				Integer abcdef = 10;
+			    public void main(String argv[]) {
+			        Object o = argv;
+			        if (!(o instanceof String [] abcdef)) {
+			        	if (abcdef == null) {
+
+			        	}
+			        } else {
+			        	if (abcdef.length > 0) {
+
+			        	}
+			        }
+			    }
+			}
+			""");
+	String str = this.wc.getSource();
+	String selection = "abcdef";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"abcdef [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1568
+// Current text selection cannot be opened in an editor
+public void testGH1568_3() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+			"""
+			public class X {
+
+				public void main(String argv[]) {
+					Object o = argv;
+					if (o instanceof String[] abcdef) {
+						if (o != null) {
+							if (argv[0] instanceof String str) {
+							}
+						} else {
+							if (abcdef.length > 0) {
+
+
+							}
+						}
+					}
+				}
+			}
+			""");
+	String str = this.wc.getSource();
+	String selection = "abcdef";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"abcdef [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1568
+// Current text selection cannot be opened in an editor
+public void testGH1568_4() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+			"""
+			public class X {
+				Integer abcdef = 10;
+			    public void main(String argv[]) {
+			        Object o = argv;
+			        if (!(o instanceof String [] abcdef)) {
+			        	if (abcdef == null) {
+
+			        	}
+			        } else {
+			        }
+			    }
+			}
+			""");
+	String str = this.wc.getSource();
+	String selection = "abcdef";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"abcdef [in X [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]",
+		elements
+	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1568
+// Current text selection cannot be opened in an editor
+public void testGH1568_5() throws JavaModelException {
+	this.wc = getWorkingCopy("/Resolve15/src/X.java",
+			"""
+			import java.util.ArrayList;
+			import java.util.List;
+
+			public class RowRenderData {
+
+			    private List<Object> cells = new ArrayList<>();
+
+			    public List<Object> getCells() {
+			        return cells;
+			    }
+
+			    public void setCells(List<Object> cells) {
+			        this.cells = cells;
+			    }
+
+			    public static void main(String[] args) {
+			        List<RowRenderData> rows = new ArrayList<>();
+			        if (true) {
+			            for (RowRenderData row = new RowRenderData(); row != null;) {
+			                row.getCells();
+			            }
+			        }
+			    }
+			}
+			""");
+	String str = this.wc.getSource();
+	String selection = "row";
+	int start = str.lastIndexOf(selection);
+	int length = selection.length();
+	IJavaElement[] elements = this.wc.codeSelect(start, length);
+	assertElementsEqual(
+		"Unexpected elements",
+		"row [in main(String[]) [in RowRenderData [in [Working copy] X.java [in <default> [in src [in Resolve15]]]]]]",
+		elements
+	);
+}
 }
