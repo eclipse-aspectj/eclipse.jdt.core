@@ -22,13 +22,9 @@ on:
           - 'package'
           - 'deploy'
   push:
-    branches:
-      - '*'
-      - '!gh-pages'
+    branches: [ aspectj ]
   pull_request:
-    branches:
-      - '*'
-      - '!gh-pages'
+    branches: [ aspectj ]
 
 jobs:
   build:
