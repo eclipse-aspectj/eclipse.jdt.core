@@ -8,32 +8,71 @@
 # This workflow will build a package using Maven and then publish it to GitHub packages when a release is created
 # For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#apache-maven-with-a-settings-path
 
-name: Deploy AspectJ JDT Core
+name: Build AspectJ JDT Core
 
 on:
   workflow_dispatch:
+    inputs:
+      mavenPhase:
+        type: choice
+        description: Maven phase
+        required: true
+        default: 'package'
+        options:
+          - 'package'
+          - 'deploy'
+  push:
+    branches:
+      - '*'
+      - '!gh-pages'
+  pull_request:
+    branches:
+      - '*'
+      - '!gh-pages'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MAVEN_PHASE: ${{ github.event.inputs.mavenPhase || 'package' }}
     steps:
-      - uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v2
+      - name: Set Git options
+        # Check out as-is, commit Unix-style line endings
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up cache for ~./m2/repository
+        uses: actions/cache@v3
         with:
-          java-version: '17'
-          distribution: 'adopt'
-          # distributionManagement/repository/id field in pom.xml
-          server-id: github
-          # settings.xml location
-          settings-path: ${{ github.workspace }}
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/org/aspectj
+          key: maven-${{ matrix.os }}-java${{ matrix.java }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ matrix.os }}-java${{ matrix.java }}-
+            maven-${{ matrix.os }}-
 
-      - name: Publish to GitHub Packages
-        # TODO: Settle issue with ISP concerning direct HTTP write access to WebDAV on aspects.dev without mounting
-        # share first, then migrate deployment action
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - name: Print tool versions
         run: |
-          echo "Deployment skipped! TODO: Migrate from GitHub Packages to OSSRH repository."
-#        run: mvn -B deploy -s $GITHUB_WORKSPACE/settings.xml --file org.eclipse.jdt.core/pom.xml
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          java -version
+          mvn --batch-mode --version
+
+      - name: Run Maven build, phase '${{ env.MAVEN_PHASE }}'
+        # TODO:
+        #   - Phase 'deploy' is not working, because it needs credentials for Sonatype Nexus, which are usually
+        #     retrieved from a '<server/>' entry in ~/.m2/settings.xml.
+        #   - Profile 'release' would need a private key. Hence, we cannot use goal 'deploy' here, because Maven Central
+        #     does not accept unsigned artifacts.
+        run: |
+          cd org.eclipse.jdt.core
+          mvn --batch-mode clean $MAVEN_PHASE
+          cd -
