@@ -504,12 +504,12 @@ public class ClasspathEntry implements IClasspathEntry {
 		return null;
 	}
 
-	private static void decodeUnknownNode(Node node, StringBuffer buffer, IJavaProject project) {
+	private static void decodeUnknownNode(Node node, StringBuilder buffer, IJavaProject project) {
 		StringWriter writer = new StringWriter();
-		XMLWriter xmlWriter = new XMLWriter(writer, project, false/*don't print XML version*/);
-		decodeUnknownNode(node, xmlWriter, true/*insert new line*/);
-		xmlWriter.flush();
-		xmlWriter.close();
+		try (XMLWriter xmlWriter = new XMLWriter(writer, project, false/*don't print XML version*/)) {
+			decodeUnknownNode(node, xmlWriter, true/*insert new line*/);
+			xmlWriter.flush();
+		}
 		buffer.append(writer.toString());
 	}
 
@@ -804,7 +804,7 @@ public class ClasspathEntry implements IClasspathEntry {
 					if (node.getNodeType() != Node.ELEMENT_NODE) continue;
 					if (unknownChildren == null)
 						unknownChildren = new ArrayList();
-					StringBuffer buffer = new StringBuffer();
+					StringBuilder buffer = new StringBuilder();
 					decodeUnknownNode(node, buffer, project);
 					unknownChildren.add(buffer.toString());
 				}
@@ -1004,7 +1004,6 @@ public class ClasspathEntry implements IClasspathEntry {
 
 	private static char[] getManifestContents(IPath jarPath) throws CoreException, IOException {
 		ZipFile zip = null;
-		InputStream inputStream = null;
 		JavaModelManager manager = JavaModelManager.getJavaModelManager();
 		try {
 			zip = manager.getZipFile(jarPath);
@@ -1012,17 +1011,11 @@ public class ClasspathEntry implements IClasspathEntry {
 			if (manifest == null) {
 				return null;
 			}
-			inputStream = zip.getInputStream(manifest);
-			char[] chars = getInputStreamAsCharArray(inputStream, UTF_8);
-			return chars;
-		} finally {
-			if (inputStream != null) {
-				try {
-					inputStream.close();
-				} catch (IOException e) {
-					// best effort
-				}
+			try (InputStream inputStream = zip.getInputStream(manifest)) {
+				char[] chars = getInputStreamAsCharArray(inputStream, UTF_8);
+				return chars;
 			}
+		} finally {
 			manager.closeZipFile(zip);
 		}
 	}
@@ -1118,7 +1111,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	 */
 	private static void encodePatterns(IPath[] patterns, String tag, Map parameters) {
 		if (patterns != null && patterns.length > 0) {
-			StringBuffer rule = new StringBuffer(10);
+			StringBuilder rule = new StringBuilder(10);
 			for (int i = 0, max = patterns.length; i < max; i++){
 				if (i > 0) rule.append('|');
 				rule.append(patterns[i]);

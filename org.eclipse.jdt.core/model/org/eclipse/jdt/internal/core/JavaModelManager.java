@@ -53,6 +53,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
@@ -213,16 +214,16 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			Thread currentThread = Thread.currentThread();
 			Iterator<ZipFile> iterator = this.map.values().iterator();
 			while (iterator.hasNext()) {
-				ZipFile zipFile = iterator.next();
-				try {
+				String zipFileName = null;
+				try (ZipFile zipFile = iterator.next()) {
+					zipFileName= zipFile.getName();
 					if (JavaModelManager.ZIP_ACCESS_VERBOSE) {
 						trace("(" + currentThread + ") [ZipCache[" + this.owner //$NON-NLS-1$//$NON-NLS-2$
 								+ "].flush()] Closing ZipFile on " + zipFile.getName()); //$NON-NLS-1$
 					}
-					zipFile.close();
 				} catch (IOException e) {
 					// problem occured closing zip file: cannot do much more
-					JavaCore.getPlugin().getLog().log(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, "Error closing " + zipFile.getName(), e)); //$NON-NLS-1$
+					JavaCore.getPlugin().getLog().log(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, "Error closing " + zipFileName, e)); //$NON-NLS-1$
 				}
 			}
 		}
@@ -422,6 +423,35 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	static final Object[][] NO_PARTICIPANTS = new Object[0][];
 
 	private static DebugTrace DEBUG_TRACE;
+
+	private final Set<IProject> touchQueue = ConcurrentHashMap.newKeySet();
+	private final WorkspaceJob touchJob = new WorkspaceJob(Messages.synchronizing_projects_job) {
+		@Override
+		public IStatus runInWorkspace(IProgressMonitor monitor) throws CoreException {
+			SubMonitor subMonitor = SubMonitor.convert(monitor, JavaModelManager.this.touchQueue.size());
+			JavaModelManager.this.touchQueue.removeIf(iProject->{
+				// remaining work may change in background - update it:
+				subMonitor.setWorkRemaining(JavaModelManager.this.touchQueue.size());
+				if (JavaBuilder.DEBUG) {
+					trace("Touching project " + iProject.getName()); //$NON-NLS-1$
+				}
+				if (iProject.isAccessible()) {
+					try {
+						iProject.touch(subMonitor.split(1));
+					} catch (CoreException e) {
+						Util.log(e, "Could not touch project "+iProject.getName()); //$NON-NLS-1$
+					}
+				}
+				return true;
+			});
+			return Status.OK_STATUS;
+		}
+
+		@Override
+		public boolean belongsTo(Object family) {
+			return ResourcesPlugin.FAMILY_MANUAL_REFRESH == family;
+		}
+	};
 
 	public static class CompilationParticipants {
 
@@ -1771,7 +1801,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 							projects[i] = javaProject.getProject();
 							manager.deltaState.addClasspathValidation(javaProject);
 						}
-						manager.touchProjects(projects, null);
+						manager.touchProjectsAsync(projects);
 					} catch (JavaModelException e) {
 						// skip
 					}
@@ -3396,28 +3426,11 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		return DeduplicationUtil.intern(s);
 	}
 
-	void touchProjects(final IProject[] projectsToTouch, IProgressMonitor progressMonitor) throws JavaModelException {
-		WorkspaceJob touchJob = new WorkspaceJob(Messages.synchronizing_projects_job) {
-			@Override
-			public IStatus runInWorkspace(IProgressMonitor monitor) throws CoreException {
-				SubMonitor subMonitor = SubMonitor.convert(monitor, projectsToTouch.length);
-				for (IProject iProject : projectsToTouch) {
-					if (JavaBuilder.DEBUG) {
-						trace("Touching project " + iProject.getName()); //$NON-NLS-1$
-					}
-					if (iProject.isAccessible()) {
-						iProject.touch(subMonitor.split(1));
-					}
-				}
-				return Status.OK_STATUS;
-			}
-
-			@Override
-			public boolean belongsTo(Object family) {
-				return ResourcesPlugin.FAMILY_MANUAL_REFRESH == family;
-			}
-		};
-		touchJob.schedule();
+	void touchProjectsAsync(final IProject[] projectsToTouch) throws JavaModelException {
+		for (IProject iProject : projectsToTouch) {
+			this.touchQueue.add(iProject);
+		}
+		this.touchJob.schedule();
 	}
 
 	private Set<IJavaProject> getClasspathBeingResolved() {
@@ -3563,24 +3576,15 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private Set<IPath> loadClasspathListCache(String cacheName) {
 		Set<IPath> pathCache = new HashSet<>();
 		File cacheFile = getClasspathListFile(cacheName);
-		DataInputStream in = null;
-		try {
-			in = new DataInputStream(new BufferedInputStream(new FileInputStream(cacheFile)));
+		try (DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(cacheFile)))) {
 			int size = in.readInt();
 			while (size-- > 0) {
 				String path = in.readUTF();
 				pathCache.add(Path.fromPortableString(path));
 			}
 		} catch (IOException e) {
-			if (cacheFile.exists())
+			if (cacheFile.exists()) {
 				Util.log(e, "Unable to read JavaModelManager " + cacheName + " file"); //$NON-NLS-1$ //$NON-NLS-2$
-		} finally {
-			if (in != null) {
-				try {
-					in.close();
-				} catch (IOException e) {
-					// nothing we can do: ignore
-				}
 			}
 		}
 		return Collections.synchronizedSet(pathCache);
@@ -3633,16 +3637,13 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 		try {
 			if (xmlString != null){
-				StringReader reader = new StringReader(xmlString);
 				Element cpElement;
-				try {
+				try (StringReader reader = new StringReader(xmlString)) {
 					@SuppressWarnings("restriction")
 					DocumentBuilder parser = org.eclipse.core.internal.runtime.XmlProcessorFactory.createDocumentBuilderWithErrorOnDOCTYPE();
 					cpElement = parser.parse(new InputSource(reader)).getDocumentElement();
 				} catch(SAXException | ParserConfigurationException e){
 					return;
-				} finally {
-					reader.close();
 				}
 				if (cpElement == null) return;
 				if (!cpElement.getNodeName().equalsIgnoreCase("variables")) { //$NON-NLS-1$
@@ -3678,9 +3679,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 		// load variables and containers from saved file into cache
 		File file = getVariableAndContainersFile();
-		DataInputStream in = null;
-		try {
-			in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
+		try (DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)))) {
 			switch (in.readInt()) {
 				case 2 :
 					new VariablesAndContainersLoadHelper(in).load();
@@ -3721,14 +3720,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		} catch (RuntimeException e) {
 			if (file.exists())
 				Util.log(e, "Unable to read variable and containers file (file is corrupt)"); //$NON-NLS-1$
-		} finally {
-			if (in != null) {
-				try {
-					in.close();
-				} catch (IOException e) {
-					// nothing we can do: ignore
-				}
-			}
 		}
 
 		// override persisted values for variables which have a registered initializer

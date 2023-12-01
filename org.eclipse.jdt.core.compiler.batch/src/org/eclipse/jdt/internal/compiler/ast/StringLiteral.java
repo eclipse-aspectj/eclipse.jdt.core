@@ -22,7 +22,7 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class StringLiteral extends Literal {
 
-	char[] source;
+	public char[] source;
 	int lineNumber;
 
 	public StringLiteral(char[] token, int start, int end, int lineNumber) {
@@ -80,7 +80,7 @@ public class StringLiteral extends Literal {
 	}
 
 	@Override
-	public StringBuffer printExpression(int indent, StringBuffer output) {
+	public StringBuilder printExpression(int indent, StringBuilder output) {
 
 		// handle some special char.....
 		output.append('\"');

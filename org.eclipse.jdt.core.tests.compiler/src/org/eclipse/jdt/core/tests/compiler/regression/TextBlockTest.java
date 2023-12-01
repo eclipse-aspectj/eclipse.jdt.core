@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2022 IBM Corporation and others.
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,21 +19,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
 
-/**
- * This is almost a copy of the one in org.eclipse.jdt.tests.latestBREE.
- * The other one also includes tests that are coded using the latest language
- * features and API. However, the bundle is not yet setup to run with the build
- * hence this is a temporary arrangement to keep the tests being run. The recommended
- * strategy is to keep this one updated and when the time comes, move this over
- * to the other bundle after synch-up of tests from both.
- * @author jay
- */
 public class TextBlockTest extends AbstractRegressionTest {
-
-	static {
-//		TESTS_NUMBERS = new int [] { 40 };
-//		TESTS_NAMES = new String[] { "testCompliances_13" };
-	}
 
 	public static Class<?> testClass() {
 		return TextBlockTest.class;
@@ -231,6 +217,25 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"abc\\def",
+				null);
+	}
+	/*
+	 * positive - escaped '\'
+	 */
+	public void test006a() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						"\\u007Babc\\\\def" +
+						"\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.print(textb);\n" +
+						"	}\n" +
+						"}\n"
+				},
+				"{abc\\def",
 				null);
 	}
 	/*
@@ -1615,6 +1620,172 @@ public class TextBlockTest extends AbstractRegressionTest {
 						"}\n"
 				},
 				"123\b45",
+				getCompilerOptions());
+	}
+
+
+	/*
+	 * positive - html code with indentation with empty lines
+	 * output compared with String API
+	 */
+	public void test016b() {
+		String text = "<html>\n" +
+					"    <body>\n" +
+					"      <p>Hello, world</p>\n" +
+					"    </body>\n" +
+					"  </html>";
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	static String html = \"\"\"\n" +
+						text + "\\n" +
+						"\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.println(html);\n" +
+						"	}\n" +
+						"}\n"
+				},
+				text.stripIndent().translateEscapes(),
+				null,
+				new String[] {"--enable-preview"});
+
+	}
+	/*
+	 * positive - escaped '\', compare with String::translateEscapes
+	 */
+	public void test022() {
+		String text = "abc\\\\def";
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						text +
+						"\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.print(textb);\n" +
+						"	}\n" +
+						"}\n"
+				},
+				text.translateEscapes(),
+				null,
+				new String[] {"--enable-preview"});
+	}
+	/*
+	 * positive - escaped """, compare output with
+	 * 							String::translateEscapes
+	 * 							String::stripIndent
+	 */
+	public void test023() {
+		String text = "abc\\\"\"\"def\"  ";
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"	public static String textb = \"\"\"\n" +
+						text +
+						"\"\"\";\n" +
+						"	public static void main(String[] args) {\n" +
+						"		System.out.println(textb);\n" +
+						"	}\n" +
+						"}\n"
+				},
+				text.translateEscapes().stripIndent(),
+				null,
+				new String[] {"--enable-preview"});
+	}
+	public void testIssue544_1() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n"
+						+ "    public static void main(String argv[]) {\n"
+						+ "      String outer = \"\"\"\n"
+						+ "                String inner = \\\"\"\"\n"
+						+ "                       \\\"\"\";\"\"\";\n"
+						+ "      System.out.println(outer.length());\n"
+						+ "    }\n"
+						+ "}\n"
+				},
+				"30",
+				getCompilerOptions());
+	}
+	public void testIssue544_2() {
+		runConformTest(
+			new String[] {
+					"X.java",
+					"""
+					public class X {
+					  public static void main(String argv[]) {
+					  String outer = \"""
+String text = \\\"""
+          String text = \\\"""
+                  String text = \\\"""
+                          A text block inside a text block at level 3
+                      \\\""";
+              \\\""";
+      \\\""";\""";
+  System.out.println(outer.equals(
+              "String text = \\"\\"\\"\\n" +
+              "          String text = \\"\\"\\"\\n" +
+              "                  String text = \\"\\"\\"\\n" +
+              "                          A text block inside a text block at level 3\\n" +
+              "                      \\"\\"\\";\\n" +
+              "              \\"\\"\\";\\n" +
+              "      \\"\\"\\";"
+              ));
+					}
+					}"""
+			},
+			"true",
+			getCompilerOptions());
+	}
+	public void testIssue544_3() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+public class X {
+    public static void main(String argv[]) {
+        String s = \"""
+\
+\""";
+        System.out.println(compare(s));
+    }
+    private static boolean compare(String s) {
+        return s.equals(\"\");
+    }
+}
+						"""
+				},
+				"true",
+				getCompilerOptions());
+	}
+	public void testIssue544_4() {
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+public class X {
+    public static void main(String argv[]) {
+        String s = \"""
+\
+some \
+newline
+string\
+.\""";
+        System.out.println(compare(s));
+    }
+    private static boolean compare(String s) {
+        return s.equals(\"""
+some newline
+string.\""");
+    }
+}
+						"""
+				},
+				"true",
 				getCompilerOptions());
 	}
 }

@@ -67,6 +67,8 @@ $Terminals
 	CharacterLiteral
 	StringLiteral
 	TextBlock
+	StringTemplate
+	TextBlockTemplate
 
 	PLUS_PLUS
 	MINUS_MINUS
@@ -257,6 +259,7 @@ Literal -> StringLiteral
 Literal -> TextBlock
 Literal -> null
 Literal -> BooleanLiteral
+
 /:$readableName Literal:/
 BooleanLiteral -> true
 BooleanLiteral -> false
@@ -1964,6 +1967,33 @@ PatternList ::= PatternList ',' Pattern
 
 -----------------------------------------------
 -- 20 preview feature : end of record patterns
+-----------------------------------------------
+-----------------------------------------------
+-- 21 preview feature : String templates
+-----------------------------------------------
+
+PrimaryNoNewArray -> StringTemplateExpression
+
+TemplateArgument -> StringLiteral
+TemplateArgument -> TextBlock
+TemplateArgument -> StringTemplate
+TemplateArgument -> TextBlockTemplate
+
+StringTemplateExpression ::= Name '.' TemplateArgument
+/.$putCase consumeTemplateExpressionWithName(); $break ./
+/:$readableName TemplateExpression:/
+/:$compliance 21:/
+
+StringTemplateExpression ::= Primary '.' TemplateArgument
+/.$putCase consumeTemplateExpressionWithPrimary(); $break ./
+/:$readableName TemplateExpression:/
+/:$compliance 21:/
+
+--TemplateProcessor ::= Expression
+--/:$compliance 21:/
+
+-----------------------------------------------
+-- 21 preview feature : end of String templates
 -----------------------------------------------
 
 ConstantDeclaration -> FieldDeclaration

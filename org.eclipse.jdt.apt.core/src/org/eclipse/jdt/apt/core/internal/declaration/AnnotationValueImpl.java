@@ -31,7 +31,6 @@ import org.eclipse.jdt.core.dom.ArrayInitializer;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-@SuppressWarnings("restriction")
 public class AnnotationValueImpl implements EclipseMirrorObject, AnnotationValue
 {
 	/**
@@ -207,7 +206,7 @@ public class AnnotationValueImpl implements EclipseMirrorObject, AnnotationValue
 			return "null"; //$NON-NLS-1$
 		} else if (_value instanceof String) {
 			String value = (String) _value;
-			StringBuffer sb = new StringBuffer();
+			StringBuilder sb = new StringBuilder();
 			sb.append('"');
 			for (int i = 0; i < value.length(); i++) {
 				Util.appendEscapedChar(sb, value.charAt(i), true);
@@ -215,7 +214,7 @@ public class AnnotationValueImpl implements EclipseMirrorObject, AnnotationValue
 			sb.append('"');
 			return sb.toString();
 		} else if (_value instanceof Character) {
-			StringBuffer sb = new StringBuffer();
+			StringBuilder sb = new StringBuilder();
 			sb.append('\'');
 			Util.appendEscapedChar(sb, ((Character) _value).charValue(), false);
 			sb.append('\'');

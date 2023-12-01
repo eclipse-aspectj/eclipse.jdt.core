@@ -314,7 +314,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 
 	public static class ProblemRequestor implements IProblemRequestor {
-		public StringBuffer problems;
+		public StringBuilder problems;
 		public int problemCount;
 		protected char[] unitSource;
 		public boolean isActive = true;
@@ -340,7 +340,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			this.unitSource = source;
 		}
 		public void reset() {
-			this.problems = new StringBuffer();
+			this.problems = new StringBuilder();
 			this.problemCount = 0;
 		}
 	}
@@ -354,7 +354,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		 * <code>#startDeltas</code> and
 		 * <code>#stopDeltas</code>.
 		 */
-		private IJavaElementDelta[] deltas;
+		private ArrayList<IJavaElementDelta> deltas = new ArrayList<>();
 
 		private final int eventType;
 
@@ -373,10 +373,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 		public synchronized void elementChanged(ElementChangedEvent event) {
 			if (this.eventType == -1 || event.getType() == this.eventType) {
-				IJavaElementDelta[] copy= new IJavaElementDelta[this.deltas.length + 1];
-				System.arraycopy(this.deltas, 0, copy, 0, this.deltas.length);
-				copy[this.deltas.length]= event.getDelta();
-				this.deltas= copy;
+				this.deltas.add(event.getDelta());
 				StringBuilder message = new StringBuilder();
 				Job currentJob = Job.getJobManager().currentJob();
 				if (currentJob != null) {
@@ -389,8 +386,8 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		public synchronized CompilationUnit getCompilationUnitAST(ICompilationUnit workingCopy) {
-			for (int i=0, length= this.deltas.length; i<length; i++) {
-				CompilationUnit result = getCompilationUnitAST(workingCopy, this.deltas[i]);
+			for (IJavaElementDelta delta: this.deltas) {
+				CompilationUnit result = getCompilationUnitAST(workingCopy,delta);
 				if (result != null)
 					return result;
 			}
@@ -418,8 +415,8 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			if (this.deltas == null) waitForResourceDelta();
 			if (this.deltas == null) return null;
 			IJavaElementDelta result = null;
-			for (int i = 0; i < this.deltas.length; i++) {
-				IJavaElementDelta delta = searchForDelta(element, this.deltas[i]);
+			for (IJavaElementDelta delta1: this.deltas) {
+				IJavaElementDelta delta = searchForDelta(element, delta1);
 				if (delta != null) {
 					if (returnFirst) {
 						return delta;
@@ -431,15 +428,15 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		}
 
 		public synchronized IJavaElementDelta getLastDelta() {
-			return this.deltas[this.deltas.length - 1];
+			return this.deltas.get(this.deltas.size()-1);
 		}
 
 		public synchronized List<IJavaElementDelta> getAllDeltas() {
-			return List.of(this.deltas);
+			return this.deltas;
 		}
 
 		public synchronized void flush() {
-			this.deltas = new IJavaElementDelta[0];
+			this.deltas.clear();
 			this.stackTraces = new ByteArrayOutputStream();
 			this.gotResourceDelta = false;
 		}
@@ -512,8 +509,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		@Override
 		public synchronized String toString() {
 			StringBuilder buffer = new StringBuilder();
-			for (int i = 0, length= this.deltas.length; i < length; i++) {
-				IJavaElementDelta delta = this.deltas[i];
+			for (IJavaElementDelta delta: this.deltas) {
 				if (((JavaElementDelta) delta).ignoreFromTests) {
 					continue;
 				}
@@ -561,7 +557,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected DeltaListener deltaListener = new DeltaListener();
 
 	public static class LogListenerWithHistory implements ILogListener {
-		private final StringBuffer buffer = new StringBuffer();
+		private final StringBuilder buffer = new StringBuilder();
 		private final List<IStatus> logs = new ArrayList<>();
 
 		public void logging(IStatus status, String plugin) {
@@ -976,7 +972,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 	protected void assertResourceTreeEquals(String message, String expected, Object[] resources) throws CoreException {
 		sortResources(resources);
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0, length = resources.length; i < length; i++) {
 			printResourceTree(resources[i], buffer, 0);
 			if (i != length-1) buffer.append("\n");
@@ -992,7 +988,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		);
 	}
 
-	private void printResourceTree(Object resource, StringBuffer buffer, int indent) throws CoreException {
+	private void printResourceTree(Object resource, StringBuilder buffer, int indent) throws CoreException {
 		for (int i = 0; i < indent; i++)
 			buffer.append("  ");
 		if (resource instanceof IResource) {
@@ -1130,7 +1126,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 
 	protected void assertMemberValuePairEquals(String expected, IMemberValuePair member) throws JavaModelException {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		appendAnnotationMember(buffer, member);
 		String actual = buffer.toString();
 		if (!expected.equals(actual)) {
@@ -1187,7 +1183,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		assertEquals(message, expected, actual);
 	}
 	protected void assertAnnotationsEqual(String expected, IAnnotation[] annotations) throws JavaModelException {
-		StringBuffer buffer = new StringBuffer();
+		StringBuilder buffer = new StringBuilder();
 		for (int i = 0; i < annotations.length; i++) {
 			IAnnotation annotation = annotations[i];
 			appendAnnotation(buffer, annotation);
@@ -1200,7 +1196,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		assertEquals("Unexpected annotations", expected, actual);
 	}
 
-	protected void appendAnnotation(StringBuffer buffer, IAnnotation annotation) throws JavaModelException {
+	protected void appendAnnotation(StringBuilder buffer, IAnnotation annotation) throws JavaModelException {
 		buffer.append('@');
 		buffer.append(annotation.getElementName());
 		IMemberValuePair[] members = annotation.getMemberValuePairs();
@@ -1216,7 +1212,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		}
 	}
 
-	private void appendAnnotationMember(StringBuffer buffer, IMemberValuePair member) throws JavaModelException {
+	private void appendAnnotationMember(StringBuilder buffer, IMemberValuePair member) throws JavaModelException {
 		if (member == null) {
 			buffer.append("<null>");
 			return;
@@ -1244,7 +1240,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		}
 	}
 
-	private void appendAnnotationMemberValue(StringBuffer buffer, Object value, int kind) throws JavaModelException {
+	private void appendAnnotationMemberValue(StringBuilder buffer, Object value, int kind) throws JavaModelException {
 		if (value == null) {
 			buffer.append("<null>");
 			return;
@@ -1607,6 +1603,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		listener.flush();
 	}
 	public void clearDeltas() {
+		// We must join on the auto-refresh family because the workspace changes done in the
+		// tests may be batched and broadcasted by the RefreshJob, not the main thread.
+		Job.getJobManager().wakeUp(ResourcesPlugin.FAMILY_AUTO_REFRESH);
+		try {
+			Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_REFRESH, null);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 		this.deltaListener.flush();
 	}
 	protected IJavaElement[] codeSelect(ISourceReference sourceReference, String selectAt, String selection) throws JavaModelException {

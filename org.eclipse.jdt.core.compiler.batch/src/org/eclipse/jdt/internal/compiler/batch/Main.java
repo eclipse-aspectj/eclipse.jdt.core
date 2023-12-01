@@ -47,7 +47,6 @@ import java.io.LineNumberReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -406,7 +405,7 @@ public class Main implements ProblemSeverities, SuffixConstants {
 			while ((c = unitSource[end]) == ' ' || c == '\t') end--;
 
 			// copy source
-			StringBuffer buffer = new StringBuffer();
+			StringBuilder buffer = new StringBuilder();
 			buffer.append(unitSource, begin, end - begin + 1);
 			HashMap<String, Object> parameters = new HashMap<>();
 			parameters.put(Logger.VALUE, String.valueOf(buffer));
@@ -572,27 +571,20 @@ public class Main implements ProblemSeverities, SuffixConstants {
 		 * @param e the given exception to log
 		 */
 		public void logException(Exception e) {
-			StringWriter writer = new StringWriter();
-			PrintWriter printWriter = new PrintWriter(writer);
-			e.printStackTrace(printWriter);
-			printWriter.flush();
-			printWriter.close();
-			final String stackTrace = writer.toString();
+			final String stackTrace = Util.getStackTrace(e).toString();
 			if ((this.tagBits & Logger.XML) != 0) {
-				LineNumberReader reader = new LineNumberReader(new StringReader(stackTrace));
-				String line;
-				int i = 0;
 				StringBuilder buffer = new StringBuilder();
 				String message = e.getMessage();
-				if (message != null) {
-					buffer.append(message).append(Util.LINE_SEPARATOR);
-				}
-				try {
+				try (LineNumberReader reader = new LineNumberReader(new StringReader(stackTrace))) {
+					String line;
+					int i = 0;
+					if (message != null) {
+						buffer.append(message).append(Util.LINE_SEPARATOR);
+					}
 					while ((line = reader.readLine()) != null && i < 4) {
 						buffer.append(line).append(Util.LINE_SEPARATOR);
 						i++;
 					}
-					reader.close();
 				} catch (IOException e1) {
 					// ignore
 				}
@@ -3307,7 +3299,7 @@ private static String getAllEncodings(Set<String> encodings) {
 	String[] allEncodings = new String[size];
 	encodings.toArray(allEncodings);
 	Arrays.sort(allEncodings);
-	StringBuffer buffer = new StringBuffer();
+	StringBuilder buffer = new StringBuilder();
 	for (int i = 0; i < size; i++) {
 		if (i > 0) {
 			buffer.append(", "); //$NON-NLS-1$
@@ -3322,23 +3314,13 @@ private void initializeWarnings(String propertiesFile) {
 	if (!file.exists()) {
 		throw new IllegalArgumentException(this.bind("configure.missingwarningspropertiesfile", propertiesFile)); //$NON-NLS-1$
 	}
-	BufferedInputStream stream = null;
 	Properties properties = null;
-	try {
-		stream = new BufferedInputStream(new FileInputStream(propertiesFile));
+	try (BufferedInputStream stream = new BufferedInputStream(new FileInputStream(propertiesFile))) {
 		properties = new Properties();
 		properties.load(stream);
 	} catch(IOException e) {
 		e.printStackTrace();
 		throw new IllegalArgumentException(this.bind("configure.ioexceptionwarningspropertiesfile", propertiesFile)); //$NON-NLS-1$
-	} finally {
-		if (stream != null) {
-			try {
-				stream.close();
-			} catch(IOException e) {
-				// ignore
-			}
-		}
 	}
 	for(Iterator iterator = properties.entrySet().iterator(); iterator.hasNext(); ) {
 		Map.Entry entry = (Map.Entry) iterator.next();

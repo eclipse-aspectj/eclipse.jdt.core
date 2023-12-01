@@ -15,7 +15,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.util;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -24,13 +23,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.net.URI;
+import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,8 +46,6 @@ import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.batch.Main;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
@@ -405,19 +400,7 @@ public class Util implements SuffixConstants {
 	 * @throws IOException if a problem occured reading the file.
 	 */
 	public static byte[] getFileByteContent(File file) throws IOException {
-		InputStream stream = null;
-		try {
-			stream = new BufferedInputStream(new FileInputStream(file));
-			return getInputStreamAsByteArray(stream);
-		} finally {
-			if (stream != null) {
-				try {
-					stream.close();
-				} catch (IOException e) {
-					// ignore
-				}
-			}
-		}
+		return Files.readAllBytes(file.toPath());
 	}
 	/**
 	 * Returns the contents of the given file as a char array.
@@ -425,18 +408,8 @@ public class Util implements SuffixConstants {
 	 * @throws IOException if a problem occured reading the file.
 	 */
 	public static char[] getFileCharContent(File file, String encoding) throws IOException {
-		InputStream stream = null;
-		try {
-			stream = new FileInputStream(file);
+		try (InputStream stream = new FileInputStream(file)) {
 			return getInputStreamAsCharArray(stream, encoding);
-		} finally {
-			if (stream != null) {
-				try {
-					stream.close();
-				} catch (IOException e) {
-					// ignore
-				}
-			}
 		}
 	}
 	private static FileOutputStream getFileOutputStream(boolean generatePackagesStructure, String outputPath, String relativeFileName) throws IOException {
@@ -558,10 +531,8 @@ public class Util implements SuffixConstants {
 	 * @return one line summary for an exception
 	 */
 	public static String getExceptionSummary(Throwable exception) {
-		StringWriter stringWriter = new StringWriter();
-		exception.printStackTrace(new PrintWriter(stringWriter));
-		StringBuffer buffer = stringWriter.getBuffer();
-		StringBuffer exceptionBuffer = new StringBuffer(50);
+		CharSequence buffer = getStackTrace(exception);
+		StringBuilder exceptionBuffer = new StringBuilder(50);
 		exceptionBuffer.append(exception.toString());
 		// only keep leading frame portion of the trace (i.e. line no. 2 from the stacktrace)
 		lookupLine2: for (int i = 0, lineSep = 0, max = buffer.length(), line2Start = 0; i < max; i++) {
@@ -569,7 +540,7 @@ public class Util implements SuffixConstants {
 				case '\n':
 				case '\r' :
 					if (line2Start > 0) {
-						exceptionBuffer.append(' ').append(buffer.substring(line2Start, i));
+						exceptionBuffer.append(' ').append(buffer.subSequence(line2Start, i));
 						break lookupLine2;
 					}
 					lineSep++;
@@ -586,6 +557,30 @@ public class Util implements SuffixConstants {
 			}
 		}
 		return exceptionBuffer.toString();
+	}
+
+	public static CharSequence getStackTrace(Throwable exception) {
+		StringBuilder builder = new StringBuilder();
+		exception.printStackTrace(new PrintWriter(new Writer() {
+			@Override
+			public void write(char[] cbuf, int off, int len) throws IOException {
+				builder.append(cbuf, off, len);
+			}
+
+			@Override
+			public void write(String str, int off, int len) throws IOException {
+				builder.append(str, off, len);
+			}
+
+			@Override
+			public void flush() throws IOException { // nothing to do
+			}
+
+			@Override
+			public void close() throws IOException { // nothing to do
+			}
+		}));
+		return builder;
 	}
 
 	public static int getLineNumber(int position, int[] lineEnds, int g, int d) {
@@ -613,47 +608,12 @@ public class Util implements SuffixConstants {
 	 * Returns the contents of the given zip entry as a byte array.
 	 * @throws IOException if a problem occurred reading the zip entry.
 	 */
-	public static byte[] getZipEntryByteContent(ZipEntry ze, ZipFile zip)
-		throws IOException {
-
-		InputStream stream = null;
-		try {
-			InputStream inputStream = zip.getInputStream(ze);
-			if (inputStream == null) throw new IOException("Invalid zip entry name : " + ze.getName()); //$NON-NLS-1$
-			stream = new BufferedInputStream(inputStream);
-			return readNBytes(stream, (int) ze.getSize());
-		} finally {
-			if (stream != null) {
-				try {
-					stream.close();
-				} catch (IOException e) {
-					// ignore
-				}
-			}
+	public static byte[] getZipEntryByteContent(ZipEntry ze, ZipFile zip) throws IOException {
+		try (InputStream inputStream = zip.getInputStream(ze)) {
+			if (inputStream == null)
+				throw new IOException("Invalid zip entry name : " + ze.getName()); //$NON-NLS-1$
+			return inputStream.readAllBytes();
 		}
-	}
-	/**
-	 * Creates and returns a ClassFileReader.
-	 * @throws IOException if a problem occurred reading the zip entry.
-	 */
-	public static ClassFileReader getZipEntryClassFile(String zipName, String fileName) throws IOException, ClassFormatException {
-		try(ZipFile zip = new ZipFile(zipName)) {
-			ZipEntry entry = zip.getEntry(fileName);
-			if (entry == null) {
-				throw new IOException("Invalid zip entry name : " + fileName + " in " + zipName); //$NON-NLS-1$ //$NON-NLS-2$
-			}
-			try(BufferedInputStream stream = new BufferedInputStream(zip.getInputStream(entry))){
-				URI uri = toJarUri(zipName, fileName);
-				ClassFileReader reader = new ClassFileReader(uri, getInputStreamAsByteArray(stream), fileName.toCharArray());
-				return reader;
-			}
-		}
-	}
-
-	private static URI toJarUri(String zipName, String fileName) {
-		Path zipfile = Paths.get(zipName);
-		URI uri = URI.create("jar:file://" + zipfile.toUri().getRawPath() + "!/" + fileName); //$NON-NLS-1$ //$NON-NLS-2$
-		return uri;
 	}
 
 	public static int hashCode(Object[] array) {
@@ -1019,7 +979,7 @@ public class Util implements SuffixConstants {
 			return;
 		}
 		*/
-		try (BufferedOutputStream output = new BufferedOutputStream(file, DEFAULT_WRITING_SIZE);) {
+		try (BufferedOutputStream output = new BufferedOutputStream(file, DEFAULT_WRITING_SIZE)) {
 			// if no IOException occured, output cannot be null
 			output.write(classFile.header, 0, classFile.headerOffset);
 			output.write(classFile.contents, 0, classFile.contentsOffset);
@@ -1630,7 +1590,7 @@ public class Util implements SuffixConstants {
 		return true;
 	}
 
-	public static void appendEscapedChar(StringBuffer buffer, char c, boolean stringLiteral) {
+	public static void appendEscapedChar(StringBuilder buffer, char c, boolean stringLiteral) {
 		switch (c) {
 			case '\b' :
 				buffer.append("\\b"); //$NON-NLS-1$

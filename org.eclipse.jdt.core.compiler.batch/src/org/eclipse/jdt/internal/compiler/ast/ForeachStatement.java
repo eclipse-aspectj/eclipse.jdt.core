@@ -467,7 +467,7 @@ public class ForeachStatement extends Statement {
 	}
 
 	@Override
-	public StringBuffer printStatement(int indent, StringBuffer output) {
+	public StringBuilder printStatement(int indent, StringBuilder output) {
 
 		printIndent(indent, output).append("for ("); //$NON-NLS-1$
 		if (this.pattern != null) {

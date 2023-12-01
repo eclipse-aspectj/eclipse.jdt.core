@@ -51,7 +51,7 @@ public boolean isThis() {
 }
 
 @Override
-public StringBuffer printExpression(int indent, StringBuffer output) {
+public StringBuilder printExpression(int indent, StringBuilder output) {
 	return this.qualification.print(0, output).append(".super"); //$NON-NLS-1$
 }
 
