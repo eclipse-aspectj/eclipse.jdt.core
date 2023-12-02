@@ -16,6 +16,9 @@ antbin/
 /*/target/
 /target/
 
+# pomless
+.polyglot.*
+
 # IntelliJ IDEA
 .idea/
 *.iml
