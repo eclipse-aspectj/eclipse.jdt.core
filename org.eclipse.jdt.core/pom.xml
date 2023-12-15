@@ -134,7 +134,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>1.9.21-SNAPSHOT</version>
+  <version>1.9.21.1-SNAPSHOT</version>
 
   <name>JDT Core for AspectJ</name>
   <description>
