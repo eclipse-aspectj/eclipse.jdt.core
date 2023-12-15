@@ -174,12 +174,9 @@
     <!-- Basic build properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <!--
-      Eclipse JDT Core now requires Java 17 and has started using more recent source code constructs.
-      At least for now, compiling to target 11 ist still possible.
-    -->
+    <!-- Eclipse JDT Core now requires Java 17 -->
     <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.target>17</maven.compiler.target>
 
     <!-- By default, deploy this public artifact -->
     <maven.deploy.skip>false</maven.deploy.skip>
