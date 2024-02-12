@@ -432,12 +432,19 @@ public void setAnnotations(AnnotationBinding[] annotations, boolean forceStore) 
 }
 public FieldDeclaration sourceField() {
 	SourceTypeBinding sourceType;
+	//	AspectJ Extension
+	if (declaringClass instanceof BinaryTypeBinding) return null;
+	//	End AspectJ Extension
 	try {
 		sourceType = (SourceTypeBinding) this.declaringClass;
 	} catch (ClassCastException e) {
 		return null;
 	}
 
+	// AspectJ Extension
+	// guard due to pr154923 - an npe occurs that is probably disguising an underlying problem that will be reported properly
+	if (sourceType.scope==null || sourceType.scope.referenceContext==null || sourceType.scope.referenceContext.methods==null) return null;
+	// End AspectJ Extension
 	FieldDeclaration[] fields = sourceType.scope.referenceContext.fields;
 	if (fields != null) {
 		for (int i = fields.length; --i >= 0;)
