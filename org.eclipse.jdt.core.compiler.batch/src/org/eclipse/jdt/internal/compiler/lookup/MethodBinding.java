@@ -1314,7 +1314,8 @@ public RecordComponent sourceRecordComponent() {
 public final int sourceStart() {
 	AbstractMethodDeclaration method = sourceMethod();
 	if (method == null) {
-		if (this.declaringClass instanceof SourceTypeBinding)
+		// AspectJ Extension - add check to ensure not asking binary for positions (AJ462782)
+		if (this.declaringClass instanceof SourceTypeBinding && !(this.declaringClass instanceof BinaryTypeBinding))
 			return ((SourceTypeBinding) this.declaringClass).sourceStart();
 		return 0;
 	}
@@ -1534,4 +1535,3 @@ public boolean hasPolymorphicSignature(Scope scope) {
 	return false;
 }
 }
-
