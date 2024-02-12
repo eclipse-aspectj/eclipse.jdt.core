@@ -68,7 +68,7 @@ public class SwitchExpression extends SwitchStatement implements IPolyExpression
 	List<LocalVariableBinding> typesOnStack;
 
 	static {
-		type_map = new HashMap<TypeBinding, TypeBinding[]>();
+		type_map = new HashMap<>();
 		type_map.put(TypeBinding.CHAR, new TypeBinding[] {TypeBinding.CHAR, TypeBinding.INT});
 		type_map.put(TypeBinding.SHORT, new TypeBinding[] {TypeBinding.SHORT, TypeBinding.BYTE, TypeBinding.INT});
 		type_map.put(TypeBinding.BYTE, new TypeBinding[] {TypeBinding.BYTE, TypeBinding.INT});
@@ -386,10 +386,6 @@ public class SwitchExpression extends SwitchStatement implements IPolyExpression
 		return true;
 	}
 
-	@Override
-	public void collectPatternVariablesToScope(LocalVariableBinding[] variables, BlockScope skope) {
-		// Do nothing. This will be called later during resolveType()
-	}
 	@Override
 	public TypeBinding resolveType(BlockScope upperScope) {
 		return resolveTypeInternal(upperScope);

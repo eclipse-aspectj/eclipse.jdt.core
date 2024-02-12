@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
@@ -194,6 +195,7 @@ public class JRTUtil {
 		}
 	}
 
+	@SuppressWarnings("resource") // getFs() does not transfer ownership
 	public static CtSym getCtSym(Path jdkHome) throws IOException {
 		CtSym ctSym;
 		try {
@@ -504,9 +506,9 @@ class Jdk {
 
 class JrtFileSystem {
 
-	private final Map<String, String> packageToModule = new HashMap<String, String>();
+	private final Map<String, String> packageToModule = new HashMap<>();
 
-	private final Map<String, List<String>> packageToModules = new HashMap<String, List<String>>();
+	private final Map<String, List<String>> packageToModules = new HashMap<>();
 
 	FileSystem fs;
 	Path modRoot;
@@ -594,9 +596,10 @@ class JrtFileSystem {
 			return false;
 		// iterate files:
 		try {
-			return Files.list(packagePath)
-				.anyMatch(filePath -> filePath.toString().endsWith(SuffixConstants.SUFFIX_STRING_class)
-										|| filePath.toString().endsWith(SuffixConstants.SUFFIX_STRING_CLASS));
+			try (Stream<Path> list = Files.list(packagePath)) {
+				return list.anyMatch(filePath -> filePath.toString().endsWith(SuffixConstants.SUFFIX_STRING_class)
+						|| filePath.toString().endsWith(SuffixConstants.SUFFIX_STRING_CLASS));
+			}
 		} catch (IOException e) {
 			return false;
 		}
@@ -779,7 +782,7 @@ class JrtFileSystem {
 			}
 		} else {
 			// We found a second module => create a list
-			List<String> list = new ArrayList<String>();
+			List<String> list = new ArrayList<>();
 			// Just do this as comparator might be overkill
 			if (JRTUtil.JAVA_BASE == currentModule || JRTUtil.JAVA_BASE.equals(currentModule)) {
 				list.add(currentModule.intern());

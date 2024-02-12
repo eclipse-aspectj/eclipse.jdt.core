@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023 IBM Corporation and others.
+ * Copyright (c) 2023, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -17,6 +17,7 @@ import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
@@ -52,6 +53,13 @@ public class StringTemplate extends Expression {
 			exp.resolveType(scope);
 		}
 	}
+
+	@Override
+	public TypeBinding resolveType(BlockScope scope) {
+		this.constant = Constant.NotAConstant;
+		return this.resolvedType = scope.getJavaLangStringTemplate();
+	}
+
 	private void generateNewTemplateBootstrap(CodeStream codeStream) {
 		int index = codeStream.classFile.recordBootstrapMethod(this);
 		// Kludge, see if this can be moved to CodeStream
@@ -97,8 +105,10 @@ public class StringTemplate extends Expression {
 	public StringBuilder printExpression(int indent, StringBuilder output) {
 		int length = this.fragments.length;
 		output.append('\"');
+		if (this.isMultiline)
+			output.append("\"\"\n"); //$NON-NLS-1$
 		for (int i = 0; i < length; i++) {
-			char[] source = this.fragments[i].source;
+			char[] source = this.fragments[i].source();
 			for (int j = 0; j < source.length; j++) {
 				Util.appendEscapedChar(output, source[j], true);
 			}
@@ -111,6 +121,8 @@ public class StringTemplate extends Expression {
 			}
 		}
 		output.append('\"');
+		if (this.isMultiline)
+			output.append("\"\""); //$NON-NLS-1$
 		return output;
 	}
 }

@@ -295,7 +295,7 @@ public void testChangeExternalFolder() throws CoreException {
 				"  }\n" +
 				"}"
 			},
-			new HashMap<String, String>(),
+			new HashMap<>(),
 			externalLib
 		);
 
@@ -331,7 +331,7 @@ public void testChangeExternalFolder() throws CoreException {
 				"public class X {\n" +
 				"}"
 			},
-			new HashMap<String, String>(),
+			new HashMap<>(),
 			externalLib
 		);
 		new java.io.File(externalClassFile).setLastModified(lastModified + 1000); // to be sure its different
@@ -498,7 +498,7 @@ public void testExternalJarChange() throws JavaModelException, IOException {
 			"public class Y {\n" + //$NON-NLS-1$
 			"}" //$NON-NLS-1$
 		},
-		new HashMap<String, String>(),
+		new HashMap<>(),
 		externalJar
 	);
 	env.addExternalJar(projectPath, externalJar);
@@ -520,7 +520,7 @@ public void testExternalJarChange() throws JavaModelException, IOException {
 			"  }\n" + //$NON-NLS-1$
 			"}" //$NON-NLS-1$
 		},
-		new HashMap<String, String>(),
+		new HashMap<>(),
 		externalJar
 	);
 
@@ -532,7 +532,7 @@ public void testExternalJarChange() throws JavaModelException, IOException {
 	env.removeProject(projectPath);
 }
 
-public void testMissingBuilder() throws JavaModelException {
+public void testMissingBuilder() throws Exception {
 	IPath project1Path = env.addProject("P1"); //$NON-NLS-1$
 	env.addExternalJars(project1Path, Util.getJavaClassLibs());
 
@@ -558,13 +558,9 @@ public void testMissingBuilder() throws JavaModelException {
 
 	env.addRequiredProject(project2Path, project1Path);
 
-	try {
-		JavaProject p = (JavaProject) env.getJavaProject(project1Path);
-		p.deconfigure();
-		JavaModelManager.getJavaModelManager().setLastBuiltState(p.getProject(), null);
-	} catch (CoreException e) {
-		e.printStackTrace();
-	}
+	JavaProject p = (JavaProject) env.getJavaProject(project1Path);
+	p.getProject().getNature(JavaCore.NATURE_ID).deconfigure();
+	JavaModelManager.getJavaModelManager().setLastBuiltState(p.getProject(), null);
 
 	env.addClass(project2Path, "", "SubTest", //$NON-NLS-1$ //$NON-NLS-2$
 		"public class SubTest extends Test {}" //$NON-NLS-1$

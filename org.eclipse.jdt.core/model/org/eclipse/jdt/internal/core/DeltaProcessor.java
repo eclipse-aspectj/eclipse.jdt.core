@@ -41,6 +41,7 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.SourceElementParser;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.JavaModelManager.PerProjectInfo;
 import org.eclipse.jdt.internal.core.builder.JavaBuilder;
@@ -1802,7 +1803,7 @@ public class DeltaProcessor {
 	private void nonJavaResourcesChanged(Openable element, IResourceDelta delta) 	throws JavaModelException {
 		// reset non-java resources if element was open
 		if (element.isOpen()) {
-			JavaElementInfo info = (JavaElementInfo)element.getElementInfo();
+			IElementInfo info = element.getElementInfo();
 			switch (element.getElementType()) {
 				case IJavaElement.JAVA_MODEL :
 					((JavaModelInfo) info).setNonJavaResources(null);
@@ -2034,6 +2035,7 @@ public class DeltaProcessor {
 	 * Registers the given delta with this delta processor.
 	 */
 	public void registerJavaModelDelta(IJavaElementDelta delta) {
+		JavaModelManager.assertModelModifiable();
 		this.javaModelDeltas.add(delta);
 	}
 	/*
@@ -2070,22 +2072,16 @@ public class DeltaProcessor {
 
 		switch(eventType){
 			case IResourceChangeEvent.PRE_DELETE :
-				try {
-					if(resource.getType() == IResource.PROJECT
-						&& ((IProject) resource).hasNature(JavaCore.NATURE_ID)) {
-
-						deleting((IProject)resource);
-					}
-				} catch(CoreException e){
-					// project doesn't exist or is not open: ignore
+				if(resource  instanceof IProject prj && JavaProject.hasJavaNature(prj)) {
+					deleting(prj);
 				}
 				return;
 
 			case IResourceChangeEvent.PRE_REFRESH:
 				IProject [] projects = null;
 				Object o = event.getSource();
-				if (o instanceof IProject) {
-					projects = new IProject[] { (IProject) o };
+				if (o instanceof IProject prj) {
+					projects = new IProject[] { prj };
 				} else if (o instanceof IWorkspace) {
 					// https://bugs.eclipse.org/bugs/show_bug.cgi?id=261594. The single workspace refresh
 					// notification we see, implies that all projects are about to be refreshed.

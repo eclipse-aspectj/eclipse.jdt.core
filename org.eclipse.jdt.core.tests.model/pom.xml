@@ -24,7 +24,6 @@
 
   <properties>
     <defaultSigning-excludeInnerJars>true</defaultSigning-excludeInnerJars>
-    <code.ignoredWarnings>-warn:+fieldHiding,-unavoidableGenericProblems</code.ignoredWarnings>
   </properties>
 
   <build>
@@ -41,15 +40,37 @@
       	  </includes>
          </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>test-standalone</id>
+            <goals><goal>test</goal></goals>
+            <phase>integration-test</phase>
+            <configuration>
+              <testClassesDirectory>${project.build.outputDirectory}</testClassesDirectory>
+              <includes>
+                <include>org/eclipse/jdt/core/tests/model/JavaCoreStandaloneTest.*</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit47</artifactId>
+            <version>${surefire.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
     </plugins>
   </build>
 
   <profiles>
     <profile>
       <id>build-individual-bundles</id>
-	  <properties>
-		<code.ignoredWarnings>-warn:+fieldHiding,-unavoidableGenericProblems,-discouraged</code.ignoredWarnings>
-	  </properties>
     </profile>
 	<profile>
 		<id>test-on-javase-17</id>

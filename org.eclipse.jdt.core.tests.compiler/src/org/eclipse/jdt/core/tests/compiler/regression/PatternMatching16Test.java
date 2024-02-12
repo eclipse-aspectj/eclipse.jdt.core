@@ -28,7 +28,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testBug575035" };
+//		TESTS_NAMES = new String[] { "test027" };
 	}
 
 	public static Class<?> testClass() {
@@ -1022,7 +1022,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X19b.java (at line 9)\n" +
 				"	boolean b = (obj instanceof String[] s && s.length == 0);\n" +
 				"	                                     ^\n" +
-				"Duplicate local variable s\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				"",
 				null,
@@ -1536,7 +1536,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X26.java (at line 7)\n" +
 				"	if ((o instanceof String s) && (p instanceof String s)) {\n" +
 				"	                                                    ^\n" +
-				"Duplicate local variable s\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				"",
 				null,
@@ -1568,7 +1568,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X26.java (at line 7)\n" +
 				"	if ((o instanceof String s) && (!(o instanceof String s))) {\n" +
 				"	                                                      ^\n" +
-				"Duplicate local variable s\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				"",
 				null,
@@ -2832,7 +2832,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 6)\n" +
 				"	String s = \"\";\n" +
 				"	       ^\n" +
-				"Duplicate local variable s\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				"",
 				null,
@@ -3237,16 +3237,15 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	if (o instanceof X x && x instanceof XPlus x) {\n" +
 				"	                                           ^\n" +
-				"Duplicate local variable x\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				null,
 				true,
 				compilerOptions);
 	}
-	// Javac rejects this. Need to check with the spec authors
+
 	public void test070() {
-		Map<String, String> compilerOptions = getCompilerOptions(true);
-		runConformTest(
+		runNegativeTest(
 				new String[] {
 						"X.java",
 						"@SuppressWarnings(\"preview\")\n"+
@@ -3261,10 +3260,14 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 						+ "	}\n"
 						+ "}",
 				},
-				"X",
-				compilerOptions);
+				"----------\n" +
+				"1. ERROR in X.java (at line 4)\r\n" +
+				"	if (o instanceof X x || o instanceof X x) {\r\n" +
+				"	                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n");
 	}
-	// Javac rejects the code on the IF itself (same as above)
+
 	public void test071() {
 		Map<String, String> compilerOptions = getCompilerOptions(true);
 		runNegativeTest(
@@ -3283,7 +3286,12 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 								+ "}",
 				},
 				"----------\n" +
-				"1. ERROR in X.java (at line 5)\n" +
+				"1. ERROR in X.java (at line 4)\n" +
+				"	if (o instanceof X x || o instanceof X x) {\n" +
+				"	                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 5)\n" +
 				"	System.out.println(x);\n" +
 				"	                   ^\n" +
 				"x cannot be resolved to a variable\n" +
@@ -3292,7 +3300,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				true,
 				compilerOptions);
 	}
-	// Javac rejects the code on the IF itself (same as above)
+
 	public void test072() {
 		Map<String, String> compilerOptions = getCompilerOptions(true);
 		runNegativeTest(
@@ -3312,7 +3320,12 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 								+ "}",
 				},
 				"----------\n" +
-				"1. ERROR in X.java (at line 7)\n" +
+				"1. ERROR in X.java (at line 4)\n" +
+				"	if (o instanceof X x || o instanceof X x) {\n" +
+				"	                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 7)\n" +
 				"	System.out.println(x);\n" +
 				"	                   ^\n" +
 				"x cannot be resolved to a variable\n" +
@@ -3415,7 +3428,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 4)\n" +
 				"	if ( (! (o instanceof String a)) || (o instanceof String a) ) {\n" +
 				"	                                                         ^\n" +
-				"Duplicate local variable a\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n",
 				null,
 				true,
@@ -3932,47 +3945,43 @@ public class PatternMatching16Test extends AbstractRegressionTest {
     			"     0  ldc <String \"OK: \"> [16]\n" +
     			"     2  astore_1 [y]\n" +
     			"     3  ldc <String \"local\"> [18]\n" +
-    			"     5  astore_3\n" +
-    			"     6  aload_3\n" +
+    			"     5  dup\n" +
+    			"     6  astore_3\n" +
     			"     7  instanceof String [20]\n" +
-    			"    10  ifeq 42\n" +
+    			"    10  ifeq 36\n" +
     			"    13  aload_3\n" +
     			"    14  checkcast String [20]\n" +
-    			"    17  dup\n" +
-    			"    18  astore_2\n" +
-    			"    19  aload_3\n" +
-    			"    20  checkcast String [20]\n" +
-    			"    23  pop2\n" +
-    			"    24  getstatic System.out : PrintStream [22]\n" +
-    			"    27  new StringBuilder [28]\n" +
-    			"    30  dup\n" +
-    			"    31  aload_1 [y]\n" +
-    			"    32  invokespecial StringBuilder(String) [30]\n" +
-    			"    35  aload_2 [x]\n" +
-    			"    36  invokevirtual StringBuilder.append(String) : StringBuilder [33]\n" +
-    			"    39  invokevirtual PrintStream.println(Object) : void [37]\n" +
-    			"    42  return\n" +
+    			"    17  astore_2 [x]\n" +
+    		    "    18  getstatic System.out : PrintStream [22]\n" +
+    		    "    21  new StringBuilder [28]\n" +
+    		    "    24  dup\n" +
+    		    "    25  aload_1 [y]\n" +
+    		    "    26  invokespecial StringBuilder(String) [30]\n" +
+    		    "    29  aload_2 [x]\n" +
+    		    "    30  invokevirtual StringBuilder.append(String) : StringBuilder [33]\n" +
+    		    "    33  invokevirtual PrintStream.println(Object) : void [37]\n" +
+    		    "    36  return\n" +
     			"      Line numbers:\n" +
     			"        [pc: 0, line: 13]\n" +
     			"        [pc: 3, line: 14]\n" +
-    			"        [pc: 24, line: 15]\n" +
-    			"        [pc: 42, line: 17]\n" +
+    			"        [pc: 18, line: 15]\n" +
+    			"        [pc: 36, line: 17]\n" +
     			"      Local variable table:\n" +
-    			"        [pc: 0, pc: 43] local: args index: 0 type: String[]\n" +
-    			"        [pc: 3, pc: 43] local: y index: 1 type: String\n" +
-    			"        [pc: 24, pc: 42] local: x index: 2 type: String\n" +
+    			"        [pc: 0, pc: 37] local: args index: 0 type: String[]\n" +
+    			"        [pc: 3, pc: 37] local: y index: 1 type: String\n" +
+    			"        [pc: 18, pc: 36] local: x index: 2 type: String\n" +
     			"      Stack map table: number of frames 1\n" +
-    			"        [pc: 42, append: {String}]\n" +
+    			"        [pc: 36, append: {String}]\n" +
     			"    RuntimeVisibleTypeAnnotations: \n" +
     			"      #50 @Type(\n" +
     			"        target type = 0x40 LOCAL_VARIABLE\n" +
     			"        local variable entries:\n" +
-    			"          [pc: 3, pc: 43] index: 1\n" +
+    			"          [pc: 3, pc: 37] index: 1\n" +
     			"      )\n" +
     			"      #50 @Type(\n" +
     			"        target type = 0x40 LOCAL_VARIABLE\n" +
     			"        local variable entries:\n" +
-    			"          [pc: 24, pc: 42] index: 2\n" +
+    			"          [pc: 18, pc: 36] index: 2\n" +
     			"      )\n" +
     			"\n" +
     			"  Inner classes:\n" +
@@ -4125,4 +4134,418 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"true",
 				compilerOptions);
 	}
+	public void testGH1726() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		Map<String, String> compilerOptions = getCompilerOptions(true);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X {
+							record A(int x) {
+							}
+
+							public static int foo(Object a) {
+								return a instanceof A(int x) ? x : 1;
+							}
+
+							public static void main(String [] args) {
+								System.out.println("" + foo(new A(1234)) + foo(args));
+							}
+						}
+						""",
+				},
+				"12341",
+				compilerOptions);
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1725
+	// [21] Wrongly needing a default case for a switch expression
+	public void testGH1725() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		Map<String, String> compilerOptions = getCompilerOptions(true);
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X {
+							public abstract sealed class A permits B, C {
+							}
+
+							public final class C extends A {
+							}
+
+							public abstract sealed class B extends A permits D {
+							}
+
+							public final class D extends B {
+							}
+
+							public String foo(A a) {
+								return switch (a) {
+									case D d -> "1234";
+									case C c -> "6789";
+								};
+							}
+							public static void main(String [] args) {
+								System.out.println(new X().foo(new X().new D()) + new X().foo(new X().new C()));
+							}
+						}
+						""",
+				},
+				"12346789",
+				compilerOptions);
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1725
+	// [21] Wrongly needing a default case for a switch expression
+	public void testGH1725_2() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X {
+							public abstract sealed class A permits B, C {
+							}
+
+							public final class C extends A {
+							}
+
+							public sealed class B extends A permits D {
+							}
+
+							public final class D extends B {
+							}
+
+							public String foo(A a) {
+								return switch (a) {
+									case D d -> "1234";
+									// case B b -> "blah";
+									case C c -> "6789";
+								};
+							}
+							public static void main(String [] args) {
+								System.out.println(new X().foo(new X().new D()) + new X().foo(new X().new C()));
+							}
+						}
+						""",
+				},
+				"""
+				----------
+				1. ERROR in X.java (at line 15)
+					return switch (a) {
+					               ^
+				A switch expression should have a default case
+				----------
+				""",
+				false);
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1759
+	// Pattern variable is not recognized in AND_AND_Expression
+	public void testGHI1759() {
+
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						import java.util.Arrays;
+						import java.util.List;
+						public class X {
+							public static void main(String [] args) {
+						        Object obj = "test";
+						        List<String> values = Arrays.asList("fail", "test", "pass");
+						        if (obj instanceof String str && values.stream().anyMatch(str::equalsIgnoreCase)) {
+						            System.out.println(str);
+						        }
+						    }
+
+						}
+						""",
+				},
+				"test");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1759
+	// Pattern variable is not recognized in AND_AND_Expression
+	public void testGHI1759_2() {
+
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						import java.util.Arrays;
+						import java.util.List;
+						public class X {
+							public static void main(String [] args) {
+						        Object obj = "test";
+						        List<String> values = Arrays.asList("fail", "test", "pass");
+						        if (!(obj instanceof String str) || values.stream().anyMatch(str::equalsIgnoreCase)) {
+						            System.out.println(obj);
+						        }
+						    }
+
+						}
+						""",
+				},
+				"test");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1759
+	// Pattern variable is not recognized in AND_AND_Expression
+	public void testGHI1759_3() {
+
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						import java.util.Arrays;
+						import java.util.List;
+						public class X {
+						    public static void main(String [] args) {
+						        Object obj = "test";
+						        List<String> values = Arrays.asList("fail", "test", "pass");
+						        if (obj instanceof String str) {
+						        	if (values.stream().anyMatch(str::equalsIgnoreCase)) {
+						        		System.out.println(str);
+						        	}
+						        }
+						    }
+						}
+						""",
+				},
+				"test");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1485
+	// ECJ hangs when pattern matching code is used in a nested conditional expression.
+	public void testGHI1485() {
+
+		runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X {
+						    static class PvsVariable {
+						    }
+
+						    static class PvsVariableNext_1 extends PvsVariable {
+						    }
+
+						    static class PvsVariableNext_2 extends PvsVariableNext_1 {
+						    }
+
+						    static class PvsVariableNext_3 extends PvsVariableNext_2 {
+						    }
+
+						    static class PvsVariableNext_4 extends PvsVariableNext_3 {
+						    }
+
+						    public static void main(String[] args) {
+						        final var pvsVariable = new PvsVariableNext_3();
+						        final Object origVar =
+						                pvsVariable instanceof PvsVariableNext_1 var_first
+						                    ? "PvsVariableNext_1"
+						                    : (pvsVariable instanceof PvsVariableNext_2 var_second &&
+						                       pvsVariable instanceof PvsVariableNext_3 var_three &&
+						                       true) ? "PvsVariableNext_2 && PvsVariableNext_3"
+						                                : "None";
+						        System.out.println(origVar);
+						    }
+						}
+						""",
+				},
+				"PvsVariableNext_1");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1887
+	// [Patterns] ECJ tolerates erroneous redeclaration of pattern bindings in some cases
+	public void testGHI1887() {
+
+		runNegativeTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X<T> {
+							public void foo(T o) {
+								/*
+								 * 6.3.1 Scope for Pattern Variables in Expressions
+								 * 6.3.1.1 Conditional-And Operator &&
+								 *
+								 * It is a compile-time error if any of the following conditions hold:
+									• A pattern variable is both (i) introduced by a when true and (ii) introduced by
+									b when true.
+									• A pattern variable is both (i) introduced by a when false and (ii) introduced by
+									b when false.
+								 */
+								boolean b = o instanceof String a && o instanceof Double a;   // Error: correct
+								b = !(o instanceof String a) && !(o instanceof Double a);     // <<<----- Error NOT reported by ECJ. Javac complains
+
+								/*
+								 * 6.3.1.2 Conditional-Or Operator ||
+								 *
+								 * It is a compile-time error if any of the following conditions hold:
+									• A pattern variable is both (i) introduced by a when true and (ii) introduced by
+									b when true.
+									• A pattern variable is both (i) introduced by a when false and (ii) introduced by
+									b when false.
+								 */
+								b =  o instanceof String a || o instanceof Double a;      // <<<----- Error NOT reported by ECJ. Javac complains
+								b =  !(o instanceof String a) || !(o instanceof Double a); // Error: correct
+
+								/*
+								 * 6.3.1.4 Conditional Operator a ? b : c
+								 *
+								 * It is a compile-time error if any of the following conditions hold:
+									• A pattern variable is both (i) introduced by a when true and (ii) introduced by
+									c when true.
+									• A pattern variable is both (i) introduced by a when true and (ii) introduced by
+									c when false.
+									• A pattern variable is both (i) introduced by a when false and (ii) introduced by
+									b when true.
+									• A pattern variable is both (i) introduced by a when false and (ii) introduced by
+									b when false.
+									• A pattern variable is both (i) introduced by b when true and (ii) introduced by
+									c when true.
+									• A pattern variable is both (i) introduced by b when false and (ii) introduced by
+									c when false.
+								 */
+
+								b = o instanceof String a ? true : o instanceof String a;  // error correctly reported
+								b = o instanceof String a ? true : !(o instanceof String a); // error correctly reported
+								b = !(o instanceof String a) ? o instanceof String a : true; // error correctly reported
+								b = !(o instanceof String a) ? !(o instanceof String a) : true; // error correctly reported
+								b = b ? (o instanceof String a) : (o instanceof String a); // error correctly reported
+								b = b ? !(o instanceof String a) : !(o instanceof String a); // error correctly reported
+
+							}
+						}
+						""",
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 13)\n" +
+				"	boolean b = o instanceof String a && o instanceof Double a;   // Error: correct\n" +
+				"	                                                         ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 14)\n" +
+				"	b = !(o instanceof String a) && !(o instanceof Double a);     // <<<----- Error NOT reported by ECJ. Javac complains\n" +
+				"	                                                      ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 25)\n" +
+				"	b =  o instanceof String a || o instanceof Double a;      // <<<----- Error NOT reported by ECJ. Javac complains\n" +
+				"	                                                  ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"4. ERROR in X.java (at line 26)\n" +
+				"	b =  !(o instanceof String a) || !(o instanceof Double a); // Error: correct\n" +
+				"	                                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"5. ERROR in X.java (at line 46)\n" +
+				"	b = o instanceof String a ? true : o instanceof String a;  // error correctly reported\n" +
+				"	                                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"6. ERROR in X.java (at line 47)\n" +
+				"	b = o instanceof String a ? true : !(o instanceof String a); // error correctly reported\n" +
+				"	                                                         ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"7. ERROR in X.java (at line 48)\n" +
+				"	b = !(o instanceof String a) ? o instanceof String a : true; // error correctly reported\n" +
+				"	                                                   ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"8. ERROR in X.java (at line 49)\n" +
+				"	b = !(o instanceof String a) ? !(o instanceof String a) : true; // error correctly reported\n" +
+				"	                                                     ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"9. ERROR in X.java (at line 50)\n" +
+				"	b = b ? (o instanceof String a) : (o instanceof String a); // error correctly reported\n" +
+				"	                                                       ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n" +
+				"10. ERROR in X.java (at line 51)\n" +
+				"	b = b ? !(o instanceof String a) : !(o instanceof String a); // error correctly reported\n" +
+				"	                                                         ^\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
+				"----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1406
+	// [Patterns] Bizarre code generation for type test patterns
+    public void testGH1406() throws ClassFormatException, IOException {
+        Map<String, String> options = getCompilerOptions(false);
+    	String source =
+    			"""
+    			public class X {
+					public static void main(String[] args) {
+						Object o = null;
+						if (o instanceof String x) {
+
+						}
+					}
+				}
+    			""";
+    	String expectedOutput =
+    			"  public static void main(String[] args);\n"
+    			+ "     0  aconst_null\n"
+    			+ "     1  astore_1 [o]\n"
+    			+ "     2  aload_1 [o]\n"
+    			+ "     3  instanceof String [16]\n"
+    			+ "     6  ifeq 14\n"
+    			+ "     9  aload_1 [o]\n"
+    			+ "    10  checkcast String [16]\n"
+    			+ "    13  astore_2\n"
+    			+ "    14  return\n";
+    	checkClassFile("X", source, expectedOutput, ClassFileBytesDisassembler.DETAILED | ClassFileBytesDisassembler.COMPACT);
+        runConformTest(
+                new String[] {
+                        "X.java",
+                        source,
+                },
+                "",
+                options);
+    }
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1406
+	// [Patterns] Bizarre code generation for type test patterns
+    public void testGH1406_2() throws ClassFormatException, IOException {
+        Map<String, String> options = getCompilerOptions(false);
+    	String source =
+    			"""
+    			public class X {
+				    Object o = "Helo";
+				    public void foo() {
+				        if (o instanceof String s) {
+
+				        }
+				    }
+
+				    public static void main(String [] args) {
+				        new X().foo();
+				    }
+				}
+    			""";
+    	String expectedOutput =
+    			 "  public void foo();\n" +
+				 "     0  aload_0 [this]\n" +
+				 "     1  getfield X.o : Object [14]\n" +
+				 "     4  dup\n" +
+				 "     5  astore_2\n" +
+				 "     6  instanceof String [21]\n" +
+				 "     9  ifeq 17\n" +
+				 "    12  aload_2\n" +
+				 "    13  checkcast String [21]\n" +
+				 "    16  astore_1\n" +
+				 "    17  return\n";
+    	checkClassFile("X", source, expectedOutput, ClassFileBytesDisassembler.DETAILED | ClassFileBytesDisassembler.COMPACT);
+        runConformTest(
+                new String[] {
+                        "X.java",
+                        source,
+                },
+                "",
+                options);
+
+    }
 }

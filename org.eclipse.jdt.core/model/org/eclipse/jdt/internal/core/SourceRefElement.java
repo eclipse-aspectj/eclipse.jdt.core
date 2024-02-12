@@ -13,7 +13,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
-import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
@@ -21,9 +21,11 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.core.util.DOMFinder;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
+import org.eclipse.jdt.internal.core.util.Util;
 
 /**
  * Abstract class for Java elements which implement ISourceReference.
@@ -37,10 +39,17 @@ public abstract class SourceRefElement extends JavaElement implements ISourceRef
 	 * them.  The occurrence count starts at 1 (thus the first
 	 * occurrence is occurrence 1, not occurrence 0).
 	 */
-	public int occurrenceCount = 1;
+	private int occurrenceCount; // XXX should be final
 
 protected SourceRefElement(JavaElement parent) {
+	this(parent, 1);
+}
+protected SourceRefElement(JavaElement parent, int occurrenceCount) {
 	super(parent);
+	// 0 is not valid: this first occurrence is occurrence 1.
+	if (occurrenceCount <= 0)
+		throw new IllegalArgumentException(Integer.toString(occurrenceCount));
+	this.occurrenceCount = occurrenceCount;
 }
 /**
  * This element is being closed.  Do any necessary cleanup.
@@ -53,7 +62,7 @@ protected void closing(Object info) throws JavaModelException {
  * Returns a new element info for this element.
  */
 @Override
-protected Object createElementInfo() {
+protected JavaElementInfo createElementInfo() {
 	return null; // not used for source ref elements
 }
 /**
@@ -84,10 +93,16 @@ public void delete(boolean force, IProgressMonitor monitor) throws JavaModelExce
 }
 @Override
 public boolean equals(Object o) {
-	if (!(o instanceof SourceRefElement)) return false;
-	return this.occurrenceCount == ((SourceRefElement)o).occurrenceCount &&
+	if (!(o instanceof SourceRefElement other)) return false;
+	return this.occurrenceCount == other.occurrenceCount &&
 			super.equals(o);
 }
+
+@Override
+protected int calculateHashCode() {
+	return Util.combineHashCodes(super.calculateHashCode(), this.occurrenceCount);
+}
+
 /**
  * Returns the <code>ASTNode</code> that corresponds to this <code>JavaElement</code>
  * or <code>null</code> if there is no corresponding node.
@@ -104,11 +119,11 @@ public ASTNode findNode(CompilationUnit ast) {
 }
 
 @Override
-protected void generateInfos(Object info, HashMap newElements, IProgressMonitor pm) throws JavaModelException {
+protected void generateInfos(IElementInfo info, Map<IJavaElement, IElementInfo> newElements, IProgressMonitor pm) throws JavaModelException {
 	Openable openableParent = (Openable)getOpenableParent();
 	if (openableParent == null) return;
 
-	JavaElementInfo openableParentInfo = (JavaElementInfo) JavaModelManager.getJavaModelManager().getInfo(openableParent);
+	IElementInfo openableParentInfo = JavaModelManager.getJavaModelManager().getInfo(openableParent);
 	if (openableParentInfo == null) {
 		openableParent.generateInfos(openableParent.createElementInfo(), newElements, pm);
 	}
@@ -174,6 +189,17 @@ public IJavaElement getHandleUpdatingCountFromMemento(MementoTokenizer memento, 
 public int getOccurrenceCount() {
 	return this.occurrenceCount;
 }
+
+public void incOccurrenceCount() {
+	this.occurrenceCount++;
+	resetHashCode();
+}
+
+public void setOccurrenceCount(int occurrenceCount) {
+	this.occurrenceCount= occurrenceCount;
+	resetHashCode();
+}
+
 /**
  * Return the first instance of IOpenable in the hierarchy of this
  * type (going up the hierarchy from this type);

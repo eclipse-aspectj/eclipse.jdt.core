@@ -436,8 +436,13 @@ public void integrateAnnotationsInHierarchy() { // AspectJ Extension - raised to
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/commit/32961cfe47d06434b73a05f44e81fb6b94d9f87f#r128824102
 	// TODO: Wait for feedback on GitHub question above and act accordingly.
 	/*
-	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
-		this.topLevelTypes[i].scope.referenceType().updateSupertypesWithAnnotations(Collections.emptyMap());
+	try {
+		this.environment.suppressImportErrors = true;
+		for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
+			this.topLevelTypes[i].scope.referenceType().updateSupertypesWithAnnotations(Collections.emptyMap());
+	} finally {
+		this.environment.suppressImportErrors = false;
+	}
 	*/
 	// AspectJ extension end
 	// ... checking on permitted types

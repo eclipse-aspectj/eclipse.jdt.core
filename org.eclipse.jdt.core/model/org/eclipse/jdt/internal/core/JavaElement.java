@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -29,6 +29,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.core.resources.IResource;
@@ -58,6 +59,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Util;
@@ -121,10 +123,12 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * This element's parent, or <code>null</code> if this
 	 * element does not have a parent.
 	 */
-	private JavaElement parent;
+	private final JavaElement parent;
 
-	/* cached result */
-	private JavaProject project;
+	/** cached result */
+	private final JavaProject project;
+	/** cached result */
+	private int hashCode;
 
 	protected static final String[] NO_STRINGS = new String[0];
 	protected static final JavaElement[] NO_ELEMENTS = new JavaElement[0];
@@ -143,7 +147,9 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 *		Java element type constants
 	 */
 	protected JavaElement(JavaElement parent) throws IllegalArgumentException {
-		this.setParent(parent);
+		this.parent = parent;
+		// cache:
+		this.project = parent == null ? null : parent.getJavaProject();
 	}
 	/**
 	 * @see IOpenable
@@ -158,7 +164,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	/*
 	 * Returns a new element info for this element.
 	 */
-	protected abstract Object createElementInfo();
+	protected abstract JavaElementInfo createElementInfo();
 	/**
 	 * Returns true if this handle represents the same Java element
 	 * as the given handle. By default, two handles represent the same
@@ -172,7 +178,6 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 */
 	@Override
 	public boolean equals(Object o) {
-
 		if (this == o) return true;
 
 		// Java model parent is null
@@ -222,7 +227,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * Generates the element infos for this element, its ancestors (if they are not opened) and its children (if it is an Openable).
 	 * Puts the newly created element info in the given map.
 	 */
-	protected abstract void generateInfos(Object info, HashMap newElements, IProgressMonitor pm) throws JavaModelException;
+	protected abstract void generateInfos(IElementInfo info, Map<IJavaElement, IElementInfo> newElements, IProgressMonitor pm) throws JavaModelException;
 
 	/**
 	 * @see IJavaElement
@@ -242,8 +247,8 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 */
 	public IJavaElement[] getChildren() throws JavaModelException {
 		Object elementInfo = getElementInfo();
-		if (elementInfo instanceof JavaElementInfo) {
-			return ((JavaElementInfo)elementInfo).getChildren();
+		if (elementInfo instanceof JavaElementInfo ji) {
+			return ji.getChildren();
 		} else {
 			return NO_ELEMENTS;
 		}
@@ -285,7 +290,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * NOTE: BinaryType infos are NOT rooted under JavaElementInfo.
 	 * @exception JavaModelException if the element is not present or not accessible
 	 */
-	public Object getElementInfo() throws JavaModelException {
+	public IElementInfo getElementInfo() throws JavaModelException {
 		return getElementInfo(null);
 	}
 	/**
@@ -295,10 +300,10 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * NOTE: BinaryType infos are NOT rooted under JavaElementInfo.
 	 * @exception JavaModelException if the element is not present or not accessible
 	 */
-	public Object getElementInfo(IProgressMonitor monitor) throws JavaModelException {
+	public IElementInfo getElementInfo(IProgressMonitor monitor) throws JavaModelException {
 
 		JavaModelManager manager = JavaModelManager.getJavaModelManager();
-		Object info = manager.getInfo(this);
+		IElementInfo info = manager.getInfo(this);
 		if (info != null) return info;
 		return openWhenClosed(createElementInfo(), false, monitor);
 	}
@@ -384,13 +389,6 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	@Override
 	public JavaElement getParent() {
 		return this.parent;
-	}
-
-	protected void setParent(JavaElement parent) {
-		// invalidate caches:
-		this.project = parent==null?null:parent.getJavaProject();
-		// now the real task:
-		this.parent = parent;
 	}
 
 	@Override
@@ -513,15 +511,30 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	}
 
 	/**
-	 * Returns the hash code for this Java element. By default,
-	 * the hash code for an element is a combination of its name
-	 * and parent's hash code. Elements with other requirements must
-	 * override this method.
+	 * Returns the hash code for this Java element. By default, the hash code for an element is a combination of its
+	 * this{@link #getElementName()} and parent's hash code. Elements with other requirements must override
+	 * this{@link #calculateHashCode()}.
 	 */
 	@Override
-	public int hashCode() {
-		if (this.parent == null) return super.hashCode();
-		return Util.combineHashCodes(getElementName().hashCode(), this.parent.hashCode());
+	public final int hashCode() {
+		if (this.hashCode == 0) {
+			int h = calculateHashCode();
+			if (h == 0) {
+				h = 1;
+			}
+			this.hashCode = h;
+		}
+		return this.hashCode;
+	}
+
+	/** should not be needed but some implementations do have mutable member "occurrenceCount" **/
+	protected  void resetHashCode() {
+		this.hashCode = 0;
+	}
+
+	protected int calculateHashCode() {
+		return (this.parent == null) ? super.hashCode()
+				: Util.combineHashCodes(getElementName().hashCode(), this.parent.hashCode());
 	}
 	/**
 	 * Returns true if this element is an ancestor of the given element,
@@ -564,11 +577,11 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	 * Opens an <code>Openable</code> that is known to be closed (no check for <code>isOpen()</code>).
 	 * Returns the created element info.
 	 */
-	protected Object openWhenClosed(Object info, boolean forceAdd, IProgressMonitor monitor) throws JavaModelException {
+	protected IElementInfo openWhenClosed(IElementInfo info, boolean forceAdd, IProgressMonitor monitor) throws JavaModelException {
 		JavaModelManager manager = JavaModelManager.getJavaModelManager();
 		boolean hadTemporaryCache = manager.hasTemporaryCache();
 		try {
-			HashMap<IJavaElement, Object> newElements = manager.getTemporaryCache();
+			HashMap<IJavaElement, IElementInfo> newElements = manager.getTemporaryCache();
 			generateInfos(info, newElements, monitor);
 			if (info == null) {
 				info = newElements.get(this);
@@ -808,12 +821,12 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 				// do nothing, only try to read
 			}
 			if (validURLs == null) {
-				validURLs = new HashSet<String>(1);
+				validURLs = new HashSet<>(1);
 			}
 			validURLs.add(url);
 		} catch (Exception e1) {
 			if (invalidURLs == null) {
-				invalidURLs = new HashSet<String>(1);
+				invalidURLs = new HashSet<>(1);
 			}
 			invalidURLs.add(url);
 			throw new JavaModelException(e, IJavaModelStatusConstants.CANNOT_RETRIEVE_ATTACHED_JAVADOC);

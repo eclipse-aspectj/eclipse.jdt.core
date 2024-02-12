@@ -15,7 +15,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
-import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
@@ -32,6 +32,7 @@ import org.eclipse.jdt.internal.compiler.ast.OperatorIds;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedNameReference;
 import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
 import org.eclipse.jdt.internal.compiler.ast.UnaryExpression;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.parser.RecoveryScanner;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
@@ -42,10 +43,10 @@ public class LocalVariable extends SourceRefElement implements ILocalVariable {
 
 	public static final ILocalVariable[] NO_LOCAL_VARIABLES = new ILocalVariable[0];
 
-	String name;
-	public int declarationSourceStart, declarationSourceEnd;
-	public int nameStart, nameEnd;
-	String typeSignature;
+	private final String name;
+	public final int declarationSourceStart, declarationSourceEnd;
+	public final int nameStart, nameEnd;
+	private final String typeSignature;
 	public IAnnotation[] annotations;
 	private final int flags;
 	private final boolean isParameter;
@@ -105,15 +106,14 @@ public class LocalVariable extends SourceRefElement implements ILocalVariable {
 	}
 
 	@Override
-	protected Object createElementInfo() {
+	protected JavaElementInfo createElementInfo() {
 		// a local variable has no info
 		return null;
 	}
 
 	@Override
 	public boolean equals(Object o) {
-		if (!(o instanceof LocalVariable)) return false;
-		LocalVariable other = (LocalVariable)o;
+		if (!(o instanceof LocalVariable other)) return false;
 		return
 			this.declarationSourceStart == other.declarationSourceStart
 			&& this.declarationSourceEnd == other.declarationSourceEnd
@@ -123,12 +123,17 @@ public class LocalVariable extends SourceRefElement implements ILocalVariable {
 	}
 
 	@Override
+	protected int calculateHashCode() {
+		return Util.combineHashCodes(this.getParent().hashCode(), this.nameStart);
+	}
+
+	@Override
 	public boolean exists() {
 		return this.getParent().exists(); // see https://bugs.eclipse.org/bugs/show_bug.cgi?id=46192
 	}
 
 	@Override
-	protected void generateInfos(Object info, HashMap newElements, IProgressMonitor pm) {
+	protected void generateInfos(IElementInfo info, Map<IJavaElement, IElementInfo> newElements, IProgressMonitor pm) {
 		// a local variable has no info
 	}
 
@@ -301,9 +306,9 @@ public class LocalVariable extends SourceRefElement implements ILocalVariable {
 		buff.append(this.flags);
 		buff.append(JEM_COUNT);
 		buff.append(this.isParameter);
-		if (this.occurrenceCount > 1) {
+		if (this.getOccurrenceCount() > 1) {
 			buff.append(JEM_COUNT);
-			buff.append(this.occurrenceCount);
+			buff.append(this.getOccurrenceCount());
 		}
 	}
 
@@ -471,11 +476,6 @@ public class LocalVariable extends SourceRefElement implements ILocalVariable {
 	@Override
 	public IResource getUnderlyingResource() throws JavaModelException {
 		return this.getParent().getUnderlyingResource();
-	}
-
-	@Override
-	public int hashCode() {
-		return Util.combineHashCodes(this.getParent().hashCode(), this.nameStart);
 	}
 
 	/**

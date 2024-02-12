@@ -19,6 +19,7 @@ package org.eclipse.jdt.internal.compiler.batch;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -255,6 +256,9 @@ public FileSystem(Classpath[] paths, String[] initialFileNames, boolean annotati
 		} catch(InvalidPathException exception) {
 			// JRE 9 could throw an IAE if the linked JAR paths have invalid chars, such as ":"
 			// ignore
+		} catch (NoSuchFileException e) {
+			// we don't warn about inexisting jars (javac does the same as us)
+			// see org.eclipse.jdt.core.tests.compiler.regression.BatchCompilerTest.test017b()
 		} catch (IOException e) {
 			String error = "Failed to init " + classpath; //$NON-NLS-1$
 			if (JRTUtil.PROPAGATE_IO_ERRORS) {
@@ -479,6 +483,7 @@ private static String convertPathSeparators(String path) {
 		? path.replace('\\', '/')
 		 : path.replace('/', '\\');
 }
+@SuppressWarnings("resource") // don't close classpathEntry.zipFile, which we don't own
 private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, /*NonNull*/char[] moduleName) {
 	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, moduleName);
 	if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
@@ -497,7 +502,7 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 					}
 				}
 				// End AspectJ Extension
-				boolean shouldClose = false; // don't close classpathEntry.zipFile, which we don't own
+				boolean shouldClose = false;
 				try {
 					if (zip == null) {
 						zip = ExternalAnnotationDecorator.getAnnotationZipFile(classpathEntry.getPath(), null);
@@ -700,7 +705,7 @@ private char[][] filterModules(char[][] declaringModules) {
 	return filtered;
 }
 private Parser getParser() {
-	Map<String,String> opts = new HashMap<String, String>();
+	Map<String,String> opts = new HashMap<>();
 	opts.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_9);
 	return new Parser(
 			new ProblemReporter(DefaultErrorHandlingPolicies.exitOnFirstError(), new CompilerOptions(opts), new DefaultProblemFactory(Locale.getDefault())),

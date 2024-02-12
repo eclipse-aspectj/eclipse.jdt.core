@@ -920,7 +920,6 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 		}
 	}
 	// Test that pattern variables declared in instanceof can't be used in a switch/case
-	// Error messages need to rechecked - too many - ref https://github.com/eclipse-jdt/eclipse.jdt.core/issues/777
 	public void test26() {
 		runNegativeTest(new String[] {
 				"X.java",
@@ -947,38 +946,22 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
 				"	                                      ^\n" +
-				"Duplicate local variable x\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 5)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
 				"	                                             ^\n" +
-				"Duplicate local variable y\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"3. ERROR in X.java (at line 5)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
 				"	                                                       ^\n" +
-				"Duplicate local variable c\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
-				"4. ERROR in X.java (at line 5)\n" +
-				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
-				"	                                                       ^\n" +
-				"Duplicate local variable c\n" +
-				"----------\n" +
-				"5. ERROR in X.java (at line 6)\n" +
+				"4. ERROR in X.java (at line 6)\n" +
 				"	ColoredPoint lr) -> {\n" +
 				"	             ^^\n" +
-				"Duplicate local variable lr\n" +
-				"----------\n" +
-				"6. ERROR in X.java (at line 6)\n" +
-				"	ColoredPoint lr) -> {\n" +
-				"	             ^^\n" +
-				"Duplicate local variable lr\n" +
-				"----------\n" +
-				"7. ERROR in X.java (at line 6)\n" +
-				"	ColoredPoint lr) -> {\n" +
-				"	             ^^\n" +
-				"Duplicate local variable lr\n" +
-				"----------\n");
+				"A pattern variable with the same name is already defined in the statement\n");
 	}
 	// Test that pattern variables declared in switch/case can't be used in an instanceof expression part of the 'when' clause
 	// not relevant anymore since named record patterns are not there - 20
@@ -1004,22 +987,22 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c), ColoredPoint lr) when lr instanceof ColoredPoint(Point(int x, int y), Color c) -> {\n" +
 				"	                                                                                                                      ^\n" +
-				"Duplicate local variable x\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c), ColoredPoint lr) when lr instanceof ColoredPoint(Point(int x, int y), Color c) -> {\n" +
 				"	                                                                                                                             ^\n" +
-				"Duplicate local variable y\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"3. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c), ColoredPoint lr) when lr instanceof ColoredPoint(Point(int x, int y), Color c) -> {\n" +
 				"	                                                                                                                                       ^\n" +
-				"Duplicate local variable c\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"4. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c), ColoredPoint lr) when lr instanceof ColoredPoint(Point(int x, int y), Color c) -> {\n" +
 				"	                                                                                                                                       ^\n" +
-				"Duplicate local variable c\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
 	// Test nested record patterns in 'instanceof' within a swith-case with similar record pattern
@@ -1642,22 +1625,17 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 4)\n" +
 				"	case R(Integer i1, Double i1) -> {}\n" +
 				"	                          ^^\n" +
-				"Duplicate local variable i1\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 5)\n" +
 				"	case OuterR(R(Integer i1, Double i2), R(Integer i2, Double i2)) -> {}\n" +
 				"	                                                ^^\n" +
-				"Duplicate local variable i2\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n" +
 				"3. ERROR in X.java (at line 5)\n" +
 				"	case OuterR(R(Integer i1, Double i2), R(Integer i2, Double i2)) -> {}\n" +
 				"	                                                           ^^\n" +
-				"Duplicate local variable i2\n" +
-				"----------\n" +
-				"4. ERROR in X.java (at line 5)\n" +
-				"	case OuterR(R(Integer i1, Double i2), R(Integer i2, Double i2)) -> {}\n" +
-				"	                                                           ^^\n" +
-				"Duplicate local variable i2\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
 	public void testIssue690_2() {
@@ -1680,9 +1658,10 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 6)\n" +
 				"	if (s instanceof OuterR(R(Integer i1, Double i2), R(Integer i1, Double i4))) { \n" +
 				"	                                                            ^^\n" +
-				"Duplicate local variable i1\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
+
 	public void testIssue691_1() {
 		runNegativeTest(new String[] {
 				"X.java",
@@ -1740,58 +1719,6 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"Syntax error on token \"r\", delete this token\n" +
 				"----------\n");
 	}
-	public void testEnhancedForWithRecordPattern_001() {
-		runNegativeTest(new String[] {
-			"X.java",
-			"import java.util.ArrayList;\n" +
-			"import java.util.List;\n" +
-			"public class X {\n" +
-			" public static void foo(List<R> rList) {\n" +
-			"   for (R(Integer a) : rList) { \n" +
-			"     System.out.println(a);  \n" +
-			"   }\n" +
-			" }\n" +
-			" public static void main(String[] args) {\n" +
-			"   List<R> rList = new ArrayList<>();\n" +
-			"   rList.add(new R(1));\n" +
-			"   rList.add(new R(2));\n" +
-			"   foo(rList);\n" +
-			" }\n" +
-			"}\n" +
-			"record R(Integer i) {}"
-			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 5)\n" +
-			"	for (R(Integer a) : rList) { \n" +
-			"	     ^^^^^^^^^^^^\n" +
-			"Syntax error, record patterns are not allowed here\n" +
-			"----------\n");
-	}
-	public void testEnhancedForWithRecordPattern_002() {
-		runNegativeTest(new String[] {
-			"X.java",
-			"public class X {\n" +
-			"    public static boolean foo() {\n" +
-			"        boolean ret = false;\n" +
-			"        R[] recArray = {new R(0)};\n" +
-			"        for (R(int x) : recArray) {\n" +
-			"            ret = true;\n" +
-			"        }\n" +
-			"        return ret;\n" +
-			"    }\n" +
-			"    public static void main(String[] args) {\n" +
-			"   System.out.println(foo());\n" +
-			" }\n" +
-			"}\n" +
-			"record R(int i) {}"
-			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 5)\n" +
-			"	for (R(int x) : recArray) {\n" +
-			"	     ^^^^^^^^\n" +
-			"Syntax error, record patterns are not allowed here\n" +
-			"----------\n");
-	}
 	public void testRecordPatternTypeInference_001() {
 		runNegativeTest(new String[] {
 			"X.java",
@@ -1819,6 +1746,31 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"	^^^^^^\n" +
 			"This method requires a body instead of a semicolon\n" +
 			"----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1796
+	// [Patterns] Record Patterns can cause VerifyError
+	public void testGH1796() {
+		runConformTest(new String[] {
+			"X.java",
+			"""
+			public record X(int i) {
+
+			  public static void main(String[] args) {
+			    new Printer().print(new X(42), new StringBuilder());
+			  }
+
+			  static final class Printer {
+
+			    private void print(X e, StringBuilder buffer) {
+			      if (e instanceof X(int i)) {
+			          System.out.println(i);
+			      }
+			    }
+			  }
+			}
+			"""
+			},
+			"42");
 	}
 	public void testRecordPatternTypeInference_002() {
 		runConformTest(new String[] {
@@ -2021,38 +1973,6 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				},
 				"true");
 	}
-	public void testIssue882() {
-		Map<String, String> options = getCompilerOptions(false);
-		runNegativeTest(new String[] {
-				"X.java",
-				"import java.util.ArrayList;\n"
-				+ "import java.util.List;\n"
-				+ "public class X {\n"
-				+ "	public static void foo(List<R> rList) {\n"
-				+ "		for(R(Integer abcs):rList) {\n"
-				+ "			System.out.println(abcs);\n"
-				+ "		}\n"
-				+ "		zork();\n"
-				+ "	}\n"
-				+ "	record R(int i) {}\n"
-				+ "}"
-				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 5)\n" +
-				"	for(R(Integer abcs):rList) {\n" +
-				"	    ^^^^^^^^^^^^^^^\n" +
-				"Syntax error, record patterns are not allowed here\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 8)\n" +
-				"	zork();\n" +
-				"	^^^^\n" +
-				"The method zork() is undefined for the type X\n" +
-				"----------\n",
-				"",
-				null,
-				false,
-				options);
-		}
 	public void testRecordPatternTypeInference_011() {
 		runNegativeTest(new String[] {
 				"X.java",
@@ -2187,254 +2107,6 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			options.put(CompilerOptions.OPTION_ReportUncheckedTypeOperation, old2);
 		}
 	}
-  public void testIssue945_1() {
-		runNegativeTest(new String[] {
-				"X.java",
-				"public class X {\n"
-				+ "    record R0(int x) {}\n"
-				+ "    record R1(R0 r, int x) {}\n"
-				+ "    record R2(R1 r, int x) {}\n"
-				+ "    record R3(R2 r, int x) {}\n"
-				+ "    record R4(R3 r, int x) {}\n"
-				+ "    record R5(R4 r, int x) {}\n"
-				+ "    record R6(R5 r, int x) {}\n"
-				+ "    record R7(R6 r, int x) {}\n"
-				+ "    record R8(R7 r, int x) {}\n"
-				+ "    record R9(R8 r, int x) {}\n"
-				+ "    record R10(R9 r, int x) {}\n"
-				+ "    record R11(R10 r, int x) {}\n"
-				+ "    record R12(R11 r, int x) {}\n"
-				+ "    record R13(R12 r, int x) {}\n"
-				+ "    record R14(R13 r, int x) {}\n"
-				+ "    record R15(R14 r, int x) {}\n"
-				+ "    record R16(R15 r, int x) {}\n"
-				+ "    record R17(R16 r, int x) {}\n"
-				+ "    record R18(R17 r, int x) {}\n"
-				+ "    record R19(R18 r, int x) {}\n"
-				+ "    record R20(R19 r, int x) {}\n"
-				+ "    record R21(R20 r, int x) {}\n"
-				+ "    record R22(R21 r, int x) {}\n"
-				+ "    record R23(R22 r, int x) {}\n"
-				+ "    record R24(R23 r, int x) {}\n"
-				+ "    record R25(R24 r, int x) {}\n"
-				+ "    record R26(R25 r, int x) {}\n"
-				+ "    record R27(R26 r, int x) {}\n"
-				+ "    record R28(R27 r, int x) {}\n"
-				+ "    record R29(R28 r, int x) {}\n"
-				+ "    record R30(R29 r, int x) {}\n"
-				+ "    record R31(R30 r, int x) {}\n"
-				+ "    record R32(R31 r, int x) {}\n"
-				+ "    record R33(R32 r, int x) {}\n"
-				+ "    record R34(R33 r, int x) {}\n"
-				+ "    record R35(R34 r, int x) {}\n"
-				+ "    record R36(R35 r, int x) {}\n"
-				+ "    record R37(R36 r, int x) {}\n"
-				+ "    record R38(R37 r, int x) {}\n"
-				+ "    record R39(R38 r, int x) {}\n"
-				+ "    record R40(R39 r, int x) {}\n"
-				+ "    record R41(R40 r, int x) {}\n"
-				+ "    record R42(R41 r, int x) {}\n"
-				+ "    record R43(R42 r, int x) {}\n"
-				+ "    record R44(R43 r, int x) {}\n"
-				+ "    record R45(R44 r, int x) {}\n"
-				+ "    record R46(R45 r, int x) {}\n"
-				+ "    record R47(R46 r, int x) {}\n"
-				+ "    record R48(R47 r, int x) {}\n"
-				+ "    record R49(R48 r, int x) {}\n"
-				+ "    record R50(R49 r, int x) {}\n"
-				+ "    record R51(R50 r, int x) {}\n"
-				+ "    record R52(R51 r, int x) {}\n"
-				+ "    record R53(R52 r, int x) {}\n"
-				+ "    record R54(R53 r, int x) {}\n"
-				+ "    record R55(R54 r, int x) {}\n"
-				+ "    record R56(R55 r, int x) {}\n"
-				+ "    record R57(R56 r, int x) {}\n"
-				+ "    record R58(R57 r, int x) {}\n"
-				+ "    record R59(R58 r, int x) {}\n"
-				+ "    record R60(R59 r, int x) {}\n"
-				+ "    record R61(R60 r, int x) {}\n"
-				+ "    record R62(R61 r, int x) {}\n"
-				+ "    record R63(R62 r, int x) {}\n"
-				+ "    record R64(R63 r, int x) {}\n"
-				+ "    record R65(R64 r, int x) {}\n"
-				+ "    record R66(R65 r, int x) {}\n"
-				+ "    record R67(R66 r, int x) {}\n"
-				+ "    record R68(R67 r, int x) {}\n"
-				+ "    record R69(R68 r, int x) {}\n"
-				+ "    record R70(R69 r, int x) {}\n"
-				+ "    record R71(R70 r, int x) {}\n"
-				+ "    record R72(R71 r, int x) {}\n"
-				+ "    record R73(R72 r, int x) {}\n"
-				+ "    record R74(R73 r, int x) {}\n"
-				+ "    record R75(R74 r, int x) {}\n"
-				+ "    record R76(R75 r, int x) {}\n"
-				+ "    record R77(R76 r, int x) {}\n"
-				+ "    record R78(R77 r, int x) {}\n"
-				+ "    record R79(R78 r, int x) {}\n"
-				+ "    record R80(R79 r, int x) {}\n"
-				+ "    record R81(R80 r, int x) {}\n"
-				+ "    record R82(R81 r, int x) {}\n"
-				+ "    record R83(R82 r, int x) {}\n"
-				+ "    record R84(R83 r, int x) {}\n"
-				+ "    record R85(R84 r, int x) {}\n"
-				+ "    record R86(R85 r, int x) {}\n"
-				+ "    record R87(R86 r, int x) {}\n"
-				+ "    record R88(R87 r, int x) {}\n"
-				+ "    record R89(R88 r, int x) {}\n"
-				+ "    record R90(R89 r, int x) {}\n"
-				+ "    record R91(R90 r, int x) {}\n"
-				+ "    record R92(R91 r, int x) {}\n"
-				+ "    record R93(R92 r, int x) {}\n"
-				+ "    record R94(R93 r, int x) {}\n"
-				+ "    record R95(R94 r, int x) {}\n"
-				+ "    record R96(R95 r, int x) {}\n"
-				+ "    record R97(R96 r, int x) {}\n"
-				+ "    record R98(R97 r, int x) {}\n"
-				+ "    record R99(R98 r, int x) {}\n"
-				+ "    public static void main(String args[]) {\n"
-				+ "        boolean match = false;\n"
-				+ "        R99[] array = {new R99(new R98(new R97(new R96(new R95(new R94(new R93(new R92(new R91(new R90(new R89(new R88(new R87(new R86(new R85(new R84(new R83(new R82(new R81(new R80(new R79(new R78(new R77(new R76(new R75(new R74(new R73(new R72(new R71(new R70(new R69(new R68(new R67(new R66(new R65(new R64(new R63(new R62(new R61(new R60(new R59(new R58(new R57(new R56(new R55(new R54(new R53(new R52(new R51(new R50(new R49(new R48(new R47(new R46(new R45(new R44(new R43(new R42(new R41(new R40(new R39(new R38(new R37(new R36(new R35(new R34(new R33(new R32(new R31(new R30(new R29(new R28(new R27(new R26(new R25(new R24(new R23(new R22(new R21(new R20(new R19(new R18(new R17(new R16(new R15(new R14(new R13(new R12(new R11(new R10(new R9(new R8(new R7(new R6(new R5(new R4(new R3(new R2(new R1(new R0(\"\"), 1), 2), 3), 4), 5), 6), 7), 8), 9), 10), 11), 12), 13), 14), 15), 16), 17), 18), 19), 20), 21), 22), 23), 24), 25), 26), 27), 28), 29), 30), 31), 32), 33), 34), 35), 36), 37), 38), 39), 40), 41), 42), 43), 44), 45), 46), 47), 48), 49), 50), 51), 52), 53), 54), 55), 56), 57), 58), 59), 60), 61), 62), 63), 64), 65), 66), 67), 68), 69), 70), 71), 72), 73), 74), 75), 76), 77), 78), 79), 80), 81), 82), 83), 84), 85), 86), 87), 88), 89), 90), 91), 92), 93), 94), 95), 96), 97), 98), 99)};\n"
-				+ "        for (R99(R98(R97(R96(R95(R94(R93(R92(R91(R90(R89(R88(R87(R86(R85(R84(R83(R82(R81(R80(R79(R78(R77(R76(R75(R74(R73(R72(R71(R70(R69(R68(R67(R66(R65(R64(R63(R62(R61(R60(R59(R58(R57(R56(R55(R54(R53(R52(R51(R50(R49(R48(R47(R46(R45(R44(R43(R42(R41(R40(R39(R38(R37(R36(R35(R34(R33(R32(R31(R30(R29(R28(R27(R26(R25(R24(R23(R22(R21(R20(R19(R18(R17(R16(R15(R14(R13(R12(R11(R10(R9(R8(R7(R6(R5(R4(R3(R2(R1(R0(int i0), int i1), int i2), int i3), int i4), int i5), int i6), int i7), int i8), int i9), int i10), int i11), int i12), int i13), int i14), int i15), int i16), int i17), int i18), int i19), int i20), int i21), int i22), int i23), int i24), int i25), int i26), int i27), int i28), int i29), int i30), int i31), int i32), int i33), int i34), int i35), int i36), int i37), int i38), int i39), int i40), int i41), int i42), int i43), int i44), int i45), int i46), int i47), int i48), int i49), int i50), int i51), int i52), int i53), int i54), int i55), int i56), int i57), int i58), int i59), int i60), int i61), int i62), int i63), int i64), int i65), int i66), int i67), int i68), int i69), int i70), int i71), int i72), int i73), int i74), int i75), int i76), int i77), int i78), int i79), int i80), int i81), int i82), int i83), int i84), int i85), int i86), int i87), int i88), int i89), int i90), int i91), int i92), int i93), int i94), int i95), int i96), int i97), int i98), int i99) : array) {\n"
-				+ "            match = i0==0 && i1==1 && i2==2 && i3==3 && i4==4 && i5==5 && i6==6 && i7==7 && i8==8 && i9==9 && i10==10 && i11==11 && i12==12 && i13==13 && i14==14 && i15==15 && i16==16 && i17==17 && i18==18 && i19==19 && i20==20 && i21==21 && i22==22 && i23==23 && i24==24 && i25==25 && i26==26 && i27==27 && i28==28 && i29==29 && i30==30 && i31==31 && i32==32 && i33==33 && i34==34 && i35==35 && i36==36 && i37==37 && i38==38 && i39==39 && i40==40 && i41==41 && i42==42 && i43==43 && i44==44 && i45==45 && i46==46 && i47==47 && i48==48 && i49==49 && i50==50 && i51==51 && i52==52 && i53==53 && i54==54 && i55==55 && i56==56 && i57==57 && i58==58 && i59==59 && i60==60 && i61==61 && i62==62 && i63==63 && i64==64 && i65==65 && i66==66 && i67==67 && i68==68 && i69==69 && i70==70 && i71==71 && i72==72 && i73==73 && i74==74 && i75==75 && i76==76 && i77==77 && i78==78 && i79==79 && i80==80 && i81==81 && i82==82 && i83==83 && i84==84 && i85==85 && i86==86 && i87==87 && i88==88 && i89==89 && i90==90 && i91==91 && i92==92 && i93==93 && i94==94 && i95==95 && i96==96 && i97==97 && i98==98 && i99==99;\n"
-				+ "        }\n"
-				+ "        System.out.print(match);\n"
-				+ "    }\n"
-				+ "} "
-				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 104)\n" +
-				"	R99[] array = {new R99(new R98(new R97(new R96(new R95(new R94(new R93(new R92(new R91(new R90(new R89(new R88(new R87(new R86(new R85(new R84(new R83(new R82(new R81(new R80(new R79(new R78(new R77(new R76(new R75(new R74(new R73(new R72(new R71(new R70(new R69(new R68(new R67(new R66(new R65(new R64(new R63(new R62(new R61(new R60(new R59(new R58(new R57(new R56(new R55(new R54(new R53(new R52(new R51(new R50(new R49(new R48(new R47(new R46(new R45(new R44(new R43(new R42(new R41(new R40(new R39(new R38(new R37(new R36(new R35(new R34(new R33(new R32(new R31(new R30(new R29(new R28(new R27(new R26(new R25(new R24(new R23(new R22(new R21(new R20(new R19(new R18(new R17(new R16(new R15(new R14(new R13(new R12(new R11(new R10(new R9(new R8(new R7(new R6(new R5(new R4(new R3(new R2(new R1(new R0(\"\"), 1), 2), 3), 4), 5), 6), 7), 8), 9), 10), 11), 12), 13), 14), 15), 16), 17), 18), 19), 20), 21), 22), 23), 24), 25), 26), 27), 28), 29), 30), 31), 32), 33), 34), 35), 36), 37), 38), 39), 40), 41), 42), 43), 44), 45), 46), 47), 48), 49), 50), 51), 52), 53), 54), 55), 56), 57), 58), 59), 60), 61), 62), 63), 64), 65), 66), 67), 68), 69), 70), 71), 72), 73), 74), 75), 76), 77), 78), 79), 80), 81), 82), 83), 84), 85), 86), 87), 88), 89), 90), 91), 92), 93), 94), 95), 96), 97), 98), 99)};\n" +
-				"	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^^^^^^^^^^\n" +
-				"The constructor X.R0(String) is undefined\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 105)\n" +
-				"	for (R99(R98(R97(R96(R95(R94(R93(R92(R91(R90(R89(R88(R87(R86(R85(R84(R83(R82(R81(R80(R79(R78(R77(R76(R75(R74(R73(R72(R71(R70(R69(R68(R67(R66(R65(R64(R63(R62(R61(R60(R59(R58(R57(R56(R55(R54(R53(R52(R51(R50(R49(R48(R47(R46(R45(R44(R43(R42(R41(R40(R39(R38(R37(R36(R35(R34(R33(R32(R31(R30(R29(R28(R27(R26(R25(R24(R23(R22(R21(R20(R19(R18(R17(R16(R15(R14(R13(R12(R11(R10(R9(R8(R7(R6(R5(R4(R3(R2(R1(R0(int i0), int i1), int i2), int i3), int i4), int i5), int i6), int i7), int i8), int i9), int i10), int i11), int i12), int i13), int i14), int i15), int i16), int i17), int i18), int i19), int i20), int i21), int i22), int i23), int i24), int i25), int i26), int i27), int i28), int i29), int i30), int i31), int i32), int i33), int i34), int i35), int i36), int i37), int i38), int i39), int i40), int i41), int i42), int i43), int i44), int i45), int i46), int i47), int i48), int i49), int i50), int i51), int i52), int i53), int i54), int i55), int i56), int i57), int i58), int i59), int i60), int i61), int i62), int i63), int i64), int i65), int i66), int i67), int i68), int i69), int i70), int i71), int i72), int i73), int i74), int i75), int i76), int i77), int i78), int i79), int i80), int i81), int i82), int i83), int i84), int i85), int i86), int i87), int i88), int i89), int i90), int i91), int i92), int i93), int i94), int i95), int i96), int i97), int i98), int i99) : array) {\n" +
-				"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"Syntax error, record patterns are not allowed here\n" +
-				"----------\n");
-	}
-	public void testIssue945_2() {
-		runNegativeTest(new String[] {
-				"X.java",
-				"public class X {\n"
-				+ "    record R0(int x) {}\n"
-				+ "    record R1(R0 r, int x) {}\n"
-				+ "    record R2(R1 r, int x) {}\n"
-				+ "    record R3(R2 r, int x) {}\n"
-				+ "    record R4(R3 r, int x) {}\n"
-				+ "    record R5(R4 r, int x) {}\n"
-				+ "    record R6(R5 r, int x) {}\n"
-				+ "    record R7(R6 r, int x) {}\n"
-				+ "    record R8(R7 r, int x) {}\n"
-				+ "    record R9(R8 r, int x) {}\n"
-				+ "    record R10(R9 r, int x) {}\n"
-				+ "    record R11(R10 r, int x) {}\n"
-				+ "    record R12(R11 r, int x) {}\n"
-				+ "    record R13(R12 r, int x) {}\n"
-				+ "    record R14(R13 r, int x) {}\n"
-				+ "    record R15(R14 r, int x) {}\n"
-				+ "    record R16(R15 r, int x) {}\n"
-				+ "    record R17(R16 r, int x) {}\n"
-				+ "    record R18(R17 r, int x) {}\n"
-				+ "    record R19(R18 r, int x) {}\n"
-				+ "    record R20(R19 r, int x) {}\n"
-				+ "    record R21(R20 r, int x) {}\n"
-				+ "    record R22(R21 r, int x) {}\n"
-				+ "    record R23(R22 r, int x) {}\n"
-				+ "    record R24(R23 r, int x) {}\n"
-				+ "    record R25(R24 r, int x) {}\n"
-				+ "    record R26(R25 r, int x) {}\n"
-				+ "    record R27(R26 r, int x) {}\n"
-				+ "    record R28(R27 r, int x) {}\n"
-				+ "    record R29(R28 r, int x) {}\n"
-				+ "    record R30(R29 r, int x) {}\n"
-				+ "    record R31(R30 r, int x) {}\n"
-				+ "    record R32(R31 r, int x) {}\n"
-				+ "    record R33(R32 r, int x) {}\n"
-				+ "    record R34(R33 r, int x) {}\n"
-				+ "    record R35(R34 r, int x) {}\n"
-				+ "    record R36(R35 r, int x) {}\n"
-				+ "    record R37(R36 r, int x) {}\n"
-				+ "    record R38(R37 r, int x) {}\n"
-				+ "    record R39(R38 r, int x) {}\n"
-				+ "    record R40(R39 r, int x) {}\n"
-				+ "    record R41(R40 r, int x) {}\n"
-				+ "    record R42(R41 r, int x) {}\n"
-				+ "    record R43(R42 r, int x) {}\n"
-				+ "    record R44(R43 r, int x) {}\n"
-				+ "    record R45(R44 r, int x) {}\n"
-				+ "    record R46(R45 r, int x) {}\n"
-				+ "    record R47(R46 r, int x) {}\n"
-				+ "    record R48(R47 r, int x) {}\n"
-				+ "    record R49(R48 r, int x) {}\n"
-				+ "    record R50(R49 r, int x) {}\n"
-				+ "    record R51(R50 r, int x) {}\n"
-				+ "    record R52(R51 r, int x) {}\n"
-				+ "    record R53(R52 r, int x) {}\n"
-				+ "    record R54(R53 r, int x) {}\n"
-				+ "    record R55(R54 r, int x) {}\n"
-				+ "    record R56(R55 r, int x) {}\n"
-				+ "    record R57(R56 r, int x) {}\n"
-				+ "    record R58(R57 r, int x) {}\n"
-				+ "    record R59(R58 r, int x) {}\n"
-				+ "    record R60(R59 r, int x) {}\n"
-				+ "    record R61(R60 r, int x) {}\n"
-				+ "    record R62(R61 r, int x) {}\n"
-				+ "    record R63(R62 r, int x) {}\n"
-				+ "    record R64(R63 r, int x) {}\n"
-				+ "    record R65(R64 r, int x) {}\n"
-				+ "    record R66(R65 r, int x) {}\n"
-				+ "    record R67(R66 r, int x) {}\n"
-				+ "    record R68(R67 r, int x) {}\n"
-				+ "    record R69(R68 r, int x) {}\n"
-				+ "    record R70(R69 r, int x) {}\n"
-				+ "    record R71(R70 r, int x) {}\n"
-				+ "    record R72(R71 r, int x) {}\n"
-				+ "    record R73(R72 r, int x) {}\n"
-				+ "    record R74(R73 r, int x) {}\n"
-				+ "    record R75(R74 r, int x) {}\n"
-				+ "    record R76(R75 r, int x) {}\n"
-				+ "    record R77(R76 r, int x) {}\n"
-				+ "    record R78(R77 r, int x) {}\n"
-				+ "    record R79(R78 r, int x) {}\n"
-				+ "    record R80(R79 r, int x) {}\n"
-				+ "    record R81(R80 r, int x) {}\n"
-				+ "    record R82(R81 r, int x) {}\n"
-				+ "    record R83(R82 r, int x) {}\n"
-				+ "    record R84(R83 r, int x) {}\n"
-				+ "    record R85(R84 r, int x) {}\n"
-				+ "    record R86(R85 r, int x) {}\n"
-				+ "    record R87(R86 r, int x) {}\n"
-				+ "    record R88(R87 r, int x) {}\n"
-				+ "    record R89(R88 r, int x) {}\n"
-				+ "    record R90(R89 r, int x) {}\n"
-				+ "    record R91(R90 r, int x) {}\n"
-				+ "    record R92(R91 r, int x) {}\n"
-				+ "    record R93(R92 r, int x) {}\n"
-				+ "    record R94(R93 r, int x) {}\n"
-				+ "    record R95(R94 r, int x) {}\n"
-				+ "    record R96(R95 r, int x) {}\n"
-				+ "    record R97(R96 r, int x) {}\n"
-				+ "    record R98(R97 r, int x) {}\n"
-				+ "    record R99(R98 r, int x) {}\n"
-				+ "    @SuppressWarnings(\"preview\")\n"
-				+ "    public static void main(String args[]) {\n"
-				+ "        boolean match = false;\n"
-				+ "        R99[] array = {new R99(new R98(new R97(new R96(new R95(new R94(new R93(new R92(new R91(new R90(new R89(new R88(new R87(new R86(new R85(new R84(new R83(new R82(new R81(new R80(new R79(new R78(new R77(new R76(new R75(new R74(new R73(new R72(new R71(new R70(new R69(new R68(new R67(new R66(new R65(new R64(new R63(new R62(new R61(new R60(new R59(new R58(new R57(new R56(new R55(new R54(new R53(new R52(new R51(new R50(new R49(new R48(new R47(new R46(new R45(new R44(new R43(new R42(new R41(new R40(new R39(new R38(new R37(new R36(new R35(new R34(new R33(new R32(new R31(new R30(new R29(new R28(new R27(new R26(new R25(new R24(new R23(new R22(new R21(new R20(new R19(new R18(new R17(new R16(new R15(new R14(new R13(new R12(new R11(new R10(new R9(new R8(new R7(new R6(new R5(new R4(new R3(new R2(new R1(new R0(0), 1), 2), 3), 4), 5), 6), 7), 8), 9), 10), 11), 12), 13), 14), 15), 16), 17), 18), 19), 20), 21), 22), 23), 24), 25), 26), 27), 28), 29), 30), 31), 32), 33), 34), 35), 36), 37), 38), 39), 40), 41), 42), 43), 44), 45), 46), 47), 48), 49), 50), 51), 52), 53), 54), 55), 56), 57), 58), 59), 60), 61), 62), 63), 64), 65), 66), 67), 68), 69), 70), 71), 72), 73), 74), 75), 76), 77), 78), 79), 80), 81), 82), 83), 84), 85), 86), 87), 88), 89), 90), 91), 92), 93), 94), 95), 96), 97), 98), 99)};\n"
-				+ "        for (R99(R98(R97(R96(R95(R94(R93(R92(R91(R90(R89(R88(R87(R86(R85(R84(R83(R82(R81(R80(R79(R78(R77(R76(R75(R74(R73(R72(R71(R70(R69(R68(R67(R66(R65(R64(R63(R62(R61(R60(R59(R58(R57(R56(R55(R54(R53(R52(R51(R50(R49(R48(R47(R46(R45(R44(R43(R42(R41(R40(R39(R38(R37(R36(R35(R34(R33(R32(R31(R30(R29(R28(R27(R26(R25(R24(R23(R22(R21(R20(R19(R18(R17(R16(R15(R14(R13(R12(R11(R10(R9(R8(R7(R6(R5(R4(R3(R2(R1(R0(int i0), int i1), int i2), int i3), int i4), int i5), int i6), int i7), int i8), int i9), int i10), int i11), int i12), int i13), int i14), int i15), int i16), int i17), int i18), int i19), int i20), int i21), int i22), int i23), int i24), int i25), int i26), int i27), int i28), int i29), int i30), int i31), int i32), int i33), int i34), int i35), int i36), int i37), int i38), int i39), int i40), int i41), int i42), int i43), int i44), int i45), int i46), int i47), int i48), int i49), int i50), int i51), int i52), int i53), int i54), int i55), int i56), int i57), int i58), int i59), int i60), int i61), int i62), int i63), int i64), int i65), int i66), int i67), int i68), int i69), int i70), int i71), int i72), int i73), int i74), int i75), int i76), int i77), int i78), int i79), int i80), int i81), int i82), int i83), int i84), int i85), int i86), int i87), int i88), int i89), int i90), int i91), int i92), int i93), int i94), int i95), int i96), int i97), int i98), int i99) : array) {\n"
-				+ "            match = i0==0 && i1==1 && i2==2 && i3==3 && i4==4 && i5==5 && i6==6 && i7==7 && i8==8 && i9==9 && i10==10 && i11==11 && i12==12 && i13==13 && i14==14 && i15==15 && i16==16 && i17==17 && i18==18 && i19==19 && i20==20 && i21==21 && i22==22 && i23==23 && i24==24 && i25==25 && i26==26 && i27==27 && i28==28 && i29==29 && i30==30 && i31==31 && i32==32 && i33==33 && i34==34 && i35==35 && i36==36 && i37==37 && i38==38 && i39==39 && i40==40 && i41==41 && i42==42 && i43==43 && i44==44 && i45==45 && i46==46 && i47==47 && i48==48 && i49==49 && i50==50 && i51==51 && i52==52 && i53==53 && i54==54 && i55==55 && i56==56 && i57==57 && i58==58 && i59==59 && i60==60 && i61==61 && i62==62 && i63==63 && i64==64 && i65==65 && i66==66 && i67==67 && i68==68 && i69==69 && i70==70 && i71==71 && i72==72 && i73==73 && i74==74 && i75==75 && i76==76 && i77==77 && i78==78 && i79==79 && i80==80 && i81==81 && i82==82 && i83==83 && i84==84 && i85==85 && i86==86 && i87==87 && i88==88 && i89==89 && i90==90 && i91==91 && i92==92 && i93==93 && i94==94 && i95==95 && i96==96 && i97==97 && i98==98 && i99==99;\n"
-				+ "        }\n"
-				+ "        System.out.print(match);\n"
-				+ "    }\n"
-				+ "} "
-				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 106)\n" +
-				"	for (R99(R98(R97(R96(R95(R94(R93(R92(R91(R90(R89(R88(R87(R86(R85(R84(R83(R82(R81(R80(R79(R78(R77(R76(R75(R74(R73(R72(R71(R70(R69(R68(R67(R66(R65(R64(R63(R62(R61(R60(R59(R58(R57(R56(R55(R54(R53(R52(R51(R50(R49(R48(R47(R46(R45(R44(R43(R42(R41(R40(R39(R38(R37(R36(R35(R34(R33(R32(R31(R30(R29(R28(R27(R26(R25(R24(R23(R22(R21(R20(R19(R18(R17(R16(R15(R14(R13(R12(R11(R10(R9(R8(R7(R6(R5(R4(R3(R2(R1(R0(int i0), int i1), int i2), int i3), int i4), int i5), int i6), int i7), int i8), int i9), int i10), int i11), int i12), int i13), int i14), int i15), int i16), int i17), int i18), int i19), int i20), int i21), int i22), int i23), int i24), int i25), int i26), int i27), int i28), int i29), int i30), int i31), int i32), int i33), int i34), int i35), int i36), int i37), int i38), int i39), int i40), int i41), int i42), int i43), int i44), int i45), int i46), int i47), int i48), int i49), int i50), int i51), int i52), int i53), int i54), int i55), int i56), int i57), int i58), int i59), int i60), int i61), int i62), int i63), int i64), int i65), int i66), int i67), int i68), int i69), int i70), int i71), int i72), int i73), int i74), int i75), int i76), int i77), int i78), int i79), int i80), int i81), int i82), int i83), int i84), int i85), int i86), int i87), int i88), int i89), int i90), int i91), int i92), int i93), int i94), int i95), int i96), int i97), int i98), int i99) : array) {\n" +
-				"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"Syntax error, record patterns are not allowed here\n" +
-				"----------\n");
-	}
 	public void testRecordPatternMatchException_001() {
 		runConformTest(new String[] {
 				"X.java",
@@ -2453,6 +2125,37 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"            if (o instanceof R(int x)) {\n"+
 				"                ret = 100;\n"+
 				"            }\n"+
+				"        } catch (MatchException e) {\n"+
+				"            ret += 100;\n"+
+				"        }\n"+
+				"          return ret;\n"+
+				"    } \n"+
+				"    public static void main(String argv[]) { \n"+
+				"        System.out.println(X.foo(new R(0))); \n"+
+				"    } \n"+
+				"}"
+				},
+				"99");
+	}
+	public void testRecordPatternMatchException_001_1() {
+		runConformTest(new String[] {
+				"X.java",
+				"public class X  {\n"+
+				"\n"+
+				"    public record R(int x) {\n"+
+				"        public int x() {\n"+
+				"         return x < 10 ? 10/x : x;\n"+
+				"        }\n"+
+				"    }\n"+
+				"\n"+
+				"    @SuppressWarnings(\"preview\")\n"+
+				" private static int foo(Object o) {\n"+
+				"        int ret = -1;\n"+
+				"        try {\n"+
+				"            if (o instanceof R(int x)) {\n"+
+				"                ret = 100;\n"+
+				"            }\n"+
+				"            return 10;\n" +
 				"        } catch (MatchException e) {\n"+
 				"            ret += 100;\n"+
 				"        }\n"+
@@ -3683,6 +3386,33 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"An enhanced switch statement should be exhaustive; a default label expected\n" +
 				"----------\n");
 	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1792
+	// [Patterns][records] Error in JDT Core during AST creation: info cannot be null
+	public void testGH1792() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+				    private record R(Object o) {}
+				    static void f(R [] rs) {
+				        int i = 0;
+				        while (rs[i++] instanceof R(String o)) {
+				            System.out.println(o);
+				        }
+				    }
+				    public static void main(String [] args) {
+				    	R [] rs = { new R("So"), new R("far"), new R("so"), new R("good!"), null };
+				    	f(rs);
+				    }
+				}
+				"""
+				},
+				"So\n" +
+				"far\n" +
+				"so\n" +
+				"good!");
+	}
 	public void testIssue1336_1() {
 		runConformTest(
 				new String[] {
@@ -3730,5 +3460,581 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 					}
 					"""
 				});
+	}
+	public void testIssue1732_01() {
+		runNegativeTest(
+				new String[] {
+				"X.java",
+				"""
+				record R(int x, int y) {}
+
+				public class X {
+
+					public int foo(R r) {
+						return switch (r) {
+							case R() -> 0;
+						};
+					}
+				}
+				"""
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 6)\n"
+				+ "	return switch (r) {\n"
+				+ "	               ^\n"
+				+ "A switch expression should have a default case\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 7)\n"
+				+ "	case R() -> 0;\n"
+				+ "	     ^^^\n"
+				+ "Record pattern should match the signature of the record declaration\n"
+				+ "----------\n");
+	}
+	public void testIssue1732_02() {
+		runNegativeTest(
+				new String[] {
+				"X.java",
+				"""
+				record R(int x, int y) {}
+
+				public class X {
+
+					public int foo(R r) {
+						return switch (r) {
+							case R(int x) -> 0;
+						};
+					}
+				}
+				"""
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 6)\n"
+				+ "	return switch (r) {\n"
+				+ "	               ^\n"
+				+ "A switch expression should have a default case\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 7)\n"
+				+ "	case R(int x) -> 0;\n"
+				+ "	     ^^^^^^^^\n"
+				+ "Record pattern should match the signature of the record declaration\n"
+				+ "----------\n");
+	}
+	public void testIssue1732_03() {
+		runNegativeTest(
+				new String[] {
+				"X.java",
+				"""
+				record R(int x, int y) {}
+
+				public class X {
+
+					public int foo(R r) {
+						return switch (r) {
+							case R(int x, int y, int z) -> 0;
+						};
+					}
+				}
+				"""
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 6)\n"
+				+ "	return switch (r) {\n"
+				+ "	               ^\n"
+				+ "A switch expression should have a default case\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 7)\n"
+				+ "	case R(int x, int y, int z) -> 0;\n"
+				+ "	     ^^^^^^^^^^^^^^^^^^^^^^\n"
+				+ "Record pattern should match the signature of the record declaration\n"
+				+ "----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1788
+	// Inference issue between the diamond syntax and pattern matching (switch on objects)
+	public void testGHI1788() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+				  final static class Entry<K,V> {
+				    K key;
+				    V value;
+
+				    public Entry(K key, V value) {
+				      this.key = key;
+				      this.value = value;
+				    }
+
+				    public K key() { return key; }
+				    public V value() { return value; }
+				    public void value(V value) { this.value = value; }
+				    @Override
+				    public String toString() {
+				    	return "Key = " + key + " Value = " + value;
+				    }
+				  }
+
+				  sealed interface I<V> {}
+				  record A<V>(V value) implements I<V> {}
+				  record B<V>(V value) implements I<V> {}
+
+				  private static <K, V> Entry<K,V> foo(Entry<K, I<V>> entry) {
+				    return new Entry<>(entry.key(), switch (entry.value()) {
+				      case A<V>(V value) -> {
+				        entry.value(new B<>(value));
+				        yield value;
+				      }
+				      case B<V>(V value) -> value;
+				    });
+				  }
+
+				  public static void main(String[] args) {
+					  Entry<String, I<String>> entry = new Entry<>("KEY", new A<>("VALUE"));
+					  System.out.println(entry);
+					  System.out.println(foo(entry));
+					  System.out.println(entry);
+				  }
+				}
+				"""
+				},
+				"Key = KEY Value = A[value=VALUE]\n" +
+				"Key = KEY Value = VALUE\n" +
+				"Key = KEY Value = B[value=VALUE]");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1835
+	// AssertionError at org.eclipse.jdt.internal.compiler.ast.YieldStatement.addSecretYieldResultValue(YieldStatement.java:120)
+	public void testGH1835_minimal() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						try {
+							String s = switch (new Object()) {
+							case Integer i  -> "i";
+							case String y  -> "y";
+							default -> {
+								try {
+									throw new Exception();
+								} catch (Exception e) {
+									throw new RuntimeException("Expected");
+								}
+							}
+							};
+						} catch (RuntimeException e) {
+							System.out.print("Caught runtime Exception ");
+							if (e.getMessage().equals("Expected"))
+								System.out.println ("(expected)");
+							else
+							 	System.out.println ("(unexpected!!!)");
+						}
+					}
+				}
+				"""
+				},
+				"Caught runtime Exception (expected)");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1835
+	// AssertionError at org.eclipse.jdt.internal.compiler.ast.YieldStatement.addSecretYieldResultValue(YieldStatement.java:120)
+	public void testGH1835() {
+		runConformTest(
+				new String[] {
+				"Reproducer.java",
+				"""
+				public class Reproducer {
+
+				    public class DataX {
+				        String data = "DataX";
+				    }
+
+				    public class DataY {
+				        String data1 = "DataY";
+				    }
+
+				    record X(DataX data) {}
+				    record Y(DataY data) {}
+
+				    Reproducer() {
+				        DataX dataX = new DataX();
+				        DataY dataY = new DataY();
+				        X x = new X(dataX);
+				        Y y = new Y(dataY);
+
+				        foo(x);
+				        foo(y);
+				        foo(null);
+				        foo("");
+				    }
+
+				    void foo(Object obj) {
+				        String s = switch (obj) {
+				            case X(var x) when x != null -> x.data;
+				            case Y(var x) when x != null -> x.data1;
+				            case null, default -> {
+				                try {
+				                    if (obj == null) yield "switch on null";
+				                    throw new Exception();
+				                } catch (Exception e) {
+				                    yield "default threw exception";
+				                }
+				            }
+				        };
+				        System.out.println("s = " + s);
+				    }
+				    public static void main(String[] args) {
+						new Reproducer();
+					}
+
+				}
+				"""
+				},
+				"s = DataX\n" +
+				"s = DataY\n" +
+				"s = switch on null\n" +
+				"s = default threw exception");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1796
+	// [Patterns] Record Patterns can cause VerifyError
+	public void testGH1796_full() {
+		runConformTest(
+				new String[] {
+				"com/acme/Reproducer.java",
+				"""
+				package com.acme;
+
+				import java.util.Objects;
+
+				import com.acme.Reproducer.Expression.ConstantExpression;
+				import com.acme.Reproducer.Expression.PlusExpression;
+				import com.acme.Reproducer.Expression.TimesExpression;
+
+				public class Reproducer {
+
+				  public static void main(String[] args) {
+				    SExpressionPrinter printer = new SExpressionPrinter21Record();
+				    Expression twoPlusThree = new PlusExpression(new ConstantExpression(2), new ConstantExpression(3));
+				    System.out.println(printer.print(twoPlusThree));
+				  }
+
+				  interface SExpressionPrinter {
+
+				    String print(Expression e);
+
+				  }
+
+				  static final class SExpressionPrinter21Record implements SExpressionPrinter {
+
+				    @Override
+				    public String print(Expression e) {
+				      Objects.requireNonNull(e);
+				      StringBuilder buffer = new StringBuilder();
+				      printTo(e, buffer);
+				      return buffer.toString();
+				    }
+
+				    private void printTo(Expression e, StringBuilder buffer) {
+				      if (e instanceof ConstantExpression(int i)) {
+				        buffer.append(i);
+				      } else {
+				        buffer.append('(');
+				        if (e instanceof PlusExpression(Expression a, Expression b)) {
+				          buffer.append("+ ");
+				          printTo(a, buffer);
+				          buffer.append(' ');
+				          printTo(b, buffer);
+				        }
+				        if (e instanceof TimesExpression(Expression a, Expression b)) {
+				          buffer.append("* ");
+				          printTo(a, buffer);
+				          buffer.append(' ');
+				          printTo(b, buffer);
+				        }
+				        buffer.append(')');
+				      }
+				    }
+				  }
+
+				  sealed interface Expression {
+
+				    int evaluate();
+
+				    record ConstantExpression(int i) implements Expression {
+
+				      @Override
+				      public int evaluate() {
+				        return i;
+				      }
+
+				    }
+
+				    record PlusExpression(Expression a, Expression b) implements Expression {
+
+				      @Override
+				      public int evaluate() {
+				        return Math.addExact(a.evaluate(), b.evaluate());
+				      }
+
+				    }
+
+				    record TimesExpression(Expression a, Expression b) implements Expression {
+
+				      @Override
+				      public int evaluate() {
+				        return Math.multiplyExact(a.evaluate(), b.evaluate());
+				      }
+
+				    }
+
+				  }
+
+				}
+				"""
+				},
+				"(+ 2 3)");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1796
+	// [Patterns] Record Patterns can cause VerifyError
+	public void testGH1796_reporter_reduced() {
+		runConformTest(
+				new String[] {
+				"com/acme/Reproducer.java",
+				"""
+				package com.acme;
+
+				import com.acme.Reproducer.Expression.ConstantExpression;
+
+				public class Reproducer {
+
+				  public static void main(String[] args) {
+				    SExpressionPrinter printer = new SExpressionPrinter();
+				    Expression constant = new ConstantExpression(2);
+				    System.out.println(printer.print(constant));
+				  }
+
+				  static final class SExpressionPrinter {
+
+				    public String print(Expression e) {
+				      StringBuilder buffer = new StringBuilder();
+				      printTo(e, buffer);
+				      return buffer.toString();
+				    }
+
+				    private void printTo(Expression e, StringBuilder buffer) {
+				      if (e instanceof ConstantExpression(int i)) {
+				        buffer.append(i);
+				      }
+				    }
+				  }
+
+				  sealed interface Expression {
+
+				    record ConstantExpression(int i) implements Expression {
+
+				    }
+
+				  }
+
+				}
+				"""
+				},
+				"2");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	public void testGH1977_method() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							if (new R(0) instanceof R(int i)) {
+							}
+						} catch (Throwable t) {
+							System.out.println("Caught: " + t.getClass().getName());
+						}
+						if (new R(10) instanceof R(int i)) {
+
+						}
+					}
+				}
+				"""
+				},
+				"Caught: java.lang.MatchException");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	public void testGH1977_instance_initializer() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					{
+						if (new R(0) instanceof R(int i)) {
+
+						}
+					}
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							new X();
+						} catch (MatchException me) {
+							System.out.println("Caught MatchException");
+						}
+					}
+				}
+				"""
+				},
+				"Caught MatchException");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	// Fails due to https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1985
+	public void _testGH1977_instance_field() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					boolean b = new R(0) instanceof R(int i);
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							new X();
+						} catch (MatchException me) {
+							System.out.println("Caught MatchException");
+						}
+					}
+				}
+				"""
+				},
+				"Caught MatchException");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	public void testGH1977_constructor() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					X() {
+						if (new R(0) instanceof R(int i)) {
+
+						}
+					}
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							new X();
+						} catch (MatchException me) {
+							System.out.println("Caught MatchException");
+						}
+					}
+				}
+				"""
+				},
+				"Caught MatchException");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	public void testGH1977_static_initializer() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					class Y {
+						static {
+							if (new R(0) instanceof R(int i)) {
+
+							}
+						}
+					}
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							new X().new Y();
+						} catch (ExceptionInInitializerError me) {
+							System.out.println("ExceptionInInitializerError caused by " + me.getCause().getClass().getName());
+						}
+					}
+				}
+				"""
+				},
+				"ExceptionInInitializerError caused by java.lang.MatchException");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1977
+	// [Patterns][records] ECJ generated code fails to raise MatchException properly
+	// Fails due to https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1985
+	public void _testGH1977_static_field() {
+		runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					class Y {
+						static boolean b = new R(0) instanceof R(int i);
+					}
+
+					record R(int x) {
+						public int x() {
+							return 100 / this.x;
+						}
+					}
+
+					public static void main(String[] args) {
+						try {
+							new X().new Y();
+						} catch (ExceptionInInitializerError me) {
+							System.out.println("ExceptionInInitializerError caused by " + me.getCause().getClass().getName());
+						}
+					}
+				}
+				"""
+				},
+				"ExceptionInInitializerError caused by java.lang.MatchException");
 	}
 }

@@ -2846,11 +2846,15 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 
 public MethodBinding resolveTypesFor(MethodBinding method) {
 	ProblemReporter problemReporter = this.scope.problemReporter();
-	IErrorHandlingPolicy suspendedPolicy = problemReporter.suspendTempErrorHandlingPolicy();
-	try (problemReporter) {
-		return resolveTypesWithSuspendedTempErrorHandlingPolicy(method);
+	try {
+		IErrorHandlingPolicy suspendedPolicy = problemReporter.suspendTempErrorHandlingPolicy();
+		try {
+			return resolveTypesWithSuspendedTempErrorHandlingPolicy(method);
+		} finally {
+			problemReporter.resumeTempErrorHandlingPolicy(suspendedPolicy);
+		}
 	} finally {
-		problemReporter.resumeTempErrorHandlingPolicy(suspendedPolicy);
+		problemReporter.close();
 	}
 }
 

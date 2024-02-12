@@ -27,6 +27,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
+import org.eclipse.jdt.internal.compiler.ast.FakedTrackingVariable;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -36,6 +37,8 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 public class FieldBinding extends VariableBinding {
 	public ReferenceBinding declaringClass;
 	public int compoundUseFlag = 0; // number or accesses via postIncrement or compoundAssignment
+
+	public FakedTrackingVariable closeTracker;
 
 protected FieldBinding() {
 	super(null, null, 0, null);
@@ -245,11 +248,15 @@ public Constant constant(Scope scope) {
 	if (this.constant != null)
 		return this.constant;
 	ProblemReporter problemReporter = scope.problemReporter();
-	IErrorHandlingPolicy suspendedPolicy = problemReporter.suspendTempErrorHandlingPolicy();
-	try (problemReporter) {
-		return constant();
+	try {
+		IErrorHandlingPolicy suspendedPolicy = problemReporter.suspendTempErrorHandlingPolicy();
+		try {
+			return constant();
+		} finally {
+			problemReporter.resumeTempErrorHandlingPolicy(suspendedPolicy);
+		}
 	} finally {
-		problemReporter.resumeTempErrorHandlingPolicy(suspendedPolicy);
+		problemReporter.close();
 	}
 }
 
@@ -261,7 +268,7 @@ public void fillInDefaultNonNullness(FieldDeclaration sourceField, Scope scope) 
 		if (!this.type.acceptsNonNullDefault())
 			return;
 		if ( (this.type.tagBits & TagBits.AnnotationNullMASK) == 0) {
-			this.type = environment.createAnnotatedType(this.type, new AnnotationBinding[]{environment.getNonNullAnnotation()});
+			this.type = environment.createNonNullAnnotatedType(this.type);
 		} else if ((this.type.tagBits & TagBits.AnnotationNonNull) != 0) {
 			scope.problemReporter().nullAnnotationIsRedundant(sourceField);
 		}

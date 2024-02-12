@@ -6959,22 +6959,27 @@ public void test0576_try_with_resources() {
 		"	      ^^^^^^^^^^^\n" +
 		"The serializable class MyException does not declare a static final serialVersionUID field of type long\n" +
 		"----------\n" +
-		"2. ERROR in X.java (at line 13)\n" +
+		"2. WARNING in X.java (at line 12)\n" +
+		"	fis = new FileInputStream(\"\");\n" +
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"Resource leak: \'fis\' is never closed\n" +
+		"----------\n" +
+		"3. ERROR in X.java (at line 13)\n" +
 		"	fis2.available();\n" +
 		"	^^^^\n" +
 		"Potential null pointer access: The variable fis2 may be null at this location\n" +
 		"----------\n" +
-		"3. ERROR in X.java (at line 14)\n" +
+		"4. ERROR in X.java (at line 14)\n" +
 		"	fis3.close();\n" +
 		"	^^^^\n" +
 		"Potential null pointer access: The variable fis3 may be null at this location\n" +
 		"----------\n" +
-		"4. ERROR in X.java (at line 15)\n" +
+		"5. ERROR in X.java (at line 15)\n" +
 		"	fis4.available();\n" +
 		"	^^^^\n" +
 		"Null pointer access: The variable fis4 can only be null at this location\n" +
 		"----------\n" +
-		"5. ERROR in X.java (at line 18)\n" +
+		"6. ERROR in X.java (at line 18)\n" +
 		"	fis.available();\n" +
 		"	^^^\n" +
 		"Potential null pointer access: The variable fis may be null at this location\n" +
@@ -18538,5 +18543,198 @@ public void testGH1642_a() {
 				}
 			}
 			"""});
+}
+public void testGH1667() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return; // uses foreach
+	runConformTest(
+		new String[] {
+			"Foo.java",
+			"""
+			class EPD {
+				public String getModel() { return null; }
+			}
+			class IPS {
+				public EPD getSupplier() { return null; }
+			}
+			public class Foo {
+				void m(String packageName, IPS[] packages) {
+					String base = null;
+					for (IPS spec : packages) {
+						EPD desc = spec.getSupplier();
+						if (desc != null) {
+							base = desc.getModel();
+						}
+						break;
+					}
+					if (base != null) {
+						System.out.println();
+					}
+				}
+			}
+			"""
+		});
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+				import java.util.Objects;
+				public class X {
+					public void test() {
+						String name = null;
+						if (Objects.isNull(name)) {
+							System.out.println("Name is null");
+							return;
+						}
+						System.out.println(name.substring(0, 4));
+					}
+				}
+				"""
+			},
+		"""
+			----------
+			1. WARNING in X.java (at line 9)
+				System.out.println(name.substring(0, 4));
+				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Dead code
+			----------
+			""");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461SuppressWarnings() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runConformTest(
+		new String[] {
+			"X.java",
+			"""
+				import java.util.Objects;
+				@SuppressWarnings("unused")
+				public class X {
+					public void test() {
+						String name = null;
+						if (Objects.isNull(name)) {
+							System.out.println("Name is null");
+							return;
+						}
+						System.out.println(name.substring(0, 4));
+					}
+				}
+				"""
+			},
+		"");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461_a() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+				import java.util.Objects;
+				public class X {
+					public void test() {
+						String name = "name";
+						if (Objects.nonNull(name)) {
+							System.out.println("Name is null");
+							return;
+						}
+						System.out.println(name.substring(0, 4));
+					}
+				}
+				"""
+			},
+		"""
+			----------
+			1. WARNING in X.java (at line 9)
+				System.out.println(name.substring(0, 4));
+				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Dead code
+			----------
+			""");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461_b() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+				import java.util.Objects;
+				public class X {
+					public void test() {
+						String name = null;
+						if (!Objects.nonNull(name)) {
+							System.out.println("Name is null");
+							return;
+						}
+						System.out.println(name.substring(0, 4));
+					}
+				}
+				"""
+			},
+		"""
+			----------
+			1. WARNING in X.java (at line 9)
+				System.out.println(name.substring(0, 4));
+				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Dead code
+			----------
+			""");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461_c() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+				public class X {
+					public static void main(String... args) {
+						Foo foo = new Foo();
+						if (Bar.class.isInstance(foo)) {
+							return;
+						}
+						System.out.println("Hello, world!");
+					}
+				}
+				class Foo{}
+				class Bar{}
+				"""
+			},
+		"""
+			""");
+}
+//https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1461
+public void testGH1461_d() {
+	if (this.complianceLevel < ClassFileConstants.JDK15) return;
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+				public class X {
+					public static void main(String... args) {
+						Foo foo = null;
+						if (!Bar.class.isInstance(foo)) {
+							return;
+						}
+						System.out.println("Hello, world!");
+					}
+				}
+				class Foo{}
+				class Bar{}
+				"""
+			},
+		"""
+			----------
+			1. WARNING in X.java (at line 7)
+				System.out.println("Hello, world!");
+				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Dead code
+			----------
+			""");
 }
 }

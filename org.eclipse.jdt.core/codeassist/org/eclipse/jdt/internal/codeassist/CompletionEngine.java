@@ -231,6 +231,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.SyntheticMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
@@ -4040,6 +4041,15 @@ public final class CompletionEngine
 					findExplicitConstructors(Keywords.SUPER, ref.superclass(), (MethodScope)scope, singleNameReference);
 				}
 			}
+			// if we are inside a constructor and the token is empty, suggest constructor completions to help parameter
+			// hints
+			if (astNodeParent instanceof AllocationExpression && this.completionToken.length == 0) {
+				AllocationExpression expression = ((AllocationExpression) astNodeParent);
+				if (expression.resolvedType instanceof ReferenceBinding) {
+					findConstructors((ReferenceBinding) expression.resolvedType, null, scope, expression, false, null,
+							null, null, false);
+				}
+			}
 		}
 	}
 
@@ -7295,7 +7305,7 @@ public final class CompletionEngine
 			relevance += computeRelevanceForInterestingProposal(field);
 			relevance += computeRelevanceForCaseMatching(fieldName, field.name);
 			if(boostMatches.length > 0) {
-				relevance += computeRelevanceForCaseMatching(boostMatches, field.name);
+				relevance += Math.max(0, computeRelevanceForCaseMatching(boostMatches, field.name));
 			}
 			int computeRelevanceForExpectingType = computeRelevanceForExpectingType(field.type);
 			if(this.strictMatchForExtepectedType && computeRelevanceForExpectingType <= 0) {
@@ -10396,7 +10406,7 @@ public final class CompletionEngine
 					if (receiverType != null) {
 						receiverSourceName = receiverType.sourceName;
 					}
-					if( enclosingSourceName !=null & receiverSourceName !=null)
+					if( enclosingSourceName !=null && receiverSourceName !=null)
 						isEqual = Arrays.equals(enclosingSourceName, receiverSourceName);
 					if(isEqual) {
 						findKeywords(token, new char[][] { Keywords.THIS }, true, false);
@@ -10934,6 +10944,12 @@ public final class CompletionEngine
 		MethodBinding[] receiverTypeMethods = receiverType.availableMethods();
 		if (receiverTypeMethods != null){
 			for (int i = 0; i < receiverTypeMethods.length; i++) {
+				if (receiverType.isRecord() && receiverTypeMethods[i] instanceof SyntheticMethodBinding smb) {
+					if (CharOperation.equals(smb.selector, TypeConstants.EQUALS) ||
+							CharOperation.equals(smb.selector, TypeConstants.HASHCODE) ||
+							CharOperation.equals(smb.selector, TypeConstants.TOSTRING))
+					continue; // allow proposals to override compiler supplied implementations.
+				}
 				if(!receiverTypeMethods[i].isDefaultAbstract()) {
 					methodsFound.add(receiverTypeMethods[i]);
 				}
@@ -12872,7 +12888,7 @@ public final class CompletionEngine
 			if (answer.isSourceType()) {
 				IType typeHandle = ((SourceTypeElementInfo) answer.getSourceTypes()[0]).getHandle();
 				try {
-					ArrayList<IType> allTypes = new ArrayList<IType>();
+					ArrayList<IType> allTypes = new ArrayList<>();
 					ITypeHierarchy newTypeHierarchy = typeHandle.newTypeHierarchy(this.javaProject, null);
 					IType[] implementingClasses = newTypeHierarchy.getImplementingClasses(typeHandle);
 					for (IType iClass : implementingClasses) {

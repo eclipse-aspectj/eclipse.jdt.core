@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -34,6 +34,7 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -67,6 +68,7 @@ public class ClassScope extends Scope {
 	public TypeDeclaration referenceContext;
 	public TypeReference superTypeReference;
 	java.util.ArrayList<TypeReference> deferredBoundChecks;
+	public boolean resolvingPolyExpressionArguments = false;
 
 	public ClassScope(Scope parent, TypeDeclaration context) {
 		super(Scope.CLASS_SCOPE, parent);
@@ -396,6 +398,7 @@ public class ClassScope extends Scope {
 			checkParameterizedTypeBounds();
 			checkParameterizedSuperTypeCollisions();
 		}
+		this.referenceContext.updateSupertypesWithAnnotations(Collections.emptyMap());
 		buildFieldsAndMethods();
 		localType.faultInTypesForFieldsAndMethods();
 
@@ -1317,7 +1320,7 @@ public class ClassScope extends Scope {
 			// bug xxxx flag Error and return;
 		}
 		if (permSubTypes.size() == 0) {
-			if (!sourceType.isLocalType()) // error flagged already
+			if (!sourceType.isLocalType() && !sourceType.isRecord() && !sourceType.isEnum()) // error flagged already
 				problemReporter().sealedSealedTypeMissingPermits(sourceType, this.referenceContext);
 			return;
 		}
@@ -1329,7 +1332,7 @@ public class ClassScope extends Scope {
 	void connectImplicitPermittedTypes() {
 		TypeDeclaration typeDecl = this.referenceContext;
 		SourceTypeBinding sourceType = typeDecl.binding;
-		if (sourceType.id == TypeIds.T_JavaLangObject || sourceType.isEnum() || sourceType.isRecord()) // already handled
+		if (sourceType.id == TypeIds.T_JavaLangObject) // already handled
 			return;
 		if (sourceType.isSealed() && (typeDecl.permittedTypes == null ||
 				typeDecl.permittedTypes.length == 0)) {
@@ -1510,7 +1513,7 @@ public class ClassScope extends Scope {
 			sourceType.typeBits |= (superInterface.typeBits & TypeIds.InheritableBits);
 			// further analysis against white lists for the unlikely case we are compiling java.util.stream.Stream:
 			if ((sourceType.typeBits & (TypeIds.BitAutoCloseable|TypeIds.BitCloseable)) != 0)
-				sourceType.typeBits |= sourceType.applyCloseableInterfaceWhitelists();
+				sourceType.typeBits |= sourceType.applyCloseableInterfaceWhitelists(compilerOptions());
 			interfaceBindings[count++] = superInterface;
 		}
 		// hold onto all correctly resolved superinterfaces
@@ -1785,6 +1788,24 @@ public class ClassScope extends Scope {
 	*/
 	public TypeDeclaration referenceType() {
 		return this.referenceContext;
+	}
+
+	public final MethodBinding enclosingMethod() {
+		Scope scope = this;
+		while ((scope = scope.parent) != null) {
+			if (scope instanceof MethodScope) {
+				MethodScope methodScope = (MethodScope) scope;
+				/* 4.7.7 The EnclosingMethod Attribute: ... In particular, method_index must be zero if the current class
+				 * was immediately enclosed in source code by an instance initializer, static initializer, instance variable initializer, or
+				 * class variable initializer....
+				 */
+				if (methodScope.referenceContext instanceof TypeDeclaration)
+					return null;
+				if (methodScope.referenceContext instanceof AbstractMethodDeclaration)
+					return ((MethodScope) scope).referenceMethodBinding();
+			}
+		}
+		return null; // may answer null if no method around
 	}
 
 	@Override

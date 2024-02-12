@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 Mateusz Matela and others.
+ * Copyright (c) 2014, 2023 Mateusz Matela and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -111,8 +111,8 @@ public class WrapExecutor {
 		int extraLines;
 		int lineWidthExtent;
 		boolean isNextLineWrapped;
-		final List<Integer> extraLinesPerComment = new ArrayList<Integer>();
-		final List<Integer> topPriorityGroupStarts = new ArrayList<Integer>();
+		final List<Integer> extraLinesPerComment = new ArrayList<>();
+		final List<Integer> topPriorityGroupStarts = new ArrayList<>();
 		private int currentTopPriorityGroupEnd;
 		private boolean isNLSTagInLine;
 
@@ -330,7 +330,7 @@ public class WrapExecutor {
 	}
 
 	private class NLSTagHandler extends TokenTraverser {
-		private final ArrayList<Token> nlsTags = new ArrayList<Token>();
+		private final ArrayList<Token> nlsTags = new ArrayList<>();
 
 		public NLSTagHandler() {
 			// nothing to do
@@ -351,8 +351,9 @@ public class WrapExecutor {
 					lineComment.breakAfter();
 					lineComment.spaceBefore();
 					lineComment.setAlign(WrapExecutor.this.tm.getNLSAlign(index));
-					lineComment.setInternalStructure(new ArrayList<Token>());
+					lineComment.setInternalStructure(new ArrayList<>());
 					WrapExecutor.this.tm.insert(index + 1, lineComment);
+					fixWrapPolicyParents(index, 1);
 					structureChanged();
 					return true; // will fill the line comment structure in next step
 				}
@@ -361,7 +362,7 @@ public class WrapExecutor {
 				if (structure == null) {
 					if (this.nlsTags.isEmpty())
 						return true;
-					structure = new ArrayList<Token>();
+					structure = new ArrayList<>();
 					structure.add(lineComment);
 					lineComment.setInternalStructure(structure);
 				}
@@ -413,6 +414,7 @@ public class WrapExecutor {
 						|| (structure.size() == 1 && structure.get(0).tokenType == TokenNameWHITESPACE)) {
 					// all the tags have been moved to other lines
 					WrapExecutor.this.tm.remove(index);
+					fixWrapPolicyParents(index, -1);
 					structureChanged();
 				}
 
@@ -420,11 +422,35 @@ public class WrapExecutor {
 			}
 			return true;
 		}
+
+		private void fixWrapPolicyParents(int changeIndex, int delta) {
+			TokenTraverser traverser = new TokenTraverser() {
+				HashMap<WrapPolicy, WrapPolicy> policyCache = new HashMap<>();
+
+				@Override
+				protected boolean token(Token token, int index) {
+					WrapPolicy policy = token.getWrapPolicy();
+					if (policy != null && policy.wrapParentIndex > changeIndex) {
+						WrapPolicy changedWp = this.policyCache.computeIfAbsent(policy,
+								p -> new WrapPolicy(p.wrapMode, p.wrapParentIndex + delta,
+										p.groupEndIndex == -1 ? -1 : p.groupEndIndex + delta, p.extraIndent,
+										p.structureDepth, p.penaltyMultiplier, p.isFirstInGroup, p.indentOnColumn));
+						token.setWrapPolicy(changedWp);
+					}
+					if (token.tokenType == TokenNameCOMMENT_LINE && token.getInternalStructure() != null) {
+						traverse(token.getInternalStructure(), 0);
+						structureChanged();
+					}
+					return true;
+				}
+			};
+			WrapExecutor.this.tm.traverse(changeIndex, traverser);
+		}
 	}
 
 	private final static int[] EMPTY_ARRAY = {};
 
-	final HashMap<WrapInfo, WrapResult> wrapSearchResults = new HashMap<WrapInfo, WrapResult>();
+	final HashMap<WrapInfo, WrapResult> wrapSearchResults = new HashMap<>();
 	private final ArrayDeque<WrapInfo> wrapSearchStack = new ArrayDeque<>();
 
 	private final LineAnalyzer lineAnalyzer;

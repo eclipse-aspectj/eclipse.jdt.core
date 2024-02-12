@@ -52,7 +52,7 @@ public class ParameterizedMethodBinding extends MethodBinding {
 		 * is substituted by a raw type.
 		 */
 		this.tagBits = originalMethod.tagBits & ~TagBits.HasMissingType;
-		this.parameterNonNullness = originalMethod.parameterNonNullness;
+		this.parameterFlowBits = originalMethod.parameterFlowBits;
 		this.defaultNullness = originalMethod.defaultNullness;
 
 		final TypeVariableBinding[] originalVariables = originalMethod.typeVariables;
@@ -145,9 +145,9 @@ public class ParameterizedMethodBinding extends MethodBinding {
 				for (int i=0; i<parametersLen; i++) {
 					long paramTagBits = NullAnnotationMatching.validNullTagBits(this.parameters[i].tagBits);
 					if (paramTagBits != 0) {
-						if (this.parameterNonNullness == null)
-							this.parameterNonNullness = new Boolean[parametersLen];
-						this.parameterNonNullness[i] = Boolean.valueOf(paramTagBits == TagBits.AnnotationNonNull);
+						if (this.parameterFlowBits == null)
+							this.parameterFlowBits = new byte[parametersLen];
+						this.parameterFlowBits[i] |= flowBitFromAnnotationTagBit(paramTagBits);
 					}
 				}
 			}
@@ -191,7 +191,7 @@ public class ParameterizedMethodBinding extends MethodBinding {
 		 * is substituted by a raw type.
 		 */
 		this.tagBits = originalMethod.tagBits & ~TagBits.HasMissingType;
-		this.parameterNonNullness = originalMethod.parameterNonNullness;
+		this.parameterFlowBits = originalMethod.parameterFlowBits;
 		this.defaultNullness = originalMethod.defaultNullness;
 
 		final TypeVariableBinding[] originalVariables = originalMethod.typeVariables;
@@ -318,14 +318,14 @@ public class ParameterizedMethodBinding extends MethodBinding {
 		LookupEnvironment environment = scope.environment();
 		TypeBinding rawType = environment.convertToRawType(receiverType.erasure(), false /*do not force conversion of enclosing types*/);
 		if (environment.usesNullTypeAnnotations())
-			rawType = environment.createAnnotatedType(rawType, new AnnotationBinding[] { environment.getNonNullAnnotation() });
+			rawType = environment.createNonNullAnnotatedType(rawType);
 		method.returnType = environment.createParameterizedType(
 			genericClassType,
 			new TypeBinding[] {  environment.createWildcard(genericClassType, 0, rawType, null /*no extra bound*/, Wildcard.EXTENDS) },
 			null);
 		if (environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
 			if (environment.usesNullTypeAnnotations())
-				method.returnType = environment.createAnnotatedType(method.returnType, new AnnotationBinding[] { environment.getNonNullAnnotation() });
+				method.returnType = environment.createNonNullAnnotatedType(method.returnType);
 			else
 				method.tagBits |= TagBits.AnnotationNonNull;
 		}

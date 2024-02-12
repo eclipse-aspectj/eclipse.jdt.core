@@ -1075,6 +1075,29 @@ public abstract class ASTNode {
 	 * @noreference This field is not intended to be referenced by clients.
 	 */
 	public static final int ENHANCED_FOR_WITH_RECORD_PATTERN = 114;
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>StringTemplateExpression</code>.
+	 * @see org.eclipse.jdt.internal.compiler.ast.TemplateExpression
+	 * @since 3.37
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static final int STRING_TEMPLATE_EXPRESSION = 115;
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>StringFragment</code>.
+	 * @see org.eclipse.jdt.internal.compiler.ast.StringLiteral
+	 * @since 3.37
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static final int STRING_FRAGMENT = 116;
+	/**
+	 * Node type constant indicating a node of type
+	 * <code>StringTemplateComponent</code>.
+	 * @since 3.37
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static final int STRING_TEMPLATE_COMPONENT = 117;
 
 	/**
 	 * Returns the node class for the corresponding node type.
@@ -1316,6 +1339,12 @@ public abstract class ASTNode {
 				return WildcardType.class;
 			case YIELD_STATEMENT :
 				return YieldStatement.class;
+			case STRING_TEMPLATE_EXPRESSION :
+				return StringTemplateExpression.class;
+			case STRING_FRAGMENT :
+				return StringFragment.class;
+			case STRING_TEMPLATE_COMPONENT :
+				return StringTemplateComponent.class;
 		}
 		throw new IllegalArgumentException();
 	}
@@ -1819,6 +1848,7 @@ public abstract class ASTNode {
 	 * Returns the location of this node within its parent,
 	 * or <code>null</code> if this is a root node.
 	 * <pre>
+	 * {@code
 	 * ASTNode node = ...;
 	 * ASTNode parent = node.getParent();
 	 * StructuralPropertyDescriptor location = node.getLocationInParent();
@@ -1827,6 +1857,7 @@ public abstract class ASTNode {
 	 *    assert parent.getStructuralProperty(location) == node;
 	 * if ((location != null) && location.isChildListProperty())
 	 *    assert ((List) parent.getStructuralProperty(location)).contains(node);
+	 * }
 	 * </pre>
 	 * <p>
 	 * Note that the relationship between an AST node and its parent node

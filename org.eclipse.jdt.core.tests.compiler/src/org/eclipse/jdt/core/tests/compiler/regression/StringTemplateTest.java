@@ -18,7 +18,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
 
-public class StringTemplateTest extends AbstractRegressionTest {
+public class StringTemplateTest extends AbstractRegressionTest9 {
 
 	static {
 //		TESTS_NAMES = new String[] { "test003" };
@@ -43,7 +43,8 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_21);
 		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_21);
 		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_21);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
+		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, previewFlag ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		return defaultOptions;
 	}
 	protected void runConformTest(String[] testFiles, String expectedOutput) {
@@ -54,6 +55,16 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		if(!isJRE21Plus)
 			return;
 		runConformTest(testFiles, expectedOutput, customOptions, VMARGS, JAVAC_OPTIONS);
+	}
+	protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
+		Map<String, String> customOptions = getCompilerOptions(true);
+		Runner runner = new Runner();
+		runner.testFiles = testFiles;
+		runner.expectedCompilerLog = expectedCompilerLog;
+		runner.javacTestOptions = JAVAC_OPTIONS;
+		runner.customOptions = customOptions;
+		runner.expectedJavacOutputString = null;
+		runner.runNegativeTest();
 	}
 	protected void runNegativeTest(
 			String[] testFiles,
@@ -749,7 +760,7 @@ public class StringTemplateTest extends AbstractRegressionTest {
 	}
 	// Flow analysis related tests
 	public void test027() {
-		Map<String,String> options = getCompilerOptions(false);
+		Map<String,String> options = getCompilerOptions(true);
 		String old1 = options.get(CompilerOptions.OPTION_ReportUnusedLocal);
 		options.put(CompilerOptions.OPTION_ReportUnusedLocal, CompilerOptions.ERROR);
 		try {
@@ -771,7 +782,7 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		}
 	}
 	public void test027a() {
-		Map<String,String> options = getCompilerOptions(false);
+		Map<String,String> options = getCompilerOptions(true);
 		String old1 = options.get(CompilerOptions.OPTION_ReportUnusedLocal);
 		options.put(CompilerOptions.OPTION_ReportUnusedLocal, CompilerOptions.ERROR);
 		try {
@@ -801,7 +812,7 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		}
 	}
 	public void test028() {
-		Map<String,String> options = getCompilerOptions(false);
+		Map<String,String> options = getCompilerOptions(true);
 		String old1 = options.get(CompilerOptions.OPTION_ReportUnusedPrivateMember);
 		options.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 		try {
@@ -831,7 +842,7 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		}
 	}
 	public void test028a() {
-		Map<String,String> options = getCompilerOptions(false);
+		Map<String,String> options = getCompilerOptions(true);
 		String old1 = options.get(CompilerOptions.OPTION_ReportUnusedPrivateMember);
 		options.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 		try {
@@ -864,7 +875,7 @@ public class StringTemplateTest extends AbstractRegressionTest {
 		}
 	}
 	public void test028b() {
-		Map<String,String> options = getCompilerOptions(false);
+		Map<String,String> options = getCompilerOptions(true);
 		String old1 = options.get(CompilerOptions.OPTION_ReportUnusedPrivateMember);
 		options.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 		try {
@@ -1356,7 +1367,7 @@ String s = STR.\"""
 			"----------\n" +
 			"1. ERROR in X.java (at line 4)\n" +
 			"	String template = StringTemplate.RAW.\"\\{name}\";\n" +
-			"	                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"	                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 			"Type mismatch: cannot convert from StringTemplate to String\n" +
 			"----------\n"
 );
@@ -1599,15 +1610,10 @@ s
 						"""
 				},
 				"----------\n" +
-				"1. ERROR in X.java (at line 6)\n" +
+				"1. ERROR in X.java (at line 1)\n" +
 				"	s=\"Jay\";\n" +
 				"	       ^\n" +
 				"Syntax error on token \";\", delete this token\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 7)\n" +
-				"	}\n" +
-				"	^\n" +
-				"Text block is not properly closed with the delimiter\n" +
 				"----------\n"
 		);
 	}
@@ -1677,5 +1683,225 @@ s
 				"The local variable greet may not have been initialized\n" +
 				"----------\n"
 		);
+	}
+	public void test0061() {
+		Map<String, String> options = getCompilerOptions(false);
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+						 public static void main(String argv[]) {
+							String greet = STR."Hello!";
+							System.out.println(greet);
+						}
+					}"""
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 3)\n" +
+				"	String greet = STR.\"Hello!\";\n" +
+				"	               ^^^^^^^^^^^^\n" +
+				"String Template is a preview feature and disabled by default. Use --enable-preview to enable\n" +
+				"----------\n",
+				"",
+				null,
+				false,
+				options);
+	}
+	public void test0062() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+						 public static void main(String argv[]) {
+						 	String name = "Jay";
+							String greet = STR."Hello \\{name + foo())}!";
+							System.out.println(greet);
+						}
+						private static String foo() {
+							return "A";
+						}
+					}"""
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 1)\n" +
+				"	String greet = STR.\"Hello \\{name + foo())}!\";\n" +
+				"	                                        ^\n" +
+				"Syntax error on token \")\", delete this token\n" +
+				"----------\n");
+	}
+	public void test0063() {
+		runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+						 public static void main(String argv[]) {
+						 	String name = "Jay";
+							String greet = STR."Hello \\{name + foo())}!";
+							System.out.println(greet);
+						}
+						private static String foo() {
+							return "A";
+						}
+					}
+					interface Intf {
+					}"""
+				},
+				"----------\n" +
+				"1. ERROR in X.java (at line 1)\n" +
+				"	String greet = STR.\"Hello \\{name + foo())}!\";\n" +
+				"	                                        ^\n" +
+				"Syntax error on token \")\", delete this token\n" +
+				"----------\n");
+	}
+	public void testIssue1719() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					  public static void main(String[] args) {
+					    String name = "Bill";
+					    System.out.println(STR."\\{name}");
+					    String html = STR.\"""
+					         \\{name}
+					      \""";
+					  }
+					}"""
+				},
+				"Bill");
+	}
+	public void testIssue1722() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					  public static void main(String[] args) {
+					    String firstName = "Bill", lastName = "Duck";
+					    System.out.println(STR."\\{firstName} \\{lastName}");
+
+					    String title = "My Web Page";
+
+					    String html = STR.\"""
+					        </head>
+					      \""";
+					    System.out.println(html);
+					  }
+					}"""
+				},
+				"Bill Duck\n" +
+				"  </head>");
+	}
+	public void testJEP430Examples() {
+		runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					import java.io.File;
+					import java.time.LocalTime;
+					import java.time.format.DateTimeFormatter;
+					import java.util.Date;
+					import java.util.List;
+					public class X {
+					  @SuppressWarnings("preview")
+					  public static void main(String[] args) {
+						  String firstName = "Bill";
+						  String lastName  = "Duck";
+						  String fullName  = STR."\\{firstName} \\{lastName}";
+						  System.out.println(fullName); // "Bill Duck"
+						  String sortName  = STR."\\{lastName}, \\{firstName}";
+						  System.out.println(sortName); // "Duck, Bill"
+						  int x = 10, y = 20;
+						  String s = STR."\\{x} + \\{y} = \\{x + y}";
+						  System.out.println(s); // "10 + 20 = 30"
+						  s = STR."You have a \\{getOfferType()} waiting for you!";
+						  System.out.println(s); // "You have a gift waiting for you!"
+						  Request req = new Request();
+						  String t = STR."Access at \\{req.date} \\{req.time} from \\{req.ipAddress}";
+
+						  String filePath = "tmp.dat";
+						  File file = new File(filePath);
+						  String old = "The file " + filePath + " " + (file.exists() ? "does" : "does not") + " exist";
+						  String msg = STR."The file \\{filePath} \\{file.exists() ? "does" : "does not"} exist";
+						  System.out.println(msg); // "The file tmp.dat does exist" or "The file tmp.dat does not exist"
+						  String time = STR."The time is \\{
+								    // The java.time.format package is very useful
+								    DateTimeFormatter
+								      .ofPattern("HH:mm:ss")
+								      .format(LocalTime.NOON)
+								} right now";
+					  		System.out.println(time); // "The time is 12:34:56 right now"
+							int index = 0;
+							String data = STR."\\{index++}, \\{index++}, \\{index++}, \\{index++}";
+							System.out.println(data); //"0, 1, 2, 3"
+							String[] fruit = { "apples", "oranges", "peaches" };
+							s = STR."\\{fruit[0]}, \\{STR."\\{fruit[1]}, \\{fruit[2]}"}";
+							System.out.println(s); //"apples, oranges, peaches"
+							s = STR."\\{fruit[0]}, \\{
+								    STR."\\{fruit[1]}, \\{fruit[2]}"
+								}";
+							System.out.println(s);
+							String tmp = STR."\\{fruit[1]}, \\{fruit[2]}";
+							s = STR."\\{fruit[0]}, \\{tmp}";
+							System.out.println(s);
+							Rectangle[] zone = new Rectangle[] {
+								    new Rectangle("Alfa", 17.8, 31.4),
+								    new Rectangle("Bravo", 9.6, 12.4),
+								    new Rectangle("Charlie", 7.1, 11.23),
+								};
+								String table = STR.\"""
+								    Description  Width  height()  Area
+								    \\{zone[0].name()}  \\{zone[0].width()}  \\{zone[0].height()}     \\{zone[0].area()}
+								    \\{zone[1].name()}  \\{zone[1].width()}  \\{zone[1].height()}     \\{zone[1].area()}
+								    \\{zone[2].name()}  \\{zone[2].width()}  \\{zone[2].height()}     \\{zone[2].area()}
+								    Total \\{zone[0].area() + zone[1].area() + zone[2].area()}
+								    \""";
+								System.out.println(table);
+								x = 10;
+								y = 20;
+								StringTemplate st = StringTemplate.RAW."\\{x} plus \\{y} equals \\{x + y}";
+								List<String> fragments = st.fragments();
+								String result = String.join("\\\\{}", fragments);
+								System.out.println(result); //"\\{} plus \\{} equals \\{}"
+								List<Object> values = st.values();
+								System.out.println(values);//[10, 20, 30]
+							}
+					  static String getOfferType() {
+						  return "gift";
+					  }
+					}
+					record Rectangle(String name, double width, double height) {
+					    double area() {
+					        return width * height;
+					    }
+					}
+					class Request {
+						Date date = new Date(3, 5, 2022);
+						String time = "15:34";
+						String ipAddress = "0.0.0.0";
+					}"""
+				},
+				"""
+				Bill Duck
+				Duck, Bill
+				10 + 20 = 30
+				You have a gift waiting for you!
+				The file tmp.dat does not exist
+				The time is 12:00:00 right now
+				0, 1, 2, 3
+				apples, oranges, peaches
+				apples, oranges, peaches
+				apples, oranges, peaches
+				Description  Width  height()  Area
+				Alfa  17.8  31.4     558.92
+				Bravo  9.6  12.4     119.03999999999999
+				Charlie  7.1  11.23     79.733
+				Total 757.693
+
+				\\{} plus \\{} equals \\{}
+				[10, 20, 30]""");
 	}
 }

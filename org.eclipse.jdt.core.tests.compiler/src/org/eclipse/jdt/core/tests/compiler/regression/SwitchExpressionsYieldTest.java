@@ -6329,4 +6329,473 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 			"m cannot be resolved\n" +
 			"----------\n");
 	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1394
+	// switch statement with yield and try/catch produces EmptyStackException
+	public void testGHI1394() {
+		Map<String, String> options = getCompilerOptions();
+		options.put(CompilerOptions.OPTION_UseStringConcatFactory, CompilerOptions.ENABLED);
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"public class X {\n"
+				+ "	protected static int switchWithYield() {\n"
+				+ "		String myStringNumber = \"1\";\n"
+				+ "		return switch (myStringNumber) {\n"
+				+ "		case \"1\" -> {\n"
+				+ "			try {\n"
+				+ "				yield Integer.parseInt(myStringNumber);\n"
+				+ "			} catch (NumberFormatException e) {\n"
+				+ "				throw new RuntimeException(\"Failed parsing number\", e); //$NON-NLS-1$\n"
+				+ "			}\n"
+				+ "		}\n"
+				+ "		default -> throw new IllegalArgumentException(\"Unexpected value: \" + myStringNumber);\n"
+				+ "		};\n"
+				+ "	}\n"
+				+ "	public static void main(String[] args) {\n"
+				+ "		System.out.println(switchWithYield());\n"
+				+ "	}\n"
+				+ "} "
+				},
+				"1",
+				options);
+	}
+	public void testGHI1394_2() {
+		Map<String, String> options = getCompilerOptions();
+		options.put(CompilerOptions.OPTION_UseStringConcatFactory, CompilerOptions.ENABLED);
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"public class X {\n"
+				+ "	static String myStringNumber = \"1\";\n"
+				+ "	protected static int switchWithYield() {\n"
+				+ "		return switch (myStringNumber) {\n"
+				+ "		case \"10\" -> {\n"
+				+ "			try {\n"
+				+ "				yield Integer.parseInt(myStringNumber);\n"
+				+ "			} catch (NumberFormatException e) {\n"
+				+ "				throw new RuntimeException(\"Failed parsing number\", e); //$NON-NLS-1$\n"
+				+ "			}\n"
+				+ "		}\n"
+				+ "		default -> throw new IllegalArgumentException(\"Unexpected value: \" + myStringNumber);\n"
+				+ "		};\n"
+				+ "	}\n"
+				+ "	public static void main(String[] args) {\n"
+				+ "     try {\n"
+				+ "		    System.out.println(switchWithYield());\n"
+				+ "     } catch(IllegalArgumentException iae) {\n"
+				+ "         if (!iae.getMessage().equals(\"Unexpected value: \" + myStringNumber))\n"
+				+ "             throw iae;\n"
+				+ "     }\n"
+				+ "     System.out.println(\"Done\");\n"
+				+ "	}\n"
+				+ "} "
+				},
+				"Done",
+				options);
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1394
+	// switch statement with yield and try/catch produces EmptyStackException
+	public void testGHI1394_min() {
+		Map<String, String> options = getCompilerOptions();
+		options.put(CompilerOptions.OPTION_UseStringConcatFactory, CompilerOptions.ENABLED);
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"public class X {\n" +
+				"	static int foo() {\n" +
+				"		int x = 1;\n" +
+				"		return switch (x) {\n" +
+				"		case 1 -> {\n" +
+				"			try {\n" +
+				"				yield x;\n" +
+				"			} finally  {\n" +
+				"				\n" +
+				"			}\n" +
+				"		}\n" +
+				"		default -> throw new RuntimeException(\"\" + x + \" \".toLowerCase());\n" +
+				"		};\n" +
+				"	}\n" +
+				"	public static void main(String[] args) {\n" +
+				"		System.out.println(foo());\n" +
+				"	}\n" +
+				"}\n"
+				},
+				"1",
+				options);
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1727
+	// Internal compiler error: java.util.EmptyStackException
+	public void testGHI1727() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"class X {\n" +
+				"	private Object foo(Object value) {\n" +
+				"		return switch (value) {\n" +
+				"			case String string -> {\n" +
+				"				try {\n" +
+				"					yield string;\n" +
+				"				} catch (IllegalArgumentException exception) {\n" +
+				"					yield string;\n" +
+				"				}\n" +
+				"			}\n" +
+				"			default -> throw new IllegalArgumentException(\"Argument of type \" + value.getClass());\n" +
+				"		};\n" +
+				"	}\n" +
+				"}\n"
+				},
+				"");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1686
+	// Switch statement with yield in synchronized and try-catch blocks results in ArrayIndexOutOfBoundsException
+	public void testGHI1686() {
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					public String demo(String input) {
+						return switch (input) {
+							case "red" -> {
+								synchronized (this) {
+									yield "apple";
+								}
+							}
+							default -> {
+								try {
+									yield "banana";
+								}
+								catch (Exception ex) {
+									throw new IllegalStateException(ex);
+							    }
+						    }
+					    };
+				    }
+				}
+				"""
+				},
+				"");
+		}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1686
+	// Switch statement with yield in synchronized and try-catch blocks results in ArrayIndexOutOfBoundsException
+	public void testGHI1686_works() {
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					public String demo(String input) {
+						return switch (input) {
+							case "red" -> {
+								synchronized (this) {
+									yield "apple";
+								}
+							}
+							default -> {
+								yield "banana";
+						    }
+					    };
+				    }
+				}
+				"""
+				},
+				"");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1767
+	// NPE in switch with Enum
+	public void testGHI1767() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					public static enum TestEnum {
+						E1,
+						E2,
+						E3
+					}
+
+					public static void main(String[] theArgs) {
+						System.out.println("Test case 1");
+						new X().test1SwitchWithNull(TestEnum.E1);
+						new X().test1SwitchWithNull(TestEnum.E2);
+						new X().test1SwitchWithNull((TestEnum) null);
+
+						System.out.println("Test case 2");
+						new X().test2SwitchWithNull(TestEnum.E1);
+						new X().test2SwitchWithNull(TestEnum.E2);
+						new X().test2SwitchWithNull((TestEnum) null);
+
+						System.out.println("Test case 3");
+						new X().test3SwitchWithNull(TestEnum.E1);
+						new X().test3SwitchWithNull(TestEnum.E2);
+						new X().test3SwitchWithNull((TestEnum) null);
+					}
+
+					private void test1SwitchWithNull(TestEnum theEnum) {
+						switch (theEnum) {
+							case TestEnum e when e == TestEnum.E1 -> System.out.println(e);
+							case null -> System.out.println("Enum: null");
+							default -> System.out.println("Enum: default");
+						}
+					}
+
+					private void test2SwitchWithNull(TestEnum theEnum) {
+						switch (theEnum) {
+							case TestEnum e -> System.out.println(e);
+							case null -> System.out.println("Enum: null");
+						}
+					}
+
+					private void test3SwitchWithNull(TestEnum theEnum) {
+						switch (theEnum) {
+							case TestEnum.E1 -> System.out.println(theEnum);
+							case null -> System.out.println("Enum: null");
+							default -> System.out.println("Enum: default -> " + theEnum);
+						}
+					}
+				}
+				"""
+				},
+				"Test case 1\n" +
+				"E1\n" +
+				"Enum: default\n" +
+				"Enum: null\n" +
+				"Test case 2\n" +
+				"E1\n" +
+				"E2\n" +
+				"Enum: null\n" +
+				"Test case 3\n" +
+				"E1\n" +
+				"Enum: default -> E2\n" +
+				"Enum: null");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1767
+	// NPE in switch with Enum
+	public void testGHI1767_minimal() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					enum E {
+						E
+					}
+
+					public static void main(String[] args) {
+						E e = null;
+						switch(e) {
+						case E.E -> {}
+						case null -> {}
+						}
+					}
+				}
+				"""
+				},
+				"");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1820
+	// [switch] Switch expression fails with instanceof + ternary operator combo
+	public void testGHI1820() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					static String method(Object element, int columnIndex) {
+						return element instanceof String data ?
+							switch (columnIndex) {
+								case 0 -> data;
+								case 1 -> data.toUpperCase();
+								default -> "Done";
+							} : "";
+					}
+					public static void main(String[] args) {
+						System.out.println(method("Blah", 0));
+						System.out.println(method("Blah", 1));
+						System.out.println(method("Blah", 10));
+					}
+				}
+				"""
+				},
+				"Blah\n"
+				+ "BLAH\n"
+				+ "Done");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1820
+	// [switch] Switch expression fails with instanceof + ternary operator combo
+	public void testGHI1820_2() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runNegativeTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					static String method(Object element, int columnIndex) {
+						return element instanceof String data ? "" :
+							switch (columnIndex) {
+								case 0 -> data;
+								case 1 -> data.toUpperCase();
+								default -> "";
+							};
+					}
+					public static void main(String[] args) {
+						System.out.println(method("Blah", 1));
+					}
+				}
+				"""
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 5)\n"
+				+ "	case 0 -> data;\n"
+				+ "	          ^^^^\n"
+				+ "data cannot be resolved to a variable\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 6)\n"
+				+ "	case 1 -> data.toUpperCase();\n"
+				+ "	          ^^^^\n"
+				+ "data cannot be resolved\n"
+				+ "----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1820
+	// [switch] Switch expression fails with instanceof + ternary operator combo
+	public void testGHI1820_3() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					static String method(Object element, int columnIndex) {
+						return element instanceof String data ?
+							switch (columnIndex) {
+								case 0 -> { yield data; }
+								case 1 -> data.toUpperCase();
+								default -> "";
+							} : "";
+					}
+					public static void main(String[] args) {
+						System.out.println(method("Blah", 1));
+					}
+				}
+				"""
+				},
+				"BLAH");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1820
+	// [switch] Switch expression fails with instanceof + ternary operator combo
+	public void testGHI1820_4() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					static String method(Object element, int columnIndex) {
+						return !(element instanceof String data) ? "" :
+							switch (columnIndex) {
+								case 0 -> data;
+								case 1 -> data.toUpperCase();
+								default -> "Done";
+							};
+					}
+					public static void main(String[] args) {
+						System.out.println(method("Blah", 0));
+						System.out.println(method("Blah", 1));
+						System.out.println(method("Blah", 10));
+					}
+				}
+				"""
+				},
+				"Blah\n"
+				+ "BLAH\n"
+				+ "Done");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1820
+	// [switch] Switch expression fails with instanceof + ternary operator combo
+	public void testGHI1820_5() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+					static String method(Object element, int columnIndex) {
+						if (element instanceof String string) {
+							return element instanceof String data ?
+								switch (columnIndex) {
+									case 0 -> data;
+									case 1 -> string.toUpperCase();
+									default -> "Done";
+								} : "";
+						}
+						return null;
+					}
+					public static void main(String[] args) {
+						System.out.println(method("Blah", 0));
+						System.out.println(method("Blah", 1));
+						System.out.println(method("Blah", 10));
+					}
+				}
+				"""
+				},
+				"Blah\n"
+				+ "BLAH\n"
+				+ "Done");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/377
+	// [switch-expression] Invalid compiler error with switch expression
+	public void testGH377() {
+		if (this.complianceLevel < ClassFileConstants.JDK16)
+			return;
+		this.runConformTest(
+				new String[] {
+				"X.java",
+				"""
+				public class X {
+
+				  enum TestEnum {
+				    A, B;
+				  }
+
+				  @SuppressWarnings("unused")
+				  private int switcher(final TestEnum e) throws Exception {
+				    return switch (e) {
+				      case A -> 0;
+				      case B -> {
+				        try {
+				          yield 1;
+				        } finally {
+				          throwingFn();
+				        }
+				      }
+				    };
+				  }
+
+				  private void throwingFn() throws Exception {}
+
+				  public static void main(String [] args) throws Exception {
+					  System.out.println("Switcher :" + new X().switcher(TestEnum.A));
+					  System.out.println("Switcher :" + new X().switcher(TestEnum.B));
+				  }
+			    }
+				"""
+				},
+				"Switcher :0\n"
+				+ "Switcher :1");
+	}
 }

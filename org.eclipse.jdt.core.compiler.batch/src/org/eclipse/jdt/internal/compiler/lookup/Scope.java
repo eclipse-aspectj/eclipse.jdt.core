@@ -994,8 +994,8 @@ public abstract class Scope {
 				nextBound: for (int j = 0, boundLength = boundRefs.length; j < boundLength; j++) {
 					typeRef = boundRefs[j];
 					superType = this.kind == METHOD_SCOPE
-						? typeRef.resolveType((BlockScope)this, false)
-						: typeRef.resolveType((ClassScope)this);
+						? typeRef.resolveType((BlockScope)this, false, Binding.DefaultLocationTypeBound)
+						: typeRef.resolveType((ClassScope)this, Binding.DefaultLocationTypeBound);
 					if (superType == null) {
 						typeVariable.tagBits |= TagBits.HierarchyHasProblems;
 						continue nextBound;
@@ -1168,18 +1168,6 @@ public abstract class Scope {
 		return null; // may answer null if no method around
 	}
 
-	public final MethodScope lexicallyEnclosingMethodScope() {
-		Scope scope = this;
-		while ((scope = scope.parent) != null) {
-			if (scope instanceof MethodScope) {
-				MethodScope methodScope = (MethodScope) scope;
-				if (methodScope.referenceContext instanceof AbstractMethodDeclaration)
-					return (MethodScope) scope;
-			}
-		}
-		return null; // may answer null if no method around
-	}
-
 	public final MethodScope enclosingLambdaScope() {
 		Scope scope = this;
 		while ((scope = scope.parent) != null) {
@@ -1277,7 +1265,7 @@ public abstract class Scope {
 		int startFoundSize = found.size;
 		final boolean sourceLevel18 = this.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8;
 		ReferenceBinding currentType = classHierarchyStart;
-		List<TypeBinding> visitedTypes = new ArrayList<TypeBinding>();
+		List<TypeBinding> visitedTypes = new ArrayList<>();
 		while (currentType != null) {
 			findMethodInSuperInterfaces(currentType, selector, found, visitedTypes, invocationSite);
 			currentType = currentType.superclass();
@@ -1739,7 +1727,7 @@ public abstract class Scope {
 		ObjectVector found = new ObjectVector(3);
 		CompilationUnitScope unitScope = compilationUnitScope();
 		unitScope.recordTypeReferences(argumentTypes);
-		List<TypeBinding> visitedTypes = new ArrayList<TypeBinding>();
+		List<TypeBinding> visitedTypes = new ArrayList<>();
 		if (receiverTypeIsInterface) {
 			unitScope.recordTypeReference(receiverType);
 			MethodBinding[] receiverMethods = receiverType.getMethods(selector, argumentTypes.length);
@@ -3161,6 +3149,13 @@ public abstract class Scope {
 		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_STRINGBUILDER);
 		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_STRINGBUILDER, this);
 	}
+
+	public TypeBinding getJavaLangStringTemplate() {
+		CompilationUnitScope unitScope = compilationUnitScope();
+		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_STRINGTEMPLATE);
+		return unitScope.environment.getResolvedJavaBaseType(TypeConstants.JAVA_LANG_STRINGTEMPLATE, this);
+	}
+
 	public final ReferenceBinding getJavaLangStringTemplateProcessor() {
 		CompilationUnitScope unitScope = compilationUnitScope();
 		unitScope.recordQualifiedReference(TypeConstants.JAVA_LANG_STRINGTEMPLATE_PROCESSOR);

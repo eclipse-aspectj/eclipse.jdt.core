@@ -16,37 +16,35 @@ package org.eclipse.jdt.internal.codeassist.impl;
 import java.util.Map;
 
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.jdt.core.IAnnotation;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
+import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.core.JavaElement;
 import org.eclipse.jdt.internal.core.ResolvedSourceMethod;
 
-@SuppressWarnings("rawtypes")
 public class AssistSourceMethod extends ResolvedSourceMethod {
-	private final Map bindingCache;
-	private final Map infoCache;
+	private final Map<JavaElement, Binding> bindingCache;
+	private final Map<IJavaElement, IElementInfo> infoCache;
 
 	private String uniqueKey;
 	private boolean isResolved;
 
-	public AssistSourceMethod(JavaElement parent, String name, String[] parameterTypes, Map bindingCache, Map infoCache) {
+	public AssistSourceMethod(JavaElement parent, String name, String[] parameterTypes, Map<JavaElement, Binding> bindingCache, Map<IJavaElement, IElementInfo> infoCache) {
 		super(parent, name, parameterTypes, null);
 		this.bindingCache = bindingCache;
 		this.infoCache = infoCache;
 	}
 
 	@Override
-	public Object getElementInfo(IProgressMonitor monitor) throws JavaModelException {
+	public IElementInfo getElementInfo(IProgressMonitor monitor) throws JavaModelException {
 		return this.infoCache.get(this);
 	}
 
 	@Override
 	public String getKey() {
 		if (this.uniqueKey == null) {
-			Binding binding = (Binding) this.bindingCache.get(this);
+			Binding binding = this.bindingCache.get(this);
 			if (binding != null) {
 				this.isResolved = true;
 				this.uniqueKey = new String(binding.computeUniqueKey());
@@ -75,19 +73,17 @@ public class AssistSourceMethod extends ResolvedSourceMethod {
 	}
 
 	@Override
-	public IAnnotation getAnnotation(String annotationName) {
+	public AssistAnnotation getAnnotation(String annotationName) {
 		return new AssistAnnotation(this, annotationName, this.infoCache);
 	}
 
 	@Override
-	public IType getType(String typeName, int count) {
-		AssistSourceType type = new AssistSourceType(this, typeName, this.bindingCache, this.infoCache);
-		type.occurrenceCount = count;
-		return type;
+	public AssistSourceType getType(String typeName, int count) {
+		return new AssistSourceType(this, typeName, this.bindingCache, this.infoCache, count);
 	}
 
 	@Override
-	public ITypeParameter getTypeParameter(String typeParameterName) {
+	public AssistTypeParameter getTypeParameter(String typeParameterName) {
 		return new AssistTypeParameter(this, typeParameterName, this.infoCache);
 	}
 }

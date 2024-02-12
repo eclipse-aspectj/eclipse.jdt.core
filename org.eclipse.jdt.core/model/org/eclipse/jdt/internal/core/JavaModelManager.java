@@ -39,8 +39,11 @@ import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.URI;
 import java.text.MessageFormat;
+import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,6 +60,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.stream.Collectors;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
@@ -126,6 +130,7 @@ import org.eclipse.jdt.core.JavaConventions;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
+import org.eclipse.jdt.core.JavaCore.JavaCallable;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.CompilationParticipant;
 import org.eclipse.jdt.core.compiler.IProblem;
@@ -136,6 +141,7 @@ import org.eclipse.jdt.internal.compiler.AbstractAnnotationProcessorManager;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObjectToInt;
@@ -370,6 +376,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private static final String COMPILER_DEBUG = JavaCore.PLUGIN_ID + "/debug/compiler" ; //$NON-NLS-1$
 	private static final String JAVAMODEL_CLASSPATH = JavaCore.PLUGIN_ID + "/debug/javamodel/classpath" ; //$NON-NLS-1$
 	private static final String JAVAMODEL_DEBUG = JavaCore.PLUGIN_ID + "/debug/javamodel" ; //$NON-NLS-1$
+	private static final String JAVAMODEL_STDOUT = JavaCore.PLUGIN_ID + "/debug/traceToStdOut" ; //$NON-NLS-1$
 	private static final String JAVAMODEL_INVALID_ARCHIVES = JavaCore.PLUGIN_ID + "/debug/javamodel/invalid_archives" ; //$NON-NLS-1$
 	private static final String JAVAMODELCACHE_DEBUG = JavaCore.PLUGIN_ID + "/debug/javamodel/cache" ; //$NON-NLS-1$
 	private static final String JAVAMODELCACHE_INSERTIONS_DEBUG = JavaCore.PLUGIN_ID + "/debug/javamodel/insertions" ; //$NON-NLS-1$
@@ -377,6 +384,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private static final String CP_RESOLVE_ADVANCED_DEBUG = JavaCore.PLUGIN_ID + "/debug/cpresolution/advanced" ; //$NON-NLS-1$
 	private static final String CP_RESOLVE_FAILURE_DEBUG = JavaCore.PLUGIN_ID + "/debug/cpresolution/failure" ; //$NON-NLS-1$
 	private static final String ZIP_ACCESS_DEBUG = JavaCore.PLUGIN_ID + "/debug/zipaccess" ; //$NON-NLS-1$
+	private static final String ZIP_ACCESS_WARNING_DEBUG_ = JavaCore.PLUGIN_ID + "/debug/zipaccessWarning" ; //$NON-NLS-1$
 	private static final String DELTA_DEBUG =JavaCore.PLUGIN_ID + "/debug/javadelta" ; //$NON-NLS-1$
 	private static final String DELTA_DEBUG_VERBOSE =JavaCore.PLUGIN_ID + "/debug/javadelta/verbose" ; //$NON-NLS-1$
 	private static final String DOM_AST_DEBUG = JavaCore.PLUGIN_ID + "/debug/dom/ast" ; //$NON-NLS-1$
@@ -425,13 +433,22 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private static DebugTrace DEBUG_TRACE;
 
 	private final Set<IProject> touchQueue = ConcurrentHashMap.newKeySet();
-	private final WorkspaceJob touchJob = new WorkspaceJob(Messages.synchronizing_projects_job) {
+	private static final class TouchJob extends WorkspaceJob {
+		// This INSTANCE is intentionally lazy initialized such that for example JavaCore.getOptions() can run without running Platform
+		// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1720
+		private static final WorkspaceJob INSTANCE = new TouchJob();
+
+		private TouchJob() {
+			super(Messages.synchronizing_projects_job);
+		}
+
 		@Override
 		public IStatus runInWorkspace(IProgressMonitor monitor) throws CoreException {
-			SubMonitor subMonitor = SubMonitor.convert(monitor, JavaModelManager.this.touchQueue.size());
-			JavaModelManager.this.touchQueue.removeIf(iProject->{
+			JavaModelManager javaModelManager = JavaModelManager.getJavaModelManager();
+			SubMonitor subMonitor = SubMonitor.convert(monitor, javaModelManager.touchQueue.size());
+			javaModelManager.touchQueue.removeIf(iProject -> {
 				// remaining work may change in background - update it:
-				subMonitor.setWorkRemaining(JavaModelManager.this.touchQueue.size());
+				subMonitor.setWorkRemaining(javaModelManager.touchQueue.size());
 				if (JavaBuilder.DEBUG) {
 					trace("Touching project " + iProject.getName()); //$NON-NLS-1$
 				}
@@ -439,7 +456,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					try {
 						iProject.touch(subMonitor.split(1));
 					} catch (CoreException e) {
-						Util.log(e, "Could not touch project "+iProject.getName()); //$NON-NLS-1$
+						Util.log(e, "Could not touch project " + iProject.getName()); //$NON-NLS-1$
 					}
 				}
 				return true;
@@ -451,7 +468,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		public boolean belongsTo(Object family) {
 			return ResourcesPlugin.FAMILY_MANUAL_REFRESH == family;
 		}
-	};
+	}
 
 	public static class CompilationParticipants {
 
@@ -1248,7 +1265,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	/*
 	 * Temporary cache of newly opened elements
 	 */
-	private final ThreadLocal<HashMap<IJavaElement, Object>> temporaryCache = new ThreadLocal<>();
+	private final ThreadLocal<HashMap<IJavaElement, IElementInfo>> temporaryCache = new ThreadLocal<>();
 
 	/**
 	 * Set of elements which are out of sync with their buffers.
@@ -1682,6 +1699,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	public static boolean CP_RESOLVE_VERBOSE = false;
 	public static boolean CP_RESOLVE_VERBOSE_ADVANCED = false;
 	public static boolean CP_RESOLVE_VERBOSE_FAILURE = false;
+	public static boolean ZIP_ACCESS_WARNING= false;
 	public static boolean ZIP_ACCESS_VERBOSE = false;
 	public static boolean JRT_ACCESS_VERBOSE = false;
 
@@ -1701,6 +1719,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 	// The amount of time from when an invalid archive is first sensed until that state is considered stale.
 	private static long INVALID_ARCHIVE_TTL_MILLISECONDS = 2 * 60 * 1000;
+	private static boolean TRACE_TO_STDOUT;
 
 	private static class InvalidArchiveInfo {
 		/**
@@ -1726,10 +1745,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private final Map<IPath, InvalidArchiveInfo> invalidArchives = new HashMap<>();
 
 	/*
-	 * A set of IPaths for files that are known to be external to the workspace.
+	 * Paths that are known to exists or not exists on the FileSystem (unrelated to the eclipse workspace).
 	 * Need not be referenced by the classpath.
 	 */
-	private Set<IPath> externalFiles;
+	private Map<IPath, Boolean> externalFiles;
 
 	/*
 	 * A set of IPaths for files that do not exist on the file system but are assumed to be
@@ -1873,7 +1892,11 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (Platform.isRunning()) {
 			this.indexManager = new IndexManager();
 			this.nonChainingJars = loadClasspathListCache(NON_CHAINING_JARS_CACHE);
-			this.externalFiles = loadClasspathListCache(EXTERNAL_FILES_CACHE);
+			Set<IPath> external = loadClasspathListCache(EXTERNAL_FILES_CACHE);
+			this.externalFiles= new ConcurrentHashMap<>();
+			for (IPath p: external) {
+				this.externalFiles.put(p, Boolean.TRUE);
+			}
 			this.assumedExternalFiles = loadClasspathListCache(ASSUMED_EXTERNAL_FILES_CACHE);
 			String includeContainerReferencedLib = System.getProperty(RESOLVE_REFERENCED_LIBRARIES_FOR_CONTAINERS);
 			this.resolveReferencedLibrariesForContainers = TRUE.equalsIgnoreCase(includeContainerReferencedLib);
@@ -1906,13 +1929,13 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * Adds a path to the external files cache. It is the responsibility of callers to
 	 * determine the file's existence, as determined by  {@link File#isFile()}.
 	 */
-	public void addExternalFile(IPath path) {
+	public void addExternalFile(IPath path, boolean exits) {
 		// unlikely to be null
 		if (this.externalFiles == null) {
-			this.externalFiles = Collections.synchronizedSet(new HashSet<IPath>());
+			this.externalFiles = new ConcurrentHashMap<>();
 		}
 		if(this.externalFiles != null) {
-			this.externalFiles.add(path);
+			this.externalFiles.put(path, Boolean.valueOf(exits));
 		}
 	}
 
@@ -1979,6 +2002,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				JavaModelManager.DEBUG_CLASSPATH = debug && options.getBooleanOption(JAVAMODEL_CLASSPATH, false);
 				JavaModelManager.DEBUG_INVALID_ARCHIVES = debug && options.getBooleanOption(JAVAMODEL_INVALID_ARCHIVES, false);
 				JavaModelManager.VERBOSE = debug && options.getBooleanOption(JAVAMODEL_DEBUG, false);
+				JavaModelManager.TRACE_TO_STDOUT = debug && options.getBooleanOption(JAVAMODEL_STDOUT, false);
 				JavaModelCache.VERBOSE = debug && options.getBooleanOption(JAVAMODELCACHE_DEBUG, false);
 				JavaModelCache.DEBUG_CACHE_INSERTIONS = debug && options.getBooleanOption(JAVAMODELCACHE_INSERTIONS_DEBUG, false);
 				JavaModelOperation.POST_ACTION_VERBOSE = debug && options.getBooleanOption(POST_ACTION_DEBUG, false);
@@ -1986,6 +2010,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				BasicSearchEngine.VERBOSE = debug && options.getBooleanOption(SEARCH_DEBUG, false);
 				SelectionEngine.DEBUG = debug && options.getBooleanOption(SELECTION_DEBUG, false);
 				JavaModelManager.ZIP_ACCESS_VERBOSE = debug && options.getBooleanOption(ZIP_ACCESS_DEBUG, false);
+				JavaModelManager.ZIP_ACCESS_WARNING = debug && options.getBooleanOption(ZIP_ACCESS_WARNING_DEBUG_, false);
 				SourceMapper.VERBOSE = debug && options.getBooleanOption(SOURCE_MAPPER_DEBUG_VERBOSE, false);
 				DefaultCodeFormatter.DEBUG = debug && options.getBooleanOption(FORMATTER_DEBUG, false);
 
@@ -2253,10 +2278,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	/**
 	 *  Returns the info for the element.
 	 */
-	public synchronized Object getInfo(IJavaElement element) {
-		HashMap<IJavaElement, Object> tempCache = this.temporaryCache.get();
+	public synchronized IElementInfo getInfo(IJavaElement element) {
+		HashMap<IJavaElement, IElementInfo> tempCache = this.temporaryCache.get();
 		if (tempCache != null) {
-			Object result = tempCache.get(element);
+			IElementInfo result = tempCache.get(element);
 			if (result != null) {
 				return result;
 			}
@@ -2697,10 +2722,20 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * Returns the temporary cache for newly opened elements for the current thread.
 	 * Creates it if not already created.
 	 */
-	public HashMap<IJavaElement, Object> getTemporaryCache() {
-		HashMap<IJavaElement, Object> result = this.temporaryCache.get();
+	public HashMap<IJavaElement, IElementInfo> getTemporaryCache() {
+		HashMap<IJavaElement, IElementInfo> result = this.temporaryCache.get();
 		if (result == null) {
-			result = new HashMap<>();
+			result = new HashMap<>() {
+				/**
+				 *
+				 */
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public IElementInfo put(IJavaElement key, IElementInfo value) {
+					return super.put(key, value);
+				}
+			};
 			this.temporaryCache.set(result);
 		}
 		return result;
@@ -2976,19 +3011,54 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 */
 	public static boolean throwIoExceptionsInGetZipFile = false;
 
+	/** for tracing only **/
+	private final ThreadLocal<Map<IPath, Deque<Instant>>> lastAccessByPath = ThreadLocal.withInitial(HashMap::new);
+	/** for tracing only **/
+	private final ThreadLocal<Instant> lastWarning = new ThreadLocal<>();
+
+	private void traceZipAccessWarning(IPath path) {
+		Instant now = Instant.now();
+		Deque<Instant> lastAcesses = this.lastAccessByPath.get().compute(path,
+				(p, l) -> (l == null) ? new ArrayDeque<>() : l);
+		Instant recentAccess = lastAcesses.peekFirst();
+		Instant lastAccess = lastAcesses.peekLast();
+		lastAcesses.offerLast(now);
+		if (lastAccess != null) {
+			long elapsedMs = lastAccess.until(now, java.time.temporal.ChronoUnit.MILLIS);
+			if (elapsedMs <= 100000) {
+				trace(path + " opened again in this thread after " + elapsedMs + "ms"); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		}
+		// only warn if there have recently multiple accesses, because it's common but not that bad to have 2 of them
+		if (recentAccess != null && lastAcesses.size() > 2) {
+			long elapsedMs = recentAccess.until(now, java.time.temporal.ChronoUnit.MILLIS);
+			lastAcesses.pollFirst();
+			Instant lastInstant = this.lastWarning.get();
+			long elapsedWarningMs = lastInstant == null ? Long.MAX_VALUE
+					: lastInstant.until(now, java.time.temporal.ChronoUnit.MILLIS);
+			if (elapsedMs < 100 && elapsedWarningMs > 1000) {
+				this.lastWarning.set(now);
+				new Exception("Zipfile was opened multiple times wihtin " + elapsedMs + "ms in same thread " //$NON-NLS-1$ //$NON-NLS-2$
+						+ Thread.currentThread() + ", consider caching: " + path) //$NON-NLS-1$
+								.printStackTrace();
+			}
+		}
+	}
+
 	public ZipFile getZipFile(IPath path, boolean checkInvalidArchiveCache) throws CoreException {
 		if (checkInvalidArchiveCache) {
 			isArchiveStateKnownToBeValid(path);
 		}
 		ZipCache zipCache;
 		ZipFile zipFile;
-		if ((zipCache = this.zipFiles.get()) != null
-				&& (zipFile = zipCache.getCache(path)) != null) {
+		if ((zipCache = this.zipFiles.get()) != null && (zipFile = zipCache.getCache(path)) != null) {
 			return zipFile;
 		}
 		File localFile = getLocalFile(path);
-
 		try {
+			if (ZIP_ACCESS_WARNING) {
+				traceZipAccessWarning(path);
+			}
 			if (ZIP_ACCESS_VERBOSE) {
 				trace("(" + Thread.currentThread() + ") [JavaModelManager.getZipFile(IPath)] Creating ZipFile on " + localFile ); //$NON-NLS-1$ //$NON-NLS-2$
 			}
@@ -3430,7 +3500,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		for (IProject iProject : projectsToTouch) {
 			this.touchQueue.add(iProject);
 		}
-		this.touchJob.schedule();
+		TouchJob.INSTANCE.schedule();
 	}
 
 	private Set<IJavaProject> getClasspathBeingResolved() {
@@ -3524,9 +3594,17 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * and is a file, as determined by the return value of {@link File#isFile()}.
 	 */
 	public boolean isExternalFile(IPath path) {
-		return this.externalFiles != null && this.externalFiles.contains(path);
+		if (this.externalFiles == null)
+			return false;
+		Boolean exists = this.externalFiles.get(path);
+		return exists == null ? false : exists.booleanValue();
 	}
-
+	public boolean knownToNotExistOnFileSystem(IPath path) {
+		if (this.externalFiles == null)
+			return false;
+		Boolean exists = this.externalFiles.get(path);
+		return exists == null ? false : !exists.booleanValue();
+	}
 	/**
 	 * Removes the cached state of a single entry in the externalFiles cache.
 	 */
@@ -3623,7 +3701,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (cacheName == NON_CHAINING_JARS_CACHE)
 			return getNonChainingJarsCache();
 		else if (cacheName == EXTERNAL_FILES_CACHE)
-			return this.externalFiles;
+			return this.externalFiles.entrySet().stream().filter(e->e.getValue()).map(e->e.getKey()).collect(Collectors.toSet());
 		else if (cacheName == ASSUMED_EXTERNAL_FILES_CACHE)
 			return this.assumedExternalFiles;
 		else
@@ -4060,10 +4138,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 *  Returns the info for this element without
 	 *  disturbing the cache ordering.
 	 */
-	protected synchronized Object peekAtInfo(IJavaElement element) {
-		HashMap<IJavaElement, Object> tempCache = this.temporaryCache.get();
+	protected synchronized IElementInfo peekAtInfo(IJavaElement element) {
+		HashMap<IJavaElement, IElementInfo> tempCache = this.temporaryCache.get();
 		if (tempCache != null) {
-			Object result = tempCache.get(element);
+			IElementInfo result = tempCache.get(element);
 			if (result != null) {
 				return result;
 			}
@@ -4085,9 +4163,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * If forceAdd is false it just returns the existing info and if true, this element and it's children are closed and then
 	 * this particular info is added to the cache.
 	 */
-	protected synchronized Object putInfos(IJavaElement openedElement, Object newInfo, boolean forceAdd, Map<IJavaElement, Object> newElements) {
+	protected synchronized IElementInfo putInfos(IJavaElement openedElement, IElementInfo newInfo, boolean forceAdd, Map<IJavaElement, IElementInfo> newElements) {
 		// remove existing children as the are replaced with the new children contained in newElements
-		Object existingInfo = this.cache.peekAtInfo(openedElement);
+		IElementInfo existingInfo = this.cache.peekAtInfo(openedElement);
 		if (existingInfo != null && !forceAdd) {
 			// If forceAdd is false, then it could mean that the particular element
 			// wasn't in cache at that point of time, but would have got added through
@@ -4111,19 +4189,19 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		// Subsequent resolution against package in the jar would fail as a result.
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422
 		// (theodora)
-		for(Iterator<Entry<IJavaElement, Object>> it = newElements.entrySet().iterator(); it.hasNext(); ) {
-			Entry<IJavaElement, Object> entry = it.next();
+		for(Iterator<Entry<IJavaElement, IElementInfo>> it = newElements.entrySet().iterator(); it.hasNext(); ) {
+			Entry<IJavaElement, IElementInfo> entry = it.next();
 			IJavaElement element = entry.getKey();
 			if (element instanceof JarPackageFragmentRoot) {
-				JavaElementInfo info = (JavaElementInfo) entry.getValue();
+				IElementInfo info = entry.getValue();
 				it.remove();
 				this.cache.putInfo(element, info);
 			}
 		}
 
-		Iterator<Entry<IJavaElement, Object>> iterator = newElements.entrySet().iterator();
+		Iterator<Entry<IJavaElement, IElementInfo>> iterator = newElements.entrySet().iterator();
 		while (iterator.hasNext()) {
-			Entry<IJavaElement, Object> entry = iterator.next();
+			Entry<IJavaElement, IElementInfo> entry = iterator.next();
 			this.cache.putInfo(entry.getKey(), entry.getValue());
 		}
 		return newInfo;
@@ -4152,7 +4230,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 * Remember the info for the jar binary type
 	 * @param info instanceof IBinaryType or {@link JavaModelCache#NON_EXISTING_JAR_TYPE_INFO}
 	 */
-	protected synchronized void putJarTypeInfo(IJavaElement type, Object info) {
+	protected synchronized void putJarTypeInfo(IJavaElement type, IElementInfo info) {
 		this.cache.jarTypeCache.put(type, info);
 	}
 
@@ -4282,7 +4360,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			boolean wasVerbose = false;
 			try {
 				if (JavaModelCache.VERBOSE) {
-					String elementType = JavaModelCache.getElementType(element);
+					String elementType = JavaModelCache.getCacheType(element);
 					trace(Thread.currentThread() + " CLOSING "+ elementType + " " + element.toStringWithAncestors());  //$NON-NLS-1$//$NON-NLS-2$
 					wasVerbose = true;
 					JavaModelCache.VERBOSE = false;
@@ -4722,7 +4800,11 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	}
 
 	public static void trace(String msg) {
-		DEBUG_TRACE.trace(null, msg);
+		if (TRACE_TO_STDOUT) {
+			System.out.println(msg);
+		} else {
+			DEBUG_TRACE.trace(null, msg);
+		}
 	}
 
 	public static void trace(String msg, Exception e) {
@@ -5726,5 +5808,37 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 	private ClasspathAccessRule getFromCache(ClasspathAccessRule rule) {
 		return DeduplicationUtil.internObject(rule);
+	}
+
+	private static ThreadLocal<Boolean> readOnly = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+	public static void assertModelModifiable() {
+		if (readOnly.get().booleanValue()) {
+			throw new IllegalStateException("Its not allow to modify JavaModel during ReadOnly action."); //$NON-NLS-1$
+		}
+	}
+
+	public static <T, E extends Exception> T callReadOnly(JavaCallable<T, E> callable) throws E {
+		if (readOnly.get().booleanValue()) {
+			// nested
+			return callable.call();
+		} else {
+			try {
+				readOnly.set(Boolean.TRUE);
+				return JavaModelManager.cacheZipFiles(callable);
+			} finally {
+				readOnly.set(Boolean.FALSE);
+			}
+		}
+	}
+
+	public static <T, E extends Exception> T cacheZipFiles(JavaCallable<T, E> callable) throws E {
+		Object instance = new Object();
+		try {
+			getJavaModelManager().cacheZipFiles(instance);
+			return callable.call();
+		} finally {
+			getJavaModelManager().flushZipFiles(instance);
+		}
 	}
 }

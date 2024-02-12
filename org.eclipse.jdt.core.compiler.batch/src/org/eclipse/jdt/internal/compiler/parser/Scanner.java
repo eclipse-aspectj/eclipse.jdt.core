@@ -1900,7 +1900,8 @@ protected int scanForStringLiteral() throws InvalidInputException {
 		this.startPosition = startBkup;
 		return token;
 	} else {
-		int textFragmentStart = this.currentPosition - 1;
+		this.textBlockOffset = -1; // Make sure that the previous values set by any preceding text block is reset.
+		int textFragmentStart = this.currentPosition;
 		int lastCharPos = this.currentPosition;
 		try {
 			// consume next character
@@ -2016,7 +2017,7 @@ protected int scanForStringLiteral() throws InvalidInputException {
 			// mark the ending of the last fragment in the string template (before the closing quote)
             if (this.jumpingOverEmbeddedExpression == 0) {
 			    int textFragmentEnd = this.currentPosition - 2;
-			    addStringTemplateComponent(new TextFragment(textFragmentStart, this.currentPosition - 1 , getCurrentTokenInRange(textFragmentStart - this.startPosition, textFragmentEnd - this.startPosition)));
+			    addStringTemplateComponent(new TextFragment(textFragmentStart, textFragmentEnd, getCurrentTokenInRange(textFragmentStart - this.startPosition, textFragmentEnd - this.startPosition)));
             }
             this.startPosition = startBkup;
 			return TokenNameStringTemplate;
@@ -3093,13 +3094,20 @@ public int scanIdentifierOrKeyword() {
 		//have a length which is <= 12...but there are lots of identifier with
 		//only one char....
 		if ((length = this.currentPosition - this.startPosition) == 1) {
+			if (this.source[this.startPosition] == '_') {
+				return TokenNameUNDERSCORE;
+			}
 			return scanIdentifierOrKeywordAj(TokenNameIdentifier);  // AspectJ extension: call AJ-specific decorator
 		}
 		data = this.source;
 		index = this.startPosition;
 	} else {
-		if ((length = this.withoutUnicodePtr) == 1)
+		if ((length = this.withoutUnicodePtr) == 1) {
+			if (this.withoutUnicodeBuffer[0] == '_') {
+				return TokenNameUNDERSCORE;
+			}
 			return scanIdentifierOrKeywordAj(TokenNameIdentifier);  // AspectJ extension: call AJ-specific decorator
+		}
 		data = this.withoutUnicodeBuffer;
 		index = 1;
 	}
@@ -4639,7 +4647,6 @@ private static class Goal {
 	static int[] RestrictedIdentifierSealedRule;
 	static int[] RestrictedIdentifierPermitsRule;
 	static int[] PatternRules;
-	static int RecordPatternRule = 0;
 
 	static Goal LambdaParameterListGoal;
 	static Goal IntersectionCastGoal;
@@ -4651,13 +4658,11 @@ private static class Goal {
 	static Goal RestrictedIdentifierSealedGoal;
 	static Goal RestrictedIdentifierPermitsGoal;
 	static Goal PatternGoal;
-	static Goal RecordPatternGoal;
 
 	static int[] RestrictedIdentifierSealedFollow =  { TokenNameclass, TokenNameinterface,
 			TokenNameenum, TokenNameRestrictedIdentifierrecord };// Note: enum/record allowed as error flagging rules.
 	static int[] RestrictedIdentifierPermitsFollow =  { TokenNameLBRACE };
 	static int[] PatternCaseLabelFollow = {TokenNameCOLON, TokenNameARROW, TokenNameCOMMA, TokenNameBeginCaseExpr, TokenNameRestrictedIdentifierWhen};
-	static int[] RecordPatternFollow = {TokenNameCOLON}; // disambiguate only for enh for
 
 	static {
 
@@ -4702,10 +4707,8 @@ private static class Goal {
 			if ("ParenthesizedPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
 			else
-			if ("RecordPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) {//$NON-NLS-1$
+			if ("RecordPattern".equals(Parser.name[Parser.non_terminal_index[Parser.lhs[i]]])) //$NON-NLS-1$
 				patternStates.add(i);
-				RecordPatternRule = i;
-			}
 		}
 		RestrictedIdentifierSealedRule = ridSealed.stream().mapToInt(Integer :: intValue).toArray(); // overkill but future-proof
 		RestrictedIdentifierPermitsRule = ridPermits.stream().mapToInt(Integer :: intValue).toArray();
@@ -4721,7 +4724,6 @@ private static class Goal {
 		RestrictedIdentifierSealedGoal = new Goal(TokenNameRestrictedIdentifiersealed, RestrictedIdentifierSealedFollow, RestrictedIdentifierSealedRule);
 		RestrictedIdentifierPermitsGoal = new Goal(TokenNameRestrictedIdentifierpermits, RestrictedIdentifierPermitsFollow, RestrictedIdentifierPermitsRule);
 		PatternGoal = new Goal(TokenNameBeginCaseElement, PatternCaseLabelFollow, PatternRules);
-		RecordPatternGoal =  new Goal(TokenNameQUESTION, RecordPatternFollow, RecordPatternRule);
 	}
 
 
@@ -4929,8 +4931,9 @@ private VanguardScanner getNewVanguardScanner() {
 	return vs;
 }
 protected final boolean mayBeAtCasePattern(int token) {
-	return (!isInModuleDeclaration() && JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
-			&& (token == TokenNamecase || this.multiCaseLabelComma);
+	return ((token == TokenNamecase || this.multiCaseLabelComma)
+			&& JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(this.complianceLevel, this.previewEnabled))
+			&& !isInModuleDeclaration();
 }
 protected final boolean maybeAtLambdaOrCast() { // Could the '(' we saw just now herald a lambda parameter list or a cast expression ? (the possible locations for both are identical.)
 
@@ -4954,9 +4957,6 @@ protected final boolean maybeAtLambdaOrCast() { // Could the '(' we saw just now
 	}
 }
 
-protected final boolean maybeAtEnhForRecordPattern() {
-	return this.lookBack[1] == TokenNamefor && !isInModuleDeclaration();
-}
 protected final boolean maybeAtReferenceExpression() { // Did the '<' we saw just now herald a reference expression's type arguments and trunk ?
 	if (isInModuleDeclaration())
 		return false;
@@ -5332,11 +5332,6 @@ int disambiguatedToken(int token, Scanner scanner) {
 		if (parser.parse(Goal.IntersectionCastGoal) == VanguardParser.SUCCESS) {
 			scanner.nextToken = TokenNameLPAREN;
 			return TokenNameBeginIntersectionCast;
-		}
-	} else	if (token == TokenNameLPAREN  && maybeAtEnhForRecordPattern()) {
-		if (parser.parse(Goal.RecordPatternGoal) == VanguardParser.SUCCESS) {
-			scanner.nextToken = TokenNameBeginRecordPattern;
-			return TokenNameLPAREN;
 		}
 	} else if (token == TokenNameLESS && maybeAtReferenceExpression()) {
 		if (parser.parse(Goal.ReferenceExpressionGoal) == VanguardParser.SUCCESS) {

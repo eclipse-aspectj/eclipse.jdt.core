@@ -23,7 +23,6 @@ import java.util.Hashtable;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.eclipse.core.internal.runtime.RuntimeLog;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -43,6 +42,7 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.jdt.core.IAccessRule;
 import org.eclipse.jdt.core.IClassFile;
@@ -1681,15 +1681,10 @@ public void testPackageFragmentRootNonJavaResources8() throws CoreException {
  */
 public void testPackageFragmentRootNonJavaResources9() throws Exception {
 	try {
-		ZipOutputStream zip = null;
-		try {
-			zip = new ZipOutputStream(new FileOutputStream(getExternalFile("lib.jar")));
+		try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(getExternalFile("lib.jar")))) {
 			// the bug occurred only if META-INF/MANIFEST.MF was before META-INF in the ZIP file
 			// Altered the test for 534624. Usage of Zip file system for traversal no longer sees two different entries, but just the file.
 			zip.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
-		} finally {
-			if (zip != null)
-				zip.close();
 		}
 		createJavaProject("P", new String[0], new String[] {getExternalResourcePath("lib.jar")}, "");
 		waitForManualRefresh();
@@ -2728,7 +2723,7 @@ public void testBug462756() throws CoreException {
 		} catch(Exception e) {
 		}
 		final StringBuilder buffer = new StringBuilder();
-		RuntimeLog.addLogListener(new ILogListener() {
+		Platform.addLogListener(new ILogListener() {
 			@Override
 			public void logging(IStatus status, String plugin) {
 				if (status.getSeverity() == IStatus.ERROR && status.toString().contains("java.lang.IllegalArgumentException")) {

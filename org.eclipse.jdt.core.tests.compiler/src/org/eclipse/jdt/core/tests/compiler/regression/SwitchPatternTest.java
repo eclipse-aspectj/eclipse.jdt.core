@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021, 2023 IBM Corporation and others.
+ * Copyright (c) 2021, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,7 +30,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testIssue1466_02"};
+//		TESTS_NAMES = new String[] { "testBug575571_1"};
 	}
 
 	private static String previewLevel = "21";
@@ -104,7 +104,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 		runner.testFiles = testFiles;
 		runner.expectedCompilerLog = expectedCompilerLog;
 		runner.customOptions = customOptions;
-		runner.vmArguments = new String[] {""};
+		runner.vmArguments = new String[] {};
 		runner.runWarningTest();
 	}
 
@@ -1104,7 +1104,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	String s = null;\n" +
 				"	       ^\n" +
-				"Duplicate local variable s\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
 	// Test that compiler allows local variable with same name as a
@@ -1181,7 +1181,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	if (o instanceof String s1) {\n" +
 				"	                        ^^\n" +
-				"Duplicate local variable s1\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
 	// Test that when multiple case statements declare pattern variables
@@ -2186,7 +2186,12 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 			"----------\n" +
 			"1. ERROR in X.java (at line 5)\n" +
 			"	case null, null  -> System.out.println(o);\n" +
-			"	^^^^^^^^^^^^^^^\n" +
+			"	     ^^^^\n" +
+			"Duplicate case\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	case null, null  -> System.out.println(o);\n" +
+			"	           ^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n");
 	}
@@ -3689,7 +3694,7 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 4)\n" +
 				"	case CharSequence c1 when (c instanceof String c1 && c1.length() > 0) -> 0;\n" +
 				"	                                               ^^\n" +
-				"Duplicate local variable c1\n" +
+				"A pattern variable with the same name is already defined in the statement\n" +
 				"----------\n");
 	}
 	// Fails with Javac as it prints Javac instead of throwing NPE
@@ -3747,32 +3752,30 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				},
 				"");
 	}
-	// Test we do report illegal fall-through to pattern
-	public void testBug575051_3() {
-		runNegativeTest(
-				new String[] {
-						"X.java",
-						"public class X {\n" +
-								"	public void foo(Object o) {\n" +
-								"		switch (o) {\n" +
-								"		  default : \n" +
-								"		  case String s :\n" +
-								"			  System.out.println();\n" +
-								"			  break;\n" +
-								"		}\n" +
-								"	}\n" +
-								"	public static void main(String[] args) {\n" +
-								"		  (new X()).foo(null);\n" +
-								"	}\n" +
-								"}",
-				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 5)\n" +
-				"	case String s :\n" +
-				"	     ^^^^^^^^\n" +
-				"This case label is dominated by one of the preceding case labels\n" +
-				"----------\n",
-				"");
+	public void testBug575571_1() {
+		Map<String, String> options = getCompilerOptions();
+		options.put(CompilerOptions.OPTION_ReportMissingDefaultCase, CompilerOptions.WARNING);
+		runWarningTest(
+		new String[] {
+		"X.java",
+		"public class X {\n" +
+		"       public void foo(Color o) {\n" +
+		"               switch (o) {\n" +
+		"                 case Blue:\n" +
+		"                       break;\n" +
+		"               }\n" +
+		"       }\n" +
+		"       public static void main(String[] args) {}\n" +
+		"}\n" +
+		"enum Color {   Blue;  }\n",
+		},
+		"----------\n" +
+		"1. WARNING in X.java (at line 3)\n" +
+		"	switch (o) {\n" +
+		"	        ^\n" +
+		"The switch over the enum type Color should have a default case\n" +
+		"----------\n",
+		options);
 	}
 	public void testBug575571_2() {
 		runNegativeTest(
@@ -6965,5 +6968,300 @@ public class SwitchPatternTest extends AbstractRegressionTest9 {
 				"positive integer: 123\n" +
 				"value unavailable: null"
 );
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1767
+	// NPE in switch with case null
+	public void testIssue1767() {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					   public static void main(String[] args) {
+						   Integer o = null;
+						   switch (o) {
+						     case null:
+						       System.out.println("NULL");
+						       break;
+						     default : System.out.println(o);
+						   }
+					   }
+					}
+					""",
+				},
+				"NULL");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/277
+	// [19] statement switch with a case null does not compile
+	public void testIssue277() {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					  enum Color { RED, BLACK }
+
+					  public static void main(String[] args) {
+					    Color color = null;
+					    switch (color) {
+					      case null -> System.out.println("NULL");
+					      case RED -> System.out.println("RED");
+					      case BLACK -> System.out.println("BLACK");
+					    }
+					  }
+					}
+					""",
+				},
+				"NULL");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/277
+	// [19] statement switch with a case null does not compile
+	public void testIssue277_original() {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					  enum Color { RED, BLACK }
+
+					  public static void main(String[] args) {
+					    Color color = Color.RED;
+					    switch (color) {
+					      case null -> throw null;
+					      case RED -> System.out.println("RED");
+					      case BLACK -> System.out.println("BLACK");
+					    }
+					  }
+					}
+					""",
+				},
+				"RED");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/554
+	// [19] statement switch with a case null does not compile
+	public void testIssue554() {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+					    public static void main(String[] args) {
+					        MyEnum val = null;
+					        switch (val) {
+					        case null:
+					            System.out.println("val is null");
+					            break;
+					        }
+					    }
+					}
+					enum MyEnum {
+					    a
+					}
+					""",
+				},
+				"val is null");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/113
+	// [switch] The Class file generated by ECJ for guarded patterns behaves incorrectly
+	public void testGHI113() {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+
+						interface Shape {
+							public double calculateArea();
+						}
+
+						record Triangle(int base, int height) implements Shape {
+
+							@Override
+							public double calculateArea() {
+								return (0.5 * base * height);
+							}
+
+						}
+
+						record Square(int side) implements Shape {
+
+							@Override
+							public double calculateArea() {
+								return (side * side);
+							}
+
+						}
+
+						static String evaluate(Shape s) {
+							return switch(s) {
+								case null ->
+									"NULL";
+								case Triangle T when (T.calculateArea() > 100) ->
+								    "Large Triangle : " + T.calculateArea();
+								case Triangle T ->
+								    "Small Triangle : " + T.calculateArea();
+								default ->
+								    "shape : " + s.calculateArea();
+							};
+						}
+
+						public static void main(String[] args) {
+							System.out.println(evaluate(new Triangle(10, 10)));
+							System.out.println(evaluate(new Triangle(20, 20)));
+							System.out.println(evaluate(new Square(10)));
+							System.out.println(evaluate(null));
+						}
+					}
+					""",
+				},
+				"Small Triangle : 50.0\n"
+				+ "Large Triangle : 200.0\n"
+				+ "shape : 100.0\n"
+				+ "NULL");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1853
+	// [switch][pattern] Scope of pattern binding extends illegally resulting in wrong diagnostic
+	public void testGH1853() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				public class X {
+				    public static void main(String[] args) {
+						Object o = new Object();
+						switch (o) {
+						case String s :
+							if (!(o instanceof String str))
+								throw new RuntimeException();
+						case null :
+							if (!(o instanceof String str))
+								throw new RuntimeException();
+						default:
+				            System.out.println("Default");
+						}
+					}
+				}
+				"""
+			},
+			"Default");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1856
+	// [switch][record patterns] NPE: Cannot invoke "org.eclipse.jdt.internal.compiler.lookup.MethodBinding.isStatic()"
+	public void testGHI1856() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+
+						public class Data {
+						    String name;
+						}
+
+						record WrapperRec(ExhaustiveSwitch.Data data) {}
+
+
+						public static void main(String[] args) {
+						    switch (new Object()) {
+						        case WrapperRec(var data) when data.name.isEmpty() -> { }
+						        default -> {}
+						    }
+						}
+					}
+					""",
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 1)\n"
+				+ "	public class X {\n"
+				+ "	^\n"
+				+ "Data cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 7)\n"
+				+ "	record WrapperRec(ExhaustiveSwitch.Data data) {}\n"
+				+ "	                  ^^^^^^^^^^^^^^^^\n"
+				+ "ExhaustiveSwitch cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "3. ERROR in X.java (at line 12)\n"
+				+ "	case WrapperRec(var data) when data.name.isEmpty() -> { }\n"
+				+ "	                ^^^^^^^^\n"
+				+ "Data cannot be resolved to a type\n"
+				+ "----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1856
+	// [switch][record patterns] NPE: Cannot invoke "org.eclipse.jdt.internal.compiler.lookup.MethodBinding.isStatic()"
+	public void testGHI1856_2() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					public class X {
+
+						public class Data {
+						    String name;
+						}
+
+						record WrapperRec(ExhaustiveSwitch.Data data) {}
+
+
+						public static void main(String[] args) {
+						    switch (new Object()) {
+						        case WrapperRec(ExhaustiveSwitch.Data data) when data.name.isEmpty() -> { }
+						        default -> {}
+						    }
+						}
+					}
+					""",
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 1)\n"
+				+ "	public class X {\n"
+				+ "	^\n"
+				+ "Data cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "2. ERROR in X.java (at line 7)\n"
+				+ "	record WrapperRec(ExhaustiveSwitch.Data data) {}\n"
+				+ "	                  ^^^^^^^^^^^^^^^^\n"
+				+ "ExhaustiveSwitch cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "3. ERROR in X.java (at line 12)\n"
+				+ "	case WrapperRec(ExhaustiveSwitch.Data data) when data.name.isEmpty() -> { }\n"
+				+ "	                ^^^^^^^^^^^^^^^^\n"
+				+ "ExhaustiveSwitch cannot be resolved to a type\n"
+				+ "----------\n"
+				+ "4. ERROR in X.java (at line 12)\n"
+				+ "	case WrapperRec(ExhaustiveSwitch.Data data) when data.name.isEmpty() -> { }\n"
+				+ "	                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n"
+				+ "Record component with type Data is not compatible with type ExhaustiveSwitch.Data\n"
+				+ "----------\n");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1955
+	// [Patterns] Redesign resolution of patterns to follow natural visitation
+	public void testGH1955() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"""
+					sealed interface I<T> {}
+					record R<T extends A<B>>(T t) implements I<T> {}
+					public class X {
+					    @SuppressWarnings("rawtypes")
+						public static <T extends I> int foo(T t) {
+					        return switch(t) {
+					            case R(A<? extends B> p) -> 0;
+					            case R(var varp) -> 1;
+					        };
+					    }
+					}
+					class A<T> {}
+					abstract class B {}
+					class C extends B {}
+					""",
+				},
+				"----------\n"
+				+ "1. ERROR in X.java (at line 8)\n"
+				+ "	case R(var varp) -> 1;\n"
+				+ "	     ^^^^^^^^^^^\n"
+				+ "This case label is dominated by one of the preceding case labels\n"
+				+ "----------\n");
 	}
 }

@@ -48,6 +48,7 @@ import org.eclipse.jdt.internal.core.BasicCompilationUnit;
 import org.eclipse.jdt.internal.core.BinaryType;
 import org.eclipse.jdt.internal.core.ClassFileWorkingCopy;
 import org.eclipse.jdt.internal.core.DefaultWorkingCopyOwner;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.PackageFragment;
 import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
 import org.eclipse.jdt.internal.core.util.CodeSnippetParsingUtil;
@@ -275,7 +276,7 @@ public class ASTParser {
 
 	private List<Classpath> getClasspath() throws IllegalStateException {
 		Main main = new Main(new PrintWriter(System.out), new PrintWriter(System.err), false/*systemExit*/, null/*options*/, null/*progress*/);
-		ArrayList<Classpath> allClasspaths = new ArrayList<Classpath>();
+		ArrayList<Classpath> allClasspaths = new ArrayList<>();
 		try {
 			if ((this.bits & CompilationUnitResolver.INCLUDE_RUNNING_VM_BOOTCLASSPATH) != 0) {
 				org.eclipse.jdt.internal.compiler.util.Util.collectRunningVMBootclasspath(allClasspaths);
@@ -1158,6 +1159,9 @@ public class ASTParser {
 	}
 
 	private ASTNode internalCreateAST(IProgressMonitor monitor) {
+		return JavaModelManager.cacheZipFiles(() -> internalCreateASTCached(monitor));
+	}
+	private ASTNode internalCreateASTCached(IProgressMonitor monitor) {
 		boolean needToResolveBindings = (this.bits & CompilationUnitResolver.RESOLVE_BINDING) != 0;
 		switch(this.astKind) {
 			case K_CLASS_BODY_DECLARATIONS :
@@ -1223,7 +1227,7 @@ public class ASTParser {
 							BinaryType type = (BinaryType) this.typeRoot.findPrimaryType();
 							String fileNameString = null;
 							if (type != null) {
-								IBinaryType binaryType = (IBinaryType) type.getElementInfo();
+								IBinaryType binaryType = type.getElementInfo();
 								// file name is used to recreate the Java element, so it has to be the toplevel .class file name
 								char[] fileName = binaryType.getFileName();
 

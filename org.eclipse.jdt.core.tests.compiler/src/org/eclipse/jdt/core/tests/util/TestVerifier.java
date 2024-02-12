@@ -18,8 +18,12 @@ package org.eclipse.jdt.core.tests.util;
 import org.eclipse.jdt.core.compiler.batch.BatchCompiler;
 import org.eclipse.jdt.core.tests.runtime.*;
 import java.io.*;
+import java.lang.ref.Cleaner;
 import java.net.*;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,14 +34,35 @@ import java.util.stream.Stream;
 public class TestVerifier {
 	public String failureReason;
 
-	boolean reuseVM = true;
-	String[] classpathCache;
-	LocalVirtualMachine vm;
-	StringBuilder outputBuffer;
-	StringBuilder errorBuffer;
-	Socket socket;
+	private final boolean reuseVM;
+	private String[] classpathCache;
+	private StringBuilder outputBuffer;
+	private StringBuilder errorBuffer;
+	private final VmCleaner managedVMs= new VmCleaner();
+	private static final Cleaner cleaner= Cleaner.create();
+
 public TestVerifier(boolean reuseVM) {
 	this.reuseVM = reuseVM;
+	cleaner.register(this, this.managedVMs);
+}
+static class ClassPath {
+	private String[] classpath;
+
+	ClassPath(String[] classpath){
+		this.classpath =classpath;
+	}
+
+	@Override
+	public int hashCode() {
+		return Arrays.hashCode(this.classpath);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		ClassPath other = (ClassPath) obj;
+		return Arrays.equals(this.classpath, other.classpath);
+	}
+
 }
 private boolean checkBuffers(String outputString, String errorString,
 		String sourceFileName, String expectedOutputString, String expectedErrorStringStart) {
@@ -114,28 +139,67 @@ private void compileVerifyTests(String verifierDir) {
 	BatchCompiler.compile("\"" + fileName + "\" -d \"" + verifierDir + "\" -warn:-resource -classpath \"" + Util.getJavaClassLibsAsString() + "\"", new PrintWriter(System.out), new PrintWriter(System.err), null/*progress*/);
 }
 public void execute(String className, String[] classpaths) {
-	this.outputBuffer = new StringBuilder();
-	this.errorBuffer = new StringBuilder();
+	setOutputBuffer(new StringBuilder());
+	setErrorBuffer(new StringBuilder());
 
 	launchAndRun(className, classpaths, null, null);
 }
 public void execute(String className, String[] classpaths, String[] programArguments, String[] vmArguments) {
-	this.outputBuffer = new StringBuilder();
-	this.errorBuffer = new StringBuilder();
+	setOutputBuffer(new StringBuilder());
+	setErrorBuffer(new StringBuilder());
 
 	launchAndRun(className, classpaths, programArguments, vmArguments);
 }
-@SuppressWarnings("deprecation")
-@Override
-protected void finalize() throws Throwable {
-	shutDown();
+
+private static class VmCleaner implements Runnable{
+	private final Map<ClassPath, LocalVirtualMachine> vmByClassPath = new HashMap<>();
+	private final Map<ClassPath, Socket> socketByClassPath = new HashMap<>();
+
+	@Override
+	public void run() {
+		// Close the socket first so that the OS resource has a chance to be freed.
+		for (Socket socket : this.socketByClassPath.values()) {
+			try {
+				socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		this.socketByClassPath.clear();
+		// Wait for the vm to shut down by itself for 2 seconds. If not succesfull,
+		// force the shut down.
+		for (LocalVirtualMachine vm : this.vmByClassPath.values()) {
+			try {
+				long n0 = System.nanoTime();
+				while (vm.isRunning() && (System.nanoTime() - n0 < 2_000_000_000L)) {// 2 sec
+					try {
+						Thread.sleep(1);
+					} catch (InterruptedException e) {
+					}
+				}
+				if (vm.isRunning()) {
+					vm.shutDown();
+				}
+			} catch (TargetException e) {
+				e.printStackTrace();
+			}
+		}
+		this.vmByClassPath.clear();
+	}
 }
+
 public String getExecutionOutput(){
-	return this.outputBuffer.toString();
+	StringBuilder ob = getOutputBuffer();
+	synchronized (ob) {
+		return ob.toString();
+	}
 }
 
 public String getExecutionError(){
-	return this.errorBuffer.toString();
+	StringBuilder eb = getErrorBuffer();
+	synchronized (eb) {
+		return getErrorBuffer().toString();
+	}
 }
 
 /**
@@ -384,12 +448,13 @@ return Arrays.stream(classPath)
 
 private void launchAndRun(String className, String[] classpaths, String[] programArguments, String[] vmArguments) {
 	// we won't reuse the vm, shut the existing one if running
-	if (this.vm != null) {
+	for (LocalVirtualMachine vm : this.managedVMs.vmByClassPath.values()) {
 		try {
-			this.vm.shutDown();
+			vm.shutDown();
 		} catch (TargetException e) {
 		}
 	}
+	this.managedVMs.vmByClassPath.clear();
 	this.classpathCache = null;
 
 	// launch a new one
@@ -409,35 +474,12 @@ private void launchAndRun(String className, String[] classpaths, String[] progra
 	Thread outputThread;
 	Thread errorThread;
 	try {
-		this.vm = launcher.launch();
-		final InputStream input = this.vm.getInputStream();
-		outputThread = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					int c = input.read();
-					while (c != -1) {
-						TestVerifier.this.outputBuffer.append((char) c);
-						c = input.read();
-					}
-				} catch(IOException e) {
-				}
-			}
-		});
-		final InputStream errorStream = this.vm.getErrorStream();
-		errorThread = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					int c = errorStream.read();
-					while (c != -1) {
-						TestVerifier.this.errorBuffer.append((char) c);
-						c = errorStream.read();
-					}
-				} catch(IOException e) {
-				}
-			}
-		});
+		LocalVirtualMachine vm  = launcher.launch();
+		this.managedVMs.vmByClassPath.put(new ClassPath(classpaths), vm);
+		InputStream input = vm.getInputStream();
+		outputThread = new Thread(() -> transferTo(input, this::getOutputBuffer), "stdOutReader");
+		InputStream errorStream = vm.getErrorStream();
+		errorThread = new Thread(() -> transferTo(errorStream, this::getErrorBuffer), "stdErrReader");
 		outputThread.start();
 		errorThread.start();
 	} catch(TargetException e) {
@@ -451,29 +493,41 @@ private void launchAndRun(String className, String[] classpaths, String[] progra
 	} catch (InterruptedException e) {
 	}
 }
+
+private static void transferTo(InputStream stream, Supplier<StringBuilder> b) {
+	try {
+		int c = stream.read();
+		while (c != -1) {
+			StringBuilder buffer = b.get();
+			synchronized (buffer) {
+				buffer.append((char) c);
+			}
+			c = stream.read();
+		}
+	} catch (IOException ioEx) {
+		ioEx.printStackTrace();
+	} finally {
+		try {
+			stream.close();
+		} catch (IOException e) {
+		}
+	}
+}
+
 private void launchVerifyTestsIfNeeded(String[] classpaths, String[] vmArguments) {
 	// determine if we can reuse the vm
-	if (this.vm != null && this.vm.isRunning() && this.classpathCache != null) {
-		if (classpaths.length == this.classpathCache.length) {
-			boolean sameClasspaths = true;
-			for (int i = 0; i < classpaths.length; i++) {
-				if (!this.classpathCache[i].equals(classpaths[i])) {
-					sameClasspaths = false;
-					break;
-				}
-			}
-			if (sameClasspaths) {
-				return;
-			}
-		}
+	LocalVirtualMachine vm = this.managedVMs.vmByClassPath.get(new ClassPath(classpaths));
+	if (vm != null && vm.isRunning() && this.classpathCache != null) {
+		return;
 	}
 
 	// we could not reuse the vm, shut the existing one if running
-	if (this.vm != null) {
+	if (vm != null) {
 		try {
-			this.vm.shutDown();
+			vm.shutDown();
 		} catch (TargetException e) {
 		}
+		vm = null;
 	}
 
 	this.classpathCache = classpaths;
@@ -502,45 +556,12 @@ private void launchVerifyTestsIfNeeded(String[] classpaths, String[] vmArguments
 
 		launcher.setProgramArguments(new String[] {Integer.toString(portNumber)});
 		try {
-			this.vm = launcher.launch();
-			final InputStream input = this.vm.getInputStream();
-			Thread outputThread = new Thread(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						int c = input.read();
-						while (c != -1) {
-							TestVerifier.this.outputBuffer.append((char) c);
-							c = input.read();
-						}
-					} catch(IOException ioEx) {
-						ioEx.printStackTrace();
-					} finally {
-						try {
-							input.close();
-						} catch (IOException e) {}
-					}
-				}
-			});
-			final InputStream errorStream = this.vm.getErrorStream();
-			Thread errorThread = new Thread(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						int c = errorStream.read();
-						while (c != -1) {
-							TestVerifier.this.errorBuffer.append((char) c);
-							c = errorStream.read();
-						}
-					} catch(IOException ioEx) {
-						ioEx.printStackTrace();
-					} finally {
-						try {
-							errorStream.close();
-						} catch (IOException e) {}
-					}
-				}
-			});
+			vm = launcher.launch();
+			this.managedVMs.vmByClassPath.put(new ClassPath(classpaths), vm);
+			InputStream input = vm.getInputStream();
+			Thread outputThread = new Thread(() -> transferTo(input, this::getOutputBuffer), "stdOutReader");
+			InputStream errorStream = vm.getErrorStream();
+			Thread errorThread = new Thread(() -> transferTo(errorStream, this::getErrorBuffer), "stdErrReader");
 			outputThread.start();
 			errorThread.start();
 		} catch(TargetException e) {
@@ -549,24 +570,25 @@ private void launchVerifyTestsIfNeeded(String[] classpaths, String[] vmArguments
 		}
 
 		// connect to the vm
-		this.socket = null;
 		boolean isVMRunning = false;
+		Socket socket = null;
 		do {
 			try {
-				this.socket = server.accept();
-				this.socket.setTcpNoDelay(true);
+				socket=server.accept();
+				this.managedVMs.socketByClassPath.put(new ClassPath(classpaths), socket);
+				socket.setTcpNoDelay(true);
 				break;
 			} catch (UnknownHostException e) {
 			} catch (IOException e) {
 			}
-			if (this.socket == null) {
+			if (socket == null) {
 				try {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 				}
-				isVMRunning = this.vm.isRunning();
+				isVMRunning = vm.isRunning();
 			}
-		} while (this.socket == null && isVMRunning);
+		} while (socket == null && isVMRunning);
 	} catch (IOException e) {
 		e.printStackTrace();
 		throw new Error(e.getMessage());
@@ -577,9 +599,10 @@ private void launchVerifyTestsIfNeeded(String[] classpaths, String[] vmArguments
  * Return whether no exception was thrown while running the class.
  */
 private boolean loadAndRun(String className, String[] classPath) {
-	if (this.socket != null) {
+	Socket socket = this.managedVMs.socketByClassPath.get(new ClassPath(classPath));
+	if (socket != null) {
 		try {
-			DataOutputStream out = new DataOutputStream(this.socket.getOutputStream());
+			DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 			out.writeUTF(className);
 				if (classPath == null)
 					classPath = new String[0];
@@ -587,7 +610,7 @@ private boolean loadAndRun(String className, String[] classPath) {
 				for (String classpath : classPath) {
 					out.writeUTF(classpath);
 				}
-			DataInputStream in = new DataInputStream(this.socket.getInputStream());
+			DataInputStream in = new DataInputStream(socket.getInputStream());
 			try {
 				boolean result = in.readBoolean();
 				waitForFullBuffers();
@@ -602,33 +625,11 @@ private boolean loadAndRun(String className, String[] classPath) {
 	}
 	return true;
 }
+
 public void shutDown() {
-	// Close the socket first so that the OS resource has a chance to be freed.
-	if (this.socket != null) {
-		try {
-			this.socket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	// Wait for the vm to shut down by itself for 2 seconds. If not succesfull, force the shut down.
-	if (this.vm != null) {
-		try {
-			long n0 = System.nanoTime();
-			while (this.vm.isRunning() && (System.nanoTime() - n0 < 2_000_000_000L)) {// 2 sec
-				try {
-					Thread.sleep(1);
-				} catch (InterruptedException e) {
-				}
-			}
-			if (this.vm.isRunning()) {
-				this.vm.shutDown();
-			}
-		} catch (TargetException e) {
-			e.printStackTrace();
-		}
-	}
+	this.managedVMs.run();
 }
+
 /**
  * Verify that the class files created for the given test file can be loaded by
  * a virtual machine.
@@ -645,8 +646,8 @@ public boolean verifyClassFiles(String sourceFilePath, String className, String 
 }
 public boolean verifyClassFiles(String sourceFilePath, String className, String expectedOutputString,
 		String expectedErrorStringStart, String[] classpaths, String[] programArguments, String[] vmArguments) {
-	this.outputBuffer = new StringBuilder();
-	this.errorBuffer = new StringBuilder();
+	setOutputBuffer(new StringBuilder());
+	setErrorBuffer(new StringBuilder());
 	if (this.reuseVM && programArguments == null) {
 		launchVerifyTestsIfNeeded(classpaths, vmArguments);
 		loadAndRun(className, classpaths);
@@ -655,7 +656,7 @@ public boolean verifyClassFiles(String sourceFilePath, String className, String 
 	}
 
 	this.failureReason = null;
-	return checkBuffers(this.outputBuffer.toString(), this.errorBuffer.toString(), sourceFilePath, expectedOutputString, expectedErrorStringStart);
+	return checkBuffers(getExecutionOutput(), getExecutionError(), sourceFilePath, expectedOutputString, expectedErrorStringStart);
 }
 
 /**
@@ -664,9 +665,14 @@ public boolean verifyClassFiles(String sourceFilePath, String className, String 
 private void waitForFullBuffers() {
 	String endString = VerifyTests.class.getName();
 	long n0 = System.nanoTime();
-	int errorEndStringStart = this.errorBuffer.toString().indexOf(endString);
-	int outputEndStringStart = this.outputBuffer.toString().indexOf(endString);
-	while (errorEndStringStart == -1 || outputEndStringStart == -1) {
+	int errorEndStringStart;
+	int outputEndStringStart;
+	do {
+		errorEndStringStart = getExecutionError().indexOf(endString);
+		outputEndStringStart = getExecutionOutput().indexOf(endString);
+		if (errorEndStringStart != -1 && outputEndStringStart != -1) {
+			break;
+		}
 		try {
 			Thread.sleep(1);
 		} catch (InterruptedException e) {
@@ -675,10 +681,26 @@ private void waitForFullBuffers() {
 			throw new RuntimeException(
 					"Timeout after " + (System.nanoTime() - n0) / 1_000_000L + "ms");
 		}
-		errorEndStringStart = this.errorBuffer.toString().indexOf(endString);
-		outputEndStringStart = this.outputBuffer.toString().indexOf(endString);
+	} while (true);
+	StringBuilder eb = getErrorBuffer();
+	synchronized (eb) {
+		eb.setLength(errorEndStringStart);
 	}
-	this.errorBuffer.setLength(errorEndStringStart);
-	this.outputBuffer.setLength(outputEndStringStart);
+	StringBuilder ob = getOutputBuffer();
+	synchronized (ob) {
+		ob.setLength(outputEndStringStart);
+	}
+}
+public StringBuilder getOutputBuffer() {
+	return this.outputBuffer;
+}
+public void setOutputBuffer(StringBuilder outputBuffer) {
+	this.outputBuffer = outputBuffer;
+}
+public StringBuilder getErrorBuffer() {
+	return this.errorBuffer;
+}
+public void setErrorBuffer(StringBuilder errorBuffer) {
+	this.errorBuffer = errorBuffer;
 }
 }

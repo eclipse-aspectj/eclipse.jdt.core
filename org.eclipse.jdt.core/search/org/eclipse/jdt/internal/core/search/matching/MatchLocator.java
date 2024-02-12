@@ -102,7 +102,6 @@ import org.eclipse.jdt.internal.core.util.ASTNodeFinder;
 import org.eclipse.jdt.internal.core.util.HandleFactory;
 import org.eclipse.jdt.internal.core.util.Util;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class MatchLocator implements ITypeRequestor {
 
 public static final int MAX_AT_ONCE;
@@ -172,7 +171,7 @@ SimpleLookupTable bindings;
 
 HashtableOfIntValues inTypeOccurrencesCounts = new HashtableOfIntValues();
 // Cache for method handles
-HashSet methodHandles;
+HashSet<IMethod> methodHandles;
 private TypeBinding unitScopeTypeBinding = null; // cached
 
 private final boolean searchPackageDeclaration;
@@ -203,14 +202,14 @@ public static class WrappedCoreException extends RuntimeException {
 public static SearchDocument[] addWorkingCopies(SearchPattern pattern, SearchDocument[] indexMatches, org.eclipse.jdt.core.ICompilationUnit[] copies, SearchParticipant participant) {
 	if (copies == null) return indexMatches;
 	// working copies take precedence over corresponding compilation units
-	HashMap workingCopyDocuments = workingCopiesThatCanSeeFocus(copies, pattern, participant);
+	HashMap<String, WorkingCopyDocument> workingCopyDocuments = workingCopiesThatCanSeeFocus(copies, pattern, participant);
 	if (workingCopyDocuments.size() == 0) return indexMatches;
 	SearchDocument[] matches = null;
 	int length = indexMatches.length;
 	for (int i = 0; i < length; i++) {
 		SearchDocument searchDocument = indexMatches[i];
 		if (searchDocument.getParticipant() == participant) {
-			SearchDocument workingCopyDocument = (SearchDocument) workingCopyDocuments.remove(searchDocument.getPath());
+			SearchDocument workingCopyDocument = workingCopyDocuments.remove(searchDocument.getPath());
 			if (workingCopyDocument != null) {
 				if (matches == null) {
 					System.arraycopy(indexMatches, 0, matches = new SearchDocument[length], 0, length);
@@ -225,10 +224,10 @@ public static SearchDocument[] addWorkingCopies(SearchPattern pattern, SearchDoc
 	int remainingWorkingCopiesSize = workingCopyDocuments.size();
 	if (remainingWorkingCopiesSize != 0) {
 		System.arraycopy(matches, 0, matches = new SearchDocument[length+remainingWorkingCopiesSize], 0, length);
-		Iterator iterator = workingCopyDocuments.values().iterator();
+		Iterator<WorkingCopyDocument> iterator = workingCopyDocuments.values().iterator();
 		int index = length;
 		while (iterator.hasNext()) {
-			matches[index++] = (SearchDocument) iterator.next();
+			matches[index++] = iterator.next();
 		}
 	}
 	return matches;
@@ -249,9 +248,9 @@ public static void setIndexQualifierQuery(SearchPattern pattern, char[] queries)
 /*
  * Returns the working copies that can see the given focus.
  */
-private static HashMap workingCopiesThatCanSeeFocus(org.eclipse.jdt.core.ICompilationUnit[] copies, SearchPattern pattern, SearchParticipant participant) {
-	if (copies == null) return new HashMap();
-	HashMap result = new HashMap();
+private static HashMap<String, WorkingCopyDocument> workingCopiesThatCanSeeFocus(org.eclipse.jdt.core.ICompilationUnit[] copies, SearchPattern pattern, SearchParticipant participant) {
+	if (copies == null) return new HashMap<>();
+	HashMap<String, WorkingCopyDocument> result = new HashMap<>();
 	for (int i=0, length = copies.length; i<length; i++) {
 		org.eclipse.jdt.core.ICompilationUnit workingCopy = copies[i];
 		IPath projectOrJar = MatchLocator.getProjectOrJar(workingCopy).getPath();
@@ -624,9 +623,9 @@ IMethod createBinaryMethodHandle(IType type, char[] methodSelector, char[][] arg
  */
 private IJavaElement createMethodHandle(IType type, String methodName, String[] parameterTypeSignatures) {
 	IMethod methodHandle = type.getMethod(methodName, parameterTypeSignatures);
-	if (methodHandle instanceof SourceMethod) {
+	if (methodHandle instanceof SourceMethod mh) {
 		while (this.methodHandles.contains(methodHandle)) {
-			((SourceMethod) methodHandle).occurrenceCount++;
+			mh.incOccurrenceCount();
 		}
 	}
 	this.methodHandles.add(methodHandle);
@@ -899,7 +898,7 @@ private long findLastTypeArgumentInfo(TypeReference typeRef) {
 protected IBinaryType getBinaryInfo(ClassFile classFile, IResource resource) throws CoreException {
 	BinaryType binaryType = (BinaryType) classFile.getType();
 	if (classFile.isOpen())
-		return (IBinaryType) binaryType.getElementInfo(); // reuse the info from the java model cache
+		return binaryType.getElementInfo(); // reuse the info from the java model cache
 
 	// create a temporary info
 	IBinaryType info;
@@ -1042,7 +1041,7 @@ private MethodBinding getClosestMatchMethodBinding(MethodPattern methodPattern) 
 }
 
 private List<String> getInverseFullName(char[] qualifier, char[] simpleName) {
-	List <String> result = new ArrayList<String>();
+	List <String> result = new ArrayList<>();
 	if (qualifier != null && qualifier.length > 0) {
 		result.addAll(Arrays.asList(new String(qualifier).split("\\.")));//$NON-NLS-1$
 		Collections.reverse(result);
@@ -1057,7 +1056,7 @@ private List<String> getInverseFullName(char[] qualifier, char[] simpleName) {
 private int  getMaxResult(int[][] resultsMap) {
 	int rows = resultsMap.length;
 	int cols = resultsMap[0].length;
-	List <Integer> candidates = new ArrayList<Integer>();
+	List <Integer> candidates = new ArrayList<>();
 	candidates.add(0); //default row
 
 	for (int j = 0; j < cols; ++j) {
@@ -1104,7 +1103,7 @@ private int[] getResultMap(Map<Integer, List<String>> patternMap, Map<Integer, L
 
 private Map<Integer, List<String>> getSplitNames(char[][] qualifiedNames, char[][] simpleNames) {
 	int paramLength = simpleNames.length;
-	Map <Integer, List<String>> result = new HashMap<Integer, List<String>>();
+	Map <Integer, List<String>> result = new HashMap<>();
 	for (int p = 0; p < paramLength; p++) result.put(p, getInverseFullName(qualifiedNames[p], simpleNames[p]));
 	return result;
 }
@@ -1112,7 +1111,7 @@ private Map<Integer, List<String>> getSplitNames(char[][] qualifiedNames, char[]
 private Map<Integer, List<String>> getSplitNames(MethodBinding method) {
 	TypeBinding[] methodParameters = method.parameters;
 	int paramLength = methodParameters == null ? 0 : methodParameters.length;
-	Map <Integer, List<String>> result = new HashMap<Integer, List<String>>();
+	Map <Integer, List<String>> result = new HashMap<>();
 	for (int p = 0; p < paramLength; p++) result.put(p, getInverseFullName(methodParameters[p].qualifiedSourceName(), null)); // source is part of qualifiedSourceName here);
 	return result;
 }
@@ -1180,7 +1179,7 @@ private MethodBinding getMethodBinding(MethodPattern methodPattern, TypeBinding 
 	int methodsLength = methods.length;
 	TypeVariableBinding[] refTypeVariables = referenceBinding.typeVariables();
 	int typeVarLength = refTypeVariables==null ? 0 : refTypeVariables.length;
-	List <MethodBinding> possibleMethods = new ArrayList<MethodBinding>(methodsLength);
+	List <MethodBinding> possibleMethods = new ArrayList<>(methodsLength);
 	for (int i=0; i<methodsLength; i++) {
 		TypeBinding[] methodParameters = methods[i].parameters;
 		int paramLength = methodParameters==null ? 0 : methodParameters.length;
@@ -1256,7 +1255,7 @@ public void initialize(JavaProject project, int possibleMatchSize) throws JavaMo
 	this.nameEnvironment = JavaSearchNameEnvironment.createWithReferencedProjects(project, projects, this.workingCopies);
 
 	// create lookup environment
-	Map map = project.getOptions(true);
+	Map<String, String> map = project.getOptions(true);
 	map.put(CompilerOptions.OPTION_TaskTags, org.eclipse.jdt.internal.compiler.util.Util.EMPTY_STRING);
 	this.options = new CompilerOptions(map);
 	ProblemReporter problemReporter =
@@ -1435,7 +1434,7 @@ public void locateMatches(SearchDocument[] searchDocuments) throws CoreException
 	this.progressWorked = 0;
 
 	// extract working copies
-	ArrayList copies = new ArrayList();
+	ArrayList<org.eclipse.jdt.core.ICompilationUnit> copies = new ArrayList<>();
 	for (int i = 0; i < docsLength; i++) {
 		SearchDocument document = searchDocuments[i];
 		if (document instanceof WorkingCopyDocument) {
@@ -2831,7 +2830,7 @@ protected void reportMatching(CompilationUnitDeclaration unit, boolean mustResol
 	}
 
 	if (nodeSet.matchingNodes.elementSize == 0) return; // no matching nodes were found
-	this.methodHandles = new HashSet();
+	this.methodHandles = new HashSet<>();
 
 	boolean matchedUnitContainer = (this.matchContainer & PatternLocator.COMPILATION_UNIT_CONTAINER) != 0;
 

@@ -177,6 +177,7 @@ public class DefaultCodeFormatterOptions {
 	public boolean align_type_members_on_columns;
 	public boolean align_variable_declarations_on_columns;
 	public boolean align_assignment_statements_on_columns;
+	public boolean align_arrows_in_switch_on_columns;
 	public boolean align_with_spaces;
 	public int align_fields_grouping_blank_lines;
 
@@ -185,6 +186,7 @@ public class DefaultCodeFormatterOptions {
 	public String brace_position_for_array_initializer;
 	public String brace_position_for_block;
 	public String brace_position_for_block_in_case;
+	public String brace_position_for_block_in_case_after_arrow;
 	public String brace_position_for_constructor_declaration;
 	public String brace_position_for_enum_constant;
 	public String brace_position_for_enum_declaration;
@@ -511,6 +513,7 @@ public class DefaultCodeFormatterOptions {
 	public int number_of_empty_lines_to_preserve;
 	public boolean join_wrapped_lines;
 	public boolean join_lines_in_comments;
+	public boolean join_line_comments;
 	public boolean put_empty_statement_on_new_line;
 	public int tab_size;
 	public int page_width;
@@ -627,6 +630,7 @@ public class DefaultCodeFormatterOptions {
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_TYPE_MEMBERS_ON_COLUMNS, this.align_type_members_on_columns ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_VARIABLE_DECLARATIONS_ON_COLUMNS, this.align_variable_declarations_on_columns ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_ASSIGNMENT_STATEMENTS_ON_COLUMNS, this.align_assignment_statements_on_columns ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
+		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_ARROWS_IN_SWITCH_ON_COLUMNS, this.align_arrows_in_switch_on_columns ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_FIELDS_GROUPING_BLANK_LINES, Integer.toString(this.align_fields_grouping_blank_lines));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_ALIGN_WITH_SPACES, this.align_with_spaces ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_ANNOTATION_TYPE_DECLARATION, this.brace_position_for_annotation_type_declaration);
@@ -634,6 +638,7 @@ public class DefaultCodeFormatterOptions {
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_ARRAY_INITIALIZER, this.brace_position_for_array_initializer);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK, this.brace_position_for_block);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK_IN_CASE, this.brace_position_for_block_in_case);
+		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK_IN_CASE_AFTER_ARROW, this.brace_position_for_block_in_case_after_arrow);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_CONSTRUCTOR_DECLARATION, this.brace_position_for_constructor_declaration);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_ENUM_CONSTANT, this.brace_position_for_enum_constant);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_ENUM_DECLARATION, this.brace_position_for_enum_declaration);
@@ -945,6 +950,7 @@ public class DefaultCodeFormatterOptions {
 		options.put(DefaultCodeFormatterConstants.FORMATTER_NUMBER_OF_EMPTY_LINES_TO_PRESERVE, Integer.toString(this.number_of_empty_lines_to_preserve));
 		options.put(DefaultCodeFormatterConstants.FORMATTER_JOIN_WRAPPED_LINES, this.join_wrapped_lines ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_JOIN_LINES_IN_COMMENTS, this.join_lines_in_comments ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
+		options.put(DefaultCodeFormatterConstants.FORMATTER_JOIN_LINE_COMMENTS, this.join_line_comments ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_PUT_EMPTY_STATEMENT_ON_NEW_LINE, this.put_empty_statement_on_new_line ? DefaultCodeFormatterConstants.TRUE : DefaultCodeFormatterConstants.FALSE);
 		options.put(DefaultCodeFormatterConstants.FORMATTER_LINE_SPLIT, Integer.toString(this.page_width));
 		switch(this.tab_char) {
@@ -1268,6 +1274,8 @@ public class DefaultCodeFormatterOptions {
 		if (alignAssignmentStatementsOnColumnsOption != null) {
 			this.align_assignment_statements_on_columns = DefaultCodeFormatterConstants.TRUE.equals(alignAssignmentStatementsOnColumnsOption);
 		}
+		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_ALIGN_ARROWS_IN_SWITCH_ON_COLUMNS, DefaultCodeFormatterConstants.TRUE,
+				v -> this.align_arrows_in_switch_on_columns = v);
 		final Object alignGroupSepartionBlankLinesOption = settings.get(DefaultCodeFormatterConstants.FORMATTER_ALIGN_FIELDS_GROUPING_BLANK_LINES);
 		if (alignTypeMembersOnColumnsOption != null) {
 			try {
@@ -1320,6 +1328,8 @@ public class DefaultCodeFormatterOptions {
 				this.brace_position_for_block_in_case = DefaultCodeFormatterConstants.END_OF_LINE;
 			}
 		}
+		setString(settings, DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK_IN_CASE_AFTER_ARROW, BRACE_POSITION_VALUES,
+				v -> this.brace_position_for_block_in_case_after_arrow = v);
 		final Object bracePositionForConstructorDeclarationOption = settings.get(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_CONSTRUCTOR_DECLARATION);
 		if (bracePositionForConstructorDeclarationOption != null) {
 			try {
@@ -2514,6 +2524,8 @@ public class DefaultCodeFormatterOptions {
 		if (joinLinesInCommentsOption != null) {
 			this.join_lines_in_comments = DefaultCodeFormatterConstants.TRUE.equals(joinLinesInCommentsOption);
 		}
+		setBoolean(settings, DefaultCodeFormatterConstants.FORMATTER_JOIN_LINE_COMMENTS, DefaultCodeFormatterConstants.TRUE,
+				v -> this.join_line_comments = v);
 		final Object joinWrappedLinesOption = settings.get(DefaultCodeFormatterConstants.FORMATTER_JOIN_WRAPPED_LINES);
 		if (joinWrappedLinesOption != null) {
 			this.join_wrapped_lines = DefaultCodeFormatterConstants.TRUE.equals(joinWrappedLinesOption);
@@ -3019,6 +3031,7 @@ public class DefaultCodeFormatterOptions {
 		this.align_type_members_on_columns = false;
 		this.align_variable_declarations_on_columns = false;
 		this.align_assignment_statements_on_columns = false;
+		this.align_arrows_in_switch_on_columns = false;
 		this.align_with_spaces = false;
 		this.align_fields_grouping_blank_lines = Integer.MAX_VALUE;
 		this.brace_position_for_annotation_type_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
@@ -3026,6 +3039,7 @@ public class DefaultCodeFormatterOptions {
 		this.brace_position_for_array_initializer = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_block = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_block_in_case = DefaultCodeFormatterConstants.END_OF_LINE;
+		this.brace_position_for_block_in_case_after_arrow = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_constructor_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_enum_constant = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_enum_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
@@ -3333,6 +3347,7 @@ public class DefaultCodeFormatterOptions {
 		this.never_indent_line_comments_on_first_column = false;
 		this.number_of_empty_lines_to_preserve = 1;
 		this.join_lines_in_comments = true;
+		this.join_line_comments = false;
 		this.join_wrapped_lines = true;
 		this.put_empty_statement_on_new_line = false;
 		this.tab_size = 4;
@@ -3421,6 +3436,7 @@ public class DefaultCodeFormatterOptions {
 		this.align_type_members_on_columns = false;
 		this.align_variable_declarations_on_columns = false;
 		this.align_assignment_statements_on_columns = false;
+		this.align_arrows_in_switch_on_columns = false;
 		this.align_with_spaces = false;
 		this.align_fields_grouping_blank_lines = Integer.MAX_VALUE;
 		this.brace_position_for_annotation_type_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
@@ -3428,6 +3444,7 @@ public class DefaultCodeFormatterOptions {
 		this.brace_position_for_array_initializer = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_block = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_block_in_case = DefaultCodeFormatterConstants.END_OF_LINE;
+		this.brace_position_for_block_in_case_after_arrow = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_constructor_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_enum_constant = DefaultCodeFormatterConstants.END_OF_LINE;
 		this.brace_position_for_enum_declaration = DefaultCodeFormatterConstants.END_OF_LINE;
@@ -3735,6 +3752,7 @@ public class DefaultCodeFormatterOptions {
 		this.never_indent_line_comments_on_first_column = false;
 		this.number_of_empty_lines_to_preserve = 1;
 		this.join_lines_in_comments = true;
+		this.join_line_comments = false;
 		this.join_wrapped_lines = true;
 		this.put_empty_statement_on_new_line = true;
 		this.tab_size = 8;

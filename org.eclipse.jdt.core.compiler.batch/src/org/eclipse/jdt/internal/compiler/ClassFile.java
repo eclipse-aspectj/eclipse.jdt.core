@@ -4050,6 +4050,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		int numArgsLocation = localContentsOffset;
 		CaseStatement.ResolvedCase[] constants = switchStatement.otherConstants;
 		int numArgs = constants.length;
+		if (switchStatement.containsNull) --numArgs;
 		this.contents[numArgsLocation++] = (byte) (numArgs >> 8);
 		this.contents[numArgsLocation] = (byte) numArgs;
 		localContentsOffset += 2;
@@ -4061,8 +4062,11 @@ public class ClassFile implements TypeConstants, TypeIds {
 				this.contents[localContentsOffset++] = (byte) (typeIndex >> 8);
 				this.contents[localContentsOffset++] = (byte) typeIndex;
 			} else {
+				if (c.e instanceof NullLiteral) continue;
+				String s = c.e instanceof QualifiedNameReference qnr ? // handle superfluously qualified enumerator.
+								new String(qnr.tokens[qnr.tokens.length-1]) : c.e.toString();
 				int intValIdx =
-						this.constantPool.literalIndex(c.e.toString());
+						this.constantPool.literalIndex(s);
 				this.contents[localContentsOffset++] = (byte) (intValIdx >> 8);
 				this.contents[localContentsOffset++] = (byte) intValIdx;
 			}
@@ -5229,7 +5233,10 @@ public class ClassFile implements TypeConstants, TypeIds {
 			for (int i = 0, max = targetParameters.length, argumentsLength = arguments != null ? arguments.length : 0; i < max; i++) {
 				if (argumentsLength > i && arguments[i] != null) {
 					Argument argument = arguments[i];
-					length = writeArgumentName(argument.name, argument.binding.modifiers, length);
+					int modifiers = argument.binding.modifiers;
+					if (binding.isCompactConstructor())
+						modifiers |= ClassFileConstants.AccMandated;
+					length = writeArgumentName(argument.name, modifiers, length);
 				} else {
 					length = writeArgumentName(null, ClassFileConstants.AccSynthetic, length);
 				}

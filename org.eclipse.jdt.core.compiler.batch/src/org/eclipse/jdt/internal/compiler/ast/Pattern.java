@@ -13,8 +13,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
-import java.util.function.Supplier;
-
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
@@ -30,14 +28,15 @@ public abstract class Pattern extends Expression {
 
 	public LocalVariableBinding secretPatternVariable = null;
 
-	public Boolean containsTypeElidedPatternVar = null;
-
 	private Pattern enclosingPattern;
 	protected MethodBinding accessorMethod;
 	/* package */ BranchLabel elseTarget;
 	/* package */ BranchLabel thenTarget;
 
 	public int nestingLevel = 0;
+
+	// denotes index of this pattern in the parent record pattern, or -1 for patterns whose parent is not a record pattern
+	public int index = -1;
 
 	@Override
 	public boolean containsPatternVariable() {
@@ -48,14 +47,13 @@ public abstract class Pattern extends Expression {
 			@Override
 			public boolean visit(TypePattern typePattern, BlockScope blockScope) {
 				 this.hasPatternVar = typePattern.local != null;
-				 this.typeElidedVar |= typePattern.getType().isTypeNameVar(blockScope);
+				 this.typeElidedVar |= typePattern.getType() == null || typePattern.getType().isTypeNameVar(blockScope);
 				 return !(this.hasPatternVar && this.typeElidedVar);
 			}
  		}
 
 		PatternVariablesVisitor pvv = new PatternVariablesVisitor();
 		this.traverse(pvv, (BlockScope) null);
-		this.containsTypeElidedPatternVar = pvv.typeElidedVar;
 		return pvv.hasPatternVar;
 	}
 
@@ -80,16 +78,6 @@ public abstract class Pattern extends Expression {
 	 */
 	public boolean coversType(TypeBinding type) {
 		return false;
-	}
-	public TypeBinding resolveAtType(BlockScope scope, TypeBinding type) {
-		return null;
-	}
-	@Override
-	public TypeBinding resolveType(BlockScope scope) {
-		return resolveType(scope, true);
-	}
-	public TypeBinding resolveType(BlockScope scope, boolean isPatternVariable) {
-		return null;
 	}
 	public boolean isAlwaysTrue() {
 		return true;
@@ -118,18 +106,10 @@ public abstract class Pattern extends Expression {
 	public TypeReference getType() {
 		return null;
 	}
-	public abstract void resolveWithExpression(BlockScope scope, Expression expression);
 
-	public void setTargetSupplier(Supplier<BranchLabel> targetSupplier) {
-		// default implementation does nothing
-	}
 	protected abstract boolean isPatternTypeCompatible(TypeBinding other, BlockScope scope);
 
 	public abstract boolean dominates(Pattern p);
-
-	public Pattern primary() {
-		return this;
-	}
 
 	@Override
 	public StringBuilder print(int indent, StringBuilder output) {

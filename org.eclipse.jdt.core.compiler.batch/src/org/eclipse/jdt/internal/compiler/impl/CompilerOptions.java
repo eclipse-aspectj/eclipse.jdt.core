@@ -1,6 +1,6 @@
 //AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -168,9 +168,17 @@ public class CompilerOptions {
 	public static final String OPTION_ReportMethodCanBePotentiallyStatic = "org.eclipse.jdt.core.compiler.problem.reportMethodCanBePotentiallyStatic";  //$NON-NLS-1$
 	public static final String OPTION_ReportRedundantSpecificationOfTypeArguments =  "org.eclipse.jdt.core.compiler.problem.redundantSpecificationOfTypeArguments"; //$NON-NLS-1$
 
+	// resource leak analysis:
 	public static final String OPTION_ReportUnclosedCloseable = "org.eclipse.jdt.core.compiler.problem.unclosedCloseable"; //$NON-NLS-1$
 	public static final String OPTION_ReportPotentiallyUnclosedCloseable = "org.eclipse.jdt.core.compiler.problem.potentiallyUnclosedCloseable"; //$NON-NLS-1$
 	public static final String OPTION_ReportExplicitlyClosedAutoCloseable = "org.eclipse.jdt.core.compiler.problem.explicitlyClosedAutoCloseable"; //$NON-NLS-1$
+	public static final String OPTION_ReportInsufficientResourceManagement = "org.eclipse.jdt.core.compiler.problem.insufficientResourceAnalysis"; //$NON-NLS-1$
+	public static final String OPTION_ReportIncompatibleOwningContract = "org.eclipse.jdt.core.compiler.problem.incompatibleOwningContract"; //$NON-NLS-1$
+	public static final String OPTION_AnnotationBasedResourceAnalysis = "org.eclipse.jdt.core.compiler.annotation.resourceanalysis"; //$NON-NLS-1$
+	public static final String OPTION_OwningAnnotationName = "org.eclipse.jdt.core.compiler.annotation.owning"; //$NON-NLS-1$
+	public static final String OPTION_NotOwningAnnotationName = "org.eclipse.jdt.core.compiler.annotation.notowning"; //$NON-NLS-1$
+	static final char[][] DEFAULT_OWNING_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.Owning".toCharArray()); //$NON-NLS-1$
+	static final char[][] DEFAULT_NOTOWNING_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NotOwning".toCharArray()); //$NON-NLS-1$
 
 	public static final String OPTION_ReportNullSpecViolation = "org.eclipse.jdt.core.compiler.problem.nullSpecViolation";  //$NON-NLS-1$
 	public static final String OPTION_ReportNullAnnotationInferenceConflict = "org.eclipse.jdt.core.compiler.problem.nullAnnotationInferenceConflict";  //$NON-NLS-1$
@@ -244,6 +252,7 @@ public class CompilerOptions {
 	public static final String VERSION_19 = "19"; //$NON-NLS-1$
 	public static final String VERSION_20 = "20"; //$NON-NLS-1$
 	public static final String VERSION_21 = "21"; //$NON-NLS-1$
+	public static final String VERSION_22 = "22"; //$NON-NLS-1$
 	/*
 	 * Note: Whenever a new version is added, make sure getLatestVersion()
 	 * is updated with it.
@@ -338,9 +347,14 @@ public class CompilerOptions {
 	public static final int MethodCanBeStatic = IrritantSet.GROUP2 | ASTNode.Bit5;
 	public static final int MethodCanBePotentiallyStatic = IrritantSet.GROUP2 | ASTNode.Bit6;
 	public static final int RedundantSpecificationOfTypeArguments = IrritantSet.GROUP2 | ASTNode.Bit7;
+
+	// resource leak analysis:
 	public static final int UnclosedCloseable = IrritantSet.GROUP2 | ASTNode.Bit8;
 	public static final int PotentiallyUnclosedCloseable = IrritantSet.GROUP2 | ASTNode.Bit9;
 	public static final int ExplicitlyClosedAutoCloseable = IrritantSet.GROUP2 | ASTNode.Bit10;
+	// see also InsufficientResourceManagement in group 3
+
+	// null analysis:
 	public static final int NullSpecViolation = IrritantSet.GROUP2 | ASTNode.Bit11;
 	public static final int NullAnnotationInferenceConflict = IrritantSet.GROUP2 | ASTNode.Bit12;
 	public static final int NullUncheckedConversion = IrritantSet.GROUP2 | ASTNode.Bit13;
@@ -365,9 +379,13 @@ public class CompilerOptions {
 	// Not sure we need this anymore...
 	public static final String OPTION_ReportSwallowedExceptionInCatchBlock = "org.eclipse.jdt.core.compiler.problem.swallowedExceptionInCatchBlock"; //$NON-NLS-1$
 	public static final int SwallowedExceptionInCatchBlock = IrritantSet.GROUP2 | ASTNode.Bit28;
-	// when picking up a later version of this class, if new constants have been added to 
+	// when picking up a later version of this class, if new constants have been added to
 	// the above list, then AjCompilerOptions will need updating also.
 	// End AspectJ Extension
+
+	// group 3
+	public static final int InsufficientResourceManagement = IrritantSet.GROUP3 | ASTNode.Bit1;
+	public static final int IncompatibleOwningContract = IrritantSet.GROUP3 | ASTNode.Bit2;
 
 	// Severity level for handlers
 	/**
@@ -523,8 +541,16 @@ public class CompilerOptions {
 	public String[] nonNullByDefaultAnnotationSecondaryNames = NO_STRINGS;
 	/** TagBits-encoded default for non-annotated types. */
 	public long intendedDefaultNonNullness; // 0 or TagBits#AnnotationNonNull
+
 	/** Should resources (objects of type Closeable) be analysed for matching calls to close()? */
 	public boolean analyseResourceLeaks;
+	/** Should an owning-annotation be evaluated for improved analysis of resource leaks? */
+	public boolean isAnnotationBasedResourceAnalysisEnabled;
+	/** Name of the annotation which the resource leak analysis will use as 'owning' */
+	public char[][] owningAnnotationName;
+	/** Name of the annotation which the resource leak analysis will use as 'not-owning' */
+	public char[][] notOwningAnnotationName;
+
 	/** Should missing enum cases be reported even if a default case exists in the same switch? */
 	public boolean reportMissingEnumCaseDespiteDefault;
 
@@ -552,6 +578,8 @@ public class CompilerOptions {
 
 	/** Not directly configurable, derived from other options by LookupEnvironment.usesNullTypeAnnotations() */
 	public Boolean useNullTypeAnnotations = null;
+	/** Not directly configurable, derived from other options by LookupEnvironment.usesOwningAnnotation() */
+	public Boolean useOwningAnnotations;
 
 	/** Master flag to enabled/disable all preview features */
 	public boolean enablePreviewFeatures;
@@ -777,12 +805,20 @@ public class CompilerOptions {
 				return OPTION_ReportMissingNonNullByDefaultAnnotation;
 			case RedundantSpecificationOfTypeArguments :
 				return OPTION_ReportRedundantSpecificationOfTypeArguments;
+
+			// resource leak analysis:
 			case UnclosedCloseable :
 				return OPTION_ReportUnclosedCloseable;
 			case PotentiallyUnclosedCloseable :
 				return OPTION_ReportPotentiallyUnclosedCloseable;
 			case ExplicitlyClosedAutoCloseable :
 				return OPTION_ReportExplicitlyClosedAutoCloseable;
+			case InsufficientResourceManagement:
+				return OPTION_ReportInsufficientResourceManagement;
+			case IncompatibleOwningContract:
+				return OPTION_ReportIncompatibleOwningContract;
+
+			// null analysis:
 			case NullSpecViolation :
 				return OPTION_ReportNullSpecViolation;
 			case NullAnnotationInferenceConflict :
@@ -799,6 +835,7 @@ public class CompilerOptions {
 				return OPTION_ReportNonNullTypeVariableFromLegacyInvocation;
 			case AnnotatedTypeArgumentToUnannotated:
 				return OPTION_ReportAnnotatedTypeArgumentToUnannotated;
+
 			case UnlikelyCollectionMethodArgumentType:
 				return OPTION_ReportUnlikelyCollectionMethodArgumentType;
 			case UnlikelyEqualsArgumentType:
@@ -1032,9 +1069,18 @@ public class CompilerOptions {
 			OPTION_ReportUnusedTypeArgumentsForMethodInvocation,
 			OPTION_ReportUnusedWarningToken,
 			OPTION_ReportVarargsArgumentNeedCast,
+
+			// resource leak analysis:
 			OPTION_ReportUnclosedCloseable,
 			OPTION_ReportPotentiallyUnclosedCloseable,
 			OPTION_ReportExplicitlyClosedAutoCloseable,
+			OPTION_ReportInsufficientResourceManagement,
+			OPTION_ReportIncompatibleOwningContract,
+			OPTION_AnnotationBasedResourceAnalysis,
+			OPTION_OwningAnnotationName,
+			OPTION_NotOwningAnnotationName,
+
+			// null analysis:
 			OPTION_AnnotationBasedNullAnalysis,
 			OPTION_NonNullAnnotationName,
 			OPTION_NullableAnnotationName,
@@ -1049,6 +1095,7 @@ public class CompilerOptions {
 			OPTION_InheritNullAnnotations,
 			OPTION_ReportNonnullParameterAnnotationDropped,
 			OPTION_ReportAnnotatedTypeArgumentToUnannotated,
+
 			OPTION_ReportUnlikelyCollectionMethodArgumentType,
 			OPTION_ReportUnlikelyEqualsArgumentType,
 			OPTION_ReportAPILeak,
@@ -1142,6 +1189,7 @@ public class CompilerOptions {
 			case PotentiallyUnclosedCloseable:
 			case UnclosedCloseable:
 			case ExplicitlyClosedAutoCloseable:
+			case InsufficientResourceManagement:
 				return "resource"; //$NON-NLS-1$
 			case InvalidJavadoc :
 			case MissingJavadocComments :
@@ -1380,9 +1428,18 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_ReportMethodCanBeStatic, getSeverityString(MethodCanBeStatic));
 		optionsMap.put(OPTION_ReportMethodCanBePotentiallyStatic, getSeverityString(MethodCanBePotentiallyStatic));
 		optionsMap.put(OPTION_ReportRedundantSpecificationOfTypeArguments, getSeverityString(RedundantSpecificationOfTypeArguments));
+
+		// resource leak analysis:
 		optionsMap.put(OPTION_ReportUnclosedCloseable, getSeverityString(UnclosedCloseable));
 		optionsMap.put(OPTION_ReportPotentiallyUnclosedCloseable, getSeverityString(PotentiallyUnclosedCloseable));
 		optionsMap.put(OPTION_ReportExplicitlyClosedAutoCloseable, getSeverityString(ExplicitlyClosedAutoCloseable));
+		optionsMap.put(OPTION_ReportInsufficientResourceManagement, getSeverityString(InsufficientResourceManagement));
+		optionsMap.put(OPTION_ReportIncompatibleOwningContract, getSeverityString(IncompatibleOwningContract));
+		optionsMap.put(OPTION_AnnotationBasedResourceAnalysis, this.isAnnotationBasedResourceAnalysisEnabled ? ENABLED : DISABLED);
+		optionsMap.put(OPTION_OwningAnnotationName, String.valueOf(CharOperation.concatWith(this.owningAnnotationName, '.')));
+		optionsMap.put(OPTION_NotOwningAnnotationName, String.valueOf(CharOperation.concatWith(this.notOwningAnnotationName, '.')));
+
+		// null analysis:
 		optionsMap.put(OPTION_AnnotationBasedNullAnalysis, this.isAnnotationBasedNullAnalysisEnabled ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportNullSpecViolation, getSeverityString(NullSpecViolation));
 		optionsMap.put(OPTION_ReportNullAnnotationInferenceConflict, getSeverityString(NullAnnotationInferenceConflict));
@@ -1608,6 +1665,9 @@ public class CompilerOptions {
 		this.inheritNullAnnotations = false;
 
 		this.analyseResourceLeaks = true;
+		this.isAnnotationBasedResourceAnalysisEnabled = false;
+		this.owningAnnotationName = DEFAULT_OWNING_ANNOTATION_NAME;
+		this.notOwningAnnotationName = DEFAULT_NOTOWNING_ANNOTATION_NAME;
 
 		this.reportMissingEnumCaseDespiteDefault = false;
 
@@ -1923,15 +1983,12 @@ public class CompilerOptions {
 		if ((optionValue = optionsMap.get(OPTION_ReportMethodCanBeStatic)) != null) updateSeverity(MethodCanBeStatic, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportMethodCanBePotentiallyStatic)) != null) updateSeverity(MethodCanBePotentiallyStatic, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportRedundantSpecificationOfTypeArguments)) != null) updateSeverity(RedundantSpecificationOfTypeArguments, optionValue);
+		// resource leak analysis:
 		if ((optionValue = optionsMap.get(OPTION_ReportUnclosedCloseable)) != null) updateSeverity(UnclosedCloseable, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportPotentiallyUnclosedCloseable)) != null) updateSeverity(PotentiallyUnclosedCloseable, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportExplicitlyClosedAutoCloseable)) != null) updateSeverity(ExplicitlyClosedAutoCloseable, optionValue);
-		if ((optionValue = optionsMap.get(OPTION_ReportUnusedTypeParameter)) != null) updateSeverity(UnusedTypeParameter, optionValue);
-		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyCollectionMethodArgumentType)) != null) updateSeverity(UnlikelyCollectionMethodArgumentType, optionValue);
-		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyCollectionMethodArgumentTypeStrict)) != null) {
-			this.reportUnlikelyCollectionMethodArgumentTypeStrict = ENABLED.equals(optionValue);
-		}
-		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyEqualsArgumentType)) != null) updateSeverity(UnlikelyEqualsArgumentType, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_ReportInsufficientResourceManagement)) != null) updateSeverity(InsufficientResourceManagement, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_ReportIncompatibleOwningContract)) != null) updateSeverity(IncompatibleOwningContract, optionValue);
 		if (getSeverity(UnclosedCloseable) == ProblemSeverities.Ignore
 				&& getSeverity(PotentiallyUnclosedCloseable) == ProblemSeverities.Ignore
 				&& getSeverity(ExplicitlyClosedAutoCloseable) == ProblemSeverities.Ignore) {
@@ -1939,6 +1996,22 @@ public class CompilerOptions {
 		} else {
 			this.analyseResourceLeaks = true;
 		}
+		if ((optionValue = optionsMap.get(OPTION_AnnotationBasedResourceAnalysis)) != null) {
+			this.storeAnnotations |= this.isAnnotationBasedResourceAnalysisEnabled = ENABLED.equals(optionValue);
+		}
+		if ((optionValue = optionsMap.get(OPTION_OwningAnnotationName)) != null) {
+			this.owningAnnotationName = CharOperation.splitAndTrimOn('.', optionValue.toCharArray());
+		}
+		if ((optionValue = optionsMap.get(OPTION_NotOwningAnnotationName)) != null) {
+			this.notOwningAnnotationName = CharOperation.splitAndTrimOn('.', optionValue.toCharArray());
+		}
+
+		if ((optionValue = optionsMap.get(OPTION_ReportUnusedTypeParameter)) != null) updateSeverity(UnusedTypeParameter, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyCollectionMethodArgumentType)) != null) updateSeverity(UnlikelyCollectionMethodArgumentType, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyCollectionMethodArgumentTypeStrict)) != null) {
+			this.reportUnlikelyCollectionMethodArgumentTypeStrict = ENABLED.equals(optionValue);
+		}
+		if ((optionValue = optionsMap.get(OPTION_ReportUnlikelyEqualsArgumentType)) != null) updateSeverity(UnlikelyEqualsArgumentType, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportAPILeak)) != null) updateSeverity(APILeak, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnstableAutoModuleName)) != null) updateSeverity(UnstableAutoModuleName, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_AnnotationBasedNullAnalysis)) != null) {
@@ -2100,13 +2173,14 @@ public class CompilerOptions {
 				this.generateClassFiles = false;
 			}
 		}
+		boolean useAnnotationsForAnalysis = this.isAnnotationBasedNullAnalysisEnabled || this.isAnnotationBasedResourceAnalysisEnabled;
 		if ((optionValue = optionsMap.get(OPTION_Process_Annotations)) != null) {
 			if (ENABLED.equals(optionValue)) {
 				this.processAnnotations = true;
 				this.storeAnnotations = true; // annotation processing requires annotation to be stored
 			} else if (DISABLED.equals(optionValue)) {
 				this.processAnnotations = false;
-				if (!this.isAnnotationBasedNullAnalysisEnabled)
+				if (!useAnnotationsForAnalysis)
 					this.storeAnnotations = false;
 			}
 		}
@@ -2114,7 +2188,7 @@ public class CompilerOptions {
 			if (ENABLED.equals(optionValue)) {
 				this.storeAnnotations = true;
 			} else if (DISABLED.equals(optionValue)) {
-				if (!this.isAnnotationBasedNullAnalysisEnabled && !this.processAnnotations)
+				if (!useAnnotationsForAnalysis  && !this.processAnnotations)
 					this.storeAnnotations = false;
 			}
 		}
@@ -2294,9 +2368,12 @@ public class CompilerOptions {
 		buf.append("\n\t- method can be static: ").append(getSeverityString(MethodCanBeStatic)); //$NON-NLS-1$
 		buf.append("\n\t- method can be potentially static: ").append(getSeverityString(MethodCanBePotentiallyStatic)); //$NON-NLS-1$
 		buf.append("\n\t- redundant specification of type arguments: ").append(getSeverityString(RedundantSpecificationOfTypeArguments)); //$NON-NLS-1$
+		// resource leak analysis:
 		buf.append("\n\t- resource is not closed: ").append(getSeverityString(UnclosedCloseable)); //$NON-NLS-1$
 		buf.append("\n\t- resource may not be closed: ").append(getSeverityString(PotentiallyUnclosedCloseable)); //$NON-NLS-1$
 		buf.append("\n\t- resource should be handled by try-with-resources: ").append(getSeverityString(ExplicitlyClosedAutoCloseable)); //$NON-NLS-1$
+		buf.append("\n\t- resource should be managed explicitly: ").append(getSeverityString(InsufficientResourceManagement)); //$NON-NLS-1$
+
 		buf.append("\n\t- Unused Type Parameter: ").append(getSeverityString(UnusedTypeParameter)); //$NON-NLS-1$
 		buf.append("\n\t- pessimistic null analysis for free type variables: ").append(getSeverityString(PessimisticNullAnalysisForFreeTypeVariables)); //$NON-NLS-1$
 		buf.append("\n\t- report unsafe nonnull return from legacy method: ").append(getSeverityString(NonNullTypeVariableFromLegacyInvocation)); //$NON-NLS-1$

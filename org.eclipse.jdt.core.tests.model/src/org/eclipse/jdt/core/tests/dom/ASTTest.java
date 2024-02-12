@@ -9504,7 +9504,10 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			ASTNode.JAVADOC_REGION,
 			ASTNode.JAVADOC_TEXT_ELEMENT,
 			ASTNode.RECORD_PATTERN,
-			ASTNode.ENHANCED_FOR_WITH_RECORD_PATTERN
+			ASTNode.ENHANCED_FOR_WITH_RECORD_PATTERN,
+			ASTNode.STRING_TEMPLATE_EXPRESSION,
+			ASTNode.STRING_FRAGMENT,
+			ASTNode.STRING_TEMPLATE_COMPONENT
 		};
 
 		// assert that nodeType values are correct:
@@ -9571,6 +9574,20 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.latestSupportedJavaVersion());
 		AST a = new AST(options);
 		assertEquals("Incorrect ast mapping", a.apiLevel(), AST.getJLSLatest());
+	}
+
+	@SuppressWarnings("deprecation")
+	public void testDimension() {
+		// Introduced with JSL8
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		Dimension dimension = this.ast.newDimension();
+		dimension.setSourceRange(1, 2);
+
+		Dimension copy = (Dimension) ASTNode.copySubtree(this.ast, dimension);
+		assertEquals(copy.getStartPosition(), 1);
+		assertEquals(copy.getLength(), 2);
 	}
 }
 

@@ -218,7 +218,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		}
 	}
 	public ForwardingJavaFileManager<JavaFileManager> getFileManager(JavaFileManager manager) {
-		return new ForwardingJavaFileManager<JavaFileManager>(manager) {
+		return new ForwardingJavaFileManager<>(manager) {
 			@Override
 			public FileObject getFileForInput(Location location, String packageName, String relativeName)
 					throws IOException {
@@ -266,13 +266,13 @@ public class CompilerToolJava9Tests extends TestCase {
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
 
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -329,13 +329,13 @@ public class CompilerToolJava9Tests extends TestCase {
 				e1.printStackTrace();
 			}
 			// create new list containing input file
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
 
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -394,13 +394,13 @@ public class CompilerToolJava9Tests extends TestCase {
 			
 
 			// create new list containing input file
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
 
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -450,13 +450,13 @@ public class CompilerToolJava9Tests extends TestCase {
 			}
 
 			// create new list containing input file
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
 
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -534,12 +534,12 @@ public class CompilerToolJava9Tests extends TestCase {
 				e.printStackTrace();
 			}
 			// create new list containing input file
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -551,7 +551,6 @@ public class CompilerToolJava9Tests extends TestCase {
 			Boolean result = task.call();
 			printWriter.flush();
 			printWriter.close();
-			System.err.println(stringWriter.getBuffer().toString());
 			if (result.booleanValue()) {
 				System.err.println("Compilation did not fail as expected: " + stringWriter.getBuffer().toString());
 				assertTrue("Compilation did not fail as expected", false);
@@ -578,12 +577,12 @@ public class CompilerToolJava9Tests extends TestCase {
 				e.printStackTrace();
 			}
 			// create new list containing input file
-			List<File> files = new ArrayList<File>();
+			List<File> files = new ArrayList<>();
 			files.add(inputFile);
 			Iterable<? extends JavaFileObject> units = standardManager.getJavaFileObjectsFromFiles(files);
 			StringWriter stringWriter = new StringWriter();
 			PrintWriter printWriter = new PrintWriter(stringWriter);
-			List<String> options = new ArrayList<String>();
+			List<String> options = new ArrayList<>();
 			options.add("-d");
 			options.add(tmpFolder);
 			options.add("--release");
@@ -696,7 +695,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing input file
-		List<File> files = new ArrayList<File>();
+		List<File> files = new ArrayList<>();
 		files.add(new File(modules_directory + File.separator + "source" + File.separator + "SimpleModules" +
 										File.separator + "module.one" + File.separator + "module-info.java"));
 		files.add(new File(modules_directory + File.separator + "source" + File.separator + "SimpleModules" +
@@ -705,7 +704,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		StringWriter stringWriter = new StringWriter();
 		PrintWriter printWriter = new PrintWriter(stringWriter);
 
-		List<String> options = new ArrayList<String>();
+		List<String> options = new ArrayList<>();
 		options.add("-d");
 		options.add(tmpFolder);
 		options.add("--module-source-path");
@@ -734,14 +733,14 @@ public class CompilerToolJava9Tests extends TestCase {
 		manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing input file
-		files = new ArrayList<File>();
+		files = new ArrayList<>();
 		files.add(new File(modules_directory + File.separator + "bug565748" + File.separator + 
 									"mod.test" + File.separator + "module-info.java"));
 		units = manager.getJavaFileObjectsFromFiles(files);
 		stringWriter = new StringWriter();
 		printWriter = new PrintWriter(stringWriter);
 
-		options = new ArrayList<String>();
+		options = new ArrayList<>();
 		options.add("-d");
 		options.add(tmpFolder);
 		options.add("--module-path");
@@ -780,14 +779,14 @@ public class CompilerToolJava9Tests extends TestCase {
  		manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
  		// create new list containing input file
- 		files = new ArrayList<File>();
+ 		files = new ArrayList<>();
  		files.add(new File(modules_directory + File.separator + "bug565748" + File.separator + 
  				"mod.test" + File.separator + "module-info.java"));
  		units = manager.getJavaFileObjectsFromFiles(files);
  		stringWriter = new StringWriter();
  		printWriter = new PrintWriter(stringWriter);
 
- 		options = new ArrayList<String>();
+ 		options = new ArrayList<>();
  		options.add("-d");
  		options.add(tmpFolder);
  		options.add("--module-path");
@@ -820,7 +819,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing input file
-		List<File> files = new ArrayList<File>();
+		List<File> files = new ArrayList<>();
 		files.add(new File(modules_directory + File.separator + "bug566749" + File.separator + 
  				"mod.test" + File.separator + "module-info.java"));
 		
@@ -828,8 +827,8 @@ public class CompilerToolJava9Tests extends TestCase {
 		StringWriter stringWriter = new StringWriter();
 		PrintWriter printWriter = new PrintWriter(stringWriter);
 
-		List<String> options = new ArrayList<String>();
-		options = new ArrayList<String>();
+		List<String> options = new ArrayList<>();
+		options = new ArrayList<>();
  		options.add("-d");
  		options.add(tmpFolder);
  		options.add("--module-path");
@@ -861,7 +860,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing input file
-		List<File> files = new ArrayList<File>();
+		List<File> files = new ArrayList<>();
 		files.add(new File(modules_directory + File.separator + "bug574097" + File.separator + 
  				"mod.one" + File.separator + "module-info.java"));
 		files.add(new File(modules_directory + File.separator + "bug574097" + File.separator + 
@@ -871,8 +870,8 @@ public class CompilerToolJava9Tests extends TestCase {
 		StringWriter stringWriter = new StringWriter();
 		PrintWriter printWriter = new PrintWriter(stringWriter);
 
-		List<String> options = new ArrayList<String>();
-		options = new ArrayList<String>();
+		List<String> options = new ArrayList<>();
+		options = new ArrayList<>();
  		options.add("-d");
  		options.add(tmpFolder);
  		options.add("--module-path");
@@ -1011,7 +1010,7 @@ public class CompilerToolJava9Tests extends TestCase {
 		}
 
 		public ForwardingJavaFileManager<StandardJavaFileManager> createFileManager(StandardJavaFileManager manager) {
-			ForwardingJavaFileManager<StandardJavaFileManager> forwardingJavaFileManager = new ForwardingJavaFileManager<StandardJavaFileManager>(manager) {
+			ForwardingJavaFileManager<StandardJavaFileManager> forwardingJavaFileManager = new ForwardingJavaFileManager<>(manager) {
 				@Override
 				public FileObject getFileForInput(Location location, String packageName, String relativeName)
 						throws IOException {
@@ -1114,7 +1113,7 @@ public class CompilerToolJava9Tests extends TestCase {
 	 *
 	 * @param src
 	 *            the full path to the resource location.
-	 * @param destFolder
+	 * @param dest
 	 *            the full path to the destination location.
 	 */
 	public static void copyResource(File src, File dest) throws IOException {
@@ -1174,7 +1173,7 @@ public class CompilerToolJava9Tests extends TestCase {
 	 * named "CVS" will be ignored.
 	 * @param resourceFolderName the name of the source folder, relative to
 	 * <code>[plugin-root]/resources</code>
-	 * @param the absolute path of the destination folder
+	 * @param destFolder the absolute path of the destination folder
 	 */
 	public static void copyResources(String resourceFolderName, File destFolder) throws IOException {
 		File resDir = new File(getPluginDirectoryPath(), RESOURCES_DIR);

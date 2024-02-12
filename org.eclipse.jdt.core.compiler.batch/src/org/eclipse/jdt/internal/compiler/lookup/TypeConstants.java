@@ -305,8 +305,6 @@ public interface TypeConstants {
 		"ObjectOutputStream".toCharArray(), //$NON-NLS-1$
 		"FilterInputStream".toCharArray(), //$NON-NLS-1$
 		"FilterOutputStream".toCharArray(), //$NON-NLS-1$
-		"DataInputStream".toCharArray(), //$NON-NLS-1$
-		"DataOutputStream".toCharArray(), //$NON-NLS-1$
 		"PushbackInputStream".toCharArray(), //$NON-NLS-1$
 		"SequenceInputStream".toCharArray(), //$NON-NLS-1$
 		"PrintStream".toCharArray(), //$NON-NLS-1$
@@ -379,6 +377,9 @@ public interface TypeConstants {
 		new char[][] {JAVA, UTIL, "Formatter".toCharArray() }, //$NON-NLS-1$
 		new char[][] {JAVA, UTIL, "Scanner".toCharArray() }, //$NON-NLS-1$
 	};
+	// well-known method of j.u.s.Stream:
+	char[][] JAVA_UTIL_STREAM__STREAM = { JAVA, UTIL, "stream".toCharArray(), "Stream".toCharArray() }; //$NON-NLS-1$ //$NON-NLS-2$
+	char[] FILTER = "filter".toCharArray(); //$NON-NLS-1$
 
 	// different assertion utilities:
 	char[] ASSERT_CLASS = "Assert".toCharArray(); //$NON-NLS-1$
