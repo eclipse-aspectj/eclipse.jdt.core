@@ -1172,6 +1172,11 @@ ColonPseudoToken ::= ':'
 /.$putCase consumePseudoToken(":"); $break ./
 /:$readableName any allowable token in pointcut or type pattern, except ':':/
 
+-- On source level 21 (preview), '_' is no longer scanned as an identifier but as a token UNDERSCORE.
+-- To avoid a compile error, explicitly parse the token as an identifier. See upstream commit 8398f6c121.
+PseudoToken ::= '_'
+/.$putCase consumePseudoTokenIdentifier(); $break ./
+
 PseudoToken ::= JavaIdentifier
 /.$putCase consumePseudoTokenIdentifier(); $break ./
 /:$readableName allowable token in pointcut or type pattern:/
