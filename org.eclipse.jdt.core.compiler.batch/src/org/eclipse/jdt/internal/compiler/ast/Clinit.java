@@ -376,9 +376,11 @@ public class Clinit extends AbstractMethodDeclaration {
 	protected void generateSyntheticCode(ClassScope classScope, CodeStream codeStream) {
 		if (this.assertionSyntheticFieldBinding != null) {
 			// generate code related to the activation of assertion for this class
-			codeStream.generateClassLiteralAccessForType(classScope,
-					classScope.outerMostClassScope().enclosingSourceType(),
-				classLiteralSyntheticField);
+			codeStream.generateClassLiteralAccessForType(
+				classScope,
+				classScope.outerMostClassScope().enclosingSourceType(),
+				this.classLiteralSyntheticField
+			);
 			codeStream.invokeJavaLangClassDesiredAssertionStatus();
 			BranchLabel falseLabel = new BranchLabel(codeStream);
 			codeStream.ifne(falseLabel);
