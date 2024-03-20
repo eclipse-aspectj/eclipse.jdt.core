@@ -5356,7 +5356,7 @@ protected void consumeMethodHeaderName(boolean isAnnotationMethod) {
 		md = new AnnotationMethodDeclaration(this.compilationUnit.compilationResult);
 		this.recordStringLiterals = false;
 	} else {
-		md = new MethodDeclaration(this.compilationUnit.compilationResult);
+		md = declarationFactory.createMethodDeclaration(this.compilationUnit.compilationResult); // AspectJ, was: md = new MethodDeclaration(this.compilationUnit.compilationResult);
 	}
 
 	//name
