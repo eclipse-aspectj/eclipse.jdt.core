@@ -1564,9 +1564,9 @@ MethodHeaderName ::= Modifiersopt Type JavaIdentifier '('  -- AspectJ Extension,
 /.$putCase consumeMethodHeaderName(false); $break ./
 /:$readableName MethodHeaderName:/
 
-DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'Identifier' '('
+DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'JavaIdentifier' '(' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeMethodHeaderNameWithTypeParameters(false); $break ./
-DefaultMethodHeaderName ::= ModifiersWithDefault Type 'Identifier' '('
+DefaultMethodHeaderName ::= ModifiersWithDefault Type 'JavaIdentifier' '(' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeMethodHeaderName(false); $break ./
 /:$readableName MethodHeaderName:/
 
@@ -2357,14 +2357,14 @@ AssertStatement ::= 'assert' Expression ':' Expression ';'
 BreakStatement ::= 'break' ';'
 /.$putCase consumeStatementBreak() ; $break ./
 
-BreakStatement ::= 'break' Identifier ';'
+BreakStatement ::= 'break' JavaIdentifier ';' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeStatementBreakWithLabel() ; $break ./
 /:$readableName BreakStatement:/
 
 ContinueStatement ::= 'continue' ';'
 /.$putCase consumeStatementContinue() ; $break ./
 
-ContinueStatement ::= 'continue' Identifier ';'
+ContinueStatement ::= 'continue' JavaIdentifier ';' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeStatementContinueWithLabel() ; $break ./
 /:$readableName ContinueStatement:/
 

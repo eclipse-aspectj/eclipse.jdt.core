@@ -8095,14 +8095,14 @@ protected void consumeRule(int act) {
 
 		case 461:
 			if (DEBUG) {
-				System.out.println("DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type Identifier LPAREN");
+				System.out.println("DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type JavaIdentifier LPAREN");
 			}  //$NON-NLS-1$
 			consumeMethodHeaderNameWithTypeParameters(false);
 			break;
 
 		case 462:
 			if (DEBUG) {
-				System.out.println("DefaultMethodHeaderName ::= ModifiersWithDefault Type Identifier LPAREN");
+				System.out.println("DefaultMethodHeaderName ::= ModifiersWithDefault Type JavaIdentifier LPAREN");
 			}  //$NON-NLS-1$
 			consumeMethodHeaderName(false);
 			break;
@@ -8928,7 +8928,7 @@ protected void consumeRule(int act) {
 			break;
 
 		case 699:
-			if (DEBUG) {System.out.println("BreakStatement ::= break Identifier SEMICOLON");}  //$NON-NLS-1$
+			if (DEBUG) {System.out.println("BreakStatement ::= break JavaIdentifier SEMICOLON");}  //$NON-NLS-1$
 			consumeStatementBreakWithLabel();
 			break;
 
@@ -8938,7 +8938,7 @@ protected void consumeRule(int act) {
 			break;
 
 		case 701:
-			if (DEBUG) {System.out.println("ContinueStatement ::= continue Identifier SEMICOLON");}  //$NON-NLS-1$
+			if (DEBUG) {System.out.println("ContinueStatement ::= continue JavaIdentifier SEMICOLON");}  //$NON-NLS-1$
 			consumeStatementContinueWithLabel();
 			break;
 
