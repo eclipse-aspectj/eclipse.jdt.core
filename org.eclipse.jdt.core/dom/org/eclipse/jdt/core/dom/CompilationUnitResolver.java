@@ -47,6 +47,7 @@ import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.IProblemFactory;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
@@ -514,8 +515,8 @@ class CompilationUnitResolver extends Compiler {
 			//real parse of the method....
 			org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] types = compilationUnitDeclaration.types;
 			if (types != null) {
-				for (int j = 0, typeLength = types.length; j < typeLength; j++) {
-					types[j].parseMethods(parser, compilationUnitDeclaration);
+				for (TypeDeclaration type : types) {
+					type.parseMethods(parser, compilationUnitDeclaration);
 				}
 			}
 
@@ -576,8 +577,8 @@ class CompilationUnitResolver extends Compiler {
 			//real parse of the method....
 			org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] types = compilationUnitDeclaration.types;
 			if (types != null) {
-				for (int j = 0, typeLength = types.length; j < typeLength; j++) {
-					types[j].parseMethods(parser, compilationUnitDeclaration);
+				for (TypeDeclaration type : types) {
+					type.parseMethods(parser, compilationUnitDeclaration);
 				}
 			}
 
@@ -663,8 +664,8 @@ class CompilationUnitResolver extends Compiler {
 				//real parse of the method....
 				org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] types = compilationUnitDeclaration.types;
 				if (types != null) {
-					for (int j = 0, typeLength = types.length; j < typeLength; j++) {
-						types[j].parseMethods(parser, compilationUnitDeclaration);
+					for (TypeDeclaration type : types) {
+						type.parseMethods(parser, compilationUnitDeclaration);
 					}
 				}
 		}
@@ -826,6 +827,10 @@ class CompilationUnitResolver extends Compiler {
 				CancelableNameEnvironment cancelableNameEnvironment = (CancelableNameEnvironment) environment;
 				cancelableNameEnvironment.printTimeSpent();
 			}
+			if (unit != null && unit.scope != null && unit.scope.environment != null
+				&& unit.scope.environment.unitBeingCompleted == null) {
+				unit.scope.environment.unitBeingCompleted = unit;
+			}
 			return unit;
 		} finally {
 			if (environment != null) {
@@ -925,16 +930,16 @@ class CompilationUnitResolver extends Compiler {
 	public void removeUnresolvedBindings(CompilationUnitDeclaration compilationUnitDeclaration) {
 		final org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] types = compilationUnitDeclaration.types;
 		if (types != null) {
-			for (int i = 0, max = types.length; i < max; i++) {
-				removeUnresolvedBindings(types[i]);
+			for (TypeDeclaration type : types) {
+				removeUnresolvedBindings(type);
 			}
 		}
 	}
 	private void removeUnresolvedBindings(org.eclipse.jdt.internal.compiler.ast.TypeDeclaration type) {
 		final org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] memberTypes = type.memberTypes;
 		if (memberTypes != null) {
-			for (int i = 0, max = memberTypes.length; i < max; i++){
-				removeUnresolvedBindings(memberTypes[i]);
+			for (TypeDeclaration memberType : memberTypes) {
+				removeUnresolvedBindings(memberType);
 			}
 		}
 		if (type.binding != null && (type.binding.modifiers & ExtraCompilerModifiers.AccUnresolved) != 0) {
@@ -1396,11 +1401,11 @@ class CompilationUnitResolver extends Compiler {
 			return false; // must process at least this many units before checking to see if all are done
 
 		Object[] sources = this.requestedSources.valueTable;
-		for (int i = 0, l = sources.length; i < l; i++)
-			if (sources[i] != null) return false;
+		for (Object source : sources)
+			if (source != null) return false;
 		Object[] keys = this.requestedKeys.valueTable;
-		for (int i = 0, l = keys.length; i < l; i++)
-			if (keys[i] != null) return false;
+		for (Object key : keys)
+			if (key != null) return false;
 		return true;
 	}
 

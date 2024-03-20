@@ -1343,6 +1343,9 @@ public void test011_problem_categories() {
 	    expectedProblemAttributes.put("ExpressionInPreConstructorContext", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("DisallowedStatementInPrologue", new ProblemAttributes(CategorizedProblem.CAT_PREVIEW_RELATED));
 	    expectedProblemAttributes.put("NamedPatternVariablesDisallowedHere", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
+	    expectedProblemAttributes.put("OperandStackExceeds64KLimit", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
+	    expectedProblemAttributes.put("OperandStackSizeInappropriate", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
+
 	    StringBuilder failures = new StringBuilder();
 		StringBuilder correctResult = new StringBuilder(70000);
 		Field[] fields = (iProblemClass = IProblem.class).getFields();
@@ -2459,6 +2462,9 @@ public void test012_compiler_problems_tuning() {
 	    expectedProblemAttributes.put("ExpressionInPreConstructorContext",  SKIP);
 	    expectedProblemAttributes.put("DisallowedStatementInPrologue",  SKIP);
 	    expectedProblemAttributes.put("NamedPatternVariablesDisallowedHere", SKIP);
+	    expectedProblemAttributes.put("OperandStackExceeds64KLimit", SKIP);
+	    expectedProblemAttributes.put("OperandStackSizeInappropriate", SKIP);
+
 
 	    Map constantNamesIndex = new HashMap();
 		Field[] fields = JavaCore.class.getFields();

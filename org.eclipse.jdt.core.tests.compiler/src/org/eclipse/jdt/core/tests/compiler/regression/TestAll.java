@@ -238,10 +238,9 @@ public static Test suite() {
 	 ArrayList since_21 = new ArrayList();
 	 since_21.add(SwitchPatternTest.class);
 	 since_21.add(RecordPatternTest.class);
+	 since_21.add(RecordPatternProjectTest.class);
 	 since_21.add(NullAnnotationTests21.class);
-	 since_21.add(StringTemplateTest.class);
 	 since_21.add(BatchCompilerTest_21.class);
-	 since_21.add(ImplicitlyDeclaredClassesTest.class);
 
 	 // add 21 specific test here (check duplicates)
 	 ArrayList since_22 = new ArrayList();
@@ -249,7 +248,9 @@ public static Test suite() {
 	 since_22.add(UnnamedPatternsAndVariablesTest.class);
 	 since_22.add(UseOfUnderscoreWithPreviewTest.class);
 	 since_22.add(SuperAfterStatementsTest.class);
+	 since_22.add(StringTemplateTest.class);
 	 since_22.add(SwitchPatternTest21.class);
+	 since_22.add(ImplicitlyDeclaredClassesTest.class);
 
 	 // Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());

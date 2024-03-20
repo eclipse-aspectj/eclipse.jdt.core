@@ -16,7 +16,6 @@ package org.eclipse.jdt.internal.core.dom.rewrite;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -480,8 +479,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 	private int doVisitList(List list, int offset) {
 		int endPos= offset;
-		for (Iterator iter= list.iterator(); iter.hasNext();) {
-			ASTNode curr= ((ASTNode) iter.next());
+		for (Object o : list) {
+			ASTNode curr= ((ASTNode) o);
 			endPos= doVisit(curr);
 		}
 		return endPos;
@@ -501,15 +500,15 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 	}
 
 	private void voidVisitList(List list) {
-		for (Iterator iter= list.iterator(); iter.hasNext();) {
-			doVisit(((ASTNode) iter.next()));
+		for (Object o : list) {
+			doVisit(((ASTNode) o));
 		}
 	}
 
 	private final boolean doVisitUnchangedChildren(ASTNode parent) {
 		List properties= parent.structuralPropertiesForType();
-		for (int i= 0; i < properties.size(); i++) {
-			voidVisit(parent, (StructuralPropertyDescriptor) properties.get(i));
+		for (Object property : properties) {
+			voidVisit(parent, (StructuralPropertyDescriptor) property);
 		}
 		return false;
 	}
@@ -1238,8 +1237,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 			ASTNode last= null;
 			ASTNode secondLast= null;
-			for (int i= 0; i < this.list.length; i++) {
-				ASTNode elem= (ASTNode) this.list[i].getOriginalValue();
+			for (RewriteEvent event : this.list) {
+				ASTNode elem= (ASTNode) event.getOriginalValue();
 				if (elem != null) {
 					if (last != null) {
 						if (elem.getNodeType() == nextKind && last.getNodeType() == currKind) {
@@ -1386,8 +1385,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 	}
 
 	private boolean isAllOfKind(RewriteEvent[] children, int kind) {
-		for (int i= 0; i < children.length; i++) {
-			if (children[i].getChangeKind() != kind) {
+		for (RewriteEvent child : children) {
+			if (child.getChangeKind() != kind) {
 				return false;
 			}
 		}
@@ -1876,8 +1875,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 	final void doCopySourcePreVisit(CopySourceInfo[] infos, Stack nodeEndStack) {
 		if (infos != null) {
-			for (int i= 0; i < infos.length; i++) {
-				CopySourceInfo curr= infos[i];
+			for (CopySourceInfo curr : infos) {
 				TextEdit edit= getCopySourceEdit(curr);
 				addEdit(edit);
 				this.currentEdit= edit;
@@ -3214,8 +3212,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 			if (event != null && event.getChangeKind() != RewriteEvent.UNCHANGED) {
 				RewriteEvent[] extendedOperands= event.getChildren();
-				for (int i= 0; i < extendedOperands.length; i++) {
-					RewriteEvent curr= extendedOperands[i];
+				for (RewriteEvent curr : extendedOperands) {
 					ASTNode elem= (ASTNode) curr.getOriginalValue();
 					if (elem != null) {
 						if (curr.getChangeKind() != RewriteEvent.REPLACED) {
@@ -3226,8 +3223,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 				}
 			} else {
 				List extendedOperands= (List) getOriginalValue(node, InfixExpression.EXTENDED_OPERANDS_PROPERTY);
-				for (int i= 0; i < extendedOperands.size(); i++) {
-					ASTNode elem= (ASTNode) extendedOperands.get(i);
+				for (Object extendedOperand : extendedOperands) {
+					ASTNode elem= (ASTNode) extendedOperand;
 					replaceOperation(startPos, operation, editGroup);
 					startPos= elem.getStartPosition() + elem.getLength();
 				}
@@ -3301,8 +3298,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 		List events = this.eventStore.getChangedPropertieEvents(node);
 
-		for (Iterator iterator = events.iterator(); iterator.hasNext();) {
-			RewriteEvent event = (RewriteEvent) iterator.next();
+		for (Object e : events) {
+			RewriteEvent event = (RewriteEvent) e;
 			if (event.getChangeKind() == RewriteEvent.REPLACED && event.getOriginalValue() instanceof ASTNode) {
 				if (this.beforeRequiredSpaceIndex  == getExtendedOffset((ASTNode) event.getOriginalValue())) {
 					doTextInsert(this.beforeRequiredSpaceIndex , String.valueOf(' '), getEditGroup(event));

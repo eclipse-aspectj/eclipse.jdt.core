@@ -468,7 +468,7 @@ public class AST {
 	 * up to and including Java SE 22(aka JDK 22).
 	 * </p>
 	 *
-	 * @since 3.37
+	 * @since 3.38
 	 */
 	public static final int JLS22 = 22;
 	/**
@@ -2867,7 +2867,7 @@ public class AST {
 	 * Creates and returns a new unparented `either or multi-pattern` node
 	 *
 	 * @return a new unparented `either or multi-pattern` node
-	 * @since 3.37
+	 * @since 3.38
 	 */
 	public EitherOrMultiPattern newEitherOrMultiPattern() {
 		EitherOrMultiPattern result = new EitherOrMultiPattern(this);

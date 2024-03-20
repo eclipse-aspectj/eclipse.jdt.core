@@ -124,15 +124,15 @@ class InternalASTRewrite extends NodeEventHandler {
 				ASTNode orig = (ASTNode) this.clonedNodes.remove(node);
 				if (orig != null) {
 					List properties = node.structuralPropertiesForType();
-					for (int i= 0; i < properties.size(); i++) {
-						StructuralPropertyDescriptor property = (StructuralPropertyDescriptor) properties.get(i);
+					for (Object p : properties) {
+						StructuralPropertyDescriptor property = (StructuralPropertyDescriptor) p;
 						Object child = node.getStructuralProperty(property);
 						if (child instanceof ASTNode) {
 							markAsMoveOrCopyTarget(node, (ASTNode) child);
 						} else if (child instanceof List) {
 							List children = (List) child;
-							for (int j= 0; j < children.size(); j++) {
-								ASTNode clonedChild = (ASTNode) children.get(j);
+							for (Object c : children) {
+								ASTNode clonedChild = (ASTNode) c;
 								markAsMoveOrCopyTarget(node, clonedChild);
 							}
 						}

@@ -95,8 +95,8 @@ public boolean contains(IResource resource) {
 	} catch (JavaModelException e) {
 		return false;
 	}
-	for (int i = 0, length = projects.length; i < length; i++) {
-		JavaProject project = (JavaProject)projects[i];
+	for (IJavaProject p : projects) {
+		JavaProject project = (JavaProject)p;
 		if (!project.contains(resource)) {
 			return false;
 		}

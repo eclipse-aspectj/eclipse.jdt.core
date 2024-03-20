@@ -3,7 +3,7 @@ package org.eclipse.jdt.core.dom;
 import java.util.List;
 
 /**
- * @since 3.37
+ * @since 3.38
  */
 @SuppressWarnings("rawtypes")
 public abstract class AbstractUnnamedTypeDeclaration extends BodyDeclaration {

@@ -1333,6 +1333,24 @@ public void bytecodeExceeds64KLimit(AbstractMethodDeclaration location) {
 		bytecodeExceeds64KLimit(method,	location.sourceStart, location.sourceEnd);
 	}
 }
+public void operandStackExceeds64KLimit(ASTNode location) {
+		this.handle(
+			IProblem.OperandStackExceeds64KLimit,
+			NoArgument,
+			NoArgument,
+			ProblemSeverities.Error | ProblemSeverities.Abort | ProblemSeverities.Fatal,
+			location.sourceStart,
+			location.sourceEnd);
+}
+public void operandStackSizeInappropriate(ASTNode location) {
+	this.handle(
+		IProblem.OperandStackSizeInappropriate,
+		NoArgument,
+		NoArgument,
+		ProblemSeverities.Warning,
+		location.sourceStart,
+		location.sourceEnd);
+}
 public void bytecodeExceeds64KLimit(LambdaExpression location) {
 	bytecodeExceeds64KLimit(location.binding, location.sourceStart, location.diagnosticsSourceEnd());
 }

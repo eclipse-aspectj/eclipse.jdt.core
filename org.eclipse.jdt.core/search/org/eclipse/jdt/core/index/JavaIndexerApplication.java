@@ -93,8 +93,8 @@ public class JavaIndexerApplication implements IApplication {
 
 	private boolean processCommandLine(String[] argsArray) {
 		List<String> args = new ArrayList<>();
-		for (int i = 0, max = argsArray.length; i < max; i++) {
-			args.add(argsArray[i]);
+		for (String arg : argsArray) {
+			args.add(arg);
 		}
 		int index = 0;
 		final int argCount = argsArray.length;

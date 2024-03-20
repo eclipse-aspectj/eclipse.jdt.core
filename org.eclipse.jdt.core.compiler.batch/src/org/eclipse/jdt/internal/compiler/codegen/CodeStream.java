@@ -833,10 +833,6 @@ public void ddiv() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ddiv;
 }
 
-public void decrStackSize(int offset) {
-	this.stackDepth -= offset;
-}
-
 public void dload(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth += 2;
@@ -2605,7 +2601,7 @@ public void invokeDynamicForStringConcat(StringBuilder recipe, List<TypeBinding>
 	signature.append(")Ljava/lang/String;"); //$NON-NLS-1$
 	this.invokeDynamic(invokeDynamicNumber,
 			argsSize,
-			1, // int
+			1, // Ljava/lang/String;
 			ConstantPool.ConcatWithConstants,
 			signature.toString().toCharArray(),
 			TypeIds.T_JavaLangObject,
@@ -2621,10 +2617,6 @@ public void invokeDynamicForStringConcat(StringBuilder recipe, List<TypeBinding>
 public void generateStringConcatenationAppend(BlockScope blockScope, Expression oper1, Expression oper2) {
 	if (this.targetLevel >= ClassFileConstants.JDK9 && blockScope.compilerOptions().useStringConcatFactory) {
 		this.countLabels = 0;
-		this.stackDepth++;
-		if (this.stackDepth > this.stackMax) {
-			this.stackMax = this.stackDepth;
-		}
 		StringBuilder recipe = new StringBuilder();
 		List<TypeBinding> arguments = new ArrayList<>();
 		if (oper1 == null) {
@@ -4802,7 +4794,7 @@ public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declari
 					SyntheticArgumentBinding[] syntheticArguments = nestedType.syntheticOuterLocalVariables();
 					if (syntheticArguments != null) {
 						for (SyntheticArgumentBinding syntheticArgument : syntheticArguments) {
-							switch (syntheticArgument.id)  {
+							switch (syntheticArgument.type.id)  {
 								case TypeIds.T_double :
 								case TypeIds.T_long :
 									receiverAndArgsSize += 2;
@@ -6966,12 +6958,6 @@ public void record(LocalVariableBinding local) {
 	local.initializationCount = 0;
 }
 
-public void recordExpressionType(TypeBinding typeBinding) {
-	// nothing to do
-}
-public void recordExpressionType(TypeBinding typeBinding, int delta, boolean adjustStackDepth) {
-	// nothing to do
-}
 public void recordPositionsFrom(int startPC, int sourcePos) {
 	this.recordPositionsFrom(startPC, sourcePos, false);
 }
