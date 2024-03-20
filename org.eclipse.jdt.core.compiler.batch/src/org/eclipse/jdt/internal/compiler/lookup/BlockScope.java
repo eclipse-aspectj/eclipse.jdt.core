@@ -71,6 +71,7 @@ public class BlockScope extends Scope {
 	// annotation support
 	public boolean insideTypeAnnotation = false;
 	public Statement blockStatement;
+	public boolean resolvingGuardExpression = false;
 
     private boolean reparentLocals = false;
 
@@ -113,7 +114,8 @@ public final void addAnonymousType(TypeDeclaration anonymousType, ReferenceBindi
 	while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
 		LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
 		if (!lambda.scope.isStatic && !lambda.scope.isConstructorCall) {
-			lambda.shouldCaptureInstance = true;
+			if (!lambda.inPreConstructorContext)
+				lambda.shouldCaptureInstance = true;
 		}
 		methodScope = methodScope.enclosingMethodScope();
 	}
@@ -147,20 +149,21 @@ public final void addLocalVariable(LocalVariableBinding binding) {
 		return;
 	}
 	checkAndSetModifiersForVariable(binding);
-	// insert local in scope
-	if (this.localIndex == this.locals.length)
-		System.arraycopy(
-			this.locals,
-			0,
-			(this.locals = new LocalVariableBinding[this.localIndex * 2]),
-			0,
-			this.localIndex);
-	this.locals[this.localIndex++] = binding;
+	// insert local in scope, skipping unnamed pattern variables.
+	if (!binding.isPatternVariable() || !binding.declaration.isUnnamed(this)) {
+		if (this.localIndex == this.locals.length)
+			System.arraycopy(
+				this.locals,
+				0,
+				(this.locals = new LocalVariableBinding[this.localIndex * 2]),
+				0,
+				this.localIndex);
+		this.locals[this.localIndex++] = binding;
+		binding.id = outerMostMethodScope().analysisIndex++; // share the outermost method scope analysisIndex
+	}
 
 	// update local variable binding
 	binding.declaringScope = this;
-	binding.id = outerMostMethodScope().analysisIndex++;
-	// share the outermost method scope analysisIndex
 }
 
 public void addSubscope(Scope childScope) {
@@ -994,9 +997,9 @@ public final boolean isDuplicateLocalVariable(char[] name) {
 public int maxShiftedOffset() {
 	int max = -1;
 	if (this.shiftScopes != null){
-		for (int i = 0, length = this.shiftScopes.length; i < length; i++){
-			if (this.shiftScopes[i] != null) {
-				int subMaxOffset = this.shiftScopes[i].maxOffset;
+		for (BlockScope shiftScope : this.shiftScopes) {
+			if (shiftScope != null) {
+				int subMaxOffset = shiftScope.maxOffset;
 				if (subMaxOffset > max) max = subMaxOffset;
 			}
 		}
@@ -1052,8 +1055,7 @@ public void propagateInnerEmulation(ReferenceBinding targetType, boolean isEnclo
 
 	SyntheticArgumentBinding[] syntheticArguments;
 	if ((syntheticArguments = targetType.syntheticOuterLocalVariables()) != null) {
-		for (int i = 0, max = syntheticArguments.length; i < max; i++) {
-			SyntheticArgumentBinding syntheticArg = syntheticArguments[i];
+		for (SyntheticArgumentBinding syntheticArg : syntheticArguments) {
 			// need to filter out the one that could match a supplied enclosing instance
 			if (!(isEnclosingInstanceSupplied
 				&& (TypeBinding.equalsEquals(syntheticArg.type, targetType.enclosingType())))) {
@@ -1403,8 +1405,8 @@ public void checkAppropriateMethodAgainstSupers(char[] selector, MethodBinding c
 	if (checkAppropriate(compileTimeMethod, otherMethod, site)) {
 		ReferenceBinding[] superInterfaces = enclosingType.superInterfaces();
 		if (superInterfaces != null) {
-			for (int i = 0; i < superInterfaces.length; i++) {
-				otherMethod = getMethod(superInterfaces[i], selector, parameters, site);
+			for (ReferenceBinding superInterface : superInterfaces) {
+				otherMethod = getMethod(superInterface, selector, parameters, site);
 				if (!checkAppropriate(compileTimeMethod, otherMethod, site))
 					break;
 			}
@@ -1435,6 +1437,12 @@ public void reportClashingDeclarations(LocalVariableBinding [] left, LocalVariab
 		}
 	}
 }
+
+@Override
+public boolean resolvingGuardExpression() {
+	return this.resolvingGuardExpression;
+}
+
 public void include(LocalVariableBinding[] bindings) {
 	// `this` is assumed to be populated with bindings.
 	if (bindings != null) {

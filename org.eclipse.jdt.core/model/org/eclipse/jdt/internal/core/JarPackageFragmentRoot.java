@@ -42,6 +42,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.JavaModelManager.PerProjectInfo;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.HashtableOfArrayToObject;
 import org.eclipse.jdt.internal.core.util.Util;
 
@@ -73,7 +74,7 @@ public class JarPackageFragmentRoot extends PackageFragmentRoot {
 
 	/**
 	 * Reflects the extra attributes of the classpath entry declaring this root.
-	 * Caution, this field is used in hashCode() & equals() to avoid overzealous sharing.
+	 * Caution, this field is used in {@link #hashCode()} and {@link #equals(Object)} to avoid overzealous sharing.
 	 * Can be null, if lookup via the corresponding classpath entry failed.
 	 */
 	final protected IClasspathAttribute[] extraAttributes;
@@ -120,7 +121,7 @@ public class JarPackageFragmentRoot extends PackageFragmentRoot {
 			// always create the default package
 			rawPackageInfo.put(CharOperation.NO_STRINGS, new ArrayList[] { EMPTY_LIST, EMPTY_LIST });
 
-			Object file = JavaModel.getTarget(getPath(), true);
+			Object file = JavaModel.getTarget(this, true);
 			long classLevel = Util.getJdkLevel(file);
 			String projectCompliance = this.getJavaProject().getOption(JavaCore.COMPILER_COMPLIANCE, true);
 			long projectLevel = CompilerOptions.versionToJdkLevel(projectCompliance);
@@ -151,6 +152,9 @@ public class JarPackageFragmentRoot extends PackageFragmentRoot {
 				for (Enumeration<? extends ZipEntry> e= jar.entries(); e.hasMoreElements();) {
 					ZipEntry member= e.nextElement();
 					String name = member.getName();
+					if (name.contains("..")) { //$NON-NLS-1$
+						throw new IllegalArgumentException("Bad zip entry: "+name+" in "+jar.getName()); //$NON-NLS-1$ //$NON-NLS-2$
+					}
 					if (this.multiVersion && name.length() > (length + 2) && name.startsWith(version)) {
 						int end = name.indexOf('/', length);
 						if (end >= name.length()) continue;
@@ -363,12 +367,11 @@ public class JarPackageFragmentRoot extends PackageFragmentRoot {
 			if (existing != null) break;
 			existingLength--;
 		}
-		JavaModelManager manager = JavaModelManager.getJavaModelManager();
 		for (int i = existingLength; i < length; i++) {
 			// sourceLevel must be null because we know nothing about it based on a jar file
 			if (Util.isValidFolderNameForPackage(pkgName[i], null, compliance)) {
 				System.arraycopy(existing, 0, existing = new String[i+1], 0, i);
-				existing[i] = manager.intern(pkgName[i]);
+				existing[i] = DeduplicationUtil.intern(pkgName[i]);
 				rawPackageInfo.put(existing, new ArrayList[] { EMPTY_LIST, EMPTY_LIST });
 			} else {
 				// non-Java resource folder

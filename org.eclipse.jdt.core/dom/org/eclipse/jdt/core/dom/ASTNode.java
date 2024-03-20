@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -1100,6 +1100,21 @@ public abstract class ASTNode {
 	public static final int STRING_TEMPLATE_COMPONENT = 117;
 
 	/**
+	 * Node type constant indicating a node of type
+	 * <code>EitherOrMultiPattern</code>.
+	 * @since 3.37
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static final int EitherOr_MultiPattern = 118;
+
+	/**
+	 * @see UnnamedClass
+	 * @since 3.37
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static final int UNNAMED_CLASS = 119;
+
+	/**
 	 * Returns the node class for the corresponding node type.
 	 *
 	 * @param nodeType AST node type
@@ -1345,6 +1360,10 @@ public abstract class ASTNode {
 				return StringFragment.class;
 			case STRING_TEMPLATE_COMPONENT :
 				return StringTemplateComponent.class;
+			case EitherOr_MultiPattern:
+				return EitherOrMultiPattern.class;
+			case UNNAMED_CLASS :
+				return UnnamedClass.class;
 		}
 		throw new IllegalArgumentException();
 	}
@@ -2076,7 +2095,7 @@ public abstract class ASTNode {
 	 * @since 3.0
 	 */
 	List internalGetChildListProperty(ChildListPropertyDescriptor property) {
-		throw new RuntimeException("Node does not have this property");  //$NON-NLS-1$
+		throw new RuntimeException("Node does not have this property" + property.toString());  //$NON-NLS-1$
 	}
 
 	/**
@@ -2576,6 +2595,21 @@ public abstract class ASTNode {
 	final void supportedOnlyIn21() {
 		if (this.ast.apiLevel < AST.JLS21_INTERNAL) {
 			throw new UnsupportedOperationException("Operation only supported in JLS21 AST"); //$NON-NLS-1$
+		}
+	}
+	/**
+ 	 * Checks that this AST operation is only used when
+     * building JLS22 level ASTs.
+     * <p>
+     * Use this method to prevent access to new properties available only in JLS22.
+     * </p>
+     *
+	 * @exception UnsupportedOperationException if this operation is not used in JLS22
+	 * @since 3.37
+	 */
+	final void supportedOnlyIn22() {
+		if (this.ast.apiLevel < AST.JLS22_INTERNAL) {
+			throw new UnsupportedOperationException("Operation only supported in JLS22 AST"); //$NON-NLS-1$
 		}
 	}
 	/**

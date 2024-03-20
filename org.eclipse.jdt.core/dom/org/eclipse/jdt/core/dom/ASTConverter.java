@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -250,6 +250,81 @@ public class ASTConverter {
 		}
 		// Convert javadoc
 		convert(typeDeclaration.javadoc, typeDecl);
+	}
+
+	protected void buildBodyDeclarations(
+			org.eclipse.jdt.internal.compiler.ast.ImplicitTypeDeclaration unnamedClass,
+			UnnamedClass newUnnamedClass,
+			boolean isInterface) {
+		// add body declaration in the lexical order
+		org.eclipse.jdt.internal.compiler.ast.TypeDeclaration[] members = unnamedClass.memberTypes;
+		org.eclipse.jdt.internal.compiler.ast.FieldDeclaration[] fields = unnamedClass.fields;
+		org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration[] methods = unnamedClass.methods;
+
+		int fieldsLength = fields == null? 0 : fields.length;
+		int methodsLength = methods == null? 0 : methods.length;
+		int membersLength = members == null ? 0 : members.length;
+		int fieldsIndex = 0;
+		int methodsIndex = 0;
+		int membersIndex = 0;
+
+		while ((fieldsIndex < fieldsLength)
+			|| (membersIndex < membersLength)
+			|| (methodsIndex < methodsLength)) {
+			org.eclipse.jdt.internal.compiler.ast.FieldDeclaration nextFieldDeclaration = null;
+			org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration nextMethodDeclaration = null;
+			org.eclipse.jdt.internal.compiler.ast.TypeDeclaration nextMemberDeclaration = null;
+
+			int position = Integer.MAX_VALUE;
+			int nextDeclarationType = -1;
+			if (fieldsIndex < fieldsLength) {
+				nextFieldDeclaration = fields[fieldsIndex];
+				if (nextFieldDeclaration.declarationSourceStart < position) {
+					position = nextFieldDeclaration.declarationSourceStart;
+					nextDeclarationType = 0; // FIELD
+				}
+			}
+			if (methodsIndex < methodsLength) {
+				nextMethodDeclaration = methods[methodsIndex];
+				if (nextMethodDeclaration.declarationSourceStart < position) {
+					position = nextMethodDeclaration.declarationSourceStart;
+					nextDeclarationType = 1; // METHOD
+				}
+			}
+			if (membersIndex < membersLength) {
+				nextMemberDeclaration = members[membersIndex];
+				if (nextMemberDeclaration.declarationSourceStart < position) {
+					position = nextMemberDeclaration.declarationSourceStart;
+					nextDeclarationType = 2; // MEMBER
+				}
+			}
+			switch (nextDeclarationType) {
+				case 0 :
+					if (nextFieldDeclaration.getKind() == AbstractVariableDeclaration.ENUM_CONSTANT) {
+						newUnnamedClass.bodyDeclarations().add(convert(nextFieldDeclaration));
+					} else {
+						checkAndAddMultipleFieldDeclaration(fields, fieldsIndex, newUnnamedClass.bodyDeclarations());
+					}
+					fieldsIndex++;
+					break;
+				case 1 :
+					methodsIndex++;
+					if (!nextMethodDeclaration.isDefaultConstructor() && !nextMethodDeclaration.isClinit()) {
+						newUnnamedClass.bodyDeclarations().add(convert(isInterface, nextMethodDeclaration));
+					}
+					break;
+				case 2 :
+					membersIndex++;
+					ASTNode node = convert(nextMemberDeclaration);
+					if (node == null) {
+						newUnnamedClass.setFlags(newUnnamedClass.getFlags() | ASTNode.MALFORMED);
+					} else {
+						newUnnamedClass.bodyDeclarations().add(node);
+					}
+			}
+		}
+		// Convert javadoc
+		convert(unnamedClass.javadoc, newUnnamedClass);
 	}
 
 	protected void buildBodyDeclarations(
@@ -756,7 +831,7 @@ public class ASTConverter {
 				methodDecl.setBody(block);
 			}
 			if (block != null && (statements != null || explicitConstructorCall != null)) {
-				if (explicitConstructorCall != null && explicitConstructorCall.accessMode != org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall.ImplicitSuper) {
+				if (explicitConstructorCall != null && explicitConstructorCall.accessMode != org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall.ImplicitSuper && explicitConstructorCall.firstStatement) {
 					block.statements().add(convert(explicitConstructorCall));
 				}
 				int statementsLength = statements == null ? 0 : statements.length;
@@ -1446,8 +1521,7 @@ public class ASTConverter {
 			}
 		} else {
 			org.eclipse.jdt.internal.compiler.ast.Expression[] constantExpressions = statement.constantExpressions;
-			org.eclipse.jdt.internal.compiler.ast.Expression constantExpression =
-					constantExpressions != null && constantExpressions.length > 0 ? constantExpressions[0] : null;
+			org.eclipse.jdt.internal.compiler.ast.Expression constantExpression = constantExpressions.length > 0 ? constantExpressions[0] : null;
 			if (constantExpression == null) {
 				internalSetExpression(switchCase, null);
 			} else {
@@ -2315,7 +2389,7 @@ public class ASTConverter {
 		int startPosition = pattern.sourceStart;
 		int sourceEnd = pattern.sourceEnd;
 		guardedPattern.setSourceRange(startPosition, sourceEnd - startPosition + 1);
-		guardedPattern.setRestrictedIdentifierStartPosition(pattern.restrictedIdentifierStart);
+		guardedPattern.setRestrictedIdentifierStartPosition(pattern.whenSourceStart);
 		return guardedPattern;
 	}
 
@@ -2327,12 +2401,7 @@ public class ASTConverter {
 		int startPosition = pattern.sourceStart;
 		int sourceEnd= pattern.sourceEnd;
 		recordPattern.setSourceRange(startPosition, sourceEnd - startPosition + 1);
-		if (pattern.local != null) {
-			recordPattern.setPatternType(convertType(pattern.local.type));
-			SimpleName patternName = new SimpleName(this.ast);
-			patternName.internalSetIdentifier(new String(pattern.local.name));
-			patternName.setSourceRange(pattern.local.nameSourceStart(), pattern.local.nameSourceEnd() - pattern.local.nameSourceStart() + 1);
-		} else if (pattern.type != null) {
+		if (pattern.type != null) {
 			recordPattern.setPatternType(convertType(pattern.type));
 		}
 		List<Pattern> patterns = recordPattern.patterns();
@@ -2340,6 +2409,21 @@ public class ASTConverter {
 			patterns.add(convert(nestedPattern));
 		}
 		return recordPattern;
+	}
+
+	public Pattern convert(org.eclipse.jdt.internal.compiler.ast.EitherOrMultiPattern pattern) {
+		EitherOrMultiPattern eitherOrPattern = new EitherOrMultiPattern(this.ast);
+		if (this.resolveBindings) {
+			recordNodes(eitherOrPattern, pattern);
+		}
+		int startPosition = pattern.sourceStart;
+		int sourceEnd= pattern.sourceEnd;
+		eitherOrPattern.setSourceRange(startPosition, sourceEnd - startPosition + 1);
+		List<Pattern> patterns = eitherOrPattern.patterns();
+		for (org.eclipse.jdt.internal.compiler.ast.Pattern alternative : pattern.getAlternatives()) {
+			patterns.add(convert(alternative));
+		}
+		return eitherOrPattern;
 	}
 
 	public IfStatement convert(org.eclipse.jdt.internal.compiler.ast.IfStatement statement) {
@@ -2389,8 +2473,9 @@ public class ASTConverter {
 		if (this.ast.apiLevel >= AST.JLS21) {
 			patternInstanceOfExpression.setPattern(convert(expression.pattern));
 		} else {
-			if (expression.elementVariable != null) {
-				patternInstanceOfExpression.setRightOperand(convertToSingleVariableDeclaration(expression.elementVariable));
+			LocalDeclaration elementVariable = expression.pattern instanceof org.eclipse.jdt.internal.compiler.ast.TypePattern tp ? tp.local : null;
+			if (elementVariable != null) {
+				patternInstanceOfExpression.setRightOperand(convertToSingleVariableDeclaration(elementVariable));
 			} else if (expression.pattern != null){
 				// Let's recover a bit and create a SVD, even though what we have is a record pattern.
 				SingleVariableDeclaration rightOperand = patternInstanceOfExpression.getRightOperand();
@@ -2899,6 +2984,9 @@ public class ASTConverter {
 			}
 			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.RecordPattern) {
 				return convert((org.eclipse.jdt.internal.compiler.ast.RecordPattern) pattern);
+			}
+			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.EitherOrMultiPattern) {
+				return convert((org.eclipse.jdt.internal.compiler.ast.EitherOrMultiPattern) pattern);
 			}
 			if (pattern instanceof org.eclipse.jdt.internal.compiler.ast.GuardedPattern) {
 				return convert((org.eclipse.jdt.internal.compiler.ast.GuardedPattern) pattern);
@@ -3447,6 +3535,8 @@ public class ASTConverter {
 				return null;
 			}
 			return convertToRecordDeclaration(typeDeclaration);
+		} else if (typeDeclaration instanceof org.eclipse.jdt.internal.compiler.ast.ImplicitTypeDeclaration unnamedClass) {
+			return convertToUnnamedClass(unnamedClass);
 		}
 		checkCanceled();
 		// AspectJ Extension - use factory method and not ctor
@@ -3526,6 +3616,20 @@ public class ASTConverter {
 			recordNodes(typeDecl, typeDeclaration);
 			recordNodes(typeName, typeDeclaration);
 			typeDecl.resolveBinding();
+		}
+		this.referenceContext = oldReferenceContext;
+		return typeDecl;
+	}
+
+	private ASTNode convertToUnnamedClass(org.eclipse.jdt.internal.compiler.ast.ImplicitTypeDeclaration unnamedClass) {
+		UnnamedClass typeDecl = new UnnamedClass(this.ast);
+		ASTNode oldReferenceContext = this.referenceContext;
+		this.referenceContext = typeDecl;
+		typeDecl.setSourceRange(unnamedClass.declarationSourceStart, unnamedClass.bodyEnd - unnamedClass.declarationSourceStart + 1);
+
+		buildBodyDeclarations(unnamedClass, typeDecl, false);
+		if (this.resolveBindings) {
+			recordNodes(typeDecl, unnamedClass);
 		}
 		this.referenceContext = oldReferenceContext;
 		return typeDecl;
