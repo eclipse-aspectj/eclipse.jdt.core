@@ -183,7 +183,7 @@
     <maven.javadoc.skip>true</maven.javadoc.skip>
 
     <!-- Dependency versions -->
-    <aspectj.version>1.9.21</aspectj.version>
+    <aspectj.version>1.9.21.2</aspectj.version>
   </properties>
 
   <distributionManagement>
