@@ -3037,7 +3037,7 @@ protected void consumeConstructorHeaderName() {
 	}
 
 	// ConstructorHeaderName ::=  Modifiersopt 'Identifier' '('
-	ConstructorDeclaration cd = new ConstructorDeclaration(this.compilationUnit.compilationResult);
+	ConstructorDeclaration cd = declarationFactory.createConstructorDeclaration(this.compilationUnit.compilationResult); // AspectJ, was: ConstructorDeclaration cd = new ConstructorDeclaration(this.compilationUnit.compilationResult);
 
 	//name -- this is not really revelant but we do .....
 	cd.selector = this.identifierStack[this.identifierPtr];
