@@ -4523,7 +4523,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		return attributesNumber;
 	}
 
-	// AspectJ Extension - new method stub that can pass 3rd param
+	// AspectJ Extension - new method stub that can pass 2nd param
 	public int generateMethodInfoAttributes(MethodBinding methodBinding) {
 		return generateMethodInfoAttributes(methodBinding,(List)null);
 	}
