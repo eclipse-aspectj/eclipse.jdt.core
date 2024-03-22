@@ -3132,7 +3132,7 @@ protected void consumeConstructorHeaderNameWithTypeParameters() {
 	}
 
 	// ConstructorHeaderName ::=  Modifiersopt TypeParameters 'Identifier' '('
-	ConstructorDeclaration cd = new ConstructorDeclaration(this.compilationUnit.compilationResult);
+	ConstructorDeclaration cd = declarationFactory.createConstructorDeclaration(this.compilationUnit.compilationResult); // AspectJ, was: ConstructorDeclaration cd = new ConstructorDeclaration(this.compilationUnit.compilationResult);
 
 	helperConstructorHeaderNameWithTypeParameters(cd);
 }
@@ -5414,7 +5414,7 @@ protected void consumeMethodHeaderNameWithTypeParameters(boolean isAnnotationMet
 		md = new AnnotationMethodDeclaration(this.compilationUnit.compilationResult);
 		this.recordStringLiterals = false;
 	} else {
-		md = new MethodDeclaration(this.compilationUnit.compilationResult);
+		md = declarationFactory.createMethodDeclaration(this.compilationUnit.compilationResult); // AspectJ, was: md = new MethodDeclaration(this.compilationUnit.compilationResult);
 	}
 
 	//name
@@ -13637,7 +13637,7 @@ public boolean containsComment(int sourceStart, int sourceEnd) {
 }
 
 public MethodDeclaration convertToMethodDeclaration(ConstructorDeclaration c, CompilationResult compilationResult) {
-	MethodDeclaration m = new MethodDeclaration(compilationResult);
+	MethodDeclaration m = declarationFactory.createMethodDeclaration(compilationResult); // AspectJ, was: MethodDeclaration m = new MethodDeclaration(compilationResult);
 	m.typeParameters = c.typeParameters;
 	m.sourceStart = c.sourceStart;
 	m.sourceEnd = c.sourceEnd;
