@@ -48,7 +48,6 @@ import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
 import org.eclipse.jdt.internal.compiler.ast.NameReference;
-import org.eclipse.jdt.internal.compiler.ast.RecordPattern;
 import org.eclipse.jdt.internal.compiler.ast.RequiresStatement;
 import org.eclipse.jdt.internal.compiler.ast.Statement;
 import org.eclipse.jdt.internal.compiler.ast.SuperReference;
@@ -373,16 +372,6 @@ public RecoveredElement buildInitialRecoveryState(){
 						// and leaves it in the astStack
 						final List<LocalDeclaration> locals = new ArrayList<>();
 						node.traverse(new ASTVisitor() {
-							@SuppressWarnings("synthetic-access")
-							@Override
-							public boolean visit(RecordPattern pattern, BlockScope scope) {
-								LocalDeclaration local = pattern.local;
-								if (local == null)
-									return true;
-								locals.add(local);
-								AssistParser.this.lastCheckPoint = local.declarationSourceEnd + 1;
-								return true;
-							}
 							@SuppressWarnings("synthetic-access")
 							@Override
 							public boolean visit(TypePattern pattern, BlockScope scope) {
@@ -1645,8 +1634,8 @@ protected TypeReference getAssistTypeReferenceForGenericType(int dim, int identi
 		System.arraycopy(typeArguments, 0, typeArguments = new TypeReference[realLength][], 0, realLength);
 
 		boolean isParameterized = false;
-		for (int i = 0; i < typeArguments.length; i++) {
-			if(typeArguments[i] != null) {
+		for (TypeReference[] typeArgument : typeArguments) {
+			if(typeArgument != null) {
 				isParameterized = true;
 				break;
 			}
@@ -2400,9 +2389,9 @@ protected int fallBackToSpringForward(Statement unused) {
 			ignoreNextClosingBrace(); // having ungotten it, recoveryTokenCheck will see this again.
 	}
 	// OK, next token is no good to resume "in place", attempt some local repair.
-	for (int i = 0, length = RECOVERY_TOKENS.length; i < length; i++) {
-		if (automatonWillShift(RECOVERY_TOKENS[i], automatonState)) {
-			this.currentToken = RECOVERY_TOKENS[i];
+	for (int token : RECOVERY_TOKENS) {
+		if (automatonWillShift(token, automatonState)) {
+			this.currentToken = token;
 			return RESUME;
 		}
 	}

@@ -67,6 +67,7 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.Messages;
 import org.eclipse.jdt.internal.core.*;
 import org.eclipse.jdt.internal.core.util.ASTNodeFinder;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.HandleFactory;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -502,9 +503,8 @@ private void remember(IType type, ReferenceBinding typeBinding) {
 private void rememberAllTypes(CompilationUnitDeclaration parsedUnit, org.eclipse.jdt.core.ICompilationUnit cu, boolean includeLocalTypes) {
 	TypeDeclaration[] types = parsedUnit.types;
 	if (types != null) {
-		for (int i = 0, length = types.length; i < length; i++) {
-			TypeDeclaration type = types[i];
-			rememberWithMemberTypes(type, cu.getType(new String(type.name)));
+		for (TypeDeclaration type : types) {
+			rememberWithMemberTypes(type, cu.getType(DeduplicationUtil.toString(type.name)));
 		}
 	}
 	if (!includeLocalTypes || (parsedUnit.localTypes.isEmpty() && parsedUnit.functionalExpressions == null))
@@ -537,9 +537,8 @@ private void rememberWithMemberTypes(TypeDeclaration typeDecl, IType typeHandle)
 
 	TypeDeclaration[] memberTypes = typeDecl.memberTypes;
 	if (memberTypes != null) {
-		for (int i = 0, length = memberTypes.length; i < length; i++) {
-			TypeDeclaration memberType = memberTypes[i];
-			rememberWithMemberTypes(memberType, typeHandle.getType(new String(memberType.name)));
+		for (TypeDeclaration memberType : memberTypes) {
+			rememberWithMemberTypes(memberType, typeHandle.getType(DeduplicationUtil.toString(memberType.name)));
 		}
 	}
 }
@@ -937,8 +936,8 @@ public ReferenceBinding setFocusType(char[][] compoundName) {
 				this.focusType = this.lookupEnvironment.askForType(compoundName, this.lookupEnvironment.UnNamedModule);
 				if (this.focusType != null) {
 					char[][] memberTypeNames = CharOperation.splitOn('$', typeName, firstDollar+1, typeName.length);
-					for (int i = 0; i < memberTypeNames.length; i++) {
-						this.focusType = this.focusType.getMemberType(memberTypeNames[i]);
+					for (char[] memberTypeName : memberTypeNames) {
+						this.focusType = this.focusType.getMemberType(memberTypeName);
 						if (this.focusType == null)
 							return null;
 					}
@@ -967,8 +966,8 @@ private boolean subTypeOfType(ReferenceBinding subType, ReferenceBinding typeBin
 	if (subTypeOfType(superclass, typeBinding)) return true;
 	ReferenceBinding[] superInterfaces = subType.superInterfaces();
 	if (superInterfaces != null) {
-		for (int i = 0, length = superInterfaces.length; i < length; i++) {
-			ReferenceBinding superInterface = (ReferenceBinding) superInterfaces[i].erasure();
+		for (ReferenceBinding si : superInterfaces) {
+			ReferenceBinding superInterface = (ReferenceBinding) si.erasure();
 			if (superInterface.isHierarchyInconsistent()) return false;
 			if (subTypeOfType(superInterface, typeBinding)) return true;
 		}

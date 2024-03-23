@@ -677,9 +677,9 @@ public class ASTRewriteFlattener extends ASTVisitor {
 	public boolean visit(Javadoc node) {
 		this.result.append("/**"); //$NON-NLS-1$
 		List list= getChildList(node, Javadoc.TAGS_PROPERTY);
-		for (int i= 0; i < list.size(); i++) {
+		for (Object child : list) {
 			this.result.append("\n * "); //$NON-NLS-1$
-			((ASTNode) list.get(i)).accept(this);
+			((ASTNode) child).accept(this);
 		}
 		this.result.append("\n */"); //$NON-NLS-1$
 		return false;
@@ -1657,12 +1657,7 @@ public class ASTRewriteFlattener extends ASTVisitor {
 		this.result.append((node.isMultiline() ? "\"\"\"\n" : "\"")); //$NON-NLS-1$ //$NON-NLS-2$
 		expression = node.getFirstFragment();
 		expression.accept(this);
-		List<StringTemplateComponent> components = node.components();
-		int size = components.size();
-		for(int i = 0; i < size; i++) {
-			Expression comp = components.get(i);
-			comp.accept(this);
-		}
+		visitList(node, StringTemplateExpression.STRING_TEMPLATE_COMPONENTS, Util.EMPTY_STRING, Util.EMPTY_STRING, Util.EMPTY_STRING);
 		this.result.append((node.isMultiline() ? "\"\"\"" : "\"")); //$NON-NLS-1$ //$NON-NLS-2$
 		return false;
 	}

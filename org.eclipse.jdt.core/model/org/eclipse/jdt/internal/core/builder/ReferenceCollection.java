@@ -311,9 +311,9 @@ public static char[][][] internQualifiedNames(StringSet qualifiedStrings) {
 
 	char[][][] result = new char[length][][];
 	String[] strings = qualifiedStrings.values;
-	for (int i = 0, l = strings.length; i < l; i++)
-		if (strings[i] != null)
-			result[--length] = CharOperation.splitOn('/', strings[i].toCharArray());
+	for (String string : strings)
+		if (string != null)
+			result[--length] = CharOperation.splitOn('/', string.toCharArray());
 	return internQualifiedNames(result, false);
 }
 
@@ -352,8 +352,7 @@ static char[][][] internQualifiedNames(char[][][] qualifiedNames, boolean keepWe
 	next : for (int i = 0; i < length; i++) {
 		char[][] qualifiedName = qualifiedNames[i];
 		int qLength = qualifiedName.length;
-		for (int j = 0, m = WellKnownQualifiedNames.length; j < m; j++) {
-			char[][] wellKnownName = WellKnownQualifiedNames[j];
+		for (char[][] wellKnownName : WellKnownQualifiedNames) {
 			if (qLength > wellKnownName.length)
 				break; // all remaining well known names are shorter
 			if (CharOperation.equals(qualifiedName, wellKnownName)) {
@@ -423,9 +422,9 @@ public static char[][] internSimpleNames(StringSet simpleStrings, boolean remove
 
 	char[][] result = new char[length][];
 	String[] strings = simpleStrings.values;
-	for (int i = 0, l = strings.length; i < l; i++)
-		if (strings[i] != null)
-			result[--length] = strings[i].toCharArray();
+	for (String string : strings)
+		if (string != null)
+			result[--length] = string.toCharArray();
 	return internSimpleNames(result, removeWellKnown);
 }
 /**
@@ -454,8 +453,7 @@ static char[][] internSimpleNames(char[][] simpleNames, boolean removeWellKnown,
 	next : for (int i = 0; i < length; i++) {
 		char[] name = simpleNames[i];
 		int sLength = name.length;
-		for (int j = 0, m = WellKnownSimpleNames.length; j < m; j++) {
-			char[] wellKnownName = WellKnownSimpleNames[j];
+		for (char[] wellKnownName : WellKnownSimpleNames) {
 			if (sLength > wellKnownName.length)
 				break; // all remaining well known names are shorter
 			if (CharOperation.equals(name, wellKnownName)) {
@@ -544,16 +542,15 @@ private boolean debugIncludes(char[][][] qualifiedNames, char[][] simpleNames, c
 				System.out.println("Found well known match"); //$NON-NLS-1$
 			return true;
 		} else if (qualifiedNames == null) {
-			for (int i = 0, l = simpleNames.length; i < l; i++) {
-				if (debugIncludes(simpleNames[i])) {
+			for (char[] simpleName : simpleNames) {
+				if (debugIncludes(simpleName)) {
 					if (JavaBuilder.DEBUG)
-						System.out.println("Found match in well known package to " + new String(simpleNames[i])); //$NON-NLS-1$
+						System.out.println("Found match in well known package to " + new String(simpleName)); //$NON-NLS-1$
 					return true;
 				}
 			}
 		} else {
-			for (int i = 0, l = qualifiedNames.length; i < l; i++) {
-				char[][] qualifiedName = qualifiedNames[i];
+			for (char[][] qualifiedName : qualifiedNames) {
 				if (qualifiedName.length == 1 ? debugIncludes(qualifiedName[0]) : debugIncludes(qualifiedName)) {
 					if (JavaBuilder.DEBUG)
 						System.out.println("Found well known match in " + CharOperation.toString(qualifiedName)); //$NON-NLS-1$
@@ -601,20 +598,20 @@ private boolean debugIncludes(char[][][] qualifiedNames, char[][] simpleNames, c
 }
 
 private boolean debugInsideRoot(char[] rootName) {
-	for (int i = 0, l = this.rootReferences.length; i < l; i++)
-		if (rootName == this.rootReferences[i]) return true;
+	for (char[] name : this.rootReferences)
+		if (rootName == name) return true;
 	return false;
 }
 
 private boolean debugIncludes(char[] simpleName) {
-	for (int i = 0, l = this.simpleNameReferences.length; i < l; i++)
-		if (simpleName == this.simpleNameReferences[i]) return true;
+	for (char[] name : this.simpleNameReferences)
+		if (simpleName == name) return true;
 	return false;
 }
 
 private boolean debugIncludes(char[][] qualifiedName) {
-	for (int i = 0, l = this.qualifiedNameReferences.length; i < l; i++)
-		if (qualifiedName == this.qualifiedNameReferences[i]) return true;
+	for (char[][] name : this.qualifiedNameReferences)
+		if (qualifiedName == name) return true;
 	return false;
 }
 

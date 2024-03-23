@@ -2276,12 +2276,12 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		                } else {
 		                	int[] template = getNTermTemplate(-tmpAddedToken);
 		                	if(template != null) {
-			                	for (int j = 0; j < template.length; j++) {
+			                	for (int t : template) {
 									int length = addedTokens.length;
 		                			if(addedTokenCount == length) {
 				                		System.arraycopy(addedTokens, 0, addedTokens = new int[length * 2], 0, length);
 				                	}
-		                			addedTokens[addedTokenCount++] = template[j];
+		                			addedTokens[addedTokenCount++] = t;
 								}
 		                	} else {
 			                	addedTokenCount = 0;
@@ -2497,12 +2497,12 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		                } else {
 		                	int[] template = getNTermTemplate(-tmpAddedToken);
 		                	if(template != null) {
-			                	for (int j = 0; j < template.length; j++) {
+			                	for (int t : template) {
 									int length = addedTokens.length;
 		                			if(addedTokenCount == length) {
 				                		System.arraycopy(addedTokens, 0, addedTokens = new int[length * 2], 0, length);
 				                	}
-		                			addedTokens[addedTokenCount++] = template[j];
+		                			addedTokens[addedTokenCount++] = t;
 								}
 		                	} else {
 			                	addedTokenCount = 0;

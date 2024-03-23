@@ -59,6 +59,7 @@ import org.eclipse.jdt.internal.core.search.IRestrictedAccessConstructorRequesto
 import org.eclipse.jdt.internal.core.search.IRestrictedAccessTypeRequestor;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 import org.eclipse.jdt.internal.core.search.processing.IJob;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.Util;
 
 /**
@@ -363,9 +364,9 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 							requestor.acceptPackage(exportName);
 					}
 				}
-				for (IModuleReference moduleRef2 : requiredModule.getRequiredModules()) {
-					if (moduleRef2.isTransitive())
-						findPackagesFromRequires(prefix, isMatchAllPrefix, requestor, moduleRef2, clientModuleName);
+				for (IModuleReference ref : requiredModule.getRequiredModules()) {
+					if (ref.isTransitive())
+						findPackagesFromRequires(prefix, isMatchAllPrefix, requestor, ref, clientModuleName);
 				}
 			}
 		} catch (JavaModelException e) {
@@ -526,7 +527,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 		System.arraycopy(compoundTypeName, 0, packageName, 0, lengthM1);
 
 		return find(
-			new String(compoundTypeName[lengthM1]),
+			DeduplicationUtil.toString(compoundTypeName[lengthM1]),
 			CharOperation.toString(packageName),
 			moduleLocations);
 	}
@@ -541,8 +542,8 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 		boolean isNamedStrategy = LookupStrategy.get(moduleName) == LookupStrategy.Named;
 		IPackageFragmentRoot[] moduleLocations = isNamedStrategy ? findModuleContext(moduleName) : null;
 		return find(
-			new String(name),
-			packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName),
+				DeduplicationUtil.toString(name),
+				packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName),
 			moduleLocations);
 	}
 
@@ -963,9 +964,9 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 			IPackageFragment[] fragments = elementRequestor.getPackageFragments();
 			if (fragments != null) {
 				String className = prefix.substring(index + 1);
-				for (int i = 0, length = fragments.length; i < length; i++)
-					if (fragments[i] != null)
-						this.nameLookup.seekTypes(className, fragments[i], true, type, requestor);
+				for (IPackageFragment fragment : fragments)
+					if (fragment != null)
+						this.nameLookup.seekTypes(className, fragment, true, type, requestor);
 			}
 		}
 	}
@@ -1178,8 +1179,8 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 	 */
 	protected String toStringCharChar(char[][] names) {
 		StringBuilder result = new StringBuilder();
-		for (int i = 0; i < names.length; i++) {
-			result.append(toStringChar(names[i]));
+		for (char[] name : names) {
+			result.append(toStringChar(name));
 		}
 		return result.toString();
 	}
@@ -1240,8 +1241,7 @@ private void findPackagesFromRequires(char[] prefix, boolean isMatchAllPrefix, I
 		IPackageFragmentRoot[] allRoots = javaProject.getPackageFragmentRoots();
 		IPackageFragmentRoot[] sourceRoots = Arrays.copyOf(allRoots, allRoots.length);
 		int count = 0;
-		for (int i = 0; i < allRoots.length; i++) {
-			IPackageFragmentRoot root = allRoots[i];
+		for (IPackageFragmentRoot root : allRoots) {
 			if (root.getKind() == IPackageFragmentRoot.K_BINARY) {
 				if(root instanceof JarPackageFragmentRoot) {
 					// don't treat jars in a project as part of the project's module

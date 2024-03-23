@@ -109,12 +109,12 @@ public class CompilationUnit extends ASTNode {
 	private static final List PROPERTY_DESCRIPTORS_9_0;
 
 	/**
-	 * The "types" structural property of this node type (element type: {@link AbstractTypeDeclaration}).
+	 * The "types" structural property of this node type (element type: {@link AbstractUnnamedTypeDeclaration}).
 	 *
 	 * @since 3.0
 	 */
 	public static final ChildListPropertyDescriptor TYPES_PROPERTY =
-		new ChildListPropertyDescriptor(CompilationUnit.class, "types", AbstractTypeDeclaration.class, CYCLE_RISK); //$NON-NLS-1$
+		new ChildListPropertyDescriptor(CompilationUnit.class, "types", AbstractUnnamedTypeDeclaration.class, CYCLE_RISK); //$NON-NLS-1$
 
 	static {
 		List properyList = new ArrayList(4);
@@ -1007,8 +1007,7 @@ public class CompilationUnit extends ASTNode {
 			this.optionalCommentTable = null;
 		} else {
 			int nextAvailablePosition = 0;
-			for (int i = 0; i < commentTable.length; i++) {
-				Comment comment = commentTable[i];
+			for (Comment comment : commentTable) {
 				if (comment == null) {
 					throw new IllegalArgumentException();
 				}
@@ -1143,8 +1142,8 @@ public class CompilationUnit extends ASTNode {
 		size += this.types.listSize();
 		// include disconnected comments
 		if (this.optionalCommentList != null) {
-			for (int i = 0; i < this.optionalCommentList.size(); i++) {
-				Comment comment = (Comment) this.optionalCommentList.get(i);
+			for (Object o : this.optionalCommentList) {
+				Comment comment = (Comment) o;
 				if (comment != null && comment.getParent() == null) {
 					size += comment.treeSize();
 				}

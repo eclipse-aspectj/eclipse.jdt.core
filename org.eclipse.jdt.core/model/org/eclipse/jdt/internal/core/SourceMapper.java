@@ -26,8 +26,8 @@ import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -73,6 +73,7 @@ import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.compiler.util.Util;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.ReferenceInfoAdapter;
 
 /**
@@ -92,10 +93,15 @@ public class SourceMapper
 	implements ISourceElementRequestor, SuffixConstants {
 
 	public static class LocalVariableElementKey {
-		String parent;
-		String name;
+		private final String parent;
+		private final String name;
 
 		public LocalVariableElementKey(IJavaElement method, String name) {
+			this.parent =DeduplicationUtil.intern(toString(method));
+			this.name = name;
+		}
+
+		private static String toString(IJavaElement method) {
 			StringBuilder buffer = new StringBuilder();
 			buffer
 				.append(method.getParent().getHandleIdentifier())
@@ -112,8 +118,7 @@ public class SourceMapper
 				}
 			}
 			buffer.append(')');
-			this.parent = String.valueOf(buffer);
-			this.name = name;
+			return buffer.toString();
 		}
 
 		@Override
@@ -134,15 +139,9 @@ public class SourceMapper
 			if (getClass() != obj.getClass())
 				return false;
 			LocalVariableElementKey other = (LocalVariableElementKey) obj;
-			if (this.name == null) {
-				if (other.name != null)
-					return false;
-			} else if (!this.name.equals(other.name))
+			if (!Objects.equals(this.name, other.name))
 				return false;
-			if (this.parent == null) {
-				if (other.parent != null)
-					return false;
-			} else if (!this.parent.equals(other.parent))
+			if (!Objects.equals(this.parent, other.parent))
 				return false;
 			return true;
 		}
@@ -160,7 +159,7 @@ public class SourceMapper
 	 * the zip (empty specifies the default root). <code>null</code> is
 	 * not a valid root path.
 	 */
-	protected ArrayList rootPaths;
+	protected ArrayList<String> rootPaths;
 
 	/**
 	 * The binary type or module source is being mapped for
@@ -611,14 +610,13 @@ public class SourceMapper
 				manager.closeZipFile(zip); // handle null case
 			}
 		} else {
-			Object target = JavaModel.getTarget(root.getPath(), true);
+			Object target = JavaModel.getTarget(root, true);
 			if (target instanceof IResource) {
 				IResource resource = (IResource) target;
 				if (resource instanceof IContainer) {
 					try {
 						IResource[] members = ((IContainer) resource).members();
-						for (int i = 0, max = members.length; i < max; i++) {
-							IResource member = members[i];
+						for (IResource member : members) {
 							String resourceName = member.getName();
 							if (member.getType() == IResource.FOLDER) {
 								if (sourceLevel == null) {
@@ -683,8 +681,8 @@ public class SourceMapper
 		}
 		int size = tempRoots.size();
 		if (this.rootPaths != null) {
-			for (Iterator iterator = this.rootPaths.iterator(); iterator.hasNext(); ) {
-				tempRoots.add(new Path((String) iterator.next()));
+			for (String path : this.rootPaths) {
+				tempRoots.add(new Path(path));
 			}
 			this.rootPaths.clear();
 		} else {
@@ -703,8 +701,8 @@ public class SourceMapper
 					}
 				});
 			}
-			for (Iterator iter = sortedRoots.iterator(); iter.hasNext();) {
-				IPath path = (IPath) iter.next();
+			for (Object sortedRoot : sortedRoots) {
+				IPath path = (IPath) sortedRoot;
 				this.rootPaths.add(path.toString());
 			}
 		}
@@ -713,8 +711,8 @@ public class SourceMapper
 			trace("Spent " + (System.currentTimeMillis() - time) + "ms"); //$NON-NLS-1$ //$NON-NLS-2$
 			trace("Found " + size + " root paths");	//$NON-NLS-1$ //$NON-NLS-2$
 			int i = 0;
-			for (Iterator iterator = this.rootPaths.iterator(); iterator.hasNext();) {
-				trace("root[" + i + "]=" + ((String) iterator.next()));//$NON-NLS-1$ //$NON-NLS-2$
+			for (String path : this.rootPaths) {
+				trace("root[" + i + "]=" + (path));//$NON-NLS-1$ //$NON-NLS-2$
 				i++;
 			}
 		}
@@ -828,10 +826,10 @@ public class SourceMapper
 			if (this.anonymousCounter == this.anonymousClassName) {
 				this.types[this.typeDepth] = getType(this.binaryTypeOrModule.getElementName());
 			} else {
-				this.types[this.typeDepth] = getType(new String(typeInfo.name));
+				this.types[this.typeDepth] = getType(DeduplicationUtil.toString(typeInfo.name));
 			}
 		} else {
-			this.types[this.typeDepth] = getType(new String(typeInfo.name));
+			this.types[this.typeDepth] = getType(DeduplicationUtil.toString(typeInfo.name));
 		}
 		this.typeNameRanges[this.typeDepth] =
 			new SourceRange(typeInfo.nameSourceStart, typeInfo.nameSourceEnd - typeInfo.nameSourceStart + 1);
@@ -841,8 +839,7 @@ public class SourceMapper
 
 		// type parameters
 		if (typeInfo.typeParameters != null) {
-			for (int i = 0, length = typeInfo.typeParameters.length; i < length; i++) {
-				TypeParameterInfo typeParameterInfo = typeInfo.typeParameters[i];
+			for (TypeParameterInfo typeParameterInfo : typeInfo.typeParameters) {
 				ITypeParameter typeParameter = currentType.getTypeParameter(new String(typeParameterInfo.name));
 				setSourceRange(
 					typeParameter,
@@ -913,7 +910,7 @@ public class SourceMapper
 			this.memberDeclarationStart[this.typeDepth] = fieldInfo.declarationStart;
 			this.memberNameRange[this.typeDepth] =
 				new SourceRange(fieldInfo.nameSourceStart, fieldInfo.nameSourceEnd - fieldInfo.nameSourceStart + 1);
-			String fieldName = new String(fieldInfo.name);
+			String fieldName = DeduplicationUtil.toString(fieldInfo.name);
 			this.memberName[this.typeDepth] = fieldName;
 
 			// categories
@@ -942,7 +939,7 @@ public class SourceMapper
 	}
 	private void enterAbstractMethod(MethodInfo methodInfo) {
 		if (this.typeDepth >= 0) {
-			this.memberName[this.typeDepth] = new String(methodInfo.name);
+			this.memberName[this.typeDepth] = DeduplicationUtil.toString(methodInfo.name);
 			this.memberNameRange[this.typeDepth] =
 				new SourceRange(methodInfo.nameSourceStart, methodInfo.nameSourceEnd - methodInfo.nameSourceStart + 1);
 			this.memberDeclarationStart[this.typeDepth] = methodInfo.declarationStart;
@@ -979,12 +976,11 @@ public class SourceMapper
 
 			IMethod method = currentType.getMethod(
 					this.memberName[this.typeDepth],
-					convertTypeNamesToSigs(this.methodParameterTypes[this.typeDepth]));
+					DeduplicationUtil.intern(convertTypeNamesToSigs(this.methodParameterTypes[this.typeDepth])));
 
 			// type parameters
 			if (methodInfo.typeParameters != null) {
-				for (int i = 0, length = methodInfo.typeParameters.length; i < length; i++) {
-					TypeParameterInfo typeParameterInfo = methodInfo.typeParameters[i];
+				for (TypeParameterInfo typeParameterInfo : methodInfo.typeParameters) {
 					ITypeParameter typeParameter = method.getTypeParameter(new String(typeParameterInfo.name));
 					setSourceRange(
 						typeParameter,
@@ -998,9 +994,8 @@ public class SourceMapper
 			}
 			// parameters infos
 			if (methodInfo.parameterInfos != null) {
-				for (int i = 0, length = methodInfo.parameterInfos.length; i < length; i++) {
-					ParameterInfo parameterInfo = methodInfo.parameterInfos[i];
-					LocalVariableElementKey key = new LocalVariableElementKey(method, new String(parameterInfo.name));
+				for (ParameterInfo parameterInfo : methodInfo.parameterInfos) {
+					LocalVariableElementKey key = new LocalVariableElementKey(method, DeduplicationUtil.toString(parameterInfo.name));
 					SourceRange[] allRanges = new SourceRange[] {
 						new SourceRange(
 							parameterInfo.declarationStart,
@@ -1099,7 +1094,7 @@ public class SourceMapper
 					declarationEnd - this.memberDeclarationStart[this.typeDepth] + 1);
 			IMethod method = currentType.getMethod(
 					this.memberName[this.typeDepth],
-					convertTypeNamesToSigs(this.methodParameterTypes[this.typeDepth]));
+					DeduplicationUtil.intern(convertTypeNamesToSigs(this.methodParameterTypes[this.typeDepth])));
 			setSourceRange(
 				method,
 				sourceRange,
@@ -1175,8 +1170,7 @@ public class SourceMapper
 				if (!(typeOrModule.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT) instanceof JrtPackageFragmentRoot)) {
 					computeAllRootPaths(typeOrModule);
 					if (this.rootPaths != null) {
-						loop: for (Iterator iterator = this.rootPaths.iterator(); iterator.hasNext(); ) {
-							String currentRootPath = (String) iterator.next();
+						loop: for (String currentRootPath : this.rootPaths) {
 							if (!currentRootPath.equals(this.rootPath)) {
 								source = getSourceForRootPath(currentRootPath, name);
 								if (source != null) {
@@ -1409,7 +1403,7 @@ public class SourceMapper
 				newClassFileName.append(classFileName.charAt(i));
 			newClassFileName.append(Integer.toString(this.anonymousCounter));
 			PackageFragment pkg = (PackageFragment) classFile.getParent();
-			return new BinaryType(new ClassFile(pkg, newClassFileName.toString()), typeName);
+			return new BinaryType(new ClassFile(pkg, DeduplicationUtil.intern(newClassFileName.toString())), typeName);
 		} else if (type.getElementName().equals(typeName))
 			return type;
 		else
@@ -1434,7 +1428,7 @@ public class SourceMapper
 		IJavaElement[] result = new IJavaElement[2];
 		result[0] = ((IType) method.getParent()).getMethod(
 			method.getElementName(),
-			unqualifiedParameterTypes);
+			DeduplicationUtil.intern(unqualifiedParameterTypes));
 		if(hasDollar) {
 			result[1] = result[0];
 		}

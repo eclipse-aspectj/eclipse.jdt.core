@@ -27,6 +27,7 @@ import junit.framework.Test;
 
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.BindingKey;
 import org.eclipse.jdt.core.IAnnotation;
@@ -7892,6 +7893,29 @@ public class ASTConverter15Test extends ConverterTestSetup {
 	}
 
 	/*
+	 * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1915
+	 */
+	public void test0238_ASTParser() throws JavaModelException, CoreException {
+		this.workingCopy = getWorkingCopy("/Converter15/src/test0238/X.java",
+			"""
+			package test0238;
+			public class X extends A {
+			}
+			""", true /*resolve*/);
+		ASTParser parser = ASTParser.newParser(AST.getJLSLatest());
+		parser.setBindingsRecovery(true);
+		parser.setResolveBindings(true);
+		parser.setStatementsRecovery(true);
+		parser.setSource(this.workingCopy);
+		parser.setProject(JavaCore.create(ResourcesPlugin.getWorkspace().getRoot().getProject("Converter15")));
+		CompilationUnit unit = (CompilationUnit) parser.createAST(null);
+		TypeDeclaration typeDeclaration = (TypeDeclaration) unit.types().get(0);
+		ITypeBinding superTypeBinding = typeDeclaration.resolveBinding().getSuperclass();
+		IMethodBinding[] methodBindings = superTypeBinding.getDeclaredMethods();
+		assertEquals("wrong size", 2, methodBindings.length);
+	}
+
+	/*
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=173338
 	 */
 	public void test0239() throws JavaModelException {
@@ -9790,8 +9814,8 @@ public class ASTConverter15Test extends ConverterTestSetup {
 	}
 
 	/**
-	 * @bug 187430: Unresolved types surfacing through DOM AST for annotation default values
-	 * @test That the qualified name of the default value does not contain any '$' character
+	 * bug187430: Unresolved types surfacing through DOM AST for annotation default values
+	 * test That the qualified name of the default value does not contain any '$' character
 	 * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=187430"
 	 */
 	public void testBug187430() throws JavaModelException {

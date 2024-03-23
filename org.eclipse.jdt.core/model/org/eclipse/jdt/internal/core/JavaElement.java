@@ -103,7 +103,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	public static final char JEM_MODULE = '`';
 
 	/**
-	 * Before ')', '&' and '"' became the newest additions as delimiters, the former two
+	 * Before ')', {@code '&'} and '"' became the newest additions as delimiters, the former two
 	 * were allowed as part of element attributes and possibly stored. Trying to recreate
 	 * elements from such memento would cause undesirable results. Consider the following
 	 * valid project name: (abc)
@@ -130,7 +130,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	/** cached result */
 	private int hashCode;
 
-	protected static final String[] NO_STRINGS = new String[0];
+	public static final String[] NO_STRINGS = new String[0];
 	protected static final JavaElement[] NO_ELEMENTS = new JavaElement[0];
 	protected static final Object NO_INFO = new Object();
 
@@ -689,9 +689,9 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 	protected void toStringChildren(int tab, StringBuilder buffer, Object info) {
 		if (info == null || !(info instanceof JavaElementInfo)) return;
 		IJavaElement[] children = ((JavaElementInfo)info).getChildren();
-		for (int i = 0; i < children.length; i++) {
+		for (IJavaElement child : children) {
 			buffer.append("\n"); //$NON-NLS-1$
-			((JavaElement)children[i]).toString(tab + 1, buffer);
+			((JavaElement)child).toString(tab + 1, buffer);
 		}
 	}
 	/**
@@ -761,8 +761,7 @@ public abstract class JavaElement extends PlatformObject implements IJavaElement
 		}
 
 		IClasspathAttribute[] extraAttributes= entry.getExtraAttributes();
-		for (int i= 0; i < extraAttributes.length; i++) {
-			IClasspathAttribute attrib= extraAttributes[i];
+		for (IClasspathAttribute attrib : extraAttributes) {
 			if (IClasspathAttribute.JAVADOC_LOCATION_ATTRIBUTE_NAME.equals(attrib.getName())) {
 				String value = attrib.getValue();
 				try {

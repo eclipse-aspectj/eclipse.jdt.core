@@ -742,6 +742,7 @@ class DefaultBindingResolver extends BindingResolver {
 				case ASTNode.TYPE_LITERAL :
 				case ASTNode.INFIX_EXPRESSION :
 				case ASTNode.INSTANCEOF_EXPRESSION :
+				case ASTNode.PATTERN_INSTANCEOF_EXPRESSION:
 				case ASTNode.LAMBDA_EXPRESSION:
 				case ASTNode.CREATION_REFERENCE:
 				case ASTNode.EXPRESSION_METHOD_REFERENCE:
@@ -764,6 +765,7 @@ class DefaultBindingResolver extends BindingResolver {
 						return this.getTypeBinding(compilerExpression.resolvedType);
 					}
 					break;
+
 				case ASTNode.TEXT_BLOCK :
 				case ASTNode.STRING_LITERAL :
 					if (this.scope != null) {
@@ -952,8 +954,7 @@ class DefaultBindingResolver extends BindingResolver {
 			if (methodScope.isInsideInitializer()) {
 				org.eclipse.jdt.internal.compiler.ast.TypeDeclaration enclosingType = methodScope.referenceType();
 				if (enclosingType.fields != null) {
-					for (int i = 0; i < enclosingType.fields.length; i++) {
-						FieldDeclaration field = enclosingType.fields[i];
+					for (FieldDeclaration field : enclosingType.fields) {
 						if (field.declarationSourceStart <= node.sourceStart && node.sourceEnd <= field.declarationSourceEnd) {
 							if (field instanceof org.eclipse.jdt.internal.compiler.ast.Initializer)
 								return getMethodBinding(((org.eclipse.jdt.internal.compiler.ast.Initializer) field).getMethodBinding());
@@ -2077,9 +2078,9 @@ class DefaultBindingResolver extends BindingResolver {
 		}
 		int index = 0;
 		if (dimensions < 0) {
-			for (int i = 0; i < annots.length; i++) {
+			for (org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding annot : annots) {
 				index++;
-				if (annots[i] == null) {
+				if (annot == null) {
 					if(++dimensions == 0) break;
 				}
 			}

@@ -513,7 +513,6 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 					codeStream.iconst_0();
 				} else {
 					codeStream.goto_(endLabel = new BranchLabel(codeStream));
-					codeStream.decrStackSize(1);
 					falseLabel.place();
 					codeStream.iconst_0();
 					endLabel.place();
@@ -536,7 +535,6 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 					codeStream.iconst_0();
 				} else {
 					codeStream.goto_(endLabel = new BranchLabel(codeStream));
-					codeStream.decrStackSize(1);
 					falseLabel.place();
 					codeStream.iconst_0();
 					endLabel.place();
@@ -559,7 +557,6 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 					codeStream.iconst_0();
 				} else {
 					codeStream.goto_(endLabel = new BranchLabel(codeStream));
-					codeStream.decrStackSize(1);
 					falseLabel.place();
 					codeStream.iconst_0();
 					endLabel.place();
@@ -582,7 +579,6 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 					codeStream.iconst_0();
 				} else {
 					codeStream.goto_(endLabel = new BranchLabel(codeStream));
-					codeStream.decrStackSize(1);
 					falseLabel.place();
 					codeStream.iconst_0();
 					endLabel.place();
@@ -1825,15 +1821,6 @@ public StringBuilder printExpressionNoParenthesis(int indent, StringBuilder outp
 	return this.right.printExpression(0, output);
 }
 
-@Override
-public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
-	this.left.addPatternVariables(scope, codeStream); // Srikanth
-	this.right.addPatternVariables(scope, codeStream);
-}
-@Override
-public boolean containsPatternVariable() {
-	return this.left.containsPatternVariable() || this.right.containsPatternVariable();
-}
 @Override
 public TypeBinding resolveType(BlockScope scope) {
 	// keep implementation in sync with CombinedBinaryExpression#resolveType

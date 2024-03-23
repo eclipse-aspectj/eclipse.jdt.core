@@ -998,11 +998,14 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 		runner.runConformTest();
 	}
 
-	public void testGH1964() {
+	public void testGH1964_since_22() {
 		Runner runner = new Runner();
 		runner.customOptions = getCompilerOptions();
 		runner.customOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		runner.customOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
+		runner.customOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_22);
+		runner.customOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_22);
+		runner.customOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_22);
 		runner.vmArguments = new String[] {"--enable-preview"};
 		runner.testFiles = new String[] {
 			"JDK21TestingMain.java",
@@ -1029,6 +1032,66 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 
 			    System.out.println();
 			  }
+			}
+			"""
+		};
+		runner.classLibraries = this.LIBS;
+		runner.runConformTest();
+	}
+	public void testGH1771() {
+		Runner runner = new Runner();
+		runner.customOptions = getCompilerOptions();
+		runner.customOptions.put(CompilerOptions.OPTION_ReportNullSpecViolation, CompilerOptions.ERROR);
+		runner.customOptions.put(CompilerOptions.OPTION_InheritNullAnnotations, CompilerOptions.ENABLED);
+		runner.testFiles = new String[] {
+			"p/Foo.java",
+			"""
+			package p;
+
+			public interface Foo
+			{
+				@org.eclipse.jdt.annotation.NonNullByDefault
+				record Bar(Object foo) implements
+				          Foo
+				{
+				}
+
+				@org.eclipse.jdt.annotation.Nullable
+				Object foo();
+			}
+			"""
+		};
+		runner.classLibraries = this.LIBS;
+		runner.expectedCompilerLog = """
+			----------
+			1. ERROR in p\\Foo.java (at line 6)
+				record Bar(Object foo) implements
+				           ^^^^^^
+			The default '@NonNull' conflicts with the inherited '@Nullable' annotation in the overridden method from Foo
+			----------
+			""";
+		runner.runNegativeTest();
+	}
+	public void testGH1771_corrected() {
+		Runner runner = new Runner();
+		runner.customOptions = getCompilerOptions();
+		runner.customOptions.put(CompilerOptions.OPTION_ReportNullSpecViolation, CompilerOptions.ERROR);
+		runner.customOptions.put(CompilerOptions.OPTION_InheritNullAnnotations, CompilerOptions.ENABLED);
+		runner.testFiles = new String[] {
+			"p/Foo.java",
+			"""
+			package p;
+
+			public interface Foo
+			{
+				@org.eclipse.jdt.annotation.NonNullByDefault
+				record Bar(@org.eclipse.jdt.annotation.Nullable Object foo) implements
+				          Foo
+				{
+				}
+
+				@org.eclipse.jdt.annotation.Nullable
+				Object foo();
 			}
 			"""
 		};

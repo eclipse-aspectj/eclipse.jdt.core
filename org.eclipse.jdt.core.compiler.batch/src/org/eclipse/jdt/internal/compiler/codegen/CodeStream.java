@@ -833,10 +833,6 @@ public void ddiv() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ddiv;
 }
 
-public void decrStackSize(int offset) {
-	this.stackDepth -= offset;
-}
-
 public void dload(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth += 2;
@@ -2605,7 +2601,7 @@ public void invokeDynamicForStringConcat(StringBuilder recipe, List<TypeBinding>
 	signature.append(")Ljava/lang/String;"); //$NON-NLS-1$
 	this.invokeDynamic(invokeDynamicNumber,
 			argsSize,
-			1, // int
+			1, // Ljava/lang/String;
 			ConstantPool.ConcatWithConstants,
 			signature.toString().toCharArray(),
 			TypeIds.T_JavaLangObject,
@@ -2621,10 +2617,6 @@ public void invokeDynamicForStringConcat(StringBuilder recipe, List<TypeBinding>
 public void generateStringConcatenationAppend(BlockScope blockScope, Expression oper1, Expression oper2) {
 	if (this.targetLevel >= ClassFileConstants.JDK9 && blockScope.compilerOptions().useStringConcatFactory) {
 		this.countLabels = 0;
-		this.stackDepth++;
-		if (this.stackDepth > this.stackMax) {
-			this.stackMax = this.stackDepth;
-		}
 		StringBuilder recipe = new StringBuilder();
 		List<TypeBinding> arguments = new ArrayList<>();
 		if (oper1 == null) {
@@ -2805,8 +2797,7 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 
 	// Compute a map of hashcodes to a list of synthetic methods whose names share a hashcode
 	Map hashcodesTosynthetics = new LinkedHashMap();
-	for (int i=0,max=syntheticMethodBindings.length;i<max;i++) {
-		SyntheticMethodBinding syntheticMethodBinding = syntheticMethodBindings[i];
+	for (SyntheticMethodBinding syntheticMethodBinding : syntheticMethodBindings) {
 		if (syntheticMethodBinding.lambda!=null && syntheticMethodBinding.lambda.isSerializable ||
 				syntheticMethodBinding.serializableMethodRef != null) {
 			// TODO can I use > Java 1.4 features here?
@@ -2869,8 +2860,8 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 		// Loop through all lambdas that share the same hashcode
 		// TODO: isn't doing this for just one of these enough because they all share
 		// the same name?
-		for (int j=0,max=synthetics.size();j<max;j++) {
-			SyntheticMethodBinding syntheticMethodBinding = (SyntheticMethodBinding)synthetics.get(j);
+		for (Object synthetic : synthetics) {
+			SyntheticMethodBinding syntheticMethodBinding = (SyntheticMethodBinding)synthetic;
 			aload_1();
 			ldc(new String(syntheticMethodBinding.selector));
 			invokeStringEquals();
@@ -3302,8 +3293,7 @@ ReferenceBinding findDirectSuperTypeTowards(SyntheticMethodBinding accessMethod,
 			return superclass;
 		ReferenceBinding[] superInterfaces = currentType.superInterfaces();
 		if (superInterfaces != null) {
-			for (int i = 0; i < superInterfaces.length; i++) {
-				ReferenceBinding superIfc = superInterfaces[i];
+			for (ReferenceBinding superIfc : superInterfaces) {
 				if (superIfc.isCompatibleWith(targetType))
 					return superIfc;
 			}
@@ -3337,8 +3327,7 @@ public void generateSyntheticBodyForSwitchTable(SyntheticMethodBinding methodBin
 	addVariable(localVariableBinding);
 	final FieldBinding[] fields = enumBinding.fields();
 	if (fields != null) {
-		for (int i = 0, max = fields.length; i < max; i++) {
-			FieldBinding fieldBinding = fields[i];
+		for (FieldBinding fieldBinding : fields) {
 			if ((fieldBinding.getAccessFlags() & ClassFileConstants.AccEnum) != 0) {
 				final BranchLabel endLabel = new BranchLabel(this);
 				final ExceptionLabel anyExceptionHandler = new ExceptionLabel(this, TypeBinding.LONG /* represents NoSuchFieldError*/);
@@ -3417,8 +3406,7 @@ public void generateSyntheticEnclosingInstanceValues(BlockScope currentScope, Re
 		}
 
 		boolean complyTo14 = compliance >= ClassFileConstants.JDK1_4;
-		for (int i = 0, max = syntheticArgumentTypes.length; i < max; i++) {
-			ReferenceBinding syntheticArgType = syntheticArgumentTypes[i];
+		for (ReferenceBinding syntheticArgType : syntheticArgumentTypes) {
 			if (hasExtraEnclosingInstance && TypeBinding.equalsEquals(syntheticArgType, targetEnclosingType)) {
 				hasExtraEnclosingInstance = false;
 				enclosingInstance.generateCode(currentScope, this, true);
@@ -3450,8 +3438,8 @@ public void generateSyntheticOuterArgumentValues(BlockScope currentScope, Refere
 	// generate the synthetic outer arguments then
 	SyntheticArgumentBinding syntheticArguments[];
 	if ((syntheticArguments = targetType.syntheticOuterLocalVariables()) != null) {
-		for (int i = 0, max = syntheticArguments.length; i < max; i++) {
-			LocalVariableBinding targetVariable = syntheticArguments[i].actualOuterLocalVariable;
+		for (SyntheticArgumentBinding syntheticArgument : syntheticArguments) {
+			LocalVariableBinding targetVariable = syntheticArgument.actualOuterLocalVariable;
 			VariableBinding[] emulationPath = currentScope.getEmulationPath(targetVariable);
 			generateOuterAccess(emulationPath, invocationSite, targetVariable, currentScope);
 		}
@@ -3807,9 +3795,9 @@ public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, Meth
 				}
 				if (actualReceiverType.isIntersectionType18()) {
 					TypeBinding[] intersectingTypes = ((IntersectionTypeBinding18)actualReceiverType).getIntersectingTypes();
-					for(int i = 0; i < intersectingTypes.length; i++) {
-						if (intersectingTypes[i].findSuperTypeOriginatingFrom(constantPoolDeclaringClass) != null) {
-							constantPoolDeclaringClass = intersectingTypes[i].erasure();
+					for (TypeBinding intersectingType : intersectingTypes) {
+						if (intersectingType.findSuperTypeOriginatingFrom(constantPoolDeclaringClass) != null) {
+							constantPoolDeclaringClass = intersectingType.erasure();
 							break;
 						}
 					}
@@ -4628,8 +4616,8 @@ public void initializeMaxLocals(MethodBinding methodBinding) {
 	}
 	TypeBinding[] parameterTypes;
 	if ((parameterTypes = methodBinding.parameters) != null) {
-		for (int i = 0, max = parameterTypes.length; i < max; i++) {
-			switch (parameterTypes[i].id) {
+		for (TypeBinding parameterType : parameterTypes) {
+			switch (parameterType.id) {
 				case TypeIds.T_long :
 				case TypeIds.T_double :
 					this.maxLocals += 2;
@@ -4805,8 +4793,8 @@ public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declari
 					// outer local variables
 					SyntheticArgumentBinding[] syntheticArguments = nestedType.syntheticOuterLocalVariables();
 					if (syntheticArguments != null) {
-						for (int i = 0, max = syntheticArguments.length; i < max; i++) {
-							switch (syntheticArguments[i].id)  {
+						for (SyntheticArgumentBinding syntheticArgument : syntheticArguments) {
+							switch (syntheticArgument.type.id)  {
 								case TypeIds.T_double :
 								case TypeIds.T_long :
 									receiverAndArgsSize += 2;
@@ -6970,12 +6958,6 @@ public void record(LocalVariableBinding local) {
 	local.initializationCount = 0;
 }
 
-public void recordExpressionType(TypeBinding typeBinding) {
-	// nothing to do
-}
-public void recordExpressionType(TypeBinding typeBinding, int delta, boolean adjustStackDepth) {
-	// nothing to do
-}
 public void recordPositionsFrom(int startPC, int sourcePos) {
 	this.recordPositionsFrom(startPC, sourcePos, false);
 }

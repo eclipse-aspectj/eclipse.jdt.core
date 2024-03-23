@@ -198,7 +198,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 			codeStream.generateInlinedValue(this.enumConstant.binding.id);
 		}
 		// handling innerclass instance allocation - enclosing instance arguments
-		if (allocatedType.isNestedType()) {
+		if (allocatedType.isNestedType() && !this.inPreConstructorContext) {
 			codeStream.generateSyntheticEnclosingInstanceValues(
 				currentScope,
 				allocatedType,
@@ -320,6 +320,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				this.resolvedType = scope.environment().createAnnotatedType(this.resolvedType, this.binding.getTypeAnnotations());
 			}
 		}
+		checkPreConstructorContext(scope);
 		return result;
 	}
 
@@ -418,8 +419,8 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				}
 				if (this.argumentsHaveErrors) {
 					if (this.arguments != null) { // still attempt to resolve arguments
-						for (int i = 0, max = this.arguments.length; i < max; i++) {
-							this.arguments[i].resolveType(scope);
+						for (Expression argument : this.arguments) {
+							argument.resolveType(scope);
 						}
 					}
 					return null;
@@ -676,8 +677,8 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 			if (this.enclosingInstance != null)
 				this.enclosingInstance.traverse(visitor, scope);
 			if (this.typeArguments != null) {
-				for (int i = 0, typeArgumentsLength = this.typeArguments.length; i < typeArgumentsLength; i++) {
-					this.typeArguments[i].traverse(visitor, scope);
+				for (TypeReference typeArgument : this.typeArguments) {
+					typeArgument.traverse(visitor, scope);
 				}
 			}
 			if (this.type != null) // case of enum constant

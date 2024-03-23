@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -51,6 +51,8 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
 public abstract class Statement extends ASTNode {
+
+	public boolean inPreConstructorContext = false;
 
 	/**
 	 * Answers true if the if is identified as a known coding pattern which
@@ -434,8 +436,8 @@ public void generateArguments(MethodBinding binding, Expression[] arguments, Blo
 			codeStream.newArray(codeGenVarArgsType); // create a mono-dimensional array
 		}
 	} else if (arguments != null) { // standard generation for method arguments
-		for (int i = 0, max = arguments.length; i < max; i++)
-			arguments[i].generateCode(currentScope, codeStream, true);
+		for (Expression argument : arguments)
+			argument.generateCode(currentScope, codeStream, true);
 	}
 }
 
@@ -505,9 +507,30 @@ public void resolveWithBindings(LocalVariableBinding[] bindings, BlockScope scop
 public TypeBinding resolveExpressionType(BlockScope scope) {
 	return null;
 }
+
 public boolean containsPatternVariable() {
-	return false;
+	return containsPatternVariable(false);
 }
+
+public boolean containsPatternVariable(boolean includeUnnamedOnes) {
+	return new ASTVisitor() {
+
+		public boolean declaresVariable = false;
+
+		@Override
+		public boolean visit(TypePattern typePattern, BlockScope blockScope) {
+			 if (typePattern.local != null && (includeUnnamedOnes || (typePattern.local.name.length != 1 || typePattern.local.name[0] != '_')))
+				 this.declaresVariable = true;
+			 return !this.declaresVariable;
+		}
+
+		public boolean containsPatternVariable() {
+			Statement.this.traverse(this, null);
+			return this.declaresVariable;
+		}
+	}.containsPatternVariable();
+}
+
 /**
  * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType}
  * suitable at this level. Subclasses should override as necessary.

@@ -15,6 +15,7 @@ package org.eclipse.jdt.internal.compiler;
 
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.ast.*;
+import org.eclipse.jdt.internal.compiler.ast.StringTemplate; // AspectJ: differentiate from java.lang.StringTemplate when building on JDK 21+
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
@@ -1018,5 +1019,13 @@ public abstract class ASTVisitor {
 	}
 	public  boolean visit(RecordComponent recordComponent, BlockScope scope) {
 		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(StringTemplate expr, BlockScope scope1) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	public boolean visit(TemplateExpression expr, BlockScope scope1) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }

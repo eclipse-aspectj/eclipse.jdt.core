@@ -26,6 +26,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
+import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.SwitchStatement;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -159,9 +160,9 @@ public class SyntheticMethodBinding extends MethodBinding {
 		// retrieve sourceStart position for the target field for line number attributes
 		FieldDeclaration[] fieldDecls = declaringSourceType.scope.referenceContext.fields;
 		if (fieldDecls != null) {
-			for (int i = 0, max = fieldDecls.length; i < max; i++) {
-				if (fieldDecls[i].binding == targetField) {
-					this.sourceStart = fieldDecls[i].sourceStart;
+			for (FieldDeclaration fieldDecl : fieldDecls) {
+				if (fieldDecl.binding == targetField) {
+					this.sourceStart = fieldDecl.sourceStart;
 					return;
 				}
 			}
@@ -573,9 +574,9 @@ public class SyntheticMethodBinding extends MethodBinding {
 		AbstractMethodDeclaration[] methodDecls =
 			sourceType.scope.referenceContext.methods;
 		if (methodDecls != null) {
-			for (int i = 0, length = methodDecls.length; i < length; i++) {
-				if (methodDecls[i].binding == accessedConstructor) {
-					this.sourceStart = methodDecls[i].sourceStart;
+			for (AbstractMethodDeclaration methodDecl : methodDecls) {
+				if (methodDecl.binding == accessedConstructor) {
+					this.sourceStart = methodDecl.sourceStart;
 					return;
 				}
 			}
@@ -648,9 +649,9 @@ public class SyntheticMethodBinding extends MethodBinding {
 		// retrieve sourceStart position for the target method for line number attributes
 		AbstractMethodDeclaration[] methodDecls = declaringSourceType.scope.referenceContext.methods;
 		if (methodDecls != null) {
-			for (int i = 0, length = methodDecls.length; i < length; i++) {
-				if (methodDecls[i].binding == accessedMethod) {
-					this.sourceStart = methodDecls[i].sourceStart;
+			for (AbstractMethodDeclaration methodDecl : methodDecls) {
+				if (methodDecl.binding == accessedMethod) {
+					this.sourceStart = methodDecl.sourceStart;
 					return;
 				}
 			}
@@ -664,6 +665,13 @@ public class SyntheticMethodBinding extends MethodBinding {
 	@Override
 	public LambdaExpression sourceLambda() {
 		return this.lambda;
+	}
+
+	@Override
+	public RecordComponent sourceRecordComponent() {
+		if (this.recordComponentBinding != null)
+			return this.recordComponentBinding.sourceRecordComponent();
+		return null;
 	}
 
 	@Override

@@ -18,7 +18,6 @@ import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -284,7 +283,7 @@ private ClasspathLocation mapToClassPathLocation(JavaModelManager manager, Packa
 					ClasspathLocation.forJrtSystem(path.toOSString(), rawClasspathEntry.getAccessRuleSet(), null, compliance) :
 					ClasspathLocation.forLibrary(manager.getZipFile(path), rawClasspathEntry.getAccessRuleSet(), rawClasspathEntry.isModular(), compliance) ;
 		} else {
-			Object target = JavaModel.getTarget(path, true);
+			Object target = JavaModel.getTarget(root, true);
 			if (target != null) {
 				if (root.getKind() == IPackageFragmentRoot.K_SOURCE) {
 					cp = new ClasspathSourceDirectory((IContainer)target, root.fullExclusionPatternChars(), root.fullInclusionPatternChars());
@@ -580,9 +579,8 @@ public char[][] getAllAutomaticModules() {
 public static INameEnvironment createWithReferencedProjects(IJavaProject javaProject, List<IJavaProject> referencedProjects, org.eclipse.jdt.core.ICompilationUnit[] copies) {
 	JavaSearchNameEnvironment result = new JavaSearchNameEnvironment(javaProject, copies);
 
-	Iterator<IJavaProject> next = referencedProjects.iterator();
-	while (next.hasNext()) {
-		result.addProjectClassPath((JavaProject)next.next(), true);
+	for (IJavaProject referencedProject : referencedProjects) {
+		result.addProjectClassPath((JavaProject)referencedProject, true);
 	}
 	return result;
 }

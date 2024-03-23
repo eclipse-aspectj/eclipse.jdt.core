@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -41,6 +41,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.parser.*;
 import org.eclipse.jdt.internal.compiler.problem.*;
@@ -52,6 +53,8 @@ public class ConstructorDeclaration extends AbstractMethodDeclaration {
 	public ExplicitConstructorCall constructorCall;
 
 	public TypeParameter[] typeParameters;
+
+	public ExplicitConstructorCall postPrologueConstructorCall;
 
 public ConstructorDeclaration(CompilationResult compilationResult){
 	super(compilationResult);
@@ -116,8 +119,7 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385780
 	if (this.typeParameters != null  &&
 			!this.scope.referenceCompilationUnit().compilationResult.hasSyntaxError) {
-		for (int i = 0, length = this.typeParameters.length; i < length; ++i) {
-			TypeParameter typeParameter = this.typeParameters[i];
+		for (TypeParameter typeParameter : this.typeParameters) {
 			if ((typeParameter.binding.modifiers & ExtraCompilerModifiers.AccLocallyUsed) == 0) {
 				this.scope.problemReporter().unusedTypeParameter(typeParameter);
 			}
@@ -159,14 +161,14 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 			// set since they are supposed to be set inside other local constructor
 			if (this.constructorCall.accessMode == ExplicitConstructorCall.This) {
 				FieldBinding[] fields = this.binding.declaringClass.fields();
-				for (int i = 0, count = fields.length; i < count; i++) {
-					FieldBinding field;
-					if (!(field = fields[i]).isStatic()) {
+				for (FieldBinding field : fields) {
+					if (!field.isStatic()) {
 						flowInfo.markAsDefinitelyAssigned(field);
 					}
 				}
 			}
-			flowInfo = this.constructorCall.analyseCode(this.scope, constructorContext, flowInfo);
+			if (useConstrucorCall())
+				flowInfo = this.constructorCall.analyseCode(this.scope, constructorContext, flowInfo);
 		}
 
 		// reuse the reachMode from non static field info
@@ -177,8 +179,7 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 			CompilerOptions compilerOptions = this.scope.compilerOptions();
 			boolean enableSyntacticNullAnalysisForFields = compilerOptions.enableSyntacticNullAnalysisForFields;
 			int complaintLevel = (nonStaticFieldInfoReachMode & FlowInfo.UNREACHABLE) == 0 ? Statement.NOT_COMPLAINED : Statement.COMPLAINED_FAKE_REACHABLE;
-			for (int i = 0, count = this.statements.length; i < count; i++) {
-				Statement stat = this.statements[i];
+			for (Statement stat : this.statements) {
 				if ((complaintLevel = stat.complainIfUnreachable(flowInfo, this.scope, complaintLevel, true)) < Statement.COMPLAINED_UNREACHABLE) {
 					flowInfo = stat.analyseCode(this.scope, constructorContext, flowInfo);
 				}
@@ -218,8 +219,7 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 	}
 }
 protected void doFieldReachAnalysis(FlowInfo flowInfo, FieldBinding[] fields) {
-	for (int i = 0, count = fields.length; i < count; i++) {
-		FieldBinding field = fields[i];
+	for (FieldBinding field : fields) {
 		if (!field.isStatic() && !flowInfo.isDefinitelyAssigned(field)) {
 			if (field.isFinal()) {
 				this.scope.problemReporter().uninitializedBlankFinalField(
@@ -255,18 +255,18 @@ boolean isValueProvidedUsingAnnotation(FieldDeclaration fieldDecl) {
 				MemberValuePair[] memberValuePairs = annotation.memberValuePairs();
 				if (memberValuePairs == Annotation.NoValuePairs)
 					return true;
-				for (int j = 0; j < memberValuePairs.length; j++) {
+				for (MemberValuePair memberValuePair : memberValuePairs) {
 					// if "optional=false" is specified, don't rely on initialization by the injector:
-					if (CharOperation.equals(memberValuePairs[j].name, TypeConstants.OPTIONAL))
-						return memberValuePairs[j].value instanceof FalseLiteral;
+					if (CharOperation.equals(memberValuePair.name, TypeConstants.OPTIONAL))
+						return memberValuePair.value instanceof FalseLiteral;
 				}
 			} else if (annotation.resolvedType.id == TypeIds.T_OrgSpringframeworkBeansFactoryAnnotationAutowired) {
 				MemberValuePair[] memberValuePairs = annotation.memberValuePairs();
 				if (memberValuePairs == Annotation.NoValuePairs)
 					return true;
-				for (int j = 0; j < memberValuePairs.length; j++) {
-					if (CharOperation.equals(memberValuePairs[j].name, TypeConstants.REQUIRED))
-						return memberValuePairs[j].value instanceof TrueLiteral;
+				for (MemberValuePair memberValuePair : memberValuePairs) {
+					if (CharOperation.equals(memberValuePair.name, TypeConstants.REQUIRED))
+						return memberValuePair.value instanceof TrueLiteral;
 				}
 			}
 		}
@@ -349,13 +349,14 @@ public void generateCode(ClassScope classScope, ClassFile classFile) {
 public void generateSyntheticFieldInitializationsIfNecessary(MethodScope methodScope, CodeStream codeStream, ReferenceBinding declaringClass) {
 	if (!declaringClass.isNestedType()) return;
 
+	if (declaringClass.isInPreconstructorContext()) return;
+
 	NestedTypeBinding nestedType = (NestedTypeBinding) declaringClass;
 
 	SyntheticArgumentBinding[] syntheticArgs = nestedType.syntheticEnclosingInstances();
 	if (syntheticArgs != null) {
-		for (int i = 0, max = syntheticArgs.length; i < max; i++) {
-			SyntheticArgumentBinding syntheticArg;
-			if ((syntheticArg = syntheticArgs[i]).matchingField != null) {
+		for (SyntheticArgumentBinding syntheticArg : syntheticArgs) {
+			if (syntheticArg.matchingField != null) {
 				codeStream.aload_0();
 				codeStream.load(syntheticArg);
 				codeStream.fieldAccess(Opcodes.OPC_putfield, syntheticArg.matchingField, null /* default declaringClass */);
@@ -364,9 +365,8 @@ public void generateSyntheticFieldInitializationsIfNecessary(MethodScope methodS
 	}
 	syntheticArgs = nestedType.syntheticOuterLocalVariables();
 	if (syntheticArgs != null) {
-		for (int i = 0, max = syntheticArgs.length; i < max; i++) {
-			SyntheticArgumentBinding syntheticArg;
-			if ((syntheticArg = syntheticArgs[i]).matchingField != null) {
+		for (SyntheticArgumentBinding syntheticArg : syntheticArgs) {
+			if (syntheticArg.matchingField != null) {
 				codeStream.aload_0();
 				codeStream.load(syntheticArg);
 				codeStream.fieldAccess(Opcodes.OPC_putfield, syntheticArg.matchingField, null /* default declaringClass */);
@@ -405,10 +405,10 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 		}
 
 		if (this.arguments != null) {
-			for (int i = 0, max = this.arguments.length; i < max; i++) {
+			for (Argument argument : this.arguments) {
 				// arguments initialization for local variable debug attributes
 				LocalVariableBinding argBinding;
-				codeStream.addVisibleLocalVariable(argBinding = this.arguments[i].binding);
+				codeStream.addVisibleLocalVariable(argBinding = argument.binding);
 				argBinding.recordInitializationStartPC(0);
 				switch(argBinding.type.id) {
 					case TypeIds.T_long :
@@ -436,7 +436,7 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 			codeStream.recordPositionsFrom(0, this.bodyStart > 0 ? this.bodyStart : this.sourceStart);
 		}
 		// generate constructor call
-		if (this.constructorCall != null) {
+		if (useConstrucorCall()) {
 			this.constructorCall.generateCode(this.scope, codeStream);
 		}
 		// generate field initialization - only if not invoking another constructor call of the same class
@@ -446,9 +446,9 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 			}
 			// generate user field initialization
 			if (declaringType.fields != null) {
-				for (int i = 0, max = declaringType.fields.length; i < max; i++) {
+				for (FieldDeclaration field : declaringType.fields) {
 					FieldDeclaration fieldDecl;
-					if (!(fieldDecl = declaringType.fields[i]).isStatic()) {
+					if (!(fieldDecl = field).isStatic()) {
 						fieldDecl.generateCode(initializerScope, codeStream);
 					}
 				}
@@ -456,8 +456,11 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 		}
 		// generate statements
 		if (this.statements != null) {
-			for (int i = 0, max = this.statements.length; i < max; i++) {
-				this.statements[i].generateCode(this.scope, codeStream);
+			for (Statement statement : this.statements) {
+				statement.generateCode(this.scope, codeStream);
+				if (!this.compilationResult.hasErrors() && codeStream.stackDepth != 0) {
+					this.scope.problemReporter().operandStackSizeInappropriate(this);
+				}
 			}
 		}
 		// if a problem got reported during code gen, then trigger problem method creation
@@ -486,6 +489,10 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 		}
 	}
 	classFile.completeMethodInfo(this.binding, methodAttributeOffset, attributeNumber);
+}
+private boolean useConstrucorCall() {
+	return this.constructorCall != null
+			&& (this.postPrologueConstructorCall == null || this.postPrologueConstructorCall.firstStatement);
 }
 
 @Override
@@ -528,8 +535,7 @@ public void getAllAnnotationContexts(int targetType, List allAnnotationContexts)
 	TypeReference fakeReturnType = new SingleTypeReference(this.selector, 0);
 	fakeReturnType.resolvedType = this.binding.declaringClass;
 	AnnotationCollector collector = new AnnotationCollector(fakeReturnType, targetType, allAnnotationContexts);
-	for (int i = 0, max = this.annotations.length; i < max; i++) {
-		Annotation annotation = this.annotations[i];
+	for (Annotation annotation : this.annotations) {
 		annotation.traverse(collector, (BlockScope) null);
 	}
 }
@@ -604,14 +610,14 @@ public void parseStatements(Parser parser, CompilationUnitDeclaration unit) {
 @Override
 public StringBuilder printBody(int indent, StringBuilder output) {
 	output.append(" {"); //$NON-NLS-1$
-	if (this.constructorCall != null) {
+	if (useConstrucorCall()) {
 		output.append('\n');
 		this.constructorCall.printStatement(indent, output);
 	}
 	if (this.statements != null) {
-		for (int i = 0; i < this.statements.length; i++) {
+		for (Statement statement : this.statements) {
 			output.append('\n');
-			this.statements[i].printStatement(indent, output);
+			statement.printStatement(indent, output);
 		}
 	}
 	output.append('\n');
@@ -671,9 +677,10 @@ public void resolveStatements() {
 				this.constructorCall.accessMode != ExplicitConstructorCall.This) {
 			this.scope.problemReporter().recordMissingExplicitConstructorCallInNonCanonicalConstructor(this);
 			this.constructorCall = null;
-		}
-		else {
-			this.constructorCall.resolve(this.scope);
+		} else {
+			partitionConstructorStatements();
+			if (useConstrucorCall())
+				this.constructorCall.resolve(this.scope);
 		}
 	}
 	if ((this.modifiers & ExtraCompilerModifiers.AccSemicolonBody) != 0) {
@@ -682,6 +689,74 @@ public void resolveStatements() {
 	super.resolveStatements();
 }
 
+private void partitionConstructorStatements() {
+
+
+	if (!(JavaFeature.STATEMENTS_BEFORE_SUPER.isSupported(
+			this.scope.compilerOptions().sourceLevel,
+			this.scope.compilerOptions().enablePreviewFeatures)))
+		return;
+
+	if (!this.constructorCall.isImplicitSuper()) {
+		this.postPrologueConstructorCall = this.constructorCall;
+		this.postPrologueConstructorCall.firstStatement = true;
+		return;
+	}
+
+	if (this.statements == null)
+		return;
+
+	int postPrologueExplicitConstructorIndex = -1;
+	for (int i = 0, len = this.statements.length; i < len; ++i) {
+		Statement stmt = this.statements[i];
+		if (stmt instanceof ExplicitConstructorCall explicitContructorCall) {
+			this.postPrologueConstructorCall = explicitContructorCall;
+			this.postPrologueConstructorCall.firstStatement = false;
+			this.scope.problemReporter().validateJavaFeatureSupport(JavaFeature.STATEMENTS_BEFORE_SUPER,
+					this.postPrologueConstructorCall.sourceStart,
+					this.postPrologueConstructorCall.sourceEnd);
+			this.constructorCall = this.postPrologueConstructorCall; //ignore implicitsuper
+			postPrologueExplicitConstructorIndex = i;
+			break;
+		}
+	}
+
+	markPreConstructorContext(this.statements, postPrologueExplicitConstructorIndex);
+}
+
+/**
+ * TODO: Update the link with the latest always until it becomes standard
+ * https://cr.openjdk.org/~gbierman/jep447/jep447-20230927/specs/statements-before-super-jls.html#jls-8.8.7.1
+ * Sec 8.8.7.1
+ * An expression occurs in the pre-construction context of a class C if both of the following are true:
+ * The innermost method declaration, field declaration, constructor declaration, instance initializer,
+ * or static initializer which encloses the expression is a constructor c of class C; and
+ * The expression appears in the prologue or is enclosed in the explicit constructor invocation of the
+ * constructor c.
+ * @param stmts list of statements in the constructor
+ * @param prologueLength index in statements upto and including the constructor call
+ */
+private void markPreConstructorContext(Statement[] stmts, int prologueLength) {
+
+	class MarkAllExpressionsPreConVisitor extends GenericAstVisitor {
+
+		@Override
+		protected boolean visitNode(ASTNode node) {
+			if (node instanceof Statement stmt) {
+				stmt.inPreConstructorContext = true;
+			}
+			return true;
+		}
+		@Override
+		public boolean visit(TypeDeclaration typeDeclaration, BlockScope skope) {
+			typeDeclaration.inPreConstructorContext = true;
+			return false;
+		}
+	}
+	for (int i = 0; i <= prologueLength; ++i) {
+		stmts[i].traverse(new MarkAllExpressionsPreConVisitor(), this.scope);
+	}
+}
 @Override
 public void traverse(ASTVisitor visitor, ClassScope classScope) {
 	if (visitor.visit(this, classScope)) {
@@ -709,7 +784,7 @@ public void traverse(ASTVisitor visitor, ClassScope classScope) {
 			for (int i = 0; i < thrownExceptionsLength; i++)
 				this.thrownExceptions[i].traverse(visitor, this.scope);
 		}
-		if (this.constructorCall != null)
+		if (useConstrucorCall())
 			this.constructorCall.traverse(visitor, this.scope);
 		if (this.statements != null) {
 			int statementsLength = this.statements.length;

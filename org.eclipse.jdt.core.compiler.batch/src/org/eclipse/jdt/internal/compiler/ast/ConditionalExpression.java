@@ -300,18 +300,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 				int position = codeStream.position;
 				codeStream.goto_(endifLabel);
 				codeStream.recordPositionsFrom(position, this.valueIfTrue.sourceEnd);
-				// Tune codestream stack size
-				if (valueRequired) {
-					switch(this.resolvedType.id) {
-						case TypeIds.T_long :
-						case TypeIds.T_double :
-							codeStream.decrStackSize(2);
-							break;
-						default :
-							codeStream.decrStackSize(1);
-							break;
-					}
-				}
 			}
 		}
 		if (needFalsePart) {
@@ -325,9 +313,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 				falseLabel.place();
 			}
 			this.valueIfFalse.generateCode(currentScope, codeStream, valueRequired);
-			if (valueRequired) {
-				codeStream.recordExpressionType(this.resolvedType);
-			}
 			if (needTruePart) {
 				// End of if statement
 				endifLabel.place();
@@ -460,13 +445,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		this.condition.printExpression(indent, output).append(" ? "); //$NON-NLS-1$
 		this.valueIfTrue.printExpression(0, output).append(" : "); //$NON-NLS-1$
 		return this.valueIfFalse.printExpression(0, output);
-	}
-
-	@Override
-	public void addPatternVariables(BlockScope scope, CodeStream codeStream) {
-		this.condition.addPatternVariables(scope, codeStream);
-		this.valueIfTrue.addPatternVariables(scope, codeStream);
-		this.valueIfFalse.addPatternVariables(scope, codeStream);
 	}
 
 	@Override

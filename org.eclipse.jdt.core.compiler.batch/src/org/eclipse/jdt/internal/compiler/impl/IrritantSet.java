@@ -226,8 +226,6 @@ public class IrritantSet {
 	}
 
 	public IrritantSet clear(int singleGroupIrritants) {
-		// AspectJ extension: '>>>' instead of '>>'
-		// TODO: Remove after https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2006 fix
 		int group = (singleGroupIrritants & GROUP_MASK) >>> GROUP_SHIFT;
 		this.bits[group] &= ~singleGroupIrritants;
 		return this;
@@ -246,8 +244,6 @@ public class IrritantSet {
 	public void initialize(int singleGroupIrritants) {
 		if (singleGroupIrritants == 0)
 			return;
-		// AspectJ extension: '>>>' instead of '>>'
-		// TODO: Remove after https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2006 fix
 		int group = (singleGroupIrritants & GROUP_MASK) >>> GROUP_SHIFT;
 		this.bits[group] = singleGroupIrritants & ~GROUP_MASK; // erase group information
 	}
@@ -286,8 +282,6 @@ public class IrritantSet {
 	}
 
 	public boolean isSet(int singleGroupIrritants) {
-		// AspectJ extension: '>>>' instead of '>>'
-		// TODO: Remove after https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2006 fix
 		int group = (singleGroupIrritants & GROUP_MASK) >>> GROUP_SHIFT;
 		return (this.bits[group] & singleGroupIrritants) != 0;
 	}
@@ -295,8 +289,6 @@ public class IrritantSet {
 		return this.bits;
 	}
 	public IrritantSet set(int singleGroupIrritants) {
-		// AspectJ extension: '>>>' instead of '>>'
-		// TODO: Remove after https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2006 fix
 		int group = (singleGroupIrritants & GROUP_MASK) >>> GROUP_SHIFT;
 		this.bits[group] |= (singleGroupIrritants & ~GROUP_MASK); // erase the group bits
 		return this;

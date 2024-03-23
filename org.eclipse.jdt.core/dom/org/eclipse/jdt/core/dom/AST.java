@@ -457,6 +457,21 @@ public class AST {
 	 */
 	public static final int JLS21 = 21;
 	/**
+	 * Constant for indicating the AST API that handles JLS22.
+	 * <p>
+	 * This API is capable of handling all constructs in the
+	 * Java language as described in the Java Language
+	 * Specification, Java SE 22 Edition (JLS22).
+	 * JLS22 is a superset of all earlier versions of the
+	 * Java language, and the JLS22 API can be used to manipulate
+	 * programs written in all versions of the Java language
+	 * up to and including Java SE 22(aka JDK 22).
+	 * </p>
+	 *
+	 * @since 3.38
+	 */
+	public static final int JLS22 = 22;
+	/**
 	 * Internal synonym for {@link #JLS15}. Use to alleviate
 	 * deprecation warnings once JLS15 is deprecated
 	 */
@@ -492,10 +507,15 @@ public class AST {
 	 */
 	static final int JLS21_INTERNAL = JLS21;
 	/**
+	 * Internal synonym for {@link #JLS22}. Use to alleviate
+	 * deprecation warnings once JLS21 is deprecated
+	 */
+	static final int JLS22_INTERNAL = JLS22;
+	/**
 	 * Internal property for latest supported JLS level
 	 * This provides the latest JLS level.
 	 */
-	private static final int JLS_INTERNAL_Latest = JLS21;
+	private static final int JLS_INTERNAL_Latest = JLS22;
 
 	/**
 	 * @since 3.26
@@ -1246,6 +1266,7 @@ public class AST {
         t.put(JavaCore.VERSION_19, ClassFileConstants.JDK19);
         t.put(JavaCore.VERSION_20, ClassFileConstants.JDK20);
         t.put(JavaCore.VERSION_21, ClassFileConstants.JDK21);
+        t.put(JavaCore.VERSION_22, ClassFileConstants.JDK22);
         return Collections.unmodifiableMap(t);
 	}
 	private static Map<String, Integer> getApiLevelMapTable() {
@@ -1271,6 +1292,7 @@ public class AST {
         t.put(JavaCore.VERSION_19, JLS19_INTERNAL);
         t.put(JavaCore.VERSION_20, JLS20_INTERNAL);
         t.put(JavaCore.VERSION_21, JLS21_INTERNAL);
+        t.put(JavaCore.VERSION_22, JLS22_INTERNAL);
         return Collections.unmodifiableMap(t);
 	}
 	/**
@@ -2840,6 +2862,18 @@ public class AST {
 		RecordPattern result = new RecordPattern(this);
 		return result;
 	}
+
+	/**
+	 * Creates and returns a new unparented `either or multi-pattern` node
+	 *
+	 * @return a new unparented `either or multi-pattern` node
+	 * @since 3.38
+	 */
+	public EitherOrMultiPattern newEitherOrMultiPattern() {
+		EitherOrMultiPattern result = new EitherOrMultiPattern(this);
+		return result;
+	}
+
 	/**
 	 * Creates and returns a new unparented requires directive
 	 * node for an unspecified, but legal, name;

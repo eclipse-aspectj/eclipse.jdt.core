@@ -3307,13 +3307,19 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_21 = "21"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
+	 * @since 3.38
+	 * @category OptionValue
+	 */
+	public static final String VERSION_22 = "22"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
 	 * @since 3.4
 	 * @category OptionValue
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
 			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17, VERSION_18,
-			VERSION_19, VERSION_20, VERSION_21));
+			VERSION_19, VERSION_20, VERSION_21, VERSION_22));
 
 	/**
 	 * Returns all {@link JavaCore}{@code #VERSION_*} levels in the order of their
@@ -3600,8 +3606,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 			IContainer container,
 			int rootPathSegmentCounts,
 			ArrayList collector) {
-		for (int i = 0, max = nonJavaResources.length; i < max; i++) {
-			Object nonJavaResource = nonJavaResources[i];
+		for (Object nonJavaResource : nonJavaResources) {
 			if (nonJavaResource instanceof IFile) {
 				IFile file = (IFile) nonJavaResource;
 				IPath path = file.getFullPath().removeFirstSegments(rootPathSegmentCounts);
@@ -3975,10 +3980,9 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		IExtensionPoint extension = Platform.getExtensionRegistry().getExtensionPoint(JavaCore.PLUGIN_ID, JavaModelManager.CPCONTAINER_INITIALIZER_EXTPOINT_ID);
 		if (extension != null) {
 			IExtension[] extensions =  extension.getExtensions();
-			for(int i = 0; i < extensions.length; i++){
-				IConfigurationElement [] configElements = extensions[i].getConfigurationElements();
-				for(int j = 0; j < configElements.length; j++){
-					IConfigurationElement configurationElement = configElements[j];
+			for (IExtension ext : extensions) {
+				IConfigurationElement [] configElements = ext.getConfigurationElements();
+				for (IConfigurationElement configurationElement : configElements) {
 					String initializerID = configurationElement.getAttribute("id"); //$NON-NLS-1$
 					if (initializerID != null && initializerID.equals(containerID)){
 						if (JavaModelManager.CP_RESOLVE_VERBOSE_ADVANCED)
@@ -4137,10 +4141,9 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		IExtensionPoint extension = Platform.getExtensionRegistry().getExtensionPoint(JavaCore.PLUGIN_ID, JavaModelManager.CPVARIABLE_INITIALIZER_EXTPOINT_ID);
 		if (extension != null) {
 			IExtension[] extensions =  extension.getExtensions();
-			for(int i = 0; i < extensions.length; i++){
-				IConfigurationElement [] configElements = extensions[i].getConfigurationElements();
-				for(int j = 0; j < configElements.length; j++){
-					IConfigurationElement configElement = configElements[j];
+			for (IExtension ext : extensions) {
+				IConfigurationElement [] configElements = ext.getConfigurationElements();
+				for (IConfigurationElement configElement : configElements) {
 					String varAttribute = configElement.getAttribute("variable"); //$NON-NLS-1$
 					if (variableName.equals(varAttribute)) {
 						String deprecatedAttribute = configElement.getAttribute("deprecated"); //$NON-NLS-1$
@@ -4172,10 +4175,9 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		IExtensionPoint extension = Platform.getExtensionRegistry().getExtensionPoint(JavaCore.PLUGIN_ID, JavaModelManager.CPVARIABLE_INITIALIZER_EXTPOINT_ID);
 		if (extension != null) {
 			IExtension[] extensions =  extension.getExtensions();
-			for(int i = 0; i < extensions.length; i++){
-				IConfigurationElement [] configElements = extensions[i].getConfigurationElements();
-				for(int j = 0; j < configElements.length; j++){
-					IConfigurationElement configElement = configElements[j];
+			for (IExtension ext : extensions) {
+				IConfigurationElement [] configElements = ext.getConfigurationElements();
+				for (IConfigurationElement configElement : configElements) {
 					try {
 						String varAttribute = configElement.getAttribute("variable"); //$NON-NLS-1$
 						if (variable.equals(varAttribute)) {
@@ -4306,9 +4308,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		IJavaElement[] elements = region.getElements();
 		HashMap projectsStates = new HashMap();
 		ArrayList collector = new ArrayList();
-		for (int i = 0, max = elements.length; i < max; i++) {
-			// collect all the java project
-			IJavaElement element = elements[i];
+		for (IJavaElement element : elements) {
 			IJavaProject javaProject = element.getJavaProject();
 			IProject project = javaProject.getProject();
 			State state = null;
@@ -4331,12 +4331,12 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 				}
 				if (roots == null) continue;
 				IRegion region2 = JavaCore.newRegion();
-				for (int j = 0; j < roots.length; j++) {
-					region2.add(roots[j]);
+				for (IPackageFragmentRoot root : roots) {
+					region2.add(root);
 				}
 				IResource[] res = getGeneratedResources(region2, includesNonJavaResources);
-				for (int j = 0, max2 = res.length; j < max2; j++) {
-					collector.add(res[j]);
+				for (IResource re : res) {
+					collector.add(re);
 				}
 				continue;
 			}
@@ -4382,8 +4382,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 						// ignore
 					}
 					if (compilationUnits == null) continue;
-					for (int j = 0, max2 = compilationUnits.length; j < max2; j++) {
-						getGeneratedResource(compilationUnits[j], container, state, rootPathSegmentCounts, collector);
+					for (ICompilationUnit compilationUnit : compilationUnits) {
+						getGeneratedResource(compilationUnit, container, state, rootPathSegmentCounts, collector);
 					}
 					if (includesNonJavaResources) {
 						// retrieve all non-java resources from the output location using the package fragment path
@@ -4409,8 +4409,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 						// ignore
 					}
 					if (children == null) continue;
-					for (int j = 0, max2 = children.length; j < max2; j++) {
-						fragment = (IPackageFragment) children[j];
+					for (IJavaElement child : children) {
+						fragment = (IPackageFragment) child;
 						ICompilationUnit[] units = null;
 						try {
 							units = fragment.getCompilationUnits();
@@ -4418,8 +4418,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 							// ignore
 						}
 						if (units == null) continue;
-						for (int n = 0, max3 = units.length; n < max3; n++) {
-							getGeneratedResource(units[n], container, state, rootPathSegmentCounts, collector);
+						for (ICompilationUnit unit2 : units) {
+							getGeneratedResource(unit2, container, state, rootPathSegmentCounts, collector);
 						}
 						if (includesNonJavaResources) {
 							// retrieve all non-java resources from the output location using the package fragment path
@@ -4455,8 +4455,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		char[][] typeNames = state.getDefinedTypeNamesFor(resource.getProjectRelativePath().toString());
 		if (typeNames != null) {
 			IPath path = unit.getPath().removeFirstSegments(rootPathSegmentCounts).removeLastSegments(1);
-			for (int j = 0, max2 = typeNames.length; j < max2; j++) {
-				IPath localPath = path.append(new String(typeNames[j]) + ".class"); //$NON-NLS-1$
+			for (char[] typeName : typeNames) {
+				IPath localPath = path.append(new String(typeName) + ".class"); //$NON-NLS-1$
 				IResource member = container.findMember(localPath);
 				if (member != null && member.exists()) {
 					collector.add(member);
@@ -4748,8 +4748,8 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 		final IJavaProject[] projects = manager.getJavaModel().getJavaProjects();
 		HashSet visitedPaths = new HashSet();
 		ExternalFoldersManager externalFoldersManager = JavaModelManager.getExternalManager();
-		for (int i = 0, length = projects.length; i < length; i++) {
-			JavaProject javaProject = (JavaProject) projects[i];
+		for (IJavaProject project : projects) {
+			JavaProject javaProject = (JavaProject) project;
 			IClasspathEntry[] classpath;
 			try {
 				classpath = javaProject.getResolvedClasspath();
@@ -4758,8 +4758,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 				continue;
 			}
 			if (classpath != null) {
-				for (int j = 0, length2 = classpath.length; j < length2; j++) {
-					IClasspathEntry entry = classpath[j];
+				for (IClasspathEntry entry : classpath) {
 					if (entry.getSourceAttachmentPath() != null) {
 						IPath entryPath = entry.getPath();
 						if (visitedPaths.add(entryPath)) {
@@ -4827,8 +4826,7 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 			IWorkspaceRunnable runnable = new IWorkspaceRunnable() {
 				@Override
 				public void run(IProgressMonitor progressMonitor2) throws CoreException {
-					for (int i = 0, length = projects.length; i < length; i++) {
-						IJavaProject project = projects[i];
+					for (IJavaProject project : projects) {
 						try {
 							if (JavaBuilder.DEBUG) {
 								trace("Touching " + project.getElementName()); //$NON-NLS-1$

@@ -73,6 +73,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.ManifestAnalyzer;
 import org.eclipse.jdt.internal.core.index.DiskIndex;
+import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
 import org.w3c.dom.DOMException;
@@ -149,15 +150,15 @@ public class ClasspathEntry implements IClasspathEntry {
 	 *		path to the corresponding project resource.</li>
 	 *  <li>A variable entry (<code>CPE_VARIABLE</code>) - the first segment of the path
 	 *      is the name of a classpath variable. If this classpath variable
-	 *		is bound to the path <it>P</it>, the path of the corresponding classpath entry
-	 *		is computed by appending to <it>P</it> the segments of the returned
+	 *		is bound to the path <code>P</code>, the path of the corresponding classpath entry
+	 *		is computed by appending to <code>P</code> the segments of the returned
 	 *		path without the variable.</li>
 	 *  <li> A container entry (<code>CPE_CONTAINER</code>) - the first segment of the path is denoting
 	 *     the unique container identifier (for which a <code>ClasspathContainerInitializer</code> could be
 	 * 	registered), and the remaining segments are used as additional hints for resolving the container entry to
-	 * 	an actual <code>IClasspathContainer</code>.</li>
+	 * 	an actual <code>IClasspathContainer</code>.</li></ul>
 	 */
-	public IPath path;
+	public final IPath path;
 
 	/**
 	 * Patterns allowing to include/exclude portions of the resource tree denoted by this entry path.
@@ -311,17 +312,16 @@ public class ClasspathEntry implements IClasspathEntry {
 			System.arraycopy(accessRules, 0, rules, 0, length);
 			byte classpathEntryType;
 			String classpathEntryName;
-			JavaModelManager manager = JavaModelManager.getJavaModelManager();
 			if (this.entryKind == CPE_PROJECT || this.entryKind == CPE_SOURCE) { // can be remote source entry when reconciling
 				classpathEntryType = AccessRestriction.PROJECT;
-				classpathEntryName = manager.intern(getPath().segment(0));
+				classpathEntryName = DeduplicationUtil.intern(getPath().segment(0));
 			} else {
 				classpathEntryType = AccessRestriction.LIBRARY;
 				Object target = JavaModel.getWorkspaceTarget(path);
 				if (target == null) {
-					classpathEntryName = manager.intern(path.toOSString());
+					classpathEntryName = DeduplicationUtil.intern(path.toOSString());
 				} else {
-					classpathEntryName = manager.intern(path.makeRelative().toString());
+					classpathEntryName = DeduplicationUtil.intern(path.makeRelative().toString());
 				}
 			}
 			this.accessRuleSet = new AccessRuleSet(rules, classpathEntryType, classpathEntryName);
@@ -672,8 +672,7 @@ public class ClasspathEntry implements IClasspathEntry {
 
 	void encodeExtraAttributes(XMLWriter writer, boolean indent, boolean newLine) {
 		writer.startTag(TAG_ATTRIBUTES, indent);
-		for (int i = 0; i < this.extraAttributes.length; i++) {
-			IClasspathAttribute attribute = this.extraAttributes[i];
+		for (IClasspathAttribute attribute : this.extraAttributes) {
 			HashMap parameters = new HashMap();
 	    	parameters.put(TAG_ATTRIBUTE_NAME, attribute.getName());
 			parameters.put(TAG_ATTRIBUTE_VALUE, attribute.getValue());
@@ -686,8 +685,8 @@ public class ClasspathEntry implements IClasspathEntry {
 
 		writer.startTag(TAG_ACCESS_RULES, indent);
 		AccessRule[] rules = getAccessRuleSet().getAccessRules();
-		for (int i = 0, length = rules.length; i < length; i++) {
-			encodeAccessRule(rules[i], writer, indent, newLine);
+		for (AccessRule rule : rules) {
+			encodeAccessRule(rule, writer, indent, newLine);
 		}
 		writer.endTag(TAG_ACCESS_RULES, indent, true/*insert new line*/);
 	}
@@ -716,8 +715,8 @@ public class ClasspathEntry implements IClasspathEntry {
 	}
 
 	private void encodeUnknownChildren(XMLWriter writer, boolean indent, boolean newLine, ArrayList unknownChildren) {
-		for (int i = 0, length = unknownChildren.size(); i < length; i++) {
-			String child = (String) unknownChildren.get(i);
+		for (Object unknownChild : unknownChildren) {
+			String child = (String) unknownChild;
 			writer.printString(child, indent, false/*don't insert new line*/);
 		}
 	}
@@ -1420,8 +1419,8 @@ public class ClasspathEntry implements IClasspathEntry {
 	private static void invalidExternalAnnotationPath(IProject project) {
 		try {
 			IMarker[] markers = project.findMarkers(IJavaModelMarker.BUILDPATH_PROBLEM_MARKER, false, IResource.DEPTH_ZERO);
-			for (int i = 0, l = markers.length; i < l; i++) {
-				if (markers[i].getAttribute(IMarker.SEVERITY, -1) == IMarker.SEVERITY_ERROR)
+			for (IMarker marker : markers) {
+				if (marker.getAttribute(IMarker.SEVERITY, -1) == IMarker.SEVERITY_ERROR)
 					return; // one marker is enough
 			}
 		} catch (CoreException ce) {
@@ -1457,8 +1456,7 @@ public class ClasspathEntry implements IClasspathEntry {
 
 	public static String getExtraAttribute(IClasspathEntry entry, String attributeName) {
 		IClasspathAttribute[] extraAttributes = entry.getExtraAttributes();
-		for (int i = 0, length = extraAttributes.length; i < length; i++) {
-			IClasspathAttribute attribute = extraAttributes[i];
+		for (IClasspathAttribute attribute : extraAttributes) {
 			if (attributeName.equals(attribute.getName())) {
 				return attribute.getValue();
 			}
@@ -1488,8 +1486,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	}
 
 	public boolean isOptional() {
-		for (int i = 0, length = this.extraAttributes.length; i < length; i++) {
-			IClasspathAttribute attribute = this.extraAttributes[i];
+		for (IClasspathAttribute attribute : this.extraAttributes) {
 			if (IClasspathAttribute.OPTIONAL.equals(attribute.getName()) && "true".equals(attribute.getValue())) //$NON-NLS-1$
 				return true;
 		}
@@ -1500,8 +1497,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	}
 
 	public String getSourceAttachmentEncoding() {
-		for (int i = 0, length = this.extraAttributes.length; i < length; i++) {
-			IClasspathAttribute attribute = this.extraAttributes[i];
+		for (IClasspathAttribute attribute : this.extraAttributes) {
 			if (IClasspathAttribute.SOURCE_ATTACHMENT_ENCODING.equals(attribute.getName()))
 				return attribute.getValue();
 		}
@@ -1575,7 +1571,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	@Override
 	public String toString() {
 		StringBuilder buffer = new StringBuilder();
-		Object target = JavaModel.getTarget(getPath(), true);
+		Object target = JavaModel.getTarget(this, true);
 		if (target instanceof File)
 			buffer.append(getPath().toOSString());
 		else
@@ -1791,8 +1787,7 @@ public class ClasspathEntry implements IClasspathEntry {
 				return null;
 		}
 		if (this.extraAttributes == null) return null;
-		for (int i= 0; i < this.extraAttributes.length; i++) {
-			IClasspathAttribute attrib= this.extraAttributes[i];
+		for (IClasspathAttribute attrib : this.extraAttributes) {
 			if (IClasspathAttribute.INDEX_LOCATION_ATTRIBUTE_NAME.equals(attrib.getName())) {
 				String value = attrib.getValue();
 				try {
@@ -1807,8 +1802,7 @@ public class ClasspathEntry implements IClasspathEntry {
 
 	public boolean ignoreOptionalProblems() {
 		if (this.entryKind == IClasspathEntry.CPE_SOURCE) {
-			for (int i = 0; i < this.extraAttributes.length; i++) {
-				IClasspathAttribute attrib = this.extraAttributes[i];
+			for (IClasspathAttribute attrib : this.extraAttributes) {
 				if (IClasspathAttribute.IGNORE_OPTIONAL_PROBLEMS.equals(attrib.getName())) {
 					return "true".equals(attrib.getValue()); //$NON-NLS-1$
 				}
@@ -1839,7 +1833,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	 *  <p>
 	 *  This validation is intended to anticipate classpath issues prior to assigning it to a project. In particular, it will automatically
 	 *  be performed during the classpath setting operation (if validation fails, the classpath setting will not complete).
-	 *  <p>
+	 *
 	 * @param javaProject the given java project
 	 * @param rawClasspath a given classpath
 	 * @param projectOutputLocation a given output location
@@ -1998,7 +1992,7 @@ public class ClasspathEntry implements IClasspathEntry {
 					break;
 
 				case IClasspathEntry.CPE_LIBRARY:
-					Object target = JavaModel.getTarget(path, false/*don't check resource existence*/);
+					Object target = JavaModel.getTarget(resolvedEntry, false/*don't check resource existence*/);
 					hasLibFolder |= target instanceof IContainer;
 					if ((index = Util.indexOfMatchingPath(path, outputLocations, outputCount)) != -1){
 						allowNestingInOutputLocations[index] = true;
@@ -2028,15 +2022,15 @@ public class ClasspathEntry implements IClasspathEntry {
 
 			// allow nesting source entries in each other as long as the outer entry excludes the inner one
 			if (kind == IClasspathEntry.CPE_SOURCE
-					|| (kind == IClasspathEntry.CPE_LIBRARY && (JavaModel.getTarget(entryPath, false/*don't check existence*/) instanceof IContainer))) {
+					|| (kind == IClasspathEntry.CPE_LIBRARY && (JavaModel.getTarget(entry, false/*don't check existence*/) instanceof IContainer))) {
 				for (IClasspathEntry otherEntry : classpath) {
 					if (otherEntry == null) continue;
 					int otherKind = otherEntry.getEntryKind();
-					IPath otherPath = otherEntry.getPath();
 					if (entry != otherEntry
 						&& (otherKind == IClasspathEntry.CPE_SOURCE
 								|| (otherKind == IClasspathEntry.CPE_LIBRARY
-										&& (JavaModel.getTarget(otherPath, false/*don't check existence*/) instanceof IContainer)))) {
+										&& (JavaModel.getTarget(otherEntry, false/*don't check existence*/) instanceof IContainer)))) {
+						IPath otherPath = otherEntry.getPath();
 						char[][] inclusionPatterns, exclusionPatterns;
 						if (otherPath.isPrefixOf(entryPath)
 								&& !otherPath.equals(entryPath)
@@ -2214,9 +2208,9 @@ public class ClasspathEntry implements IClasspathEntry {
 		return status;
 	}
 
-	private static IJavaModelStatus validateClasspathEntry(IJavaProject project, IClasspathEntry entry, IClasspathContainer entryContainer, boolean checkSourceAttachment, boolean referredByContainer){
+	private static IJavaModelStatus validateClasspathEntry(IJavaProject project, final IClasspathEntry entry, IClasspathContainer entryContainer, boolean checkSourceAttachment, boolean referredByContainer){
 
-		IPath path = entry.getPath();
+		final IPath path = entry.getPath();
 
 		// Build some common strings for status message
 		String projectName = project.getElementName();
@@ -2275,8 +2269,7 @@ public class ClasspathEntry implements IClasspathEntry {
 						}
 						IClasspathEntry[] containerEntries = container.getClasspathEntries();
 						if (containerEntries != null){
-							for (int i = 0, length = containerEntries.length; i < length; i++){
-								IClasspathEntry containerEntry = containerEntries[i];
+							for (IClasspathEntry containerEntry : containerEntries) {
 								int kind = containerEntry == null ? 0 : containerEntry.getEntryKind();
 								if (containerEntry == null
 									|| kind == IClasspathEntry.CPE_SOURCE
@@ -2301,19 +2294,20 @@ public class ClasspathEntry implements IClasspathEntry {
 			// variable entry check
 			case IClasspathEntry.CPE_VARIABLE :
 				if (path.segmentCount() >= 1){
+					IClasspathEntry resolved;
 					try {
-						entry = JavaCore.getResolvedClasspathEntry(entry);
+						resolved = JavaCore.getResolvedClasspathEntry(entry);
 					} catch (AssertionFailedException e) {
 						// Catch the assertion failure and throw java model exception instead
 						// see bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=55992
 						return new JavaModelStatus(IJavaModelStatusConstants.INVALID_PATH, e.getMessage());
 					}
-					if (entry == null){
+					if (resolved == null){
 						return new JavaModelStatus(IJavaModelStatusConstants.CP_VARIABLE_PATH_UNBOUND, project, path);
 					}
 
 					// get validation status
-					IJavaModelStatus status = validateClasspathEntry(project, entry, null, checkSourceAttachment, false/*not referred by container*/);
+					IJavaModelStatus status = validateClasspathEntry(project, resolved, null, checkSourceAttachment, false/*not referred by container*/);
 					if (!status.isOK()) return status;
 
 					// return deprecation status if any
@@ -2329,7 +2323,7 @@ public class ClasspathEntry implements IClasspathEntry {
 
 			// library entry check
 			case IClasspathEntry.CPE_LIBRARY :
-				path = ClasspathEntry.resolveDotDot(project.getProject().getLocation(), path);
+				IPath resolvedPath = ClasspathEntry.resolveDotDot(project.getProject().getLocation(), path);
 
 				// do not validate entries from Class-Path: in manifest
 				// (these entries are considered optional since the user cannot act on them)
@@ -2343,7 +2337,7 @@ public class ClasspathEntry implements IClasspathEntry {
 						containerInfo = Messages.bind(Messages.classpath_containerInfo, new String[] {entryContainer.getDescription()});
 					}
 				}
-				IJavaModelStatus status = validateLibraryEntry(path, project, containerInfo, checkSourceAttachment ? entry.getSourceAttachmentPath() : null, entryPathMsg, ((ClasspathEntry) entry).isOptional());
+				IJavaModelStatus status = validateLibraryEntry(resolvedPath, project, containerInfo, checkSourceAttachment ? entry.getSourceAttachmentPath() : null, entryPathMsg, ((ClasspathEntry) entry).isOptional());
 				if (!status.isOK())
 					return status;
 				break;
@@ -2394,7 +2388,7 @@ public class ClasspathEntry implements IClasspathEntry {
 				}
 				if (path.isAbsolute() && !path.isEmpty()) {
 					IPath projectPath= project.getProject().getFullPath();
-					if (!projectPath.isPrefixOf(path) || JavaModel.getTarget(path, true) == null){
+					if (!projectPath.isPrefixOf(path) || JavaModel.getTarget(entry, true) == null){
 						return new JavaModelStatus(IJavaModelStatusConstants.INVALID_CLASSPATH, Messages.bind(Messages.classpath_unboundSourceFolder, new String[] {entryPathMsg, projectName}));
 					}
 				} else {
@@ -2495,8 +2489,8 @@ public class ClasspathEntry implements IClasspathEntry {
 							}
 						}
 				}
-			} else if (target instanceof File){
-				File file = JavaModel.getFile(target);
+			} else if (target instanceof File tf){
+				File file = JavaModel.getFile(tf);
 				if (file == null) {
 					if (container != null) {
 						return  new JavaModelStatus(IJavaModelStatusConstants.INVALID_CLASSPATH, Messages.bind(Messages.classpath_illegalExternalFolderInContainer, new String[] {path.toOSString(), container}));
@@ -2583,8 +2577,7 @@ public class ClasspathEntry implements IClasspathEntry {
 	 */
 	public static boolean isModular(IClasspathEntry classpathEntry) {
 		IClasspathAttribute[] extraAttributes = classpathEntry.getExtraAttributes();
-		for (int i = 0, length = extraAttributes.length; i < length; i++) {
-			IClasspathAttribute attribute = extraAttributes[i];
+		for (IClasspathAttribute attribute : extraAttributes) {
 			if (IClasspathAttribute.MODULE.equals(attribute.getName()) && "true".equals(attribute.getValue())) //$NON-NLS-1$
 				return true;
 		}

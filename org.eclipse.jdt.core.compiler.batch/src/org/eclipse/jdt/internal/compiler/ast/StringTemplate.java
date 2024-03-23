@@ -13,6 +13,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -62,27 +63,24 @@ public class StringTemplate extends Expression {
 
 	private void generateNewTemplateBootstrap(CodeStream codeStream) {
 		int index = codeStream.classFile.recordBootstrapMethod(this);
-		// Kludge, see if this can be moved to CodeStream
-		codeStream.stackDepth ++;
-		if (codeStream.stackDepth > codeStream.stackMax) {
-			codeStream.stackMax = codeStream.stackDepth;
-		}
 		StringBuilder signature = new StringBuilder("("); //$NON-NLS-1$
+		int argsSize = 0;
 		for (Expression exp : this.values) {
 			TypeBinding type = exp.resolvedType;
 			if (type == TypeBinding.NULL)
 				signature.append(ConstantPool.JavaLangObjectSignature);
 			else
 				signature.append(type.signature());
+			argsSize += TypeIds.getCategory(type.id);
 		}
 		signature.append(")Ljava/lang/StringTemplate;"); //$NON-NLS-1$
 		codeStream.invokeDynamic(index,
-				1, //
-				1, // int
+				argsSize, //
+				1, // Ljava/lang/StringTemplate;
 				ConstantPool.PROCESS,
 				signature.toString().toCharArray(),
 				TypeIds.T_int,
-				TypeBinding.INT);
+				TypeBinding.INT); // Todo: copy + paste error. INT is not the type here.
 	}
 	@Override
 	public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
@@ -109,8 +107,8 @@ public class StringTemplate extends Expression {
 			output.append("\"\"\n"); //$NON-NLS-1$
 		for (int i = 0; i < length; i++) {
 			char[] source = this.fragments[i].source();
-			for (int j = 0; j < source.length; j++) {
-				Util.appendEscapedChar(output, source[j], true);
+			for (char c : source) {
+				Util.appendEscapedChar(output, c, true);
 			}
 			if (i + 1 < length) {
 				output.append("\\{"); //$NON-NLS-1$
@@ -124,5 +122,18 @@ public class StringTemplate extends Expression {
 		if (this.isMultiline)
 			output.append("\"\""); //$NON-NLS-1$
 		return output;
+	}
+	@Override
+	public void traverse(ASTVisitor visitor, BlockScope scope) {
+		if (visitor.visit(this, scope)) {
+			if (this.fragments != null)
+				for (StringLiteral frag : this.fragments) {
+					frag.traverse(visitor, scope);
+				}
+			if (this.values != null)
+				for (Expression exp : this.values) {
+					exp.traverse(visitor, scope);
+				}
+		}
 	}
 }

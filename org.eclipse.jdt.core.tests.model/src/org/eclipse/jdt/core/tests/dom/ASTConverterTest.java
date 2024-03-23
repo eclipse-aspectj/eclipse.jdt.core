@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -499,7 +499,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 
 	/**
-	 * i &= 2 ==> ExpressionStatement(Assignment)
+	 * {@code i &= 2} ==> ExpressionStatement(Assignment)
 	 */
 	public void test0020() throws JavaModelException {
 		ICompilationUnit sourceUnit = getCompilationUnit("Converter" , "src", "test0020", "Test.java"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -571,7 +571,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 
 	/**
-	 * i <<= 2; ==> ExpressionStatement(Assignment)
+	 * {@code i <<= 2;} ==> ExpressionStatement(Assignment)
 	 */
 	public void test0024() throws JavaModelException {
 		ICompilationUnit sourceUnit = getCompilationUnit("Converter" , "src", "test0024", "Test.java"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -1377,7 +1377,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 
 	/**
-	 * BinaryExpression (&) ==> InfixExpression
+	 * BinaryExpression {@code (&)} ==> InfixExpression
 	 * @deprecated using deprecated code
 	 */
 	public void test0063() throws JavaModelException {
@@ -1429,7 +1429,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 
 	/**
-	 * BinaryExpression (<) ==> InfixExpression
+	 * BinaryExpression {@code (<)} ==> InfixExpression
 	 * @deprecated using deprecated code
 	 */
 	public void test0065() throws JavaModelException {
@@ -1455,7 +1455,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 
 	/**
-	 * BinaryExpression (<=) ==> InfixExpression
+	 * BinaryExpression {@code (<=)} ==> InfixExpression
 	 * @deprecated using deprecated code
 	 */
 	public void test0066() throws JavaModelException {
@@ -7698,8 +7698,8 @@ public class ASTConverterTest extends ConverterTestSetup {
 		assertNotNull("No result", result); //$NON-NLS-1$
 		assertTrue("Not a compilation unit", result instanceof CompilationUnit); //$NON-NLS-1$
 		CompilationUnit compilationUnit = (CompilationUnit) result;
-		assertEquals("Wrong size", 2, compilationUnit.getMessages().length); //$NON-NLS-1$
-		assertEquals("Wrong size", 2, compilationUnit.getProblems().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 4, compilationUnit.getMessages().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 4, compilationUnit.getProblems().length); //$NON-NLS-1$
 	}
 
 	/**

@@ -518,10 +518,6 @@ InternalCompilationUnit ::= PackageDeclaration TypeDeclarations
 /.$putCase consumeInternalCompilationUnitWithTypes(); $break ./
 InternalCompilationUnit ::= ImportDeclarations ReduceImports
 /.$putCase consumeInternalCompilationUnit(); $break ./
-InternalCompilationUnit ::= TypeDeclarations
-/.$putCase consumeInternalCompilationUnitWithTypes(); $break ./
-InternalCompilationUnit ::= ImportDeclarations ReduceImports TypeDeclarations
-/.$putCase consumeInternalCompilationUnitWithTypes(); $break ./
 InternalCompilationUnit ::= $empty
 /.$putCase consumeEmptyInternalCompilationUnit(); $break ./
 /:$readableName CompilationUnit:/
@@ -536,6 +532,12 @@ InternalCompilationUnit ::= ModuleDeclaration
 ModuleDeclaration ::= ModuleHeader ModuleBody
 /:$compliance 9:/
 /.$putCase consumeModuleDeclaration(); $break ./
+
+-- JEP 445: unnamed class, this may capture type declarations without unnamed class, this case is fixed/reduced upon completion of parsing
+InternalCompilationUnit ::= UnnamedClassBodyDeclarations
+/.$putCase consumeInternalCompilationUnitWithPotentialUnnamedClass(); $break ./
+InternalCompilationUnit ::= ImportDeclarations ReduceImports UnnamedClassBodyDeclarations
+/.$putCase consumeInternalCompilationUnitWithPotentialUnnamedClass(); $break ./
 
 -- to work around shift/reduce conflicts, we allow Modifiersopt in order to support annotations
 -- in a module declaration, and then report errors if any modifiers other than annotations are
@@ -1419,6 +1421,11 @@ ClassBodyDeclarations ::= ClassBodyDeclarations ClassBodyDeclaration
 ClassBodyDeclaration -> ClassMemberDeclaration
 ClassBodyDeclaration -> StaticInitializer
 ClassBodyDeclaration -> ConstructorDeclaration
+
+UnnamedClassBodyDeclarations -> ClassMemberDeclaration
+UnnamedClassBodyDeclarations ::= ClassMemberDeclaration UnnamedClassBodyDeclarations
+/.$putCase consumeUnnamedClassBodyDeclarations(); $break ./
+/:$readableName UnnamedClassBodyDeclarations:/
 --1.1 feature
 ClassBodyDeclaration ::= Diet NestedMethod CreateInitializer Block
 /.$putCase consumeClassBodyDeclaration(); $break ./
@@ -1557,9 +1564,9 @@ MethodHeaderName ::= Modifiersopt Type JavaIdentifier '('  -- AspectJ Extension,
 /.$putCase consumeMethodHeaderName(false); $break ./
 /:$readableName MethodHeaderName:/
 
-DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'Identifier' '('
+DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'JavaIdentifier' '(' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeMethodHeaderNameWithTypeParameters(false); $break ./
-DefaultMethodHeaderName ::= ModifiersWithDefault Type 'Identifier' '('
+DefaultMethodHeaderName ::= ModifiersWithDefault Type 'JavaIdentifier' '(' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeMethodHeaderName(false); $break ./
 /:$readableName MethodHeaderName:/
 
@@ -1922,8 +1929,7 @@ InstanceofExpression ::= InstanceofExpression InstanceofRHS
 
 InstanceofRHS -> InstanceofClassic
 InstanceofRHS -> InstanceofPattern
-/.$putCase consumeInstanceOfRHS(); $break ./
-/:$readableName Expression:/
+/:$readableName InstanceofRHS:/
 
 InstanceofClassic ::= 'instanceof' Modifiersopt Type
 /.$putCase consumeInstanceOfClassic(); $break ./
@@ -1933,10 +1939,8 @@ InstanceofPattern ::=  'instanceof' Pattern
 /.$putCase consumeInstanceofPattern(); $break ./
 /:$readableName InstanceofPattern:/
 
-
 Pattern -> TypePattern
 Pattern -> RecordPattern
-/.$putCase consumePattern(); $break ./
 /:$readableName Pattern:/
 
 TypePattern ::= Modifiersopt Type JavaIdentifier  -- AspectJ extension, was 'Identifier'
@@ -2294,8 +2298,7 @@ CaseLabelElement ::=  CaseLabelElementPattern Guard
 /.$putCase consumeCaseLabelElement(CaseLabelKind.CASE_PATTERN); $break ./
 /:$readableName CaseLabelElement:/
 
-CaseLabelElementPattern ::= BeginCaseElement Pattern
-/.$putCase consumeCaseLabelElementPattern(); $break ./
+CaseLabelElementPattern -> BeginCaseElement Pattern
 /:$readableName CaseLabelElementPattern:/
 
 Guard ::= RestrictedIdentifierWhen Expression
@@ -2354,14 +2357,14 @@ AssertStatement ::= 'assert' Expression ':' Expression ';'
 BreakStatement ::= 'break' ';'
 /.$putCase consumeStatementBreak() ; $break ./
 
-BreakStatement ::= 'break' Identifier ';'
+BreakStatement ::= 'break' JavaIdentifier ';' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeStatementBreakWithLabel() ; $break ./
 /:$readableName BreakStatement:/
 
 ContinueStatement ::= 'continue' ';'
 /.$putCase consumeStatementContinue() ; $break ./
 
-ContinueStatement ::= 'continue' Identifier ';'
+ContinueStatement ::= 'continue' JavaIdentifier ';' -- AspectJ Extension, was 'Identifier'
 /.$putCase consumeStatementContinueWithLabel() ; $break ./
 /:$readableName ContinueStatement:/
 

@@ -99,6 +99,7 @@ import org.eclipse.jdt.internal.compiler.lookup.InferenceVariable;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
+import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
 import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
@@ -174,8 +175,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			}
 		} else if (this.arguments != null && this.arguments.length > 0 && FakedTrackingVariable.isAnyCloseable(this.arguments[0].resolvedType)) {
 			// Helper.closeMethod(closeable, ..)
-			for (int i=0; i<TypeConstants.closeMethods.length; i++) {
-				CloseMethodRecord record = TypeConstants.closeMethods[i];
+			for (CloseMethodRecord record : TypeConstants.closeMethods) {
 				if (CharOperation.equals(record.selector, this.selector)
 						&& CharOperation.equals(record.typeName, this.binding.declaringClass.compoundName))
 				{
@@ -882,8 +882,8 @@ public TypeBinding resolveType(BlockScope scope) {
 			}
 			if (this.argumentsHaveErrors) {
 				if (this.arguments != null) { // still attempt to resolve arguments
-					for (int i = 0, max = this.arguments.length; i < max; i++) {
-						this.arguments[i].resolveType(scope);
+					for (Expression argument : this.arguments) {
+						argument.resolveType(scope);
 					}
 				}
 				return null;
@@ -1066,6 +1066,15 @@ public TypeBinding resolveType(BlockScope scope) {
 			this.receiver.computeConversion(scope, this.actualReceiverType, this.actualReceiverType);
 			if (TypeBinding.notEquals(this.actualReceiverType, oldReceiverType) && TypeBinding.notEquals(this.receiver.postConversionType(scope), this.actualReceiverType)) { // record need for explicit cast at codegen since receiver could not handle it
 				this.bits |= NeedReceiverGenericCast;
+			}
+		}
+		if (this.inPreConstructorContext && this.actualReceiverType != null &&
+				(this.receiver instanceof ThisReference thisReference && thisReference.isImplicitThis() ||
+				!(this.receiver instanceof ThisReference))) {
+			MethodScope ms = scope.methodScope();
+			MethodBinding method = ms != null ? ms.referenceMethodBinding() : null;
+			if (method != null && TypeBinding.equalsEquals(method.declaringClass, this.actualReceiverType)) {
+				scope.problemReporter().errorExpressionInPreConstructorContext(this);
 			}
 		}
 	} else {
@@ -1319,8 +1328,8 @@ public void traverse(ASTVisitor visitor, BlockScope blockScope) {
 	if (visitor.visit(this, blockScope)) {
 		this.receiver.traverse(visitor, blockScope);
 		if (this.typeArguments != null) {
-			for (int i = 0, typeArgumentsLength = this.typeArguments.length; i < typeArgumentsLength; i++) {
-				this.typeArguments[i].traverse(visitor, blockScope);
+			for (TypeReference typeArgument : this.typeArguments) {
+				typeArgument.traverse(visitor, blockScope);
 			}
 		}
 		if (this.arguments != null) {
