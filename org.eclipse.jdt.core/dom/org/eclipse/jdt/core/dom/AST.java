@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,7 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
-
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.IClassFile;
 import org.eclipse.jdt.core.ICompilationUnit;
@@ -125,6 +126,7 @@ public class AST {
 	 * @since 3.0
 	 * @deprecated Clients should use the  {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS2 = 2;
 
 	/**
@@ -149,6 +151,7 @@ public class AST {
 	 * @since 3.1
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS3 = 3;
 
 	/**
@@ -173,6 +176,7 @@ public class AST {
 	 * @since 3.7.1
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS4 = 4;
 
 	/**
@@ -197,6 +201,7 @@ public class AST {
 	 * @since 3.10
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS8 = 8;
 
 	/**
@@ -221,6 +226,7 @@ public class AST {
 	 * @since 3.14
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS9 = 9;
 
 	/**
@@ -245,6 +251,7 @@ public class AST {
 	 * @since 3.14
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS10 = 10;
 
 	/**
@@ -269,6 +276,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.16
 	 */
+	@Deprecated
 	public static final int JLS11 = 11;
 
 	/**
@@ -292,6 +300,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.18
 	 */
+	@Deprecated
 	public static final int JLS12 = 12;
 	/**
 	 * Internal synonym for {@link #JLS12}. Use to alleviate
@@ -313,8 +322,8 @@ public class AST {
 	 * </p>
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.20
-	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 */
+	@Deprecated
 	public static final int JLS13 = 13;
 
 	/**
@@ -338,6 +347,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.22
 	 */
+	@Deprecated
 	public static final int JLS14 = 14;
 
 	/**
@@ -361,6 +371,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.24
 	 */
+	@Deprecated
 	public static final int JLS15 = 15;
 	/**
 	 * Constant for indicating the AST API that handles JLS16.
@@ -376,6 +387,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.26
 	 */
+	@Deprecated
 	public static final int JLS16 = 16;
 	/**
 	 * Constant for indicating the AST API that handles JLS17.
@@ -391,6 +403,7 @@ public class AST {
 	 * @deprecated Clients should use the {@link #getJLSLatest()} AST API instead.
 	 * @since 3.28
 	 */
+	@Deprecated
 	public static final int JLS17 = 17;
 	/**
 	 * Constant for indicating the AST API that handles JLS17.
@@ -407,6 +420,7 @@ public class AST {
 	 * @deprecated
 	 * @since 3.30
 	 */
+	@Deprecated
 	public static final int JLS18 = 18;
 
 	/**
@@ -424,6 +438,7 @@ public class AST {
 	 * @deprecated
 	 * @since 3.32
 	 */
+	@Deprecated
 	public static final int JLS19 = 19;
 
 	/**
@@ -472,6 +487,21 @@ public class AST {
 	 */
 	public static final int JLS22 = 22;
 	/**
+	 * Constant for indicating the AST API that handles JLS23.
+	 * <p>
+	 * This API is capable of handling all constructs in the
+	 * Java language as described in the Java Language
+	 * Specification, Java SE 23 Edition (JLS23).
+	 * JLS23 is a superset of all earlier versions of the
+	 * Java language, and the JLS23 API can be used to manipulate
+	 * programs written in all versions of the Java language
+	 * up to and including Java SE 23(aka JDK 23).
+	 * </p>
+	 *
+	 * @since 3.38
+	 */
+	public static final int JLS23 = 23;
+	/**
 	 * Internal synonym for {@link #JLS15}. Use to alleviate
 	 * deprecation warnings once JLS15 is deprecated
 	 */
@@ -508,21 +538,38 @@ public class AST {
 	static final int JLS21_INTERNAL = JLS21;
 	/**
 	 * Internal synonym for {@link #JLS22}. Use to alleviate
-	 * deprecation warnings once JLS21 is deprecated
+	 * deprecation warnings once JLS22 is deprecated
 	 */
 	static final int JLS22_INTERNAL = JLS22;
+	/**
+	 * Internal synonym for {@link #JLS23}. Use to alleviate
+	 * deprecation warnings once JLS23 is deprecated
+	 */
+	static final int JLS23_INTERNAL = JLS23;
 	/**
 	 * Internal property for latest supported JLS level
 	 * This provides the latest JLS level.
 	 */
-	private static final int JLS_INTERNAL_Latest = JLS22;
+	private static final int JLS_INTERNAL_Latest = JLS23;
 
 	/**
 	 * @since 3.26
 	 * This provides the latest JLS level.
 	 * @deprecated use {@link #getJLSLatest()}
 	 */
+	@Deprecated
 	public static final int JLS_Latest = JLS_INTERNAL_Latest;
+
+	private static final List<Integer> ALL_VERSIONS = List.of(JLS2, JLS3, JLS4, JLS8, JLS9, JLS10, JLS11, JLS12, JLS13, JLS14, JLS15, JLS16, JLS17, JLS18, JLS19, JLS20, JLS21, JLS22, JLS23);
+	private static final List<Integer> UNSUPPORTED_VERSIONS = List.of(JLS2, JLS3, JLS4);
+	private static final List<Integer> SUPPORTED_VERSIONS;
+	static {
+		List<Integer> temp = new ArrayList<>();
+		temp.addAll(ALL_VERSIONS);
+		temp.removeAll(UNSUPPORTED_VERSIONS);
+		SUPPORTED_VERSIONS = Collections.unmodifiableList(temp);
+	}
+
 
 	/*
 	 * Must not collide with a value for ICompilationUnit constants
@@ -638,8 +685,8 @@ public class AST {
 	 * Creates a new Java abstract syntax tree
      * (AST) following the specified set of API rules.
      * <p>
-     * Clients should use this method specifying {@link #JLS12} as the
-     * AST level in all cases, even when dealing with source of earlier JDK versions like 1.3 or 1.4.
+     * Clients should use this method specifying {@link #getJLSLatest} as the
+     * AST level in all cases, even when dealing with source of earlier JDK versions.
      * </p>
      *
  	 * @param level the API level; one of the <code>JLS*</code> level constants
@@ -649,9 +696,10 @@ public class AST {
 	 * <li>the API level is not one of the <code>JLS*</code> level constants</li>
 	 * </ul>
 	 * @deprecated Clients should port their code to use the latest JLS* AST API and call
-	 *    {@link #newAST(int, boolean) AST.newAST(AST.JLS12, false)} instead of using this constructor.
+	 *    {@link #newAST(int, boolean) AST.newAST(AST.getJLSLatest(), false)} instead of using this constructor.
      * @since 3.0
 	 */
+	@Deprecated
 	public static AST newAST(int level) {
 		return new AST(level, false);
 	}
@@ -660,11 +708,11 @@ public class AST {
 	 * Creates a new Java abstract syntax tree
      * (AST) following the specified set of API rules.
      * <p>
-     * Clients should use this method specifying {@link #JLS12} as the
-     * AST level in all cases, even when dealing with source of earlier JDK versions like 1.3 or 1.4.
+     * Clients should use this method specifying {@link #getJLSLatest} as the
+     * AST level in all cases, even when dealing with source of earlier JDK versions.
      * </p>
      *
- 	 * @param level the API level; one of the <code>JLS*</code> level constants
+ 	 * @param level the API level; one of the <code>JLS*</code> level constants or {@link AST#getJLSLatest}
  	 * @param previewEnabled <code>true</code> if preview feature is enabled else <code>false</code>
 	 * @return new AST instance following the specified set of API rules.
 	 * @exception IllegalArgumentException if:
@@ -682,14 +730,12 @@ public class AST {
 	 * Following option keys are significant:
 	 * <ul>
 	 * <li><code>"org.eclipse.jdt.core.compiler.source"</code>
-	 *    indicates the api level and source compatibility mode (as per <code>JavaCore</code>) - defaults to 1.3
+	 *    indicates the api level and source compatibility mode (as per <code>JavaCore</code>) - defaults to 1.8
 	 *    <ul>
 	 *    	<li>
-	 *    	<code>"1.3"</code> means the source code is as per JDK 1.3 and api level {@link #JLS3}.</li>
-	 *    	<li><code>"1.4", "1.5", "1.6", "1.7" "1.8"</code> implies the respective source JDK levels 1.4, 1.5, 1.6, 1.7 and api level {@link #JLS4}.</li>
 	 *    	<li><code>"1.8"</code> implies the respective source JDK level 1.8 and api level {@link #JLS8}.</li>
-	 *    	<li><code>"9", "10", "11", "12" and "13"</code> implies the respective JDK levels 9, 10, 11, 12 and 13
-	 *     	and api levels {@link #JLS9}, {@link #JLS10}, {@link #JLS11}, {@link #JLS12} and {@link #JLS13}.</li>
+	 *    	<li><code>"9", "10", "11" up to "23"</code> implies the respective JDK levels 9, 10, 11 up to 23
+	 *     	and api levels {@link #JLS9}, {@link #JLS10}, {@link #JLS11} up to {@link #JLS23}.</li>
 	 *    	<li>Additional legal values may be added later.</li>
 	 *    </ul>
 	 * </li>
@@ -1016,7 +1062,7 @@ public class AST {
 	 * </p>
 	 * @since 3.0
 	 */
-	private int disableEvents = 0;
+	private final AtomicInteger disableEvents = new AtomicInteger();
 
 	/**
 	 * The event handler for this AST.
@@ -1036,7 +1082,7 @@ public class AST {
 	 * Internal modification count; initially 0; increases monotonically
 	 * <b>by one or more</b> as the AST is successively modified.
 	 */
-	private long modificationCount = 0;
+	private final AtomicLong modificationCount = new AtomicLong();
 
 	/**
 	 * Internal original modification count; value is equals to <code>
@@ -1044,7 +1090,7 @@ public class AST {
 	 * </code>). If this ast is not created with a parser then value is 0.
 	 * @since 3.0
 	 */
-	private long originalModificationCount = 0;
+	private volatile long originalModificationCount;
 
 	/**
 	 * The binding resolver for this AST. Initially a binding resolver that
@@ -1074,8 +1120,9 @@ public class AST {
 	 *
 	 * @see JavaCore#getDefaultOptions()
 	 * @deprecated Clients should port their code to use the latest JLS* AST API and call
-	 *    {@link #newAST(int, boolean) AST.newAST(AST.JLS12, false)} instead of using this constructor.
+	 *    {@link #newAST(int, boolean) AST.newAST(AST.getJLSLatest, false)} instead of using this constructor.
 	 */
+	@Deprecated
 	public AST() {
 		this(JavaCore.getDefaultOptions());
 	}
@@ -1089,36 +1136,10 @@ public class AST {
 	 */
 	protected AST(int level, boolean previewEnabled) {  // AspectJ - raised to protected
 		this.previewEnabled = previewEnabled;
+		if (ALL_VERSIONS.contains(level) && !SUPPORTED_VERSIONS.contains(level)) {
+			level = SUPPORTED_VERSIONS.get(0);
+		}
 		switch(level) {
-			case JLS2_INTERNAL :
-			case JLS3_INTERNAL :
-				this.apiLevel = level;
-				// initialize a scanner
-				this.scanner = new Scanner(
-						true /*comment*/,
-						true /*whitespace*/,
-						false /*nls*/,
-						ClassFileConstants.JDK1_3 /*sourceLevel*/,
-						ClassFileConstants.JDK1_5 /*complianceLevel*/,
-						null/*taskTag*/,
-						null/*taskPriorities*/,
-						true/*taskCaseSensitive*/,
-						false/*isPreviewEnabled*/);
-				break;
-			case JLS4_INTERNAL :
-				this.apiLevel = level;
-				// initialize a scanner
-				this.scanner = new Scanner(
-						true /*comment*/,
-						true /*whitespace*/,
-						false /*nls*/,
-						ClassFileConstants.JDK1_7 /*sourceLevel*/,
-						ClassFileConstants.JDK1_7 /*complianceLevel*/,
-						null/*taskTag*/,
-						null/*taskPriorities*/,
-						true/*taskCaseSensitive*/,
-						false/*isPreviewEnabled*/);
-				break;
 			case JLS8_INTERNAL :
 				this.apiLevel = level;
 				// initialize a scanner
@@ -1162,7 +1183,7 @@ public class AST {
 						false/*isPreviewEnabled*/);
 				break;
 			default:
-				if (level < JLS2_INTERNAL && level > JLS_Latest) {
+				if (!ALL_VERSIONS.contains(level)) {
 					throw new IllegalArgumentException("Unsupported JLS level : " + level); //$NON-NLS-1$
 				}
 				this.apiLevel = level;
@@ -1189,15 +1210,12 @@ public class AST {
 	 * Following option keys are significant:
 	 * <ul>
 	 * <li><code>"org.eclipse.jdt.core.compiler.source"</code>
-	 *    indicates the api level and source compatibility mode (as per <code>JavaCore</code>) - defaults to 1.3
+	 *    indicates the api level and source compatibility mode (as per <code>JavaCore</code>) - defaults to 1.8
 	 *    <ul>
 	 *    	<li>
-	 *    	<code>"1.3"</code> means the source code is as per JDK 1.3 and api level {@link #JLS3}.</li>
-	 *    	<li><code>"1.4", "1.5", "1.6", "1.7" "1.8"</code> implies the respective source JDK levels 1.4, 1.5, 1.6, 1.7 and api level {@link #JLS4}.</li>
 	 *    	<li><code>"1.8"</code> implies the respective source JDK level 1.8 and api level {@link #JLS8}.</li>
-	 *    	<li><code>"9", "10", "11", "12", "13", "14", "15", "16" and "17"</code> implies the respective JDK levels 9, 10, 11, 12, 13, 14, 15, 16 and 17
-	 *     	and api levels {@link #JLS9}, {@link #JLS10}, {@link #JLS11}, {@link #JLS12}, {@link #JLS13}
-	 *     {@link #JLS14}, {@link #JLS15}, {@link #JLS16} and {@link #JLS17}.</li>
+	 *    	<li><code>"9", "10", "11" up to "23"</code> implies the respective JDK levels 9, 10, 11 up to 23
+	 *     	and api levels {@link #JLS9}, {@link #JLS10}, {@link #JLS11} up to {@link #JLS23}.</li>
 	 *    	<li>Additional legal values may be added later.</li>
 	 *    </ul>
 	 * 	<li><code>"org.eclipse.jdt.core.compiler.problem.enablePreviewFeatures"</code> -
@@ -1215,22 +1233,8 @@ public class AST {
 		this(apiLevelMap.get(options.get(JavaCore.COMPILER_SOURCE)),
 				JavaCore.ENABLED.equals(options.get(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES)));
 
-		long sourceLevel;
-		long complianceLevel;
-		switch(this.apiLevel) {
-			case JLS2_INTERNAL :
-			case JLS3_INTERNAL :
-				sourceLevel = ClassFileConstants.JDK1_3;
-				complianceLevel = ClassFileConstants.JDK1_5;
-				break;
-			case JLS4_INTERNAL :
-				sourceLevel = ClassFileConstants.JDK1_7;
-				complianceLevel = ClassFileConstants.JDK1_7;
-				break;
-			default :
-				sourceLevel = AST.jdkLevelMap.get(options.get(JavaCore.COMPILER_SOURCE));
-				complianceLevel = sourceLevel;
-		}
+		long sourceLevel = AST.jdkLevelMap.get(options.get(JavaCore.COMPILER_SOURCE));
+		long complianceLevel = sourceLevel;
 		this.scanner = new Scanner(
 			true /*comment*/,
 			true /*whitespace*/,
@@ -1245,13 +1249,13 @@ public class AST {
 
 	private static Map<String, Long> getLevelMapTable() {
         Map<String, Long> t = new HashMap<>();
-        t.put(null, ClassFileConstants.JDK1_2);
-        t.put(JavaCore.VERSION_1_2, ClassFileConstants.JDK1_2);
-        t.put(JavaCore.VERSION_1_3, ClassFileConstants.JDK1_3);
-        t.put(JavaCore.VERSION_1_4, ClassFileConstants.JDK1_4);
-        t.put(JavaCore.VERSION_1_5, ClassFileConstants.JDK1_5);
-        t.put(JavaCore.VERSION_1_6, ClassFileConstants.JDK1_6);
-        t.put(JavaCore.VERSION_1_7, ClassFileConstants.JDK1_7);
+        t.put(null, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_2, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_3, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_4, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_5, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_6, ClassFileConstants.JDK1_8);
+        t.put(JavaCore.VERSION_1_7, ClassFileConstants.JDK1_8);
         t.put(JavaCore.VERSION_1_8, ClassFileConstants.JDK1_8);
         t.put(JavaCore.VERSION_9, ClassFileConstants.JDK9);
         t.put(JavaCore.VERSION_10, ClassFileConstants.JDK10);
@@ -1267,17 +1271,18 @@ public class AST {
         t.put(JavaCore.VERSION_20, ClassFileConstants.JDK20);
         t.put(JavaCore.VERSION_21, ClassFileConstants.JDK21);
         t.put(JavaCore.VERSION_22, ClassFileConstants.JDK22);
+        t.put(JavaCore.VERSION_23, ClassFileConstants.JDK23);
         return Collections.unmodifiableMap(t);
 	}
 	private static Map<String, Integer> getApiLevelMapTable() {
         Map<String, Integer> t = new HashMap<>();
-        t.put(null, JLS2_INTERNAL);
-        t.put(JavaCore.VERSION_1_2, JLS2_INTERNAL);
-        t.put(JavaCore.VERSION_1_3, JLS3_INTERNAL);
-        t.put(JavaCore.VERSION_1_4, JLS4_INTERNAL);
-        t.put(JavaCore.VERSION_1_5, JLS4_INTERNAL);
-        t.put(JavaCore.VERSION_1_6, JLS4_INTERNAL);
-        t.put(JavaCore.VERSION_1_7, JLS4_INTERNAL);
+        t.put(null, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_2, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_3, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_4, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_5, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_6, JLS8_INTERNAL);
+        t.put(JavaCore.VERSION_1_7, JLS8_INTERNAL);
         t.put(JavaCore.VERSION_1_8, JLS8_INTERNAL);
         t.put(JavaCore.VERSION_9, JLS9_INTERNAL);
         t.put(JavaCore.VERSION_10, JLS10_INTERNAL);
@@ -1293,6 +1298,7 @@ public class AST {
         t.put(JavaCore.VERSION_20, JLS20_INTERNAL);
         t.put(JavaCore.VERSION_21, JLS21_INTERNAL);
         t.put(JavaCore.VERSION_22, JLS22_INTERNAL);
+        t.put(JavaCore.VERSION_23, JLS23_INTERNAL);
         return Collections.unmodifiableMap(t);
 	}
 	/**
@@ -1367,7 +1373,7 @@ public class AST {
 	final void disableEvents() {
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by another reader
-			this.disableEvents++;
+			this.disableEvents.incrementAndGet();
 		}
 		// while disableEvents > 0 no events will be reported, and mod count will stay fixed
 	}
@@ -1477,7 +1483,7 @@ public class AST {
 	 *    this AST
 	 */
 	public long modificationCount() {
-		return this.modificationCount;
+		return this.modificationCount.get();
 	}
 
 	/**
@@ -1498,11 +1504,11 @@ public class AST {
 	void modifying() {
 		// when this method is called during lazy init, events are disabled
 		// and the modification count will not be increased
-		if (this.disableEvents > 0) {
+		if (this.disableEvents.get() > 0) {
 			return;
 		}
 		// increase the modification count
-		this.modificationCount++;
+		this.modificationCount.incrementAndGet();
 	}
 
 	/**
@@ -2477,6 +2483,9 @@ public class AST {
 		if (Modifier.isNonSealed(flags)) {
 			result.add(newModifier(Modifier.ModifierKeyword.NON_SEALED_KEYWORD));
 		}
+		if (Modifier.isModule(flags)) {
+			result.add(newModifier(Modifier.ModifierKeyword.MODULE_KEYWORD));
+		}
 		return result;
 	}
 
@@ -2976,36 +2985,6 @@ public class AST {
 	public StringLiteral newStringLiteral() {
 		return new StringLiteral(this);
 	}
-	/**
-	 * Creates and returns a new unparented string fragment node for
-	 * the empty string fragment.
-	 *
-	 * @return a new unparented string fragment node
-	 * @since 3.37
-	 */
-	public StringFragment newStringFragment() {
-		return new StringFragment(this);
-	}
-	/**
-	 * Creates and returns a new unparented string template expression node for
-	 * the empty string template expression.
-	 *
-	 * @return a new unparented string literal node
-	 * @since 3.37
-	 */
-	public StringTemplateExpression newStringTemplateExpression() {
-		return new StringTemplateExpression(this);
-	}
-	/**
-	 * Creates and returns a new unparented string template component node for
-	 * the empty string template component.
-	 *
-	 * @return a new unparented string literal node
-	 * @since 3.37
-	 */
-	public StringTemplateComponent newStringTemplateComponent() {
-		return new StringTemplateComponent(this);
-	}
 
 	/**
 	 * Creates an unparented alternate super constructor ("super(...);")
@@ -3198,6 +3177,19 @@ public class AST {
 	 */
 	public TryStatement newTryStatement() {
 		return new TryStatement(this);
+	}
+
+	/**
+	 * Creates an unparented class declaration node owned by this AST.
+	 * The name of the class is an unspecified, but legal, name;
+	 * no modifiers; no doc comment; no superclass or superinterfaces;
+	 * and an empty class body.
+	 *
+	 * @return a new unparented type declaration node
+	 * @since 3.40
+	 */
+	public ImplicitTypeDeclaration newImplicitTypeDeclaration() {
+		return new ImplicitTypeDeclaration(this);
 	}
 
 	/**
@@ -3492,7 +3484,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE ADD]");
 				return;
@@ -3519,7 +3511,7 @@ public class AST {
 	void postCloneNodeEvent(ASTNode node, ASTNode clone) {
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE CLONE]");
 				return;
@@ -3548,7 +3540,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE DEL]");
 				return;
@@ -3578,7 +3570,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE REP]");
 				return;
@@ -3607,7 +3599,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE CHANGE]");
 				return;
@@ -3636,7 +3628,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE ADD]");
 				return;
@@ -3662,7 +3654,7 @@ public class AST {
 	void preCloneNodeEvent(ASTNode node) {
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE CLONE]");
 				return;
@@ -3691,7 +3683,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE DEL]");
 				return;
@@ -3721,7 +3713,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE REP]");
 				return;
@@ -3750,7 +3742,7 @@ public class AST {
 		// IMPORTANT: this method is called by readers during lazy init
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by a reader doing lazy init
-			if (this.disableEvents > 0) {
+			if (this.disableEvents.get() > 0) {
 				// doing lazy init OR already processing an event
 				// System.out.println("[BOUNCE CHANGE]");
 				return;
@@ -3786,7 +3778,7 @@ public class AST {
 	 * @since 3.0
 	 */
 	void recordModifications(CompilationUnit root) {
-		if(this.modificationCount != this.originalModificationCount) {
+		if(this.modificationCount.get() != this.originalModificationCount) {
 			throw new IllegalArgumentException("AST is already modified"); //$NON-NLS-1$
 		} else if(this.rewriter  != null) {
 			throw new IllegalArgumentException("AST modifications are already recorded"); //$NON-NLS-1$
@@ -3812,7 +3804,7 @@ public class AST {
 	final void reenableEvents() {
 		synchronized (this.internalASTLock) {
 			// guard against concurrent access by another reader
-			this.disableEvents--;
+			this.disableEvents.decrementAndGet();
 		}
 	}
 
@@ -4006,4 +3998,39 @@ public class AST {
 	public static int getJLSLatest() {
 		return JLS_INTERNAL_Latest;
 	}
+
+	/**
+	 * Returns all {@link AST}{@code #JLS*} levels in the order of their
+	 * introduction. For e.g., {@link AST#JLS8} appears before {@link AST#JLS10}
+	 *
+	 * @return all available versions
+	 * @since 3.41
+	 */
+	public static List<Integer> getAllVersions() {
+		return ALL_VERSIONS;
+	}
+
+	/**
+	 * Returns all {@link AST}{@code #JLS*} levels fully supported by JDT in the order of their
+	 * introduction. For e.g., {@link AST#JLS8} appears before {@link AST#JLS10}
+	 *
+	 * @return all available versions
+	 * @since 3.41
+	 */
+	public static List<Integer> getAllSupportedVersions() {
+		return SUPPORTED_VERSIONS;
+	}
+
+	/**
+	 * Not all known JLS versions are fully supported by JDT. This method answers if the given Java source
+	 * version is fully supported.
+	 *
+	 * @return {@code true} if the given string represents Java language standard version is fully supported
+	 * @see #getAllSupportedVersions()
+	 * @since 3.41
+	 */
+	public static boolean isSupportedVersion(int version) {
+		return SUPPORTED_VERSIONS.contains(version);
+	}
+
 }

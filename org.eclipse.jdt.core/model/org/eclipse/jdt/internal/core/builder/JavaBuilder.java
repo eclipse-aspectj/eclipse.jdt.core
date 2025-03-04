@@ -17,21 +17,47 @@ package org.eclipse.jdt.internal.core.builder;
 
 import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
-
-import org.eclipse.jdt.core.*;
-import org.eclipse.jdt.core.compiler.*;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
-import org.eclipse.jdt.internal.core.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
+import org.eclipse.core.resources.ICommand;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaModelMarker;
+import org.eclipse.jdt.core.IJavaModelStatusConstants;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.core.compiler.CompilationParticipant;
+import org.eclipse.jdt.internal.core.ClasspathEntry;
+import org.eclipse.jdt.internal.core.ClasspathValidation;
+import org.eclipse.jdt.internal.core.CompilationGroup;
+import org.eclipse.jdt.internal.core.ExternalFoldersManager;
+import org.eclipse.jdt.internal.core.JavaModelManager;
+import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
 
-import java.io.*;
-import java.util.*;
-import java.util.function.BooleanSupplier;
-
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class JavaBuilder extends IncrementalProjectBuilder {
 
 IProject currentProject;
@@ -41,7 +67,7 @@ CompilationParticipant[] participants;
 // AspectJ both made protected
 protected NameEnvironment nameEnvironment;
 protected NameEnvironment testNameEnvironment;
-SimpleLookupTable binaryLocationsPerProject; // maps a project to its binary resources (output folders, class folders, zip/jar files)
+Map<IProject, ClasspathLocation[]> binaryLocationsPerProject; // maps a project to its binary resources (output folders, class folders, zip/jar files)
 public State lastState;
 protected BuildNotifier notifier; // AspectJ Extension - made protected
 char[][] extraResourceFileFilters;
@@ -69,15 +95,14 @@ public static IMarker[] getProblemsFor(IResource resource) {
 	try {
 		if (resource != null && resource.exists()) {
 			IMarker[] markers = resource.findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
-			Set markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
+			Set<String> markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
 			if (markerTypes.isEmpty()) return markers;
-			ArrayList markerList = new ArrayList(5);
+			ArrayList<IMarker> markerList = new ArrayList<>(5);
 			for (IMarker marker : markers) {
 				markerList.add(marker);
 			}
-			Iterator iterator = markerTypes.iterator();
-			while (iterator.hasNext()) {
-				markers = resource.findMarkers((String) iterator.next(), false, IResource.DEPTH_INFINITE);
+			for (String markerType: markerTypes) {
+				markers = resource.findMarkers(markerType, false, IResource.DEPTH_INFINITE);
 				for (IMarker marker : markers) {
 					markerList.add(marker);
 				}
@@ -124,11 +149,11 @@ public static void removeProblemsFor(IResource resource) {
 			resource.deleteMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
 
 			// delete managed markers
-			Set markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
+			Set<String> markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
 			if (markerTypes.size() == 0) return;
-			Iterator iterator = markerTypes.iterator();
-			while (iterator.hasNext())
-				resource.deleteMarkers((String) iterator.next(), false, IResource.DEPTH_INFINITE);
+			for (String markerType: markerTypes) {
+				resource.deleteMarkers(markerType, false, IResource.DEPTH_INFINITE);
+			}
 		}
 	} catch (CoreException e) {
 		// assume there were no problems
@@ -151,11 +176,11 @@ public static void removeProblemsAndTasksFor(IResource resource) {
 			resource.deleteMarkers(IJavaModelMarker.TASK_MARKER, false, IResource.DEPTH_INFINITE);
 
 			// delete managed markers
-			Set markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
+			Set<String> markerTypes = JavaModelManager.getJavaModelManager().compilationParticipants.managedMarkerTypes();
 			if (markerTypes.size() == 0) return;
-			Iterator iterator = markerTypes.iterator();
-			while (iterator.hasNext())
-				resource.deleteMarkers((String) iterator.next(), false, IResource.DEPTH_INFINITE);
+			for (String markerType: markerTypes) {
+				resource.deleteMarkers(markerType, false, IResource.DEPTH_INFINITE);
+			}
 		}
 	} catch (CoreException e) {
 		// assume there were no problems
@@ -171,7 +196,7 @@ public static void writeState(Object state, DataOutputStream out) throws IOExcep
 }
 
 @Override
-protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) throws CoreException {
+protected IProject[] build(int kind, Map<String, String> ignoredArgs, IProgressMonitor monitor) throws CoreException {
 	this.currentProject = getProject();
 	if (this.currentProject == null || !this.currentProject.isAccessible()) return new IProject[0];
 
@@ -209,13 +234,13 @@ protected IProject[] build(int kind, Map ignored, IProgressMonitor monitor) thro
 					buildAll();
 				} else if (this.nameEnvironment.sourceLocations.length > 0 || this.testNameEnvironment.sourceLocations.length > 0) {
 					// if there is no source to compile & no classpath changes then we are done
-					SimpleLookupTable deltas = findDeltas();
+					Map<IProject, IResourceDelta> deltas = findDeltas();
 					if (deltas == null) {
 						if (DEBUG) {
 							trace("JavaBuilder: Performing full build since deltas are missing after incremental request"); //$NON-NLS-1$
 						}
 						buildAll();
-					} else if (deltas.elementSize > 0) {
+					} else if (!deltas.isEmpty()) {
 						if (hasJdtCoreSettingsChange(deltas) && !DISABLE_AUTO_BUILDING_ON_SETTINGS_CHANGE) {
 							if (DEBUG) {
 								trace("JavaBuilder: Performing full build since project settings have changed"); //$NON-NLS-1$
@@ -312,7 +337,7 @@ protected BatchImageBuilder getBatchImageBuilder2(BatchImageBuilder instance,boo
 }
 // End AspectJ Extension
 
-private void buildDeltas(SimpleLookupTable deltas) {
+private void buildDeltas(Map<IProject, IResourceDelta> deltas) {
 	this.notifier.checkCancel();
 	this.notifier.subTask(Messages.bind(Messages.build_preparingBuild, this.currentProject.getName()));
 	if (DEBUG && this.lastState != null) {
@@ -431,10 +456,10 @@ boolean filterExtraResource(IResource resource) {
 	return false;
 }
 
-private SimpleLookupTable findDeltas() {
+private Map<IProject, IResourceDelta> findDeltas() {
 	this.notifier.subTask(Messages.bind(Messages.build_readingDelta, this.currentProject.getName()));
 	IResourceDelta delta = getDelta(this.currentProject);
-	SimpleLookupTable deltas = new SimpleLookupTable(3);
+	Map<IProject, IResourceDelta> deltas = new HashMap<>();
 	if (delta != null) {
 		if (delta.getKind() != IResourceDelta.NO_CHANGE) {
 			if (DEBUG) {
@@ -450,16 +475,14 @@ private SimpleLookupTable findDeltas() {
 		return null;
 	}
 
-	Object[] keyTable = this.binaryLocationsPerProject.keyTable;
-	Object[] valueTable = this.binaryLocationsPerProject.valueTable;
-	nextProject : for (int i = 0, l = keyTable.length; i < l; i++) {
-		IProject p = (IProject) keyTable[i];
+	nextProject: for (Entry<IProject, ClasspathLocation[]> entry : this.binaryLocationsPerProject.entrySet()) {
+		IProject p = entry.getKey();
 		if (p != null && p != this.currentProject) {
 			State s = getLastState(p);
 			if (!this.lastState.wasStructurallyChanged(p, s)) { // see if we can skip its delta
 				if (s.wasNoopBuild())
 					continue nextProject; // project has no source folders and can be skipped
-				ClasspathLocation[] classFoldersAndJars = (ClasspathLocation[]) valueTable[i];
+				ClasspathLocation[] classFoldersAndJars = entry.getValue();
 				boolean canSkip = true;
 				for (int j = 0, m = classFoldersAndJars.length; j < m; j++) {
 					if (classFoldersAndJars[j].isOutputFolder())
@@ -550,12 +573,12 @@ boolean hasBuildpathErrors() throws CoreException {
 	return false;
 }
 
-private boolean hasJdtCoreSettingsChange(SimpleLookupTable deltas) {
-	Object resourceDelta = deltas.get(this.currentProject);
-	if (resourceDelta instanceof IResourceDelta) {
-		return ((IResourceDelta) resourceDelta).findMember(JDT_CORE_SETTINGS_PATH) != null;
+private boolean hasJdtCoreSettingsChange(Map<IProject, IResourceDelta> deltas) {
+	IResourceDelta resourceDelta = deltas.get(this.currentProject);
+	if (resourceDelta == null) {
+		return false;
 	}
-	return false;
+	return resourceDelta.findMember(JDT_CORE_SETTINGS_PATH) != null;
 }
 
 private boolean hasClasspathChanged() {
@@ -646,7 +669,7 @@ private boolean hasStructuralDelta() {
 	// handle case when currentProject has only .class file folders and/or jar files... no source/output folders
 	IResourceDelta delta = getDelta(this.currentProject);
 	if (delta != null && delta.getKind() != IResourceDelta.NO_CHANGE) {
-		ClasspathLocation[] classFoldersAndJars = (ClasspathLocation[]) this.binaryLocationsPerProject.get(this.currentProject);
+		ClasspathLocation[] classFoldersAndJars = this.binaryLocationsPerProject.get(this.currentProject);
 		if (classFoldersAndJars != null) {
 			for (ClasspathLocation classFolderOrJar : classFoldersAndJars) {
 				if (classFolderOrJar != null) {
@@ -679,12 +702,12 @@ private int initializeBuilder(int kind, boolean forBuild) throws CoreException {
 		// Flush the existing external files cache if this is the beginning of a build cycle
 		String projectName = this.currentProject.getName();
 		if (builtProjects == null || builtProjects.contains(projectName)) {
-			builtProjects = new LinkedHashSet();
+			builtProjects = new LinkedHashSet<>();
 		}
 		builtProjects.add(projectName);
 	}
 
-	this.binaryLocationsPerProject = new SimpleLookupTable(3);
+	this.binaryLocationsPerProject = new HashMap<>(3);
 	this.nameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.MAIN);
 	this.testNameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.TEST);
 
@@ -812,13 +835,11 @@ private boolean isWorthBuilding() throws CoreException {
  * needs to propagate structural changes to the other projects in the cycle.
  */
 void mustPropagateStructuralChanges() {
-	LinkedHashSet cycleParticipants = new LinkedHashSet(3);
-	this.javaProject.updateCycleParticipants(new ArrayList(), cycleParticipants, new HashMap<>(), this.workspaceRoot, new HashSet(3), null);
+	LinkedHashSet<IPath> cycleParticipants = new LinkedHashSet<>(3);
+	this.javaProject.updateCycleParticipants(new ArrayList<>(), cycleParticipants, new HashMap<>(), this.workspaceRoot, new HashSet<>(3), null);
 	IPath currentPath = this.javaProject.getPath();
 	Set<IProject> toRebuild = new HashSet<>();
-	Iterator i= cycleParticipants.iterator();
-	while (i.hasNext()) {
-		IPath participantPath = (IPath) i.next();
+	for (IPath participantPath : cycleParticipants) {
 		if (participantPath != currentPath) {
 			IProject project = this.workspaceRoot.getProject(participantPath.segment(0));
 			if (hasBeenBuilt(project)) {
@@ -847,7 +868,7 @@ private void printLocations(ClasspathLocation[] newLocations, ClasspathLocation[
 }
 
 private void recordNewState(State state) {
-	Object[] keyTable = this.binaryLocationsPerProject.keyTable;
+	Set<IProject> keyTable = this.binaryLocationsPerProject.keySet();
 	for (Object proj : keyTable) {
 		IProject prereqProject = (IProject) proj;
 		if (prereqProject != null && prereqProject != this.currentProject)

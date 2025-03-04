@@ -17,7 +17,6 @@ package org.eclipse.jdt.apt.tests;
 
 import junit.framework.Test;
 import junit.framework.TestSuite;
-
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IPath;
@@ -31,6 +30,7 @@ import org.eclipse.jdt.apt.tests.annotations.messager.MessagerAnnotationProcesso
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 /**
  * Tests for processors that return '*' from getSupportedAnnotations
@@ -57,7 +57,7 @@ public class StarProcessorTests extends APTTestBase
 		// project will be deleted by super-class's tearDown() method
 		// create a project with a src directory as the project root directory
 		//
-		IPath projectPath = env.addProject( getProjectName_ProjectRootAsSrcDir(), "1.5" );
+		IPath projectPath = env.addProject( getProjectName_ProjectRootAsSrcDir(), CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars( projectPath, Util.getJavaClassLibs() );
 		fullBuild( projectPath );
 
@@ -500,7 +500,7 @@ public class StarProcessorTests extends APTTestBase
 		TestUtil.deleteFile(p1a1Path);
 
 		// sleep to let the resource-change event fire
-		sleep( 1000 );
+		Util.waitAtLeast(1000);
 
 		incrementalBuild( project.getFullPath() );
 
@@ -511,7 +511,7 @@ public class StarProcessorTests extends APTTestBase
 
 		// sleep to let the resource-change event fire
 		// TODO: Is there a more reliable, consistent, and efficient way to wait?
-		sleep( 1000 );
+		Util.waitAtLeast(1000);
 
 		incrementalBuild( project.getFullPath() );
 		expectingOnlyProblemsFor( p1bPath );

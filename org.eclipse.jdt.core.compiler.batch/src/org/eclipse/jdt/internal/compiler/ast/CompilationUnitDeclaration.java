@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
@@ -38,16 +37,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.IrritantSet;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
-import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
-import org.eclipse.jdt.internal.compiler.lookup.ImportBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
-import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.lookup.Substitution.NullSubstitution;
 import org.eclipse.jdt.internal.compiler.parser.NLSTag;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilationUnit;
@@ -186,6 +176,7 @@ public void cleanUp() {
 
 	if (this.scope != null)
 		this.scope.cleanUpInferenceContexts();
+	this.compilationResult.releaseContent();
 }
 
 private void cleanUp(TypeDeclaration type) {
@@ -456,6 +447,10 @@ public boolean isPackageInfo() {
 
 public boolean isModuleInfo() {
 	return CharOperation.equals(getMainTypeName(), TypeConstants.MODULE_INFO_NAME);
+}
+
+public boolean isSimpleCompilationUnit() {
+	return this.types != null && this.types.length == 1 && this.types[0].isImplicitType();
 }
 
 public boolean isSuppressed(CategorizedProblem problem) {
@@ -778,11 +773,6 @@ public void tagAsHavingErrors() {
 	this.ignoreFurtherInvestigation = true;
 }
 
-@Override
-public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
-	// Nothing to do for this context;
-}
-
 public void traverse(ASTVisitor visitor, CompilationUnitScope unitScope) {
 	traverse(visitor, unitScope, true);
 }
@@ -843,8 +833,19 @@ public ModuleBinding module(LookupEnvironment environment) {
 	}
 	if (this.compilationResult != null) {
 		ICompilationUnit compilationUnit = this.compilationResult.compilationUnit;
-		if (compilationUnit != null)
-			return compilationUnit.module(environment);
+		if (compilationUnit != null) {
+			ModuleBinding module = compilationUnit.module(environment);
+			if (module == null) {
+				ReferenceContext save = environment.problemReporter.referenceContext;
+				try {
+					environment.problemReporter.referenceContext = this;
+					environment.problemReporter.moduleNotFound(this, compilationUnit.getModuleName());
+				} finally {
+					environment.problemReporter.referenceContext = save;
+				}
+			}
+			return module;
+		}
 	}
 	return environment.module;
 }

@@ -13,6 +13,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.search.indexing;
 
+import static org.eclipse.jdt.internal.compiler.util.Util.isJrt;
 import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
 import java.io.BufferedWriter;
@@ -22,21 +23,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.CRC32;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -63,7 +53,6 @@ import org.eclipse.jdt.internal.compiler.ISourceElementRequestor;
 import org.eclipse.jdt.internal.compiler.SourceElementParser;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
-import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
@@ -441,7 +430,6 @@ public synchronized Index getIndex(IPath containerPath, boolean reuseExistingFil
  * Warning: Does not check whether index is consistent (not being used)
  */
 public synchronized Index getIndex(IPath containerPath, IndexLocation indexLocation, boolean reuseExistingFile, boolean createIfMissing) {
-	// Path is already canonical per construction
 	Index index = getIndex(indexLocation);
 	if (index == null) {
 		Object state = getIndexStates().get(indexLocation);
@@ -736,9 +724,6 @@ private IndexRequest getRequest(Object target, IPath jPath, IndexLocation indexF
 		new AddJarFileToIndex(jPath, indexFile, this, updateIndex);
 }
 
-private boolean isJrt(String fileName) {
-	return fileName != null && fileName.endsWith(JRTUtil.JRT_FS_JAR);
-}
 /**
  * Trigger addition of a library to an index
  * Note: the actual operation is performed in background
@@ -897,7 +882,6 @@ public synchronized Index recreateIndex(IPath containerPath) {
 	// only called to over write an existing cached index...
 	String containerPathString = containerPath.getDevice() == null ? containerPath.toString() : containerPath.toOSString();
 	try {
-		// Path is already canonical
 		IndexLocation indexLocation = computeIndexLocation(containerPath);
 		Index index = getIndex(indexLocation);
 		ReadWriteMonitor monitor = index == null ? null : index.monitor;
@@ -1101,7 +1085,6 @@ public synchronized boolean resetIndex(IPath containerPath) {
 	// only called to over write an existing cached index...
 	String containerPathString = containerPath.getDevice() == null ? containerPath.toString() : containerPath.toOSString();
 	try {
-		// Path is already canonical
 		IndexLocation indexLocation = computeIndexLocation(containerPath);
 		Index index = getIndex(indexLocation);
 		if (VERBOSE) {
@@ -1278,7 +1261,7 @@ public void scheduleDocumentIndexing(final SearchDocument searchDocument, IPath 
 			if (index == null) return true;
 			ReadWriteMonitor monitor = index.monitor;
 			if (monitor == null) return true; // index got deleted since acquired
-			final Path indexPath = new Path(indexLocation.getCanonicalFilePath());
+			final Path indexPath = indexLocation.getIndexPath();
 			try {
 				monitor.enterWrite(); // ask permission to write
 				indexDocument(searchDocument, searchParticipant, index, indexPath);

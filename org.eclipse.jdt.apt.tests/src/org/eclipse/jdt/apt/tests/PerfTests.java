@@ -21,11 +21,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.zip.ZipInputStream;
-
+import junit.framework.Test;
+import junit.framework.TestSuite;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
@@ -37,9 +38,7 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.builder.BuilderTests;
 import org.eclipse.jdt.core.tests.builder.Problem;
-
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class PerfTests extends BuilderTests
 {
@@ -75,7 +74,7 @@ public class PerfTests extends BuilderTests
 		}
 
 		// project will be deleted by super-class's tearDown() method
-		projectPath = env.addProject( "org.eclipse.jdt.core", "1.4" ); //$NON-NLS-1$ //$NON-NLS-2$
+		projectPath = env.addProject( "org.eclipse.jdt.core", CompilerOptions.getFirstSupportedJavaVersion() ); //$NON-NLS-1$ //$NON-NLS-2$
 
 		System.out.println("Performing full build..."); //$NON-NLS-1$
 		fullBuild( projectPath );
@@ -90,7 +89,7 @@ public class PerfTests extends BuilderTests
 		File tempFile = new File(tmpRoot, nameInProject);
 		if (!tempFile.isFile() || tempFile.length() != size) {			
 			String githubUrl = GITHUB_TESTS_BINARIES + nameInProject;
-			try(BufferedInputStream bin = new BufferedInputStream(new URL(githubUrl).openStream())){
+			try(BufferedInputStream bin = new BufferedInputStream(URI.create(githubUrl).toURL().openStream())){
 				Files.copy(bin, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
 		}
@@ -143,9 +142,9 @@ public class PerfTests extends BuilderTests
 		assertNoUnexpectedProblems();
 
 		System.out.println("Performing full build without apt...");
-		long start = System.currentTimeMillis();
+		long startNanos = System.nanoTime();
 		proj.build(IncrementalProjectBuilder.FULL_BUILD, null);
-		long totalWithoutAPT = System.currentTimeMillis() - start;
+		long totalWithoutAPT = (System.nanoTime() - startNanos) / 1_000_000L;
 		System.out.println("Completed full build without APT in " + totalWithoutAPT + "ms.");
 
 		assertNoUnexpectedProblems();
@@ -157,9 +156,9 @@ public class PerfTests extends BuilderTests
 		assertNoUnexpectedProblems();
 
 		System.out.println("Performing full build with apt...");
-		start = System.currentTimeMillis();
+		startNanos = System.nanoTime();
 		proj.build(IncrementalProjectBuilder.FULL_BUILD, null);
-		long totalWithAPT = System.currentTimeMillis() - start;
+		long totalWithAPT = (System.nanoTime() - startNanos) / 1_000_000L;
 		System.out.println("Completed full build with APT in " + totalWithAPT + "ms.");
 
 		assertNoUnexpectedProblems();

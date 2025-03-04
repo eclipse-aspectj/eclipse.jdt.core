@@ -17,7 +17,7 @@ import java.io.PrintStream;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
@@ -25,8 +25,6 @@ import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.search.*;
 import org.eclipse.jdt.internal.core.search.processing.IJob;
-
-import junit.framework.Test;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class FullSourceWorkspaceSearchTests extends FullSourceWorkspaceTests implements IJavaSearchConstants {
@@ -189,13 +187,15 @@ public class FullSourceWorkspaceSearchTests extends FullSourceWorkspaceTests imp
 	 * @param scope TODO
 	 */
 	protected void cleanCategoryTableCache(boolean type, IJavaSearchScope scope, JavaSearchResultCollector resultCollector) throws CoreException {
-		long time = System.currentTimeMillis();
+		long startNanos = System.nanoTime();
 		if (type) {
 			search("foo", FIELD, DECLARATIONS, scope, resultCollector);
 		} else {
 			search("Foo", TYPE, DECLARATIONS, scope, resultCollector);
 		}
-		if (DEBUG) System.out.println("Time to clean category table cache: "+(System.currentTimeMillis()-time));
+		if (DEBUG) {
+			System.out.println("Time to clean category table cache [ms]: " + (System.nanoTime() - startNanos) / 1_000_000L);
+		}
 	}
 
 	/**

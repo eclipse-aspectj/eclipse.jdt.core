@@ -23,7 +23,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -34,18 +33,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
-import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.TagBits;
-import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
@@ -242,6 +230,8 @@ public class FakedTrackingVariable extends LocalDeclaration {
 	 * @return a new {@link FakedTrackingVariable} or null.
 	 */
 	public static FakedTrackingVariable getCloseTrackingVariable(Expression expression, FlowInfo flowInfo, FlowContext flowContext, boolean useAnnotations) {
+		if (flowInfo.reachMode() != FlowInfo.REACHABLE)
+			return null;
 		while (true) {
 			if (expression instanceof CastExpression)
 				expression = ((CastExpression) expression).expression;
@@ -250,8 +240,8 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			else if (expression instanceof ConditionalExpression) {
 				return getMoreUnsafeFromBranches((ConditionalExpression)expression, flowInfo,
 										branch -> getCloseTrackingVariable(branch, flowInfo, flowContext, useAnnotations));
-			} else if (expression instanceof SwitchExpression) {
-				for (Expression re : ((SwitchExpression) expression).resultExpressions) {
+			} else if (expression instanceof SwitchExpression se) {
+				for (Expression re : se.resultExpressions()) {
 					FakedTrackingVariable fakedTrackingVariable = getCloseTrackingVariable(re, flowInfo, flowContext, useAnnotations);
 					if (fakedTrackingVariable != null) {
 						return fakedTrackingVariable;
@@ -347,12 +337,26 @@ public class FakedTrackingVariable extends LocalDeclaration {
 				if (messageSend.binding != null && ((messageSend.binding.tagBits & TagBits.AnnotationNotOwning) == 0))
 					closeTracker.owningState = OWNED;
 			}
+		} else if (rhs instanceof CastExpression cast) {
+			preConnectTrackerAcrossAssignment(location, local, cast.expression, flowInfo, useAnnotations);
 		}
 		return closeTracker;
 	}
+	static void checkMethodForMissingAnnotation(MessageSend messageSend, Scope scope) {
+		if ((messageSend.binding.original().extendedTagBits & ExtendedTagBits.HasMissingOwningAnnotation) != 0)
+			scope.problemReporter().messageWithUnresolvedOwningAnnotation(messageSend, scope.environment());
+	}
+	static void checkParameterForMissingAnnotation(ASTNode location, MethodBinding method, int rank, Scope scope) {
+		if (method != null && method.parameterHasMissingOwningAnnotation(rank))
+			scope.problemReporter().parameterWithUnresolvedOwningAnnotation(location, method.original(), rank, scope.environment());
+	}
+	static void checkFieldForMissingAnnotation(ASTNode location, FieldBinding fieldBinding, Scope scope) {
+		if (fieldBinding != null && (fieldBinding.extendedTagBits & ExtendedTagBits.HasMissingOwningAnnotation) != 0)
+			scope.problemReporter().fieldWithUnresolvedOwningAnnotation(location, fieldBinding, scope.environment());
+	}
 
 	private static boolean containsAllocation(SwitchExpression location) {
-		for (Expression re : location.resultExpressions) {
+		for (Expression re : location.resultExpressions()) {
 			if (containsAllocation(re))
 				return true;
 		}
@@ -399,7 +403,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 
 	private static void preConnectTrackerAcrossAssignment(ASTNode location, LocalVariableBinding local, FlowInfo flowInfo,
 			SwitchExpression se, FakedTrackingVariable closeTracker, boolean useAnnotations) {
-		for (Expression re : se.resultExpressions) {
+		for (Expression re : se.resultExpressions()) {
 			preConnectTrackerAcrossAssignment(location, local, flowInfo, closeTracker, re, useAnnotations);
 		}
 	}
@@ -423,14 +427,16 @@ public class FakedTrackingVariable extends LocalDeclaration {
 	 * See  Bug 358903 - Filter practically unimportant resource leak warnings
 	 */
 	public static void analyseCloseableAllocation(BlockScope scope, FlowInfo flowInfo, FlowContext flowContext, AllocationExpression allocation) {
+		if (flowInfo.reachMode() != FlowInfo.REACHABLE)
+			return;
 		// client has checked that the resolvedType is an AutoCloseable, hence the following cast is safe:
-		if (((ReferenceBinding)allocation.resolvedType).hasTypeBit(TypeIds.BitResourceFreeCloseable)) {
+		if (allocation.resolvedType.hasTypeBit(TypeIds.BitResourceFreeCloseable)) {
 			// remove unnecessary attempts (closeable is not relevant)
 			if (allocation.closeTracker != null) {
 				allocation.closeTracker.withdraw();
 				allocation.closeTracker = null;
 			}
-		} else if (((ReferenceBinding)allocation.resolvedType).hasTypeBit(TypeIds.BitWrapperCloseable)) {
+		} else if (allocation.resolvedType.hasTypeBit(TypeIds.BitWrapperCloseable)) {
 			boolean isWrapper = true;
 			if (allocation.arguments != null &&  allocation.arguments.length > 0) {
 				// find the wrapped resource represented by its tracking var:
@@ -505,7 +511,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			return flowInfo;
 		}
 		// client has checked that the resolvedType is an AutoCloseable, hence the following cast is safe:
-		if (((ReferenceBinding)acquisition.resolvedType).hasTypeBit(TypeIds.BitResourceFreeCloseable)
+		if (acquisition.resolvedType.hasTypeBit(TypeIds.BitResourceFreeCloseable)
 				&& !isBlacklistedMethod(acquisition)) {
 			// remove unnecessary attempts (closeable is not relevant)
 			if (acquisition.closeTracker != null) {
@@ -516,6 +522,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 		} else { // regular resource
 			FakedTrackingVariable tracker = acquisition.closeTracker;
 			if (scope.compilerOptions().isAnnotationBasedResourceAnalysisEnabled) {
+				checkMethodForMissingAnnotation(acquisition, scope);
 				long owningTagBits = acquisition.binding.tagBits & TagBits.AnnotationOwningMASK;
 				int initialNullStatus = (owningTagBits == TagBits.AnnotationNotOwning) ? FlowInfo.NON_NULL : FlowInfo.NULL;
 				if (tracker == null) {
@@ -539,6 +546,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 				acquisition.closeTracker = tracker;
 			}
 			tracker.acquisition = acquisition;
+			tracker.globalClosingState |= SHARED_WITH_OUTSIDE;
 			FlowInfo outsideInfo = flowInfo.copy();
 			outsideInfo.markAsDefinitelyNonNull(tracker.binding);
 			tracker.markNullStatus(flowInfo, flowContext, FlowInfo.NULL);
@@ -546,15 +554,19 @@ public class FakedTrackingVariable extends LocalDeclaration {
 		}
 	}
 
-	private static boolean isFluentMethod(MethodBinding binding) {
+	static boolean isFluentMethod(MethodBinding binding) {
 		if (binding.isStatic())
 			return false;
 		ReferenceBinding declaringClass = binding.declaringClass;
-		if (declaringClass.equals(binding.returnType)) {
-			for (char[][] compoundName : TypeConstants.FLUENT_RESOURCE_CLASSES) {
-				if (CharOperation.equals(compoundName, declaringClass.compoundName))
-					return true;
+		while (declaringClass != null) {
+			if (declaringClass.equals(binding.returnType)) {
+				for (char[][] compoundName : TypeConstants.FLUENT_RESOURCE_CLASSES) {
+					if (CharOperation.equals(compoundName, declaringClass.compoundName))
+						return true;
+				}
+				return false;
 			}
+			declaringClass = declaringClass.superclass();
 		}
 		return false;
 	}
@@ -564,16 +576,14 @@ public class FakedTrackingVariable extends LocalDeclaration {
 	{
 		FakedTrackingVariable trackerIfTrue = retriever.apply(conditionalExpression.valueIfTrue);
 		FakedTrackingVariable trackerIfFalse = retriever.apply(conditionalExpression.valueIfFalse);
-		if (trackerIfTrue == null)
-			return trackerIfFalse;
-		if (trackerIfFalse == null)
-			return trackerIfTrue;
 		return pickMoreUnsafe(trackerIfTrue, trackerIfFalse, flowInfo);
 	}
 
 	private static FakedTrackingVariable pickMoreUnsafe(FakedTrackingVariable tracker1, FakedTrackingVariable tracker2, FlowInfo info) {
 		// whichever of the two trackers has stronger indication to be leaking will be returned,
 		// the other one will be removed from the scope (considered to be merged into the former).
+		if (tracker1 == null) return tracker2;
+		if (tracker2 == null) return tracker1;
 		int status1 = info.nullStatus(tracker1.binding);
 		int status2 = info.nullStatus(tracker2.binding);
 		if (status1 == FlowInfo.NULL || status2 == FlowInfo.NON_NULL) return pick(tracker1, tracker2);
@@ -840,8 +850,9 @@ public class FakedTrackingVariable extends LocalDeclaration {
 							if (fieldReference.receiver.isThis())
 								field = fieldReference.binding;
 						}
-						if (field != null) {
-							if (!field.isStatic() && (field.tagBits & TagBits.AnnotationOwning) != 0) {
+						if (field != null&& (field.tagBits & TagBits.AnnotationNotOwning) == 0) { // assignment to @NotOwned has no meaning
+							checkFieldForMissingAnnotation(lhs, field, scope);
+							if ((field.tagBits & TagBits.AnnotationOwning) != 0) {
 								rhsTrackVar.markNullStatus(flowInfo, flowContext, FlowInfo.NON_NULL);
 							} else {
 								rhsTrackVar.markAsShared();
@@ -887,15 +898,12 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			return getMoreUnsafeFromBranches((ConditionalExpression) expression, flowInfo,
 						branch -> analyseCloseableExpression(scope, flowInfo, flowContext, useAnnotations,
 																local, location, branch, previousTracker));
-		} else if (expression instanceof SwitchExpression) {
+		} else if (expression instanceof SwitchExpression se) {
 			FakedTrackingVariable mostRisky = null;
-			for (Expression result : ((SwitchExpression) expression).resultExpressions) {
+			for (Expression result : se.resultExpressions()) {
 				FakedTrackingVariable current = analyseCloseableExpression(scope, flowInfo, flowContext, useAnnotations,
 						local, location, result, previousTracker);
-				if (mostRisky == null)
-					mostRisky = current;
-				else
-					mostRisky = pickMoreUnsafe(mostRisky, current, flowInfo);
+				mostRisky = pickMoreUnsafe(mostRisky, current, flowInfo);
 			}
 			return mostRisky;
 		}
@@ -916,6 +924,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			if (useAnnotations && (expression.bits & RestrictiveFlagMASK) == Binding.FIELD) {
 				// field read
 				FieldBinding fieldBinding = ((Reference) expression).lastFieldBinding();
+				checkFieldForMissingAnnotation(expression, fieldBinding, scope);
 				long owningBits = 0;
 				if (fieldBinding != null) {
 					owningBits = fieldBinding.getAnnotationTagBits() & TagBits.AnnotationOwningMASK;
@@ -948,7 +957,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			if (isBlacklistedMethod(expression)) {
 				initialNullStatus = FlowInfo.NULL;
 			} else if (useAnnotations) {
-				initialNullStatus = getNullStatusFromMessageSend(expression);
+				initialNullStatus = getNullStatusFromMessageSend(expression, scope);
 			}
 			if (initialNullStatus != 0)
 				return new FakedTrackingVariable(local, location, flowInfo, flowContext, initialNullStatus, useAnnotations);
@@ -970,6 +979,9 @@ public class FakedTrackingVariable extends LocalDeclaration {
 				// leave state as UNKNOWN, the bit OWNED_BY_OUTSIDE will prevent spurious warnings
 				return tracker;
 			}
+		} else if (expression instanceof LambdaExpression) {
+			// treat fresh lambda like a fresh resource
+			return new FakedTrackingVariable(local, location, flowInfo, flowContext, FlowInfo.NULL, useAnnotations);
 		}
 
 		if (local.closeTracker != null)
@@ -994,8 +1006,9 @@ public class FakedTrackingVariable extends LocalDeclaration {
 	}
 
 	/* pre: usesOwningAnnotations. */
-	protected static int getNullStatusFromMessageSend(Expression expression) {
-		if (expression instanceof MessageSend) {
+	protected static int getNullStatusFromMessageSend(Expression expression, Scope scope) {
+		if (expression instanceof MessageSend message) {
+			checkMethodForMissingAnnotation(message, scope);
 			if ((((MessageSend) expression).binding.tagBits & TagBits.AnnotationNotOwning) != 0)
 				return FlowInfo.NON_NULL;
 			return FlowInfo.NULL; // per default assume responsibility to close
@@ -1005,6 +1018,11 @@ public class FakedTrackingVariable extends LocalDeclaration {
 
 	public static void cleanUpAfterAssignment(BlockScope currentScope, int lhsBits, Expression expression) {
 		// remove all remaining track vars with no original binding
+
+		boolean useAnnotations = currentScope.compilerOptions().isAnnotationBasedResourceAnalysisEnabled;
+		if (useAnnotations && (lhsBits & Binding.FIELD) != 0) {
+			return;
+		}
 
 		// unwrap uninteresting nodes:
 		while (true) {
@@ -1032,7 +1050,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 			LocalVariableBinding local = expression.localVariableBinding();
 			if (local != null
 					&& ((lhsBits & Binding.FIELD) != 0)
-					&& !currentScope.compilerOptions().isAnnotationBasedResourceAnalysisEnabled
+					&& !useAnnotations
 					&& local.closeTracker != null) {
 				local.closeTracker.withdraw(); // TODO: may want to use local.closeTracker.markPassedToOutside(..,true)
 			}
@@ -1082,7 +1100,7 @@ public class FakedTrackingVariable extends LocalDeclaration {
 	/** Answer wither the given type binding is a subtype of java.lang.AutoCloseable. */
 	public static boolean isAnyCloseable(TypeBinding typeBinding) {
 		return typeBinding instanceof ReferenceBinding
-			&& ((ReferenceBinding)typeBinding).hasTypeBit(TypeIds.BitAutoCloseable|TypeIds.BitCloseable);
+			&& typeBinding.hasTypeBit(TypeIds.BitAutoCloseable|TypeIds.BitCloseable);
 	}
 
 	/** Answer wither the given type binding is a subtype of java.lang.AutoCloseable. */

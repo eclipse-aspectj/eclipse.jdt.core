@@ -15,9 +15,7 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.io.File;
 import java.io.IOException;
-
 import junit.framework.Test;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
@@ -117,7 +115,7 @@ public void testExternalJarChanged1() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
 		);
 	} finally {
 		if(f != null) {
@@ -150,7 +148,7 @@ public void testExternalJarChanged2() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
 		);
 	} finally {
 		if(f != null) {
@@ -184,7 +182,7 @@ public void testExternalJarChanged3() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
 		);
 	} finally {
 		if(f != null) {
@@ -225,7 +223,7 @@ public void testExternalJarChanged4() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
 		);
 	} finally {
 		if(f != null) {
@@ -267,7 +265,7 @@ public void testExternalJarChanged5() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}"
 		);
 	} finally {
 		if(f != null) {
@@ -302,7 +300,7 @@ public void testExternalJarChanged6() throws CoreException, IOException {
 			"Unexpected delta",
 			"P[*]: {CHILDREN | CONTENT | RAW CLASSPATH CHANGED | RESOLVED CLASSPATH CHANGED}\n" +
 			"	<project root>[*]: {ADDED TO CLASSPATH}\n" +
-			"	"+f.getCanonicalPath()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}\n" +
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[*]: {CONTENT | ARCHIVE CONTENT CHANGED}\n" +
 			"	ResourceDelta(/P/.classpath)[*]"
 		);
 	} finally {
@@ -335,7 +333,7 @@ public void testExternalJarAdded1() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[+]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[+]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -367,7 +365,7 @@ public void testExternalJarAdded2() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[+]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[+]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -400,7 +398,7 @@ public void testExternalJarAdded3() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[+]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[+]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -433,7 +431,7 @@ public void testExternalJarRemoved1() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[-]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[-]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -466,7 +464,7 @@ public void testExternalJarRemoved2() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[-]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[-]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -500,7 +498,7 @@ public void testExternalJarRemoved3() throws CoreException, IOException {
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN}\n"+
-			"	"+f.getCanonicalPath()+"[-]: {}"
+			"	"+f.toPath().normalize().toAbsolutePath().toString()+"[-]: {}"
 		);
 	} finally {
 		if(f != null) {
@@ -530,7 +528,7 @@ public void testExternalJarInternalExternalJar() throws CoreException, IOExcepti
 		startDeltas();
 
 		// canonicalize the external path as this is not done on case sensitive platforms when creating a new lib entry
-		IPath externalFooPath = new Path(fooIFile.getLocation().toFile().getCanonicalPath());
+		IPath externalFooPath = new Path(fooIFile.getLocation().toFile().toPath().normalize().toAbsolutePath().toString());
 		setClasspath(project, new IClasspathEntry[]{JavaCore.newLibraryEntry(externalFooPath, null, null)});
 
 		project.open(null); // ensure that project is opened, as external jar delta is optimized for this case (if the project is not opened, there is no need for broadcasting an external jar delta)
@@ -538,7 +536,7 @@ public void testExternalJarInternalExternalJar() throws CoreException, IOExcepti
 		touch(f);
 		getJavaModel().refreshExternalArchives(null,null);
 
-		String externalFooPathString = f.getCanonicalPath();
+		String externalFooPathString = f.toPath().normalize().toAbsolutePath().toString();
 		assertDeltas(
 			"Unexpected delta",
 			"P[*]: {CHILDREN | CONTENT | RAW CLASSPATH CHANGED | RESOLVED CLASSPATH CHANGED}\n"+

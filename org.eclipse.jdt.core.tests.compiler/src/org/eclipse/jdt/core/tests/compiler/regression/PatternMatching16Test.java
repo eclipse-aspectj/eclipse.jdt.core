@@ -14,13 +14,11 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.IOException;
 import java.util.Map;
-
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import junit.framework.Test;
 import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.core.util.ClassFormatException;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
-import junit.framework.Test;
 
 public class PatternMatching16Test extends AbstractRegressionTest {
 
@@ -90,7 +88,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"1. ERROR in X1.java (at line 3)\n" +
 				"	if (obj instanceof String s) {\n" +
 				"	                   ^^^^^^^^\n" +
-				"The Java feature 'Pattern Matching in instanceof Expressions' is only available with source level 16 and above\n" +
+				"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
 				"----------\n",
 				null,
 				true,
@@ -198,17 +196,24 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	}
 	public void test003a() {
 		Map<String, String> options = getCompilerOptions(true);
-		runNegativeTest(
+		String[] testFiles =
 				new String[] {
 						"X3.java",
 						"@SuppressWarnings(\"preview\")\n" +
 						"public class X3 {\n" +
 						"  public void foo(Number num) {\n" +
 						"		if (num instanceof int) {\n" +
+						"			System.out.print(\"int\");\n" +
 						"		}\n " +
 						"	}\n" +
+						"	public static void main(String... args) {\n" +
+						"		new X3().foo(3);" +
+						"	}\n" +
 						"}\n",
-				},
+				};
+		if (this.complianceLevel < ClassFileConstants.JDK23) {
+			runNegativeTest(
+				testFiles,
 				"----------\n" +
 				"1. ERROR in X3.java (at line 4)\n" +
 				"	if (num instanceof int) {\n" +
@@ -219,6 +224,9 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				null,
 				true,
 				options);
+		} else {
+			runConformTest(testFiles, "int", options, new String[] {"--enable-preview"}, JavacTestOptions.DEFAULT);
+		}
 	}
 	public void test004() {
 		Map<String, String> options = getCompilerOptions(true);
@@ -1030,7 +1038,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				options);
 	}
 	/* Test that we report subtypes of pattern variables used in the same stmt
-	 * As of Java 19, we no longer report error for the above
+	 * As of Java 21, we no longer report error for the above
 	 */
 	public void test020() {
 		Map<String, String> options = getCompilerOptions(true);
@@ -1047,12 +1055,24 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 						"	}\n" +
 						"}\n",
 				},
-				"----------\n" +
-				"1. ERROR in X20.java (at line 7)\n" +
-				"	System.out.print(b1);\n" +
-				"	                 ^^\n" +
-				"b1 cannot be resolved to a variable\n" +
-				"----------\n",
+				this.complianceLevel < ClassFileConstants.JDK21 ?
+					"----------\n" +
+					"1. ERROR in X20.java (at line 6)\n" +
+					"	boolean b = (o instanceof String[] s) && s instanceof CharSequence[] s2;\n" +
+					"	                                         ^\n" +
+					"Expression type cannot be a subtype of the Pattern type\n" +
+					"----------\n" +
+					"2. ERROR in X20.java (at line 7)\n" +
+					"	System.out.print(b1);\n" +
+					"	                 ^^\n" +
+					"b1 cannot be resolved to a variable\n" +
+					"----------\n" :
+							"----------\n" +
+							"1. ERROR in X20.java (at line 7)\n" +
+							"	System.out.print(b1);\n" +
+							"	                 ^^\n" +
+							"b1 cannot be resolved to a variable\n" +
+							"----------\n",
 				"",
 				null,
 				true,
@@ -2393,7 +2413,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"----------\n" +
 				"1. ERROR in X.java (at line 4)\n" +
 				"	if (obj instanceof T t) {\n" +
-				"	    ^^^\n" +
+				"	    ^^^^^^^^^^^^^^^^^^\n" +
 				"Type Object cannot be safely cast to T\n" +
 				"----------\n",
 				"X.java:4: error: Object cannot be safely cast to T\n" +
@@ -2423,12 +2443,24 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 						"	}\n" +
 						"}\n",
 				},
-				"----------\n" +
-				"1. ERROR in X.java (at line 10)\n" +
-				"	System.out.println(abc);\n" +
-				"	                   ^^^\n" +
-				"abc cannot be resolved to a variable\n" +
-				"----------\n",
+				this.complianceLevel < ClassFileConstants.JDK21 ?
+					"----------\n" +
+					"1. ERROR in X.java (at line 4)\n" +
+					"	if (null instanceof T t) {\n" +
+					"	    ^^^^\n" +
+					"Expression type cannot be a subtype of the Pattern type\n" +
+					"----------\n" +
+					"2. ERROR in X.java (at line 10)\n" +
+					"	System.out.println(abc);\n" +
+					"	                   ^^^\n" +
+					"abc cannot be resolved to a variable\n" +
+					"----------\n" :
+						"----------\n" +
+						"1. ERROR in X.java (at line 10)\n" +
+						"	System.out.println(abc);\n" +
+						"	                   ^^^\n" +
+						"abc cannot be resolved to a variable\n" +
+						"----------\n",
 				"",
 				null,
 				true,
@@ -2452,7 +2484,7 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 				"----------\n" +
 				"1. ERROR in X.java (at line 4)\n" +
 				"	if (obj instanceof X<String> p) {\n" +
-				"	    ^^^\n" +
+				"	    ^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 				"Type X<capture#1-of ?> cannot be safely cast to X<String>\n" +
 				"----------\n",
 				"",
@@ -4319,7 +4351,8 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1485
 	// ECJ hangs when pattern matching code is used in a nested conditional expression.
 	public void testGHI1485() {
-
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
 		runConformTest(
 				new String[] {
 						"X.java",
@@ -4815,6 +4848,8 @@ public class PatternMatching16Test extends AbstractRegressionTest {
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2104
 	// [Patterns] Missing boxing conversion after instanceof leads to verify error
 	public void testBoxing() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
 		runConformTest(
 				new String[] {
 						"X.java",

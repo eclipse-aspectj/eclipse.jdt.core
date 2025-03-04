@@ -16,7 +16,7 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.util.HashMap;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.CompletionProposal;
@@ -27,8 +27,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.eval.IEvaluationContext;
 import org.eclipse.jdt.internal.codeassist.RelevanceConstants;
-
-import junit.framework.Test;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class CompletionTests18 extends AbstractJavaModelCompletionTests {
 
@@ -43,9 +42,9 @@ public CompletionTests18(String name) {
 @Override
 public void setUpSuite() throws Exception {
 	if (COMPLETION_PROJECT == null)  {
-		COMPLETION_PROJECT = setUpJavaProject("Completion", "1.8", true);
+		COMPLETION_PROJECT = setUpJavaProject("Completion", CompilerOptions.getFirstSupportedJavaVersion(), true);
 	} else {
-		setUpProjectCompliance(COMPLETION_PROJECT, "1.8", true);
+		setUpProjectCompliance(COMPLETION_PROJECT, CompilerOptions.getFirstSupportedJavaVersion(), true);
 	}
 	super.setUpSuite();
 }
@@ -835,20 +834,20 @@ public void testUnspecifiedReference() throws JavaModelException { // ensure com
 	String completeBehind = "Stri";
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	assertResults("StringBufferInputStream[TYPE_REF]{java.io.StringBufferInputStream, java.io, Ljava.io.StringBufferInputStream;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringCharBuffer[TYPE_REF]{java.nio.StringCharBuffer, java.nio, Ljava.nio.StringCharBuffer;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringCharacterIterator[TYPE_REF]{java.text.StringCharacterIterator, java.text, Ljava.text.StringCharacterIterator;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringJoiner[TYPE_REF]{java.util.StringJoiner, java.util, Ljava.util.StringJoiner;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringReader[TYPE_REF]{java.io.StringReader, java.io, Ljava.io.StringReader;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringTokenizer[TYPE_REF]{java.util.StringTokenizer, java.util, Ljava.util.StringTokenizer;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StringWriter[TYPE_REF]{java.io.StringWriter, java.io, Ljava.io.StringWriter;, null, null, null, null, [155, 159], " + (R_DEFAULT + 19) + "}\n" +
-			"StrictMath[TYPE_REF]{StrictMath, java.lang, Ljava.lang.StrictMath;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"String[TYPE_REF]{String, java.lang, Ljava.lang.String;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"StringBuffer[TYPE_REF]{StringBuffer, java.lang, Ljava.lang.StringBuffer;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"StringBuilder[TYPE_REF]{StringBuilder, java.lang, Ljava.lang.StringBuilder;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"StringCoding[TYPE_REF]{StringCoding, java.lang, Ljava.lang.StringCoding;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"StringIndexOutOfBoundsException[TYPE_REF]{StringIndexOutOfBoundsException, java.lang, Ljava.lang.StringIndexOutOfBoundsException;, null, null, null, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
-			"StringParameter[LOCAL_VARIABLE_REF]{StringParameter, null, LX;, null, null, StringParameter, null, [155, 159], " + (R_DEFAULT + 22) + "}", requestor.getResults());
+	assertResults("StringBufferInputStream[TYPE_REF]{java.io.StringBufferInputStream, java.io, Ljava.io.StringBufferInputStream;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringCharBuffer[TYPE_REF]{java.nio.StringCharBuffer, java.nio, Ljava.nio.StringCharBuffer;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringCharacterIterator[TYPE_REF]{java.text.StringCharacterIterator, java.text, Ljava.text.StringCharacterIterator;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringJoiner[TYPE_REF]{java.util.StringJoiner, java.util, Ljava.util.StringJoiner;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringReader[TYPE_REF]{java.io.StringReader, java.io, Ljava.io.StringReader;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringTokenizer[TYPE_REF]{java.util.StringTokenizer, java.util, Ljava.util.StringTokenizer;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringWriter[TYPE_REF]{java.io.StringWriter, java.io, Ljava.io.StringWriter;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 19) + "}\n" +
+			"StringParameter[LOCAL_VARIABLE_REF]{StringParameter, null, LX;, null, null, StringParameter, null, [155, 159], " + (R_DEFAULT + 22) + "}\n" +
+			"StrictMath[TYPE_REF]{StrictMath, java.lang, Ljava.lang.StrictMath;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}\n" +
+			"String[TYPE_REF]{String, java.lang, Ljava.lang.String;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}\n" +
+			"StringBuffer[TYPE_REF]{StringBuffer, java.lang, Ljava.lang.StringBuffer;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}\n" +
+			"StringBuilder[TYPE_REF]{StringBuilder, java.lang, Ljava.lang.StringBuilder;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}\n" +
+			"StringCoding[TYPE_REF]{StringCoding, java.lang, Ljava.lang.StringCoding;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}\n" +
+	        "StringIndexOutOfBoundsException[TYPE_REF]{StringIndexOutOfBoundsException, java.lang, Ljava.lang.StringIndexOutOfBoundsException;, null, null, null, null, [155, 159], " + (R_DEFAULT + R_JAVA_LIBRARY + 22) + "}", requestor.getResults());
 }
 public void testBrokenMethodCall() throws JavaModelException { // ensure completion works when the containing call is not terminated properly.
 	this.workingCopies = new ICompilationUnit[1];
@@ -2494,8 +2493,8 @@ public void testBug459189_001() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"Retention[TYPE_REF]{java.lang.annotation.Retention, java.lang.annotation, Ljava.lang.annotation.Retention;, null, null, " + (R_DEFAULT + 9) + "}\n"+
-			"RetentionPolicy[TYPE_REF]{java.lang.annotation.RetentionPolicy, java.lang.annotation, Ljava.lang.annotation.RetentionPolicy;, null, null, " + (R_DEFAULT + 9) + "}\n"+
+			"Retention[TYPE_REF]{java.lang.annotation.Retention, java.lang.annotation, Ljava.lang.annotation.Retention;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n"+
+			"RetentionPolicy[TYPE_REF]{java.lang.annotation.RetentionPolicy, java.lang.annotation, Ljava.lang.annotation.RetentionPolicy;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n"+
 			"return[KEYWORD]{return, null, null, return, null, " + (R_DEFAULT + 19) + "}",
 			requestor.getResults());
 }
@@ -2504,9 +2503,9 @@ public void testBug459189_002() throws JavaModelException {
 	this.workingCopies[0] = getWorkingCopy(
 			"/Completion/src/X.java",
 			"	Integer bar(Integer x) { return null;}\n"+
-			"public class X {\n"+
+			"public class Y {\n"+
 			"	Integer foo(){\n"+
-			"		I <Integer, X> i2 = (x) -> {/* HERE */ret /* type ctrl-space after ret */};\n"+
+			"		I <Integer, Y> i2 = (x) -> {/* HERE */ret /* type ctrl-space after ret */};\n"+
 			"		return 0;\n"+
 			"	}\n"+
 			"}\n"+
@@ -2521,8 +2520,8 @@ public void testBug459189_002() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"Retention[TYPE_REF]{java.lang.annotation.Retention, java.lang.annotation, Ljava.lang.annotation.Retention;, null, null, " + (R_DEFAULT + 9) + "}\n"+
-			"RetentionPolicy[TYPE_REF]{java.lang.annotation.RetentionPolicy, java.lang.annotation, Ljava.lang.annotation.RetentionPolicy;, null, null, " + (R_DEFAULT + 9) + "}\n" +
+			"Retention[TYPE_REF]{java.lang.annotation.Retention, java.lang.annotation, Ljava.lang.annotation.Retention;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n"+
+			"RetentionPolicy[TYPE_REF]{java.lang.annotation.RetentionPolicy, java.lang.annotation, Ljava.lang.annotation.RetentionPolicy;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
 			"return[KEYWORD]{return, null, null, return, null, " + (R_DEFAULT + 19) + "}",
 			requestor.getResults());
 }
@@ -2700,10 +2699,10 @@ public void testBug481215a() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) ;
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + 9) + "}\n" +
+			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
 			"result[LOCAL_VARIABLE_REF]{result, null, Ljava.lang.String;, result, null, " + (R_DEFAULT + R_EXACT_EXPECTED_TYPE + 22) + "}", requestor.getResults());
 }
 public void testBug481215b() throws JavaModelException {
@@ -2732,10 +2731,10 @@ public void testBug481215b() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) ;
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + 9) + "}\n" +
+			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
 			"result[LOCAL_VARIABLE_REF]{result, null, Ljava.lang.String;, result, null, " + (R_DEFAULT + R_EXACT_EXPECTED_TYPE + 22) + "}", requestor.getResults());
 }
 public void testBug481215c() throws JavaModelException {
@@ -2764,10 +2763,10 @@ public void testBug481215c() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) ;
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + 9) + "}\n" +
+			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
 			"result[LOCAL_VARIABLE_REF]{result, null, Ljava.lang.String;, result, null, " + (R_DEFAULT + R_EXACT_EXPECTED_TYPE + 22) + "}", requestor.getResults());
 }
 public void testBug481215d() throws JavaModelException {
@@ -2804,10 +2803,10 @@ public void testBug481215d() throws JavaModelException {
 	int cursorLocation = str.indexOf(completeBehind) ;
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + 9) + "}\n" +
-			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + 9) + "}\n" +
+			"ResourceBundle[TYPE_REF]{java.util.ResourceBundle, java.util, Ljava.util.ResourceBundle;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResponseCache[TYPE_REF]{java.net.ResponseCache, java.net, Ljava.net.ResponseCache;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSet[TYPE_REF]{java.sql.ResultSet, java.sql, Ljava.sql.ResultSet;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
+			"ResultSetMetaData[TYPE_REF]{java.sql.ResultSetMetaData, java.sql, Ljava.sql.ResultSetMetaData;, null, null, " + (R_DEFAULT + R_JAVA_LIBRARY + 9) + "}\n" +
 			"result[LOCAL_VARIABLE_REF]{result, null, Ljava.lang.String;, result, null, " + (R_DEFAULT + R_EXACT_EXPECTED_TYPE + 22) + "}\n" +
 			"result2[LOCAL_VARIABLE_REF]{result2, null, Ljava.lang.String;, result2, null, " + (R_DEFAULT + R_EXACT_EXPECTED_TYPE + 22) + "}", requestor.getResults());
 }
@@ -2860,7 +2859,7 @@ public void test473008a() throws JavaModelException {
 	String completeBehind = "new StringBuffer";
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE;
+	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE + R_JAVA_LIBRARY;
 	assertResults(
 			"StringBufferInputStream[TYPE_REF]{java.io.StringBufferInputStream, java.io, Ljava.io.StringBufferInputStream;, null, null, null, null, [147, 159], " + relevance + "}\n" +
 			"StringBuffer[TYPE_REF]{StringBuffer, java.lang, Ljava.lang.StringBuffer;, null, null, null, null, [147, 159], " + (relevance + R_UNQUALIFIED + R_EXACT_NAME) + "}"
@@ -2886,7 +2885,7 @@ public void test473008b() throws JavaModelException {
 	String completeBehind = "new StringBuffer";
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE;
+	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE + R_JAVA_LIBRARY;
 	assertResults(
 			"StringBufferInputStream[TYPE_REF]{java.io.StringBufferInputStream, java.io, Ljava.io.StringBufferInputStream;, null, null, null, null, [149, 161], " + relevance + "}\n" +
 			"StringBuffer[TYPE_REF]{StringBuffer, java.lang, Ljava.lang.StringBuffer;, null, null, null, null, [149, 161], " + (relevance + R_UNQUALIFIED + R_EXACT_NAME) + "}"
@@ -2912,7 +2911,7 @@ public void test473008c() throws JavaModelException {
 	String completeBehind = "new StringBuffer";
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE;
+	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED + R_CASE + R_JAVA_LIBRARY;
 	assertResults(
 			"StringBufferInputStream[TYPE_REF]{java.io.StringBufferInputStream, java.io, Ljava.io.StringBufferInputStream;, null, null, null, null, [151, 163], " + relevance + "}\n" +
 			"StringBuffer[TYPE_REF]{StringBuffer, java.lang, Ljava.lang.StringBuffer;, null, null, null, null, [151, 163], " + (relevance + R_UNQUALIFIED + R_EXACT_NAME) + "}"
@@ -2994,7 +2993,7 @@ public void test492947b() throws JavaModelException {
 	String completeBehind = "StringBui";
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
-	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED + R_UNQUALIFIED;
+	int relevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED + R_UNQUALIFIED + R_JAVA_LIBRARY;
 	assertResults(
 			"StringBuilder[TYPE_REF]{StringBuilder, java.lang, Ljava.lang.StringBuilder;, null, null, null, null, [139, 148], " + relevance + "}",
 			 requestor.getResults());
@@ -4754,6 +4753,7 @@ public void testBug543617() throws JavaModelException {
     int normalRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED;
     int voidRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_VOID;
     int expectedTypeRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_EXACT_EXPECTED_TYPE;
+    int expectedJavaTypeRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_EXACT_EXPECTED_TYPE + R_JAVA_LIBRARY;
 
     assertResults(
             "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+voidRelevance+"}\n" +
@@ -4772,9 +4772,9 @@ public void testBug543617() throws JavaModelException {
             "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+normalRelevance+"}\n" +
             "iterator[LOCAL_VARIABLE_REF]{iterator, null, Ljava.util.Iterator<TE;>;, iterator, null, "+normalRelevance+"}\n" +
             "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, "+normalRelevance+"}\n" +
-            "List<java.lang.Long>[TYPE_REF]{List, java.util, Ljava.util.List<Ljava.lang.Long;>;, null, null, "+expectedTypeRelevance+"}\n" +
             "findAll[METHOD_REF]{findAll(), Ltest.TestApp;, ()Ljava.util.List<Ljava.lang.String;>;, findAll, null, "+expectedTypeRelevance+"}\n" +
-            "load[METHOD_REF]{load(), Ltest.TestApp;, (Ljava.util.List<Ljava.lang.Long;>;)Ljava.util.List<Ljava.lang.String;>;, load, (ids), "+expectedTypeRelevance+"}",
+            "load[METHOD_REF]{load(), Ltest.TestApp;, (Ljava.util.List<Ljava.lang.Long;>;)Ljava.util.List<Ljava.lang.String;>;, load, (ids), "+expectedTypeRelevance+"}\n" +
+            "List<java.lang.Long>[TYPE_REF]{List, java.util, Ljava.util.List<Ljava.lang.Long;>;, null, null, "+expectedJavaTypeRelevance+"}",
     		requestor.getResults());
 }
 public void testBug539617_alloc() throws JavaModelException {
@@ -4906,7 +4906,7 @@ public void testBug546097() throws Exception {
     this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
 
     int expectedTypeRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_EXPECTED_TYPE;
-    int exactExpectedTypeRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_EXACT_EXPECTED_TYPE;
+    int exactExpectedJavaTypeRelevance = R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_EXACT_EXPECTED_TYPE + R_JAVA_LIBRARY;
 
     assertResults(
             "ENUM1[FIELD_REF]{ENUM1, LTestClass$TestEnum;, LTestClass$TestEnum;, ENUM1, null, "+expectedTypeRelevance+"}\n" +
@@ -4915,7 +4915,7 @@ public void testBug546097() throws Exception {
             "valueOf[METHOD_REF]{valueOf(), LTestClass$TestEnum;, (Ljava.lang.String;)LTestClass$TestEnum;, valueOf, (arg0), "+expectedTypeRelevance+"}\n" +
             "valueOf[METHOD_REF]{valueOf(), Ljava.lang.Enum<LTestClass$TestEnum;>;, <T:Ljava.lang.Enum<TT;>;>(Ljava.lang.Class<TT;>;Ljava.lang.String;)TT;, valueOf, (arg0, arg1), "+expectedTypeRelevance+"}\n" +
             "values[METHOD_REF]{values(), LTestClass$TestEnum;, ()[LTestClass$TestEnum;, values, null, "+expectedTypeRelevance+"}\n" +
-            "Object[TYPE_REF]{Object, java.lang, Ljava.lang.Object;, null, null, "+exactExpectedTypeRelevance+"}",
+            "Object[TYPE_REF]{Object, java.lang, Ljava.lang.Object;, null, null, "+exactExpectedJavaTypeRelevance+"}",
     		requestor.getResults());
 }
 public void testBug573105_OnLambdaParamAtNestedMethodInvocationInsideLambda_MemberCompletions() throws JavaModelException {
@@ -5093,10 +5093,10 @@ public void testBug482663() throws Exception {
     this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
 
 	assertResults(
-			"DateFormat[TYPE_REF]{java.text.DateFormat, java.text, Ljava.text.DateFormat;, null, null, 69}\n" +
-			"DateFormatSymbols[TYPE_REF]{java.text.DateFormatSymbols, java.text, Ljava.text.DateFormatSymbols;, null, null, 69}\n" +
-			"Date[TYPE_REF]{java.sql.Date, java.sql, Ljava.sql.Date;, null, null, 73}\n" +
-			"Date[TYPE_REF]{java.util.Date, java.util, Ljava.util.Date;, null, null, 73}",
+			"DateFormat[TYPE_REF]{java.text.DateFormat, java.text, Ljava.text.DateFormat;, null, null, 71}\n" +
+			"DateFormatSymbols[TYPE_REF]{java.text.DateFormatSymbols, java.text, Ljava.text.DateFormatSymbols;, null, null, 71}\n" +
+			"Date[TYPE_REF]{java.sql.Date, java.sql, Ljava.sql.Date;, null, null, 75}\n" +
+			"Date[TYPE_REF]{java.util.Date, java.util, Ljava.util.Date;, null, null, 75}",
 			requestor.getResults());
 }
 public void testBug574215() throws CoreException {
@@ -6289,7 +6289,7 @@ public void testBug443091_expectLambdaCompletions_forFunctionalInterfaceVariable
 			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 52}\n"
 			+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n"
 			+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 52}\n"
-			+ "Consumer<java.lang.Integer>[TYPE_REF]{Consumer, java.util.function, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, null, null, 82}\n"
+			+ "Consumer<java.lang.Integer>[TYPE_REF]{Consumer, java.util.function, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, null, null, 84}\n"
 			+ "[LAMBDA_EXPRESSION]{->, Ljava.util.function.Consumer<Ljava.lang.Integer;>;, (Ljava.lang.Integer;)V, accept, (t), 89}",
 			result);
 }
@@ -6568,7 +6568,7 @@ public void testBug578116_expectCompletions_forConstructorsInsideLamndaBlock() t
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	String result = requestor.getResults();
 	assertResults("Bug578116[TYPE_REF]{Bug578116, , LBug578116;, null, null, 52}\n"
-			+ "ArrayList<java.lang.String>[TYPE_REF]{ArrayList, java.util, Ljava.util.ArrayList<Ljava.lang.String;>;, null, null, 82}",
+			+ "ArrayList<java.lang.String>[TYPE_REF]{ArrayList, java.util, Ljava.util.ArrayList<Ljava.lang.String;>;, null, null, 84}",
 			result);
 }
 public void testBug578817() throws JavaModelException {
@@ -7171,5 +7171,72 @@ public void testGH1587_onConstructorWithArgumentsBeforeFirstArgument_withinChain
 					+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
 			result);
 }
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1502
+public void testGH1502() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy("/Completion/src/X.java", """
+			public class X {
+				void foo() {
+					new ArrayList<>().
+				}
+			}
+			""");
 
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "ArrayList<>().";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+
+	String result = requestor.getResults();
+	assertResults(
+			"add[METHOD_REF]{add(), Ljava.util.ArrayList<>;, (ITE;)V, add, (arg0, arg1), 61}\n"
+			+ "add[METHOD_REF]{add(), Ljava.util.ArrayList<>;, (TE;)Z, add, (arg0), 61}\n"
+			+ "addAll[METHOD_REF]{addAll(), Ljava.util.ArrayList<>;, (ILjava.util.Collection<+TE;>;)Z, addAll, (arg0, arg1), 61}\n"
+			+ "addAll[METHOD_REF]{addAll(), Ljava.util.ArrayList<>;, (Ljava.util.Collection<+TE;>;)Z, addAll, (arg0), 61}\n"
+			+ "clear[METHOD_REF]{clear(), Ljava.util.ArrayList<>;, ()V, clear, null, 61}\n"
+			+ "clone[METHOD_REF]{clone(), Ljava.util.ArrayList<>;, ()Ljava.lang.Object;, clone, null, 61}\n"
+			+ "contains[METHOD_REF]{contains(), Ljava.util.ArrayList<>;, (Ljava.lang.Object;)Z, contains, (arg0), 61}\n"
+			+ "containsAll[METHOD_REF]{containsAll(), Ljava.util.List<TE;>;, (Ljava.util.Collection<*>;)Z, containsAll, (arg0), 61}\n"
+			+ "ensureCapacity[METHOD_REF]{ensureCapacity(), Ljava.util.ArrayList<>;, (I)V, ensureCapacity, (arg0), 61}\n"
+			+ "equals[METHOD_REF]{equals(), Ljava.util.List<TE;>;, (Ljava.lang.Object;)Z, equals, (arg0), 61}\n"
+			+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 61}\n"
+			+ "forEach[METHOD_REF]{forEach(), Ljava.util.ArrayList<>;, (Ljava.util.function.Consumer<-TE;>;)V, forEach, (arg0), 61}\n"
+			+ "get[METHOD_REF]{get(), Ljava.util.ArrayList<>;, (I)TE;, get, (arg0), 61}\n"
+			+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 61}\n"
+			+ "hashCode[METHOD_REF]{hashCode(), Ljava.util.List<TE;>;, ()I, hashCode, null, 61}\n"
+			+ "indexOf[METHOD_REF]{indexOf(), Ljava.util.ArrayList<>;, (Ljava.lang.Object;)I, indexOf, (arg0), 61}\n"
+			+ "isEmpty[METHOD_REF]{isEmpty(), Ljava.util.ArrayList<>;, ()Z, isEmpty, null, 61}\n"
+			+ "iterator[METHOD_REF]{iterator(), Ljava.util.ArrayList<>;, ()Ljava.util.Iterator<TE;>;, iterator, null, 61}\n"
+			+ "lastIndexOf[METHOD_REF]{lastIndexOf(), Ljava.util.ArrayList<>;, (Ljava.lang.Object;)I, lastIndexOf, (arg0), 61}\n"
+			+ "listIterator[METHOD_REF]{listIterator(), Ljava.util.ArrayList<>;, ()Ljava.util.ListIterator<TE;>;, listIterator, null, 61}\n"
+			+ "listIterator[METHOD_REF]{listIterator(), Ljava.util.ArrayList<>;, (I)Ljava.util.ListIterator<TE;>;, listIterator, (arg0), 61}\n"
+			+ "modCount[FIELD_REF]{modCount, Ljava.util.AbstractList<TE;>;, I, modCount, null, 61}\n"
+			+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 61}\n"
+			+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 61}\n"
+			+ "parallelStream[METHOD_REF]{parallelStream(), Ljava.util.Collection<TE;>;, ()Ljava.util.stream.Stream<TE;>;, parallelStream, null, 61}\n"
+			+ "remove[METHOD_REF]{remove(), Ljava.util.ArrayList<>;, (I)TE;, remove, (arg0), 61}\n"
+			+ "remove[METHOD_REF]{remove(), Ljava.util.ArrayList<>;, (Ljava.lang.Object;)Z, remove, (arg0), 61}\n"
+			+ "removeAll[METHOD_REF]{removeAll(), Ljava.util.ArrayList<>;, (Ljava.util.Collection<*>;)Z, removeAll, (arg0), 61}\n"
+			+ "removeIf[METHOD_REF]{removeIf(), Ljava.util.ArrayList<>;, (Ljava.util.function.Predicate<-TE;>;)Z, removeIf, (arg0), 61}\n"
+			+ "removeRange[METHOD_REF]{removeRange(), Ljava.util.ArrayList<>;, (II)V, removeRange, (arg0, arg1), 61}\n"
+			+ "replaceAll[METHOD_REF]{replaceAll(), Ljava.util.ArrayList<>;, (Ljava.util.function.UnaryOperator<TE;>;)V, replaceAll, (arg0), 61}\n"
+			+ "retainAll[METHOD_REF]{retainAll(), Ljava.util.ArrayList<>;, (Ljava.util.Collection<*>;)Z, retainAll, (arg0), 61}\n"
+			+ "set[METHOD_REF]{set(), Ljava.util.ArrayList<>;, (ITE;)TE;, set, (arg0, arg1), 61}\n"
+			+ "size[METHOD_REF]{size(), Ljava.util.ArrayList<>;, ()I, size, null, 61}\n"
+			+ "sort[METHOD_REF]{sort(), Ljava.util.ArrayList<>;, (Ljava.util.Comparator<-TE;>;)V, sort, (arg0), 61}\n"
+			+ "spliterator[METHOD_REF]{spliterator(), Ljava.util.ArrayList<>;, ()Ljava.util.Spliterator<TE;>;, spliterator, null, 61}\n"
+			+ "stream[METHOD_REF]{stream(), Ljava.util.Collection<TE;>;, ()Ljava.util.stream.Stream<TE;>;, stream, null, 61}\n"
+			+ "subList[METHOD_REF]{subList(), Ljava.util.ArrayList<>;, (II)Ljava.util.List<TE;>;, subList, (arg0, arg1), 61}\n"
+			+ "toArray[METHOD_REF]{toArray(), Ljava.util.ArrayList<>;, ()[Ljava.lang.Object;, toArray, null, 61}\n"
+			+ "toArray[METHOD_REF]{toArray(), Ljava.util.ArrayList<>;, <T:Ljava.lang.Object;>([TT;)[TT;, toArray, (arg0), 61}\n"
+			+ "toString[METHOD_REF]{toString(), Ljava.util.AbstractCollection<TE;>;, ()Ljava.lang.String;, toString, null, 61}\n"
+			+ "trimToSize[METHOD_REF]{trimToSize(), Ljava.util.ArrayList<>;, ()V, trimToSize, null, 61}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, 61}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), 61}\n"
+			+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 61}",
+			result);
+}
 }

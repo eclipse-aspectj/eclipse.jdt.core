@@ -14,7 +14,6 @@
 package org.eclipse.jdt.internal.core.dom;
 
 import java.util.List;
-
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -57,6 +56,9 @@ public class SourceRangeVerifier extends ASTVisitor {
 		ASTNode previous = null;
 
 		List properties = node.structuralPropertiesForType();
+		if (properties == null) { // happens for some nodes that aren't usually available at AST level
+			return false;
+		}
 		for (Object p : properties) {
 			StructuralPropertyDescriptor property = (StructuralPropertyDescriptor) p;
 			if (property.isChildProperty()) {

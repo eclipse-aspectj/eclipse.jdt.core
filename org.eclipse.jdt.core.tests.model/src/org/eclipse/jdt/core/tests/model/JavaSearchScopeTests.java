@@ -16,18 +16,21 @@ package org.eclipse.jdt.core.tests.model;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
-
+import java.util.concurrent.ConcurrentLinkedQueue;
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.ILogListener;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaElement;
@@ -44,21 +47,33 @@ import org.eclipse.jdt.core.search.SearchParticipant;
 import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.tests.model.AbstractJavaSearchTests.JavaSearchResultCollector;
 import org.eclipse.jdt.core.tests.model.AbstractJavaSearchTests.TypeNameMatchCollector;
+import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.index.IndexLocation;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
-
-import junit.framework.Test;
 
 /**
  * Tests the Java search engine accross multiple projects.
  */
 public class JavaSearchScopeTests extends ModifyingResourceTests implements IJavaSearchConstants {
-public JavaSearchScopeTests(String name) {
+	private Queue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
+	private ILogListener expectNoErrorLogging = (status, plugin) -> {
+		if (status.getException() != null) {
+			this.exceptions.add(new AssertionError(status.getMessage(), status.getException()));
+		}
+	};
+
+	public JavaSearchScopeTests(String name) {
 	super(name);
 }
 public static Test suite() {
 	return buildModelTestSuite(JavaSearchScopeTests.class);
+}
+
+@Override
+protected void setUp() throws Exception {
+	super.setUp();
+	Platform.addLogListener(this.expectNoErrorLogging);
 }
 // Use this static initializer to specify subset for tests
 // All specified tests which do not belong to the class are skipped...
@@ -70,11 +85,12 @@ static {
 
 @Override
 protected void tearDown() throws Exception {
-	// Cleanup caches
-	JavaModelManager manager = JavaModelManager.getJavaModelManager();
-	manager.containers = new HashMap<>(5);
-	manager.variables = new HashMap<>(5);
-
+	Throwable firstException = this.exceptions.poll();
+	if (firstException!=null) {
+		throw new AssertionError(firstException);
+	}
+	Platform.removeLogListener(this.expectNoErrorLogging);
+	Util.cleanupClassPathVariablesAndContainers();
 	super.tearDown();
 }
 /*
@@ -919,7 +935,7 @@ public void testBug101022() throws CoreException {
  */
 public void testBug101426() throws CoreException {
 	try {
-		IJavaProject project = createJavaProject("P1", new String[] {"src/", "test/", "test2/"}, new String[] {"JCL_LIB"}, "bin");
+		IJavaProject project = createJavaProject("P1", new String[] {"src/", "test/", "test2/"}, new String[] {"JCL18_LIB"}, "bin");
 		createFile(
 			"/P1/src/Test.java",
 			"public interface ITest {\n" +
@@ -1110,18 +1126,19 @@ public void testBug250211() throws CoreException {
 							exportedProjects[idx] = true; // export all projects
 						}
 					}
-					projects[i] = createJavaProject(projectName, new String[]{"src"}, new String[]{"JCL_LIB"}, dependents, exportedProjects, "bin");
+					projects[i] = createJavaProject(projectName, new String[]{"src"}, new String[]{"JCL18_LIB"}, dependents, exportedProjects, "bin");
 				}
 			}
 		},
 		null);
 		SearchEngine.createJavaSearchScope(projects);
-	}
-	finally {
-		for (int i = 0; i < max; i++){
-			assertNotNull("Unexpected null project!", projects[i]);
-			deleteProject(projects[i]);
-		}
+	} finally {
+		JavaCore.run(m -> {
+			for (int i = 0; i < max; i++) {
+				assertNotNull("Unexpected null project!", projects[i]);
+				deleteProject(projects[i]);
+			}
+		}, null);
 	}
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=397818

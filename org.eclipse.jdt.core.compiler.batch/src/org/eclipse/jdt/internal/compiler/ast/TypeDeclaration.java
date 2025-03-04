@@ -33,16 +33,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.eclipse.jdt.core.compiler.*;
-import org.eclipse.jdt.internal.compiler.*;
-import org.eclipse.jdt.internal.compiler.impl.*;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.core.compiler.IProblem;
+import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.ClassFile;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.codegen.*;
-import org.eclipse.jdt.internal.compiler.flow.*;
+import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.flow.InitializationFlowContext;
+import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
+import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
+import org.eclipse.jdt.internal.compiler.impl.StringConstant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
-import org.eclipse.jdt.internal.compiler.parser.*;
-import org.eclipse.jdt.internal.compiler.problem.*;
+import org.eclipse.jdt.internal.compiler.parser.Parser;
+import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
+import org.eclipse.jdt.internal.compiler.problem.AbortCompilationUnit;
+import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
+import org.eclipse.jdt.internal.compiler.problem.AbortType;
+import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
+import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.SimpleSetOfCharArray;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
@@ -97,8 +111,11 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
 	public int nRecordComponents;
 	public static Set<String> disallowedComponentNames;
 
-	// 15 Sealed Type preview support
+	// 17 Sealed Type support
 	public TypeReference[] permittedTypes;
+
+	// TEST ONLY: disable one fix here to challenge another related fix (in TypeSystem):
+	public static boolean TESTING_GH_2158 = false;
 
 	static {
 		disallowedComponentNames = new HashSet<>(6);
@@ -1077,8 +1094,33 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
 	NestedTypeBinding nestedType = (NestedTypeBinding) this.binding;
 
 	MethodScope methodScope = currentScope.methodScope();
-	if (!methodScope.isStatic && !methodScope.isConstructorCall){
-		nestedType.addSyntheticArgumentAndField(nestedType.enclosingType());
+	if (!methodScope.isStatic) {
+		boolean earlySeen = false;
+		Scope outerScope = currentScope.parent;
+		if (!methodScope.isConstructorCall) {
+			nestedType.addSyntheticArgumentAndField(nestedType.enclosingType());
+			outerScope = outerScope.enclosingInstanceScope();
+			earlySeen = methodScope.isInsideEarlyConstructionContext(nestedType.enclosingType(), false);
+		}
+		if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(currentScope.compilerOptions())) {
+			// JEP 482: this is the central location for organizing synthetic arguments and fields
+			// to serve far outer instances even in inner early construction context.
+			// Locations MethodBinding.computeSignature() and BlockScope.getEmulationPath() will faithfully
+			// use the information generated here, to decide about signature and call sequence.
+			while (outerScope != null) {
+				if (outerScope instanceof ClassScope cs) {
+					if (earlySeen && !cs.insideEarlyConstructionContext) {
+						// a direct outer beyond an early construction context disrupts
+						// the chain of fields, supply a local copy instead (arg & field):
+						nestedType.addSyntheticArgumentAndField(cs.referenceContext.binding);
+					}
+					earlySeen = cs.insideEarlyConstructionContext;
+				}
+				outerScope = outerScope.parent;
+				if (outerScope instanceof MethodScope ms && ms.isStatic)
+					break;
+			}
+		}
 	}
 	// add superclass enclosing instance arg for anonymous types (if necessary)
 	if (nestedType.isAnonymousType()) {
@@ -1113,6 +1155,7 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
 		}
 	}
 }
+
 
 /**
  * Access emulation for a local member type
@@ -1352,14 +1395,16 @@ public void resolve() {
 			this.scope.problemReporter().missingDeprecatedAnnotationForType(this);
 		}
 		if ((annotationTagBits & TagBits.AnnotationFunctionalInterface) != 0) {
-			if(!this.binding.isFunctionalInterface(this.scope)) {
+			if (this.binding.isSealed()) {
+				this.scope.problemReporter().functionalInterfaceMayNotBeSealed(this);
+			} else if (!this.binding.isFunctionalInterface(this.scope)) {
 				this.scope.problemReporter().notAFunctionalInterface(this);
 			}
 		}
 
-		if ((this.bits & ASTNode.UndocumentedEmptyBlock) != 0 && this.nRecordComponents == 0) {
-			this.scope.problemReporter().undocumentedEmptyBlock(this.bodyStart-1, this.bodyEnd);
-		}
+		if (!sourceType.isRecord() && (this.bits & ASTNode.UndocumentedEmptyBlock) != 0)
+			this.scope.problemReporter().undocumentedEmptyBlock(this.bodyStart - 1, this.bodyEnd);
+
 		boolean needSerialVersion =
 						this.scope.compilerOptions().getSeverity(CompilerOptions.MissingSerialVersion) != ProblemSeverities.Ignore
 						&& sourceType.isClass()
@@ -1676,11 +1721,6 @@ public void tagAsHavingErrors() {
 	this.ignoreFurtherInvestigation = true;
 }
 
-@Override
-public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
-	// Nothing to do for this context;
-}
-
 /**
  *	Iteration for a package member type
  */
@@ -1959,6 +1999,15 @@ public void updateSupertypesWithAnnotations(Map<ReferenceBinding,ReferenceBindin
 protected ReferenceBinding updateWithAnnotations(TypeReference typeRef, ReferenceBinding previousType,
 		Map<ReferenceBinding, ReferenceBinding> outerUpdates, Map<ReferenceBinding, ReferenceBinding> updates)
 {
+	if (!TESTING_GH_2158
+			&& previousType instanceof ParameterizedTypeBinding previousPTB
+			&& previousPTB.original() instanceof SourceTypeBinding previousOriginal
+			&& previousOriginal.supertypeAnnotationsUpdated) {
+		// re-initialized parameterized type with updated annotations from the original:
+		typeRef.resolvedType = this.scope.environment().createParameterizedType(previousOriginal,		// <- has been updated
+				previousPTB.arguments, previousType.enclosingType(), previousType.getAnnotations());	// <- no changes here
+	}
+
 	typeRef.updateWithAnnotations(this.scope, 0);
 	ReferenceBinding updatedType = (ReferenceBinding) typeRef.resolvedType;
 	if (updatedType instanceof ParameterizedTypeBinding) {
@@ -1972,8 +2021,10 @@ protected ReferenceBinding updateWithAnnotations(TypeReference typeRef, Referenc
 	if (previousType != null) {
 		if (previousType.id == TypeIds.T_JavaLangObject && ((this.binding.tagBits & TagBits.HierarchyHasProblems) != 0))
 			return previousType; // keep this cycle breaker
-		if (previousType != updatedType) //$IDENTITY-COMPARISON$
+		if (previousType != updatedType) { //$IDENTITY-COMPARISON$
 			updates.put(previousType, updatedType);
+			this.binding.supertypeAnnotationsUpdated = true;
+		}
 	}
 	return updatedType;
 }

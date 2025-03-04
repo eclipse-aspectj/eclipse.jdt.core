@@ -37,7 +37,6 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.List;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
@@ -80,6 +79,7 @@ public class MethodBinding extends Binding {
 	public static byte PARAM_NULLITY = (byte) (PARAM_NONNULL | PARAM_NULLABLE);
 	public static byte PARAM_OWNING = 4;
 	public static byte PARAM_NOTOWNING = 8;
+	public static byte PARAM_MISSING_OWNING_ANN = 16;
 
 	public static byte flowBitFromAnnotationTagBit(long tagBit) {
 		if (tagBit == TagBits.AnnotationNonNull)
@@ -462,9 +462,11 @@ public boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSi
 	return false;
 }
 
-public List<TypeBinding> collectMissingTypes(List<TypeBinding> missingTypes) {
+public List<TypeBinding> collectMissingTypes(List<TypeBinding> missingTypes, boolean considerReturnType) {
 	if ((this.tagBits & TagBits.HasMissingType) != 0) {
-		missingTypes = this.returnType.collectMissingTypes(missingTypes);
+		if (considerReturnType) {
+			missingTypes = this.returnType.collectMissingTypes(missingTypes);
+		}
 		for (TypeBinding parameter : this.parameters) {
 			missingTypes = parameter.collectMissingTypes(missingTypes);
 		}
@@ -1173,13 +1175,13 @@ public final char[] computeSignature(ClassFile classFile) {
 	}
 	boolean needSynthetics = isConstructor
 			&& this.declaringClass.isNestedType()
-			&& !this.declaringClass.isStatic()
-			&& !this.declaringClass.isInPreconstructorContext();
+			&& !this.declaringClass.isStatic();
 	if (needSynthetics) {
 		// take into account the synthetic argument type signatures as well
 		ReferenceBinding[] syntheticArgumentTypes = this.declaringClass.syntheticEnclosingInstanceTypes();
 		if (syntheticArgumentTypes != null) {
 			for (ReferenceBinding syntheticArgumentType : syntheticArgumentTypes) {
+
 				if ((syntheticArgumentType.tagBits & TagBits.ContainsNestedTypeReferences) != 0) {
 					this.tagBits |= TagBits.ContainsNestedTypeReferences;
 					if (classFile != null)
@@ -1318,13 +1320,10 @@ public AbstractMethodDeclaration sourceMethod() {
 //	if (isSynthetic()) {
 //		return null;
 //	}
-	SourceTypeBinding sourceType;
 	//	AspectJ Extension
-	if (declaringClass instanceof BinaryTypeBinding) return null;
+	if (this.declaringClass instanceof BinaryTypeBinding) return null;
 	//	End AspectJ Extension
-	try {
-		sourceType = (SourceTypeBinding) this.declaringClass;
-	} catch (ClassCastException e) {
+	if (!(this.declaringClass instanceof SourceTypeBinding sourceType)) {
 		return null;
 	}
 
@@ -1590,6 +1589,17 @@ public boolean notownsParameter(int i) {
 		return (this.parameterFlowBits[i] & PARAM_NOTOWNING) != 0;
 	return false;
 }
+public boolean parameterHasMissingOwningAnnotation(int rank) {
+	if (this.parameterFlowBits != null)
+		return (this.parameterFlowBits[rank] & PARAM_MISSING_OWNING_ANN) != 0;
+	return false;
+}
+public void markMissingOwningAnnotationOnParameter(int rank) {
+	if (this.parameterFlowBits == null)
+		this.parameterFlowBits = new byte[this.parameters.length];
+	this.parameterFlowBits[rank] |= PARAM_MISSING_OWNING_ANN;
+}
+
 /** @return TRUE means @NonNull declared, FALSE means @Nullable declared, null means nothing declared */
 public Boolean getParameterNullness(int idx) {
 	if (this.parameterFlowBits != null) {

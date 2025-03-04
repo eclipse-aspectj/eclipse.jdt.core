@@ -13,9 +13,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.search.matching;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -25,9 +26,8 @@ import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
+import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.builder.ClasspathLocation;
 import org.eclipse.jdt.internal.core.util.ResourceCompilationUnit;
@@ -35,34 +35,33 @@ import org.eclipse.jdt.internal.core.util.Util;
 
 public class ClasspathSourceDirectory extends ClasspathLocation implements IModulePathEntry {
 
-	IContainer sourceFolder;
-	SimpleLookupTable directoryCache;
-	SimpleLookupTable missingPackageHolder = new SimpleLookupTable();
-	char[][] fullExclusionPatternChars;
-	char[][] fulInclusionPatternChars;
+	final IContainer sourceFolder;
+	final Map<String, Map<String, IResource>> directoryCache = new ConcurrentHashMap<>();
+	private static final Map<String, IResource> missingPackageHolder = new HashMap<>();
+	final char[][] fullExclusionPatternChars;
+	final char[][] fulInclusionPatternChars;
 
 ClasspathSourceDirectory(IContainer sourceFolder, char[][] fullExclusionPatternChars, char[][] fulInclusionPatternChars) {
 	this.sourceFolder = sourceFolder;
-	this.directoryCache = new SimpleLookupTable(5);
 	this.fullExclusionPatternChars = fullExclusionPatternChars;
 	this.fulInclusionPatternChars = fulInclusionPatternChars;
 }
 
 @Override
 public void cleanup() {
-	this.directoryCache = null;
+	this.directoryCache.clear();
 }
 
-SimpleLookupTable directoryTable(String qualifiedPackageName) {
-	SimpleLookupTable dirTable = (SimpleLookupTable) this.directoryCache.get(qualifiedPackageName);
-	if (dirTable == this.missingPackageHolder) return null; // package exists in another classpath directory or jar
+Map<String, IResource> directoryTable(String qualifiedPackageName) {
+	Map<String, IResource> dirTable = this.directoryCache.get(qualifiedPackageName);
+	if (dirTable == missingPackageHolder) return null; // package exists in another classpath directory or jar
 	if (dirTable != null) return dirTable;
 
 	try {
 		IResource container = this.sourceFolder.findMember(qualifiedPackageName); // this is a case-sensitive check
 		if (container instanceof IContainer) {
 			IResource[] members = ((IContainer) container).members();
-			dirTable = new SimpleLookupTable();
+			dirTable = new HashMap<>();
 			for (IResource m : members) {
 				String name;
 				if (m.getType() == IResource.FILE) {
@@ -97,7 +96,7 @@ SimpleLookupTable directoryTable(String qualifiedPackageName) {
 	} catch(CoreException ignored) {
 		// treat as if missing
 	}
-	this.directoryCache.put(qualifiedPackageName, this.missingPackageHolder);
+	this.directoryCache.put(qualifiedPackageName, missingPackageHolder);
 	return null;
 }
 
@@ -115,8 +114,8 @@ public NameEnvironmentAnswer findClass(String typeName, String qualifiedPackageN
 }
 @Override
 public NameEnvironmentAnswer findClass(String sourceFileWithoutExtension, String qualifiedPackageName, String moduleName, String qualifiedSourceFileWithoutExtension) {
-	SimpleLookupTable dirTable = directoryTable(qualifiedPackageName);
-	if (dirTable != null && dirTable.elementSize > 0) {
+	Map<String, IResource> dirTable = directoryTable(qualifiedPackageName);
+	if (dirTable != null && !dirTable.isEmpty()) {
 		IFile file = (IFile) dirTable.get(sourceFileWithoutExtension);
 		if (file != null) {
 			return new NameEnvironmentAnswer(new ResourceCompilationUnit(file,
@@ -146,15 +145,15 @@ public boolean isPackage(String qualifiedPackageName, String moduleName) {
 }
 @Override
 public boolean hasCompilationUnit(String qualifiedPackageName, String moduleName) {
-	SimpleLookupTable dirTable = directoryTable(qualifiedPackageName);
-	if (dirTable != null && dirTable.elementSize > 0)
+	Map<String, IResource> dirTable = directoryTable(qualifiedPackageName);
+	if (dirTable != null && !dirTable.isEmpty())
 		return true;
 	return false;
 }
 
 @Override
 public void reset() {
-	this.directoryCache = new SimpleLookupTable(5);
+	this.directoryCache.clear();
 }
 
 @Override

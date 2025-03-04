@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2022 IBM Corporation and others.
+ * Copyright (c) 2006, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -24,29 +24,14 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.MissingResourceException;
-import java.util.Objects;
-import java.util.ResourceBundle;
-import java.util.ServiceLoader;
-import java.util.Set;
-import java.util.StringTokenizer;
-
+import java.util.*;
+import java.util.function.Function;
 import javax.lang.model.SourceVersion;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
-
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
@@ -167,13 +152,14 @@ public class EclipseFileManager implements StandardJavaFileManager {
 			Archive archive = this.getArchive(file);
 			if (archive != Archive.UNKNOWN_ARCHIVE) {
 				String key = normalizedPackageName;
+				boolean findAll = key.length() == 0;
 				if (!normalizedPackageName.endsWith("/")) {//$NON-NLS-1$
 					key += '/';
 				}
 				// we have an archive file
 				if (recurse) {
 					for (String packageName : archive.allPackages()) {
-						if (packageName.startsWith(key)) {
+						if (findAll || packageName.startsWith(key)) {
 							List<String[]> types = archive.getTypes(packageName);
 							if (types != null) {
 								for (String[] entry : types) {
@@ -811,6 +797,7 @@ public class EclipseFileManager implements StandardJavaFileManager {
 					}
 				case "-extdirs": //$NON-NLS-1$
 					if (this.isOnJvm9) {
+						// XXX this should check -target == 8, not the running JVM version!
 						throw new IllegalArgumentException();
 					}
 					if (remaining.hasNext()) {
@@ -959,7 +946,7 @@ public class EclipseFileManager implements StandardJavaFileManager {
 	}
 
 	private boolean isJrt(File f) {
-		return f.getName().equalsIgnoreCase(JrtFileSystem.BOOT_MODULE);
+		return Util.isJrt(f.getName());
 	}
 
 	/* (non-Javadoc)
@@ -1036,6 +1023,10 @@ public class EclipseFileManager implements StandardJavaFileManager {
 	 */
 	@Override
 	public void setLocation(Location location, Iterable<? extends File> files) throws IOException {
+		internalSetLocation(location, files);
+		initModules(location, files, Function.identity());
+	}
+	private void internalSetLocation(Location location, Iterable<? extends File> files) {
 		if (location.isOutputLocation() && files != null) {
 			// output location
 			int count = 0;
@@ -1421,9 +1412,11 @@ public class EclipseFileManager implements StandardJavaFileManager {
 
 	@Override
 	public void setLocationFromPaths(Location location, Collection<? extends Path> paths) throws IOException {
-		setLocation(location, getFiles(paths));
+		internalSetLocation(location, getFiles(paths));
+		initModules(location, paths, Path::toFile);
+	}
+	private <P> void initModules(Location location, Iterable<? extends P> paths, Function<P,File> toFile) throws IOException {
 		if (location == StandardLocation.MODULE_PATH || location == StandardLocation.MODULE_SOURCE_PATH) {
-			// FIXME: same for module source path?
 			Map<String, String> options = new HashMap<>();
 			// FIXME: Find a way to get the options from the EclipseCompiler and pass it to the parser.
 			String latest = CompilerOptions.getLatestVersion();
@@ -1436,15 +1429,19 @@ public class EclipseFileManager implements StandardJavaFileManager {
 						DefaultErrorHandlingPolicies.proceedWithAllProblems(),
 						compilerOptions,
 						new DefaultProblemFactory());
-			for (Path path : paths) {
-				List<Classpath> mp = ModuleFinder.findModules(path.toFile(), null,
-						new Parser(problemReporter, true), null, true, this.releaseVersion);
-				for (Classpath cp : mp) {
-					Collection<String> moduleNames = cp.getModuleNames(null);
-					for (String string : moduleNames) {
-						Path p = Paths.get(cp.getPath());
-						setLocationForModule(location, string,  Collections.singletonList(p));
+			for (P path : paths) {
+				try {
+					List<Classpath> mp = ModuleFinder.findModules(toFile.apply(path), null,
+							new Parser(problemReporter, true), null, true, this.releaseVersion);
+					for (Classpath cp : mp) {
+						Collection<String> moduleNames = cp.getModuleNames(null);
+						for (String string : moduleNames) {
+							Path p = Paths.get(cp.getPath());
+							setLocationForModule(location, string,  Collections.singletonList(p));
+						}
 					}
+				} catch (IllegalArgumentException iae) { // e.g., from ModuleFinder.scanForModule(Classpath, File, Parser, boolean, String)
+					// ignore
 				}
 			}
 		}

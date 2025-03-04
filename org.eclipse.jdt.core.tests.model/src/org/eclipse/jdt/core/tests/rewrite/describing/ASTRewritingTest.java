@@ -15,34 +15,20 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
-
+import junit.framework.Test;
+import junit.framework.TestSuite;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
-import org.eclipse.jdt.core.dom.BodyDeclaration;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.FieldDeclaration;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.Modifier;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.RecordDeclaration;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
-import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
 import org.eclipse.jdt.core.tests.model.AbstractJavaModelTests;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.TextEdit;
-
-import junit.framework.Test;
-import junit.framework.TestSuite;
 
 /**
  * Tests for ASTRewrite. Subclasses must have 2 constructors that forward to
@@ -60,59 +46,6 @@ import junit.framework.TestSuite;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ASTRewritingTest extends AbstractJavaModelTests {
-
-
-	/** @deprecated using deprecated code */
-	private final static int JLS2_INTERNAL = AST.JLS2;
-
-	/**
-	 * Internal synonym for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	private static final int JLS3_INTERNAL = AST.JLS3;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS4_INTERNAL = AST.JLS4;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS8_INTERNAL = AST.JLS8;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS9_INTERNAL = AST.JLS9;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS10_INTERNAL = AST.JLS10;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS14_INTERNAL = AST.JLS14;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS15_INTERNAL = AST.JLS15;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS16_INTERNAL = AST.JLS16;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS17_INTERNAL = AST.JLS17;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS18_INTERNAL = AST.JLS18;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS19_INTERNAL = AST.JLS19;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS20_INTERNAL = AST.JLS20;
-
-	/** @deprecated using deprecated code */
-	private final static int JLS21_INTERNAL = AST.JLS21;
-
-	private final static int JLS22_INTERNAL = AST.JLS22;
-
-	private final static int[] JLS_LEVELS = { JLS2_INTERNAL, JLS3_INTERNAL, JLS4_INTERNAL, JLS8_INTERNAL, JLS9_INTERNAL,
-			JLS10_INTERNAL, JLS14_INTERNAL, JLS15_INTERNAL, JLS16_INTERNAL, JLS17_INTERNAL, JLS18_INTERNAL,
-			JLS19_INTERNAL, JLS20_INTERNAL, JLS21_INTERNAL , JLS22_INTERNAL};
 
 	private static final String ONLY_AST_STRING = "_only";
 	private static final String SINCE_AST_STRING = "_since";
@@ -178,8 +111,8 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		  suite.addTest(ImportRewriteTest.suite());
 		  suite.addTest(ImportRewrite18Test.suite());
 		  suite.addTest(ImportRewrite_RecordTest.suite());
-		  suite.addTest(ASTRewritingStringTemplateTest.suite());
 		  suite.addTest(ASTRewritingSuperAfterStatementsTest.suite());
+		  suite.addTest(ASTRewritingEitherOrMultiPatternNodeTest.suite());
 
 		return suite;
 	}
@@ -215,7 +148,10 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 						String suffix = name.substring(index + ONLY_AST_STRING.length() + 1);
 						String[] levels = suffix.split(STRING_);
 						for (int l= 0; l < levels.length; l++) {
-							suite.addTest((Test) cons.newInstance(new Object[]{name,  Integer.valueOf(levels[l])}));
+                            int level = Integer.valueOf(levels[l]);
+                            if (AST.isSupportedVersion(level)) {
+                                suite.addTest((Test) cons.newInstance(name, level));
+                            }
 						}
 
 					} else {
@@ -225,8 +161,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 							String suffix = name.substring(index + SINCE_AST_STRING.length() + 1);
 							since = Integer.parseInt(suffix);
 						}
-						for (int j= 0; j < JLS_LEVELS.length; j++) {
-							int level = JLS_LEVELS[j];
+						for (int level :AST.getAllSupportedVersions()) {
 							if (level >= since && level >= classSince) {
 								suite.addTest((Test) cons.newInstance(new Object[]{name, Integer.valueOf(level)}));
 							}
@@ -244,7 +179,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	protected void setUp() throws Exception {
 		super.setUp();
 
-		IJavaProject proj= createProject("P", JavaCore.VERSION_1_5);
+		IJavaProject proj= createProject("P", CompilerOptions.getFirstSupportedJavaVersion());
 
 		this.project1 = proj;
 		this.sourceFolder = getPackageFragmentRoot("P", "src");
@@ -329,6 +264,14 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_22);
 			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_22);
 			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_22);
+		}
+		setUpProjectAbove23();
+	}
+	protected void setUpProjectAbove23() throws Exception {
+		if (this.apiLevel == AST_INTERNAL_JLS23) {
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_23);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_23);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_23);
 		}
 	}
 
@@ -440,25 +383,11 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		return newParam;
 	}
 
-	/** @deprecated using deprecated code */
-	private static void setModifiers(BodyDeclaration bodyDeclaration, int modifiers) {
-		bodyDeclaration.setModifiers(modifiers);
-	}
-
-	/** @deprecated using deprecated code */
-	private static void setReturnType(MethodDeclaration methodDeclaration, Type type) {
-		methodDeclaration.setReturnType(type);
-	}
-
 	protected static FieldDeclaration createNewField(AST ast, String name) {
 		VariableDeclarationFragment frag= ast.newVariableDeclarationFragment();
 		frag.setName(ast.newSimpleName(name));
 		FieldDeclaration newFieldDecl= ast.newFieldDeclaration(frag);
-		if (ast.apiLevel() == JLS2_INTERNAL) {
-			setModifiers(newFieldDecl, Modifier.PRIVATE);
-		} else {
-			newFieldDecl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.PRIVATE_KEYWORD));
-		}
+		newFieldDecl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.PRIVATE_KEYWORD));
 		newFieldDecl.setType(ast.newPrimitiveType(PrimitiveType.DOUBLE));
 		return newFieldDecl;
 	}
@@ -466,22 +395,28 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	protected static MethodDeclaration createNewMethod(AST ast, String name, boolean isAbstract) {
 		MethodDeclaration decl= ast.newMethodDeclaration();
 		decl.setName(ast.newSimpleName(name));
-		if (ast.apiLevel() == JLS2_INTERNAL) {
-			setModifiers(decl, isAbstract ? (Modifier.ABSTRACT | Modifier.PRIVATE) : Modifier.PRIVATE);
-			setReturnType(decl, ast.newPrimitiveType(PrimitiveType.VOID));
-		} else {
-			decl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.PRIVATE_KEYWORD));
-			if (isAbstract) {
-				decl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.ABSTRACT_KEYWORD));
-			}
-			decl.setReturnType2(ast.newPrimitiveType(PrimitiveType.VOID));
+		decl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.PRIVATE_KEYWORD));
+		if (isAbstract) {
+			decl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.ABSTRACT_KEYWORD));
 		}
+		decl.setReturnType2(ast.newPrimitiveType(PrimitiveType.VOID));
 		SingleVariableDeclaration param= ast.newSingleVariableDeclaration();
 		param.setName(ast.newSimpleName("str"));
 		param.setType(ast.newSimpleType(ast.newSimpleName("String")));
 		decl.parameters().add(param);
 		decl.setBody(isAbstract ? null : ast.newBlock());
 		return decl;
+	}
+
+	public static ImplicitTypeDeclaration findImplicitDeclaration(CompilationUnit astRoot, String simpleTypeName) {
+		List types= astRoot.types();
+		for (int i= 0; i < types.size(); i++) {
+			ImplicitTypeDeclaration elem= (ImplicitTypeDeclaration) types.get(i);
+			if (simpleTypeName.equals(elem.getName().getIdentifier())) {
+				return elem;
+			}
+		}
+		return null;
 	}
 
 }

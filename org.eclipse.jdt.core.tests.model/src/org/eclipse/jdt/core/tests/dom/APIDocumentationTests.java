@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IPath;
@@ -47,8 +47,6 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.internal.compiler.util.Util;
 import org.eclipse.jdt.launching.JavaRuntime;
 import org.osgi.framework.Bundle;
-
-import junit.framework.Test;
 
 /**
  * The intent of this tests series is to check the consistency of parts of our
@@ -78,13 +76,6 @@ public class APIDocumentationTests extends AbstractASTTests {
 //		TESTS_NUMBERS = new int[] { 78, 79, 80 };
 //		TESTS_RANGE = new int[] { 83304, -1 };
 		}
-
-	/**
-	 * Internal synonym for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
 
 /**
  * Helper class able to analyze JavaCore options javadocs.
@@ -192,11 +183,13 @@ public void testJavaCoreAPI() throws CoreException, IllegalArgumentException, Il
 	// This option is set in LaunchingPreferenceInitializer and always
 	// differs from empty default value
 	realOptionNames.remove(JavaCore.CORE_JAVA_BUILD_RESOURCE_COPY_FILTER);
+	// This option is always on by default
+	realOptionNames.remove("org.eclipse.jdt.core.compiler.codegen.inlineJsrBytecode");
 
 	// fetch default option values
 	Hashtable<String, String> realDefaultValues = JavaCore.getDefaultOptions();
 	// load documented values in a map
-	ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+	ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 	parser.setSource(sourceChars);
 	ASTNode rootNode = parser.createAST(null);
 	final JavaCoreJavadocAnalyzer analyzer = new JavaCoreJavadocAnalyzer();

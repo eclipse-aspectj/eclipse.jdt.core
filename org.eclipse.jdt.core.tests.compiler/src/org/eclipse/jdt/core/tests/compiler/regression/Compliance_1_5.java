@@ -15,11 +15,8 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.File;
 import java.util.Map;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ToolFactory;
-import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -2724,13 +2721,13 @@ public void test078() {
 // TODO: Enable after Bug 552769 is fixed
 public void test079() {
 
-	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK22) ?
+	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK23) ?
 			"""
 			----------
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			Unnamed Classes and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
+			Implicitly Declared Classes and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {
@@ -2748,7 +2745,7 @@ public void test079() {
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			The preview feature Unnamed Classes and Instance Main Methods is only available with source level 22 and above
+			The preview feature Implicitly Declared Classes and Instance Main Methods is only available with source level 23 and above
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {
@@ -3004,28 +3001,7 @@ public void test087() {
 		);
 }
 public void test088() {
-	String errorMessage =
-		"----------\n" +
-		"1. WARNING in p\\X.java (at line 4)\n" +
-		"	public class X extends Date implements Runnable{\n" +
-		"	             ^\n" +
-		"The serializable class X does not declare a static final serialVersionUID field of type long\n" +
-		"----------\n" +
-		"2. ERROR in p\\X.java (at line 12)\n" +
-		"	this.super();\n" +
-		"	^^^^\n" +
-		"Illegal enclosing instance specification for type Object\n" +
-		"----------\n" +
-		"3. WARNING in p\\X.java (at line 39)\n" +
-		"	Method _getMethod = c.getMethod(\"d\",null);\n" +
-		"	                    ^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type null of the last argument to method getMethod(String, Class...) doesn't exactly match the vararg parameter type. Cast to Class[] to confirm the non-varargs invocation, or pass individual arguments of type Class for a varargs invocation.\n" +
-		"----------\n";
-	String javaVersion = System.getProperty("java.version");
-	int allPossibleLevels = getPossibleComplianceLevels();
-	boolean isLevelGreaterThan5 = (allPossibleLevels & ~(F_1_3 | F_1_4 | F_1_5)) != 0;
-	if (isLevelGreaterThan5
-			|| (allPossibleLevels == AbstractCompilerTest.F_1_5 && javaVersion.indexOf("1.5") == -1)) {
+	String errorMessage;
 		errorMessage =
 			"----------\n" +
 			"1. WARNING in p\\X.java (at line 4)\n" +
@@ -3048,7 +3024,6 @@ public void test088() {
 			"	                    ^^^^^^^^^^^^^^^^^^^^^\n" +
 			"Type safety: The method getMethod(String, Class...) belongs to the raw type Class. References to generic type Class<T> should be parameterized\n" +
 			"----------\n";
-	}
 	this.runNegativeTest(
 		new String[] {
 			"p/X.java",

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021, 2023 IBM Corporation and others.
+ * Copyright (c) 2021, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15,7 +15,6 @@ package org.eclipse.jdt.core.dom;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
 
 /**
@@ -28,7 +27,6 @@ import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
  *
  * @since 3.27
  * @noinstantiate This class is not intended to be instantiated by clients.
- * @noreference This class is not intended to be referenced by clients.
  */
 
 @SuppressWarnings("rawtypes")
@@ -74,13 +72,13 @@ public class GuardedPattern extends Pattern{
 	/**
 	 * The pattern; <code>null</code> for none
 	 */
-	private Pattern pattern = null;
+	private volatile Pattern pattern;
 
 	/**
 	 * The expression; <code>null</code> for none; lazily initialized (but
 	 * does <b>not</b> default to none).
 	 */
-	private Expression conditionalExpression = null;
+	private volatile Expression conditionalExpression;
 
 
 
@@ -168,6 +166,7 @@ public class GuardedPattern extends Pattern{
 
 	 * @return a list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor})
+	 * @since 3.38
 	 */
 	public static List propertyDescriptors(int apiLevel) {
 		return null;
@@ -182,7 +181,7 @@ public class GuardedPattern extends Pattern{
 	 * @param previewEnabled the previewEnabled flag
 	 * @return a list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor})
-	 * @noreference This method is not intended to be referenced by clients.
+	 * @since 3.38
 	 */
 	public static List propertyDescriptors(int apiLevel, boolean previewEnabled) {
 		if (DOMASTUtil.isPatternSupported(apiLevel, previewEnabled)) {
@@ -196,6 +195,7 @@ public class GuardedPattern extends Pattern{
 	 * <code>null</code> if there is none (the "default:" case).
 	 *
 	 * @return the expression node, or <code>null</code> if there is none
+	 * @since 3.38
 	 */
 	public Expression getExpression() {
 		supportedOnlyIn21();
@@ -204,8 +204,7 @@ public class GuardedPattern extends Pattern{
 			synchronized (this) {
 				if (this.conditionalExpression == null) {
 					preLazyInit();
-					this.conditionalExpression = this.ast.newNullLiteral();
-					postLazyInit(this.pattern, EXPRESSION_PROPERTY);
+					this.conditionalExpression = postLazyInit(this.ast.newNullLiteral(), EXPRESSION_PROPERTY);
 				}
 			}
 		}
@@ -228,8 +227,7 @@ public class GuardedPattern extends Pattern{
 			synchronized (this) {
 				if (this.pattern == null) {
 					preLazyInit();
-					this.pattern = this.ast.newNullPattern();
-					postLazyInit(this.pattern, PATTERN_PROPERTY);
+					this.pattern = postLazyInit(this.ast.newNullPattern(), PATTERN_PROPERTY);
 				}
 			}
 		}
@@ -248,6 +246,7 @@ public class GuardedPattern extends Pattern{
 	 * <li>the node already has a parent</li>
 	 * <li>a cycle in would be created</li>
 	 * </ul>
+	 * @since 3.38
 	 */
 	public void setExpression(Expression expression) {
 		supportedOnlyIn21();
@@ -259,9 +258,9 @@ public class GuardedPattern extends Pattern{
 
 	/**
 	 * Sets the pattern of this switch case.
-	 * @noreference This method is not intended to be referenced by clients.
 	 * @exception UnsupportedOperationException if this operation is used not for JLS18
 	 * @exception UnsupportedOperationException if this operation is used without previewEnabled
+	 * @since 3.38
 	 */
 	public void setPattern(Pattern pattern) {
 		supportedOnlyIn21();

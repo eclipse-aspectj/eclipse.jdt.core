@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.ITypeRoot;
 import org.eclipse.jdt.core.compiler.IProblem;
@@ -109,12 +108,12 @@ public class CompilationUnit extends ASTNode {
 	private static final List PROPERTY_DESCRIPTORS_9_0;
 
 	/**
-	 * The "types" structural property of this node type (element type: {@link AbstractUnnamedTypeDeclaration}).
+	 * The "types" structural property of this node type (element type: {@link AbstractTypeDeclaration}).
 	 *
 	 * @since 3.0
 	 */
 	public static final ChildListPropertyDescriptor TYPES_PROPERTY =
-		new ChildListPropertyDescriptor(CompilationUnit.class, "types", AbstractUnnamedTypeDeclaration.class, CYCLE_RISK); //$NON-NLS-1$
+		new ChildListPropertyDescriptor(CompilationUnit.class, "types", AbstractTypeDeclaration.class, CYCLE_RISK); //$NON-NLS-1$
 
 	static {
 		List properyList = new ArrayList(4);

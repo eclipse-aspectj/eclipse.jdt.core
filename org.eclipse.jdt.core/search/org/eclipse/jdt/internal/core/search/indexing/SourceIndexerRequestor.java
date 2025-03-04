@@ -17,7 +17,6 @@ import static org.eclipse.jdt.internal.core.JavaModelManager.traceDumpStack;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.eclipse.jdt.core.Signature;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -27,6 +26,7 @@ import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.ImportReference;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.search.processing.JobManager;
 
@@ -91,7 +91,10 @@ public void acceptFieldReference(char[] fieldName, int sourcePosition) {
  */
 @Override
 public void acceptImport(int declarationStart, int declarationEnd, int nameStart, int nameEnd, char[][] tokens, boolean onDemand, int modifiers) {
-	// imports have already been reported while creating the ImportRef node (see SourceElementParser#comsume*ImportDeclarationName() methods)
+	if ((modifiers & ClassFileConstants.AccModule) != 0) {
+		this.indexer.addModuleReference(CharOperation.concatWithAll(tokens, '.'));
+	}
+	// other imports have already been reported while creating the ImportRef node (see SourceElementParser#comsume*ImportDeclarationName() methods)
 }
 /**
  * @see ISourceElementRequestor#acceptLineSeparatorPositions(int[])

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2017 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -27,7 +27,6 @@ package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -216,20 +215,7 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 			this.resolvedType = (ReferenceBinding) binding;
 			reportInvalidType(scope);
 			// be resilient, still attempt resolving arguments
-			for (int i = 0, max = this.tokens.length; i < max; i++) {
-				TypeReference[] args = this.typeArguments[i];
-				if (args != null) {
-					int argLength = args.length;
-					for (int j = 0; j < argLength; j++) {
-						TypeReference typeArgument = args[j];
-						if (isClassScope) {
-							typeArgument.resolveType((ClassScope) scope);
-						} else {
-							typeArgument.resolveType((BlockScope) scope, checkBounds);
-						}
-					}
-				}
-			}
+			resolveAllTypeArguments(0, scope, checkBounds, isClassScope);
 			return null;
 		}
 
@@ -245,20 +231,7 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 			if (!(this.resolvedType.isValidBinding())) {
 				reportInvalidType(scope);
 				// be resilient, still attempt resolving arguments
-				for (int j = i; j < max; j++) {
-				    TypeReference[] args = this.typeArguments[j];
-				    if (args != null) {
-						int argLength = args.length;
-						for (int k = 0; k < argLength; k++) {
-						    TypeReference typeArgument = args[k];
-						    if (isClassScope) {
-						    	typeArgument.resolveType((ClassScope) scope);
-						    } else {
-						    	typeArgument.resolveType((BlockScope) scope);
-						    }
-						}
-				    }
-				}
+				resolveAllTypeArguments(0, scope, checkBounds, isClassScope);
 				return null;
 			}
 			ReferenceBinding currentType = (ReferenceBinding) this.resolvedType;
@@ -311,23 +284,21 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 				}
 				if (isClassScope) {
 					((ClassScope) scope).superTypeReference = keep;
-					if (((ClassScope) scope).detectHierarchyCycle(currentOriginal, this))
+					if (((ClassScope) scope).detectHierarchyCycle(currentOriginal, this)) {
+						resolveAllTypeArguments(i+1, scope, checkBounds, isClassScope);
 						return null;
+					}
 				}
 
 			    TypeVariableBinding[] typeVariables = currentOriginal.typeVariables();
 				if (typeVariables == Binding.NO_TYPE_VARIABLES) { // check generic
-					if (scope.compilerOptions().originalSourceLevel >= ClassFileConstants.JDK1_5) { // below 1.5, already reported as syntax error
-						scope.problemReporter().nonGenericTypeCannotBeParameterized(i, this, currentType, argTypes);
-						return null;
-					}
-					this.resolvedType =  (qualifyingType != null && qualifyingType.isParameterizedType())
-						? scope.environment().createParameterizedType(currentOriginal, null, qualifyingType)
-						: currentType;
-					return this.resolvedType;
+					scope.problemReporter().nonGenericTypeCannotBeParameterized(i, this, currentType, argTypes);
+					resolveAllTypeArguments(i+1, scope, checkBounds, isClassScope);
+					return null;
 				} else if (argLength != typeVariables.length) {
 					if (!isDiamond) { // check arity
 						scope.problemReporter().incorrectArityForParameterizedType(this, currentType, argTypes, i);
+						resolveAllTypeArguments(i+1, scope, checkBounds, isClassScope);
 						return null;
 					}
 				}
@@ -359,8 +330,10 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 		    } else {
 				ReferenceBinding currentOriginal = (ReferenceBinding)currentType.original();
 				if (isClassScope)
-					if (((ClassScope) scope).detectHierarchyCycle(currentOriginal, this))
+					if (((ClassScope) scope).detectHierarchyCycle(currentOriginal, this)) {
+						resolveAllTypeArguments(0, scope, checkBounds, isClassScope);
 						return null;
+					}
 				if (currentOriginal.isGenericType()) {
 	   			    if (typeIsConsistent && qualifyingType != null && qualifyingType.isParameterizedType() && currentOriginal.hasEnclosingInstanceContext()) {
 						scope.problemReporter().parameterizedMemberTypeMissingArguments(this, scope.environment().createParameterizedType(currentOriginal, null, qualifyingType), i);
@@ -378,6 +351,22 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 			recordResolution(scope.environment(), this.resolvedType);
 		}
 		return this.resolvedType;
+	}
+	private void resolveAllTypeArguments(int from, Scope scope, boolean checkBounds, boolean isClassScope) {
+		for (int i = from, max = this.tokens.length; i < max; i++) {
+			TypeReference[] args = this.typeArguments[i];
+			if (args != null) {
+				int argLength = args.length;
+				for (int j = 0; j < argLength; j++) {
+					TypeReference typeArgument = args[j];
+					if (isClassScope) {
+						typeArgument.resolveType((ClassScope) scope);
+					} else {
+						typeArgument.resolveType((BlockScope) scope, checkBounds);
+					}
+				}
+			}
+		}
 	}
 	private void createArrayType(Scope scope) {
 		if (this.dimensions > 0) {
@@ -533,21 +522,23 @@ public class ParameterizedQualifiedTypeReference extends ArrayQualifiedTypeRefer
 
 	@Override
 	public void updateWithAnnotations(Scope scope, int location) {
-		int lastToken = this.tokens.length - 1;
-		TypeBinding updatedLeaf;
-		if (this.typesPerToken != null && this.typesPerToken[lastToken] != null) {
-			for (int i = 0; i <= lastToken; i++) {
-				this.typesPerToken[i] = (ReferenceBinding) updateParameterizedTypeWithAnnotations(scope, this.typesPerToken[i], this.typeArguments[i]);
-			}
-			updatedLeaf = this.typesPerToken[lastToken];
-		} else {
-			updatedLeaf = updateParameterizedTypeWithAnnotations(scope, this.resolvedType, this.typeArguments[lastToken]);
-		}
-		if (updatedLeaf != this.resolvedType.leafComponentType()) { //$IDENTITY-COMPARISON$
-			if (this.dimensions > 0 && this.dimensions <= 255) {
-				this.resolvedType = scope.createArrayType(updatedLeaf, this.dimensions);
+		if (this.resolvedType != null) {
+			int lastToken = this.tokens.length - 1;
+			TypeBinding updatedLeaf;
+			if (this.typesPerToken != null && this.typesPerToken[lastToken] != null) {
+				for (int i = 0; i <= lastToken; i++) {
+					this.typesPerToken[i] = (ReferenceBinding) updateParameterizedTypeWithAnnotations(scope, this.typesPerToken[i], this.typeArguments[i]);
+				}
+				updatedLeaf = this.typesPerToken[lastToken];
 			} else {
-				this.resolvedType = updatedLeaf;
+				updatedLeaf = updateParameterizedTypeWithAnnotations(scope, this.resolvedType, this.typeArguments[lastToken]);
+			}
+			if (updatedLeaf != this.resolvedType.leafComponentType()) { //$IDENTITY-COMPARISON$
+				if (this.dimensions > 0 && this.dimensions <= 255) {
+					this.resolvedType = scope.createArrayType(updatedLeaf, this.dimensions);
+				} else {
+					this.resolvedType = updatedLeaf;
+				}
 			}
 		}
 		resolveAnnotations(scope, location); // see comment in super TypeReference.updateWithAnnotations()

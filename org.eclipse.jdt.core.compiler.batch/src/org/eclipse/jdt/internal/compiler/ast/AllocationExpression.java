@@ -1,6 +1,6 @@
 //AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -55,20 +55,24 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
-import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.*;
+import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.ASSIGNMENT_CONTEXT;
+import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION_CONTEXT;
+import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.VANILLA_CONTEXT;
 
 import java.util.HashMap;
-
+import java.util.Map;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.codegen.*;
-import org.eclipse.jdt.internal.compiler.flow.*;
+import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
+import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
 public class AllocationExpression extends Expression implements IPolyExpression, Invocation {
 
@@ -86,7 +90,7 @@ public class AllocationExpression extends Expression implements IPolyExpression,
 	public ExpressionContext expressionContext = VANILLA_CONTEXT;
 
 	 // hold on to this context from invocation applicability inference until invocation type inference (per method candidate):
-	private SimpleLookupTable/*<PMB,IC18>*/ inferenceContexts;
+	private Map<ParameterizedGenericMethodBinding, InferenceContext18> inferenceContexts;
 	public HashMap<TypeBinding, MethodBinding> solutionsPerTargetType;
 	private InferenceContext18 outerInferenceContext; // resolving within the context of an outer (lambda) inference?
 	public boolean argsContainCast;
@@ -108,7 +112,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		boolean analyseResources = currentScope.compilerOptions().analyseResourceLeaks;
 		boolean hasResourceWrapperType = analyseResources
 				&& this.resolvedType instanceof ReferenceBinding
-				&& ((ReferenceBinding)this.resolvedType).hasTypeBit(TypeIds.BitWrapperCloseable);
+				&& this.resolvedType.hasTypeBit(TypeIds.BitWrapperCloseable);
 		for (int i = 0, count = this.arguments.length; i < count; i++) {
 			Expression argument = this.arguments[i];
 			flowInfo =
@@ -216,7 +220,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 	}
 
 	// handling innerclass instance allocation - enclosing instance arguments
-	if (allocatedType.isNestedType()) {
+	if (allocatedType.hasEnclosingInstanceContext()) {
 		codeStream.generateSyntheticEnclosingInstanceValues(
 			currentScope,
 			allocatedType,
@@ -226,7 +230,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 	// generate the arguments for constructor
 	generateArguments(this.binding, this.arguments, currentScope, codeStream);
 	// handling innerclass instance allocation - outer local arguments
-	if (allocatedType.isNestedType()) {
+	if (allocatedType.hasEnclosingInstanceContext()) {
 		codeStream.generateSyntheticOuterArgumentValues(
 			currentScope,
 			allocatedType,
@@ -524,7 +528,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		scope.problemReporter().invalidConstructor(this, this.binding);
 		return this.resolvedType;
 	}
-	if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
+	if ((this.binding.tagBits & TagBits.HasMissingType) != 0 && isMissingTypeRelevant()) {
 		scope.problemReporter().missingTypeInConstructor(this, this.binding);
 	}
 	if (isMethodUseDeprecated(this.binding, scope, true, this)) {
@@ -554,26 +558,38 @@ public TypeBinding resolveType(BlockScope scope) {
 			this.binding.getTypeAnnotations() != Binding.NO_ANNOTATIONS) {
 		this.resolvedType = scope.environment().createAnnotatedType(this.resolvedType, this.binding.getTypeAnnotations());
 	}
-	checkPreConstructorContext(scope);
+	checkEarlyConstructionContext(scope);
 	return this.resolvedType;
 }
 
-protected void checkPreConstructorContext(BlockScope scope) {
-	if (this.inPreConstructorContext && this.type != null &&
-			this.type.resolvedType instanceof ReferenceBinding currentType
-			&& !(currentType.isStatic() || currentType.isInterface())) { // no enclosing instance
-		MethodScope ms = scope.methodScope();
-		MethodBinding method = ms != null ? ms.referenceMethodBinding() : null;
-		ReferenceBinding declaringClass = method != null ? method.declaringClass : null;
-		if (declaringClass != null) {
-			while ((currentType = currentType.enclosingType())!= null) {
-				if (TypeBinding.equalsEquals(declaringClass, currentType)) {
-					scope.problemReporter().errorExpressionInPreConstructorContext(this);
-					break;
-				}
+protected void checkEarlyConstructionContext(BlockScope scope) {
+	if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(scope.compilerOptions())
+			&& this.type != null && this.type.resolvedType instanceof ReferenceBinding currentType) {
+		// only enclosing types of non-static member types are relevant
+		if (currentType.isStatic() || currentType.isLocalType())
+			return;
+		currentType = currentType.enclosingType();
+		if (currentType == null)
+			return;
+		TypeBinding uninitialized = scope.getMatchingUninitializedType(currentType, true);
+		if (uninitialized != null)
+			scope.problemReporter().allocationInEarlyConstructionContext(this, this.resolvedType, uninitialized);
+	}
+	// if JEP 482 is not enabled, problems will be detected when looking for enclosing instance(s)
+}
+protected boolean isMissingTypeRelevant() {
+	if (this.binding != null && this.binding.isVarargs()) {
+		int argLen = this.arguments != null ? this.arguments.length : 0;
+		if (argLen < this.binding.parameters.length) {
+			// are all but the irrelevant varargs type present?
+			for (int i = 0; i < argLen; i++) {
+				if ((this.binding.parameters[i].tagBits & TagBits.HasMissingType) != 0)
+					return true; // this one *is* relevant - actually this case is already detected during findConstructorBinding()
 			}
+			return false;
 		}
 	}
+	return true;
 }
 
 /**
@@ -829,7 +845,7 @@ public Expression[] arguments() {
 @Override
 public void registerInferenceContext(ParameterizedGenericMethodBinding method, InferenceContext18 infCtx18) {
 	if (this.inferenceContexts == null)
-		this.inferenceContexts = new SimpleLookupTable();
+		this.inferenceContexts = new HashMap<>();
 	this.inferenceContexts.put(method, infCtx18);
 }
 
@@ -846,16 +862,16 @@ public void registerResult(TypeBinding targetType, MethodBinding method) {
 public InferenceContext18 getInferenceContext(ParameterizedMethodBinding method) {
 	if (this.inferenceContexts == null)
 		return null;
-	return (InferenceContext18) this.inferenceContexts.get(method);
+	return this.inferenceContexts.get(method);
 }
 
 @Override
 public void cleanUpInferenceContexts() {
 	if (this.inferenceContexts == null)
 		return;
-	for (Object value : this.inferenceContexts.valueTable)
-		if (value != null)
-			((InferenceContext18) value).cleanUp();
+	for (InferenceContext18 value : this.inferenceContexts.values()) {
+		value.cleanUp();
+	}
 	this.inferenceContexts = null;
 	this.outerInferenceContext = null;
 	this.solutionsPerTargetType = null;

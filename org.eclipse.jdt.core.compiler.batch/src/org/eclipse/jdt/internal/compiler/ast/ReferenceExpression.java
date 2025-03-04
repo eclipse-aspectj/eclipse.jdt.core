@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -66,33 +66,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.IrritantSet;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
-import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
-import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
-import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
-import org.eclipse.jdt.internal.compiler.lookup.ImplicitNullAnnotationVerifier;
-import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
-import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
-import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.SyntheticArgumentBinding;
-import org.eclipse.jdt.internal.compiler.lookup.SyntheticMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TagBits;
-import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
-import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.parser.Scanner;
 
@@ -151,7 +125,7 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 		char [] source = new char [this.sourceEnd+1];
 		System.arraycopy(this.text, 0, source, this.sourceStart, this.sourceEnd - this.sourceStart + 1);
 		parser.scanner = this.scanner;
-		ReferenceExpression copy =  (ReferenceExpression) parser.parseExpression(source, this.sourceStart, this.sourceEnd - this.sourceStart + 1,
+		ReferenceExpression copy =  (ReferenceExpression) parser.parseReferenceExpression(source, this.sourceStart, this.sourceEnd - this.sourceStart + 1,
 										this.enclosingScope.referenceCompilationUnit(), false /* record line separators */);
 		copy.original = this;
 		copy.sourceStart = this.sourceStart;
@@ -249,6 +223,8 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 			implicitLambda.setBody(arrayAllocationExpression);
 		} else {
 			AllocationExpression allocation = new AllocationExpression();
+			allocation.sourceStart = this.sourceStart;
+			allocation.sourceEnd = this.sourceEnd;
 			if (this.lhs instanceof TypeReference) {
 				allocation.type = (TypeReference) this.lhs;
 			} else if (this.lhs instanceof SingleNameReference) {
@@ -433,7 +409,7 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 		int invokeDynamicNumber = codeStream.classFile.recordBootstrapMethod(this);
 		codeStream.invokeDynamic(invokeDynamicNumber, argumentsSize, 1, this.descriptor.selector, buffer.toString().toCharArray(),
 				this.isConstructorReference(), (this.lhs instanceof TypeReference? (TypeReference) this.lhs : null), this.typeArguments,
-				this.resolvedType.id, this.resolvedType);
+				this.resolvedType);
 		if (!valueRequired)
 			codeStream.pop();
 		codeStream.recordPositionsFrom(pc, this.sourceStart);
@@ -957,18 +933,13 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 		if (this.descriptor == null || this.descriptor.parameters == null || this.descriptor.parameters.length == 0)
 			return Binding.NO_PARAMETERS;
 
-		/* 15.13.1, " ... method reference is treated as if it were an invocation with argument expressions of types P1, ..., Pn;"
-		   This implies/requires wildcard capture. This creates interesting complications, we can't just take the descriptor parameters
-		   and apply captures - where a single wildcard type got "fanned out" and propagated into multiple locations through type variable
-		   substitutions, we will end up creating distinct captures defeating the very idea of capture. We need to first capture and then
-		   fan out. See https://bugs.eclipse.org/bugs/show_bug.cgi?id=432759.
-		*/
-		if (this.expectedType.isParameterizedType()) {
-			ParameterizedTypeBinding type = (ParameterizedTypeBinding) this.expectedType;
-			MethodBinding method = type.getSingleAbstractMethod(this.enclosingScope, true, this.sourceStart, this.sourceEnd);
-			return method.parameters;
+		TypeBinding[] parameters = this.descriptor.parameters;
+		TypeBinding[] result = new TypeBinding[parameters.length];
+
+		for (int i = 0, length = result.length; i < length; i++) {
+			result[i] = parameters[i].capture(this.enclosingScope, this.sourceStart, this.sourceEnd);
 		}
-		return this.descriptor.parameters;
+		return result;
 	}
 
 	private boolean contextHasSyntaxError() {

@@ -29,8 +29,8 @@ package org.eclipse.jdt.internal.core.hierarchy;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Map;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
@@ -47,8 +47,12 @@ import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.IProblemFactory;
-import org.eclipse.jdt.internal.compiler.ast.*;
+import org.eclipse.jdt.internal.compiler.ast.ASTNode;
+import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
+import org.eclipse.jdt.internal.compiler.ast.QualifiedAllocationExpression;
+import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
@@ -65,7 +69,13 @@ import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.Messages;
-import org.eclipse.jdt.internal.core.*;
+import org.eclipse.jdt.internal.core.ClassFile;
+import org.eclipse.jdt.internal.core.CompilationUnit;
+import org.eclipse.jdt.internal.core.JavaElement;
+import org.eclipse.jdt.internal.core.JavaModelManager;
+import org.eclipse.jdt.internal.core.Member;
+import org.eclipse.jdt.internal.core.Openable;
+import org.eclipse.jdt.internal.core.SourceTypeElementInfo;
 import org.eclipse.jdt.internal.core.util.ASTNodeFinder;
 import org.eclipse.jdt.internal.core.util.DeduplicationUtil;
 import org.eclipse.jdt.internal.core.util.HandleFactory;
@@ -144,7 +154,7 @@ public void accept(ICompilationUnit sourceUnit, AccessRestriction accessRestrict
 		CompilationResult unitResult = new CompilationResult(sourceUnit, 1, 1, this.options.maxProblemsPerUnit);
 		CompilationUnitDeclaration parsedUnit = basicParser().dietParse(sourceUnit, unitResult);
 		this.lookupEnvironment.buildTypeBindings(parsedUnit, accessRestriction);
-		this.lookupEnvironment.completeTypeBindings(parsedUnit, true); // work done inside checkAndSetImports()
+		this.lookupEnvironment.completeTypeBindings(parsedUnit, true, false /*no annotations*/); // work done inside checkAndSetImports()
 	} else {
 		this.lookupEnvironment.problemReporter.abortDueToInternalError(
 			new StringBuilder(Messages.accept_cannot)
@@ -201,7 +211,7 @@ public void accept(ISourceType[] sourceTypes, PackageBinding packageBinding, Acc
 			org.eclipse.jdt.core.ICompilationUnit cu = ((SourceTypeElementInfo)sourceType).getHandle().getCompilationUnit();
 			rememberAllTypes(unit, cu, false);
 
-			environment.completeTypeBindings(unit, true/*build constructor only*/);
+			environment.completeTypeBindings(unit, true/*build constructor only*/, false /*no annotations*/);
 		} catch (AbortCompilation e) {
 			// missing 'java.lang' package: ignore
 		}
@@ -958,18 +968,24 @@ public boolean subOrSuperOfFocus(ReferenceBinding typeBinding) {
 	return false;
 }
 private boolean subTypeOfType(ReferenceBinding subType, ReferenceBinding typeBinding) {
+	return subTypeOfType(subType, typeBinding, new IdentityHashMap<>());
+}
+
+private boolean subTypeOfType(ReferenceBinding subType, ReferenceBinding typeBinding,
+		Map<ReferenceBinding, Object> visited) {
 	if (typeBinding == null || subType == null) return false;
+	if (visited.put(subType, subType) != null) return false; // don't evaluate the same "subType" twice
 	if (TypeBinding.equalsEquals(subType, typeBinding)) return true;
 	ReferenceBinding superclass = subType.superclass();
 	if (superclass != null) superclass = (ReferenceBinding) superclass.erasure();
 //	if (superclass != null && superclass.id == TypeIds.T_JavaLangObject && subType.isHierarchyInconsistent()) return false;
-	if (subTypeOfType(superclass, typeBinding)) return true;
+	if (subTypeOfType(superclass, typeBinding, visited)) return true;
 	ReferenceBinding[] superInterfaces = subType.superInterfaces();
 	if (superInterfaces != null) {
 		for (ReferenceBinding si : superInterfaces) {
 			ReferenceBinding superInterface = (ReferenceBinding) si.erasure();
 			if (superInterface.isHierarchyInconsistent()) return false;
-			if (subTypeOfType(superInterface, typeBinding)) return true;
+			if (subTypeOfType(superInterface, typeBinding, visited)) return true;
 		}
 	}
 	return false;

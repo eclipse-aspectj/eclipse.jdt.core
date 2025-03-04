@@ -16,7 +16,9 @@ package org.eclipse.jdt.internal.core.search.matching;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
+import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 
@@ -948,24 +950,14 @@ protected void consumeWildcardBoundsSuper() {
 }
 
 @Override
-protected  void consumeInterfaceHeaderPermittedSubClassesAndSubInterfaces(){
-	super.consumeInterfaceHeaderPermittedSubClassesAndSubInterfaces();
-	updatePatternLocaterMatch();
-}
-private void updatePatternLocaterMatch() {
+protected void consumePermittedTypes() {
+	super.consumePermittedTypes();
 	if ((this.patternFineGrain & IJavaSearchConstants.PERMITTYPE_TYPE_REFERENCE) != 0) {
 		TypeDeclaration td = (TypeDeclaration) this.astStack[this.astPtr];
-		TypeReference[] permittedTypes = td.permittedTypes;
-		for (TypeReference pt : permittedTypes) {
+		for (TypeReference pt : td.permittedTypes) {
 			this.patternLocator.match(pt, this.nodeSet);
 		}
 	}
-}
-
-@Override
-protected void consumeClassHeaderPermittedSubclasses() {
-	super.consumeClassHeaderPermittedSubclasses();
-	updatePatternLocaterMatch();
 }
 
 @Override

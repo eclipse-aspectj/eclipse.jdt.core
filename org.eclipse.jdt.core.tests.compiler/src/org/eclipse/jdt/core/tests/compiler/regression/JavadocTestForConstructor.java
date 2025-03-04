@@ -14,9 +14,7 @@
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -71,7 +69,7 @@ public class JavadocTestForConstructor extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 4)\n"
 				+ "	new Z();\n"
-				+ "	    ^^^\n"
+				+ "	    ^\n"
 				+ "The constructor Z() is deprecated\n"
 				+ "----------\n",
 				null, null, JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings);
@@ -105,7 +103,7 @@ public class JavadocTestForConstructor extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 4)\n"
 				+ "	new Z(2);\n"
-				+ "	    ^^^^\n"
+				+ "	    ^\n"
 				+ "The constructor Z(int) is deprecated\n"
 				+ "----------\n");
 	}
@@ -140,7 +138,7 @@ public class JavadocTestForConstructor extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 4)\n"
 				+ "	new Z();\n"
-				+ "	    ^^^\n"
+				+ "	    ^\n"
 				+ "The constructor Z() is deprecated\n"
 				+ "----------\n"
 				+ "----------\n"

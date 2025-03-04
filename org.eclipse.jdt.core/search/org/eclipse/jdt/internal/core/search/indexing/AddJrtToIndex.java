@@ -21,12 +21,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.attribute.BasicFileAttributes;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
 import org.eclipse.jdt.core.search.SearchParticipant;
@@ -126,7 +124,7 @@ public class AddJrtToIndex extends BinaryContainer {
 			this.participant = (participant != null) ? participant : SearchEngine.getDefaultSearchParticipant();
 			this.index = index;
 			IndexLocation indexLocation = index.getIndexLocation();
-			this.indexPath = indexLocation != null ? new Path(indexLocation.getCanonicalFilePath()) : null;
+			this.indexPath = indexLocation != null ? indexLocation.getIndexPath() : null;
 			this.container = container;
 			this.indexManager = indexManager;
 		}

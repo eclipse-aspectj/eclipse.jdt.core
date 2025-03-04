@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -14,33 +14,11 @@
 package org.eclipse.jdt.core.tests.rewrite.modifying;
 
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.Block;
-import org.eclipse.jdt.core.dom.CatchClause;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.Expression;
-import org.eclipse.jdt.core.dom.ExpressionStatement;
-import org.eclipse.jdt.core.dom.FieldAccess;
-import org.eclipse.jdt.core.dom.Javadoc;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.Name;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.QualifiedName;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.Statement;
-import org.eclipse.jdt.core.dom.StructuralPropertyDescriptor;
-import org.eclipse.jdt.core.dom.ThrowStatement;
-import org.eclipse.jdt.core.dom.TryStatement;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.tests.util.Util;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -163,7 +141,6 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	/** @deprecated using deprecated code */
 	public void test0003() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test0003", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -188,9 +165,9 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		List types = astRoot.types();
 		TypeDeclaration typeDeclaration1 = (TypeDeclaration)types.get(0);
 		TypeDeclaration typeDeclaration2 = (TypeDeclaration)types.get(1);
-		Name name = typeDeclaration1.getSuperclass();
-		Name name2 = (Name)ASTNode.copySubtree(a, name);
-		typeDeclaration2.setSuperclass(name2);
+		Type name = typeDeclaration1.getSuperclassType();
+		Type name2 = (Type)ASTNode.copySubtree(a, name);
+		typeDeclaration2.setSuperclassType(name2);
 
 		String preview = evaluateRewrite(cu, astRoot);
 
@@ -210,7 +187,6 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	/** @deprecated using deprecated code */
 	public void test0004() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test0004", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -235,11 +211,11 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		List types = astRoot.types();
 		TypeDeclaration typeDeclaration1 = (TypeDeclaration)types.get(0);
 		TypeDeclaration typeDeclaration2 = (TypeDeclaration)types.get(1);
-		Name name = typeDeclaration1.getSuperclass();
-		QualifiedName name2 = (QualifiedName)ASTNode.copySubtree(a, name);
-		Name name3 = name2.getQualifier();
-		name2.setQualifier(a.newSimpleName("A"));
-		typeDeclaration2.setSuperclass(name3);
+		Type type = typeDeclaration1.getSuperclassType();
+		SimpleType type2 = (SimpleType)ASTNode.copySubtree(a, type);
+		QualifiedName name3 = (QualifiedName)((QualifiedName)type2.getName()).getQualifier();
+		((QualifiedName)type2.getName()).setQualifier(a.newSimpleName("A"));
+		typeDeclaration2.setSuperclassType(a.newSimpleType(name3));
 
 		String preview = evaluateRewrite(cu, astRoot);
 
@@ -258,7 +234,6 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		assertEqualString(Util.convertToIndependantLineDelimiter(preview), Util.convertToIndependantLineDelimiter(buf.toString()));
 	}
 
-	/** @deprecated using deprecated code */
 	public void test0005() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test0005", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -283,12 +258,12 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		List types = astRoot.types();
 		TypeDeclaration typeDeclaration1 = (TypeDeclaration)types.get(0);
 		TypeDeclaration typeDeclaration2 = (TypeDeclaration)types.get(1);
-		Name name = typeDeclaration1.getSuperclass();
-		QualifiedName name2 = (QualifiedName)ASTNode.copySubtree(a, name);
-		QualifiedName name3 = (QualifiedName)name2.getQualifier();
-		name2.setQualifier(a.newSimpleName("A"));
+		Type name = typeDeclaration1.getSuperclassType();
+		SimpleType name2 = (SimpleType)ASTNode.copySubtree(a, name);
+		QualifiedName name3 = (QualifiedName) ((QualifiedName)name2.getName()).getQualifier();
+		((QualifiedName)name2.getName()).setQualifier(a.newSimpleName("A"));
 		name3.getName().setIdentifier("B");
-		typeDeclaration2.setSuperclass(name3);
+		typeDeclaration2.setSuperclassType(a.newSimpleType(name3));
 
 		String preview = evaluateRewrite(cu, astRoot);
 
@@ -360,7 +335,6 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=93208
-	/** @deprecated using deprecated code */
 	public void test0007() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -379,7 +353,7 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 
 		Block block = ast.newBlock();
 		m.setName(ast.newSimpleName("foo"));
-		m.setReturnType(ast.newPrimitiveType(PrimitiveType.VOID));
+		m.setReturnType2(ast.newPrimitiveType(PrimitiveType.VOID));
 		m.setBody(block);
 
 		FieldAccess fa = ast.newFieldAccess();
@@ -435,7 +409,8 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 				"}");
 		ICompilationUnit cu = pack1.createCompilationUnit("Test.java", buf.toString(), false, null);
 
-		ASTParser astParser = ASTParser.newParser(getJLS3());
+		@SuppressWarnings("deprecation")
+        ASTParser astParser = ASTParser.newParser(AST.JLS8);
 		astParser.setSource(cu);
 		ASTNode root = astParser.createAST(new NullProgressMonitor());
 		AST ast = root.getAST();
@@ -545,7 +520,8 @@ public class ASTRewritingModifyingCopyTest extends ASTRewritingModifyingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		ASTParser astParser = ASTParser.newParser(getJLS3());
+		@SuppressWarnings("deprecation")
+        ASTParser astParser = ASTParser.newParser(AST.JLS8);
 		astParser.setSource(cu);
 		CompilationUnit compilationUnit = (CompilationUnit) astParser.createAST(new NullProgressMonitor());
 		AST ast = compilationUnit.getAST();

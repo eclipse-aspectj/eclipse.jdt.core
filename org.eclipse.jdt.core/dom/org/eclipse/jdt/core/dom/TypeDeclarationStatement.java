@@ -106,7 +106,7 @@ public class TypeDeclarationStatement extends Statement {
      * After JLS2, corresponds to DECLARATION_PROPERTY.
      * @see #typeDeclProperty
 	 */
-	private AbstractTypeDeclaration typeDecl = null;
+	private volatile AbstractTypeDeclaration typeDecl;
 
     /**
      * The child property stored on the <code>typeDecl</code> instance variable.
@@ -214,10 +214,8 @@ public class TypeDeclarationStatement extends Statement {
 			synchronized (this) {
 				if (this.typeDecl == null) {
 					preLazyInit();
-					// this.typeDecl = new TypeDeclaration(this.ast);
-					this.typeDecl = 
-							TypeDeclaration.getTypeDeclaration(this.ast);// AspectJ Extension - use factory method and not TypeDeclaration ctor					
-					postLazyInit(this.typeDecl, typeDeclProperty());
+					// AspectJ Extension - use factory method here and not TypeDeclaration ctor
+					this.typeDecl = postLazyInit(TypeDeclaration.getTypeDeclaration(this.ast), typeDeclProperty());
 				}
 			}
 		}
@@ -323,9 +321,9 @@ public class TypeDeclarationStatement extends Statement {
 		// forward request to the wrapped type declaration
 		AbstractTypeDeclaration d = getDeclaration();
 		if (d instanceof TypeDeclaration) {
-			return ((TypeDeclaration) d).resolveBinding();
+			return d.resolveBinding();
 		} else if (d instanceof AnnotationTypeDeclaration) {
-			return ((AnnotationTypeDeclaration) d).resolveBinding();
+			return d.resolveBinding();
 		} else {
 			// shouldn't happen
 			return null;

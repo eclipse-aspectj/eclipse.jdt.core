@@ -17,32 +17,44 @@ package org.eclipse.jdt.internal.core.util;
 
 import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
-
 import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.ProjectScope;
+import org.eclipse.core.resources.ResourceAttributes;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.Assert;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Plugin;
+import org.eclipse.core.runtime.QualifiedName;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.content.IContentType;
 import org.eclipse.core.runtime.preferences.IScopeContext;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.ArrayType;
-import org.eclipse.jdt.core.dom.IntersectionType;
-import org.eclipse.jdt.core.dom.NameQualifiedType;
-import org.eclipse.jdt.core.dom.ParameterizedType;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.QualifiedType;
-import org.eclipse.jdt.core.dom.SimpleType;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.UnionType;
-import org.eclipse.jdt.core.dom.WildcardType;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.util.IClassFileAttribute;
 import org.eclipse.jdt.core.util.IClassFileReader;
 import org.eclipse.jdt.core.util.ICodeAttribute;
@@ -891,8 +903,8 @@ public class Util {
 							return ClassFileConstants.JDK9;
 						} else {
 							jar = JavaModelManager.getJavaModelManager().getZipFile(path);
-							for (Enumeration e= jar.entries(); e.hasMoreElements();) {
-								ZipEntry member= (ZipEntry) e.nextElement();
+							for (Enumeration<? extends ZipEntry> e= jar.entries(); e.hasMoreElements();) {
+								ZipEntry member= e.nextElement();
 								String entryName= member.getName();
 								if (org.eclipse.jdt.internal.compiler.util.Util.isClassFileName(entryName)) {
 									reader = ClassFileReader.read(jar, entryName);
@@ -1172,12 +1184,10 @@ public class Util {
 	 * Returns the given file's contents as a byte array.
 	 */
 	public static byte[] getResourceContentsAsByteArray(IFile file) throws JavaModelException {
-		try (InputStream stream = file.getContents(true)) {
-			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsByteArray(stream);
+		try  {
+			return file.readAllBytes();
 		} catch (CoreException e) {
-			throw new JavaModelException(e);
-		} catch (IOException e) {
-			throw new JavaModelException(e, IJavaModelStatusConstants.IO_EXCEPTION);
+			throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
 		}
 	}
 
@@ -1185,23 +1195,17 @@ public class Util {
 	 * Returns the given file's contents as a character array.
 	 */
 	public static char[] getResourceContentsAsCharArray(IFile file) throws JavaModelException {
-		// Get encoding from file
-		String encoding;
 		try {
-			encoding = file.getCharset();
-		} catch(CoreException ce) {
-			// do not use any encoding
-			encoding = null;
+			return file.readAllChars();
+		} catch (CoreException e) {
+			throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
 		}
-		return getResourceContentsAsCharArray(file, encoding);
 	}
 
 	public static char[] getResourceContentsAsCharArray(IFile file, String encoding) throws JavaModelException {
 		// Get resource contents
-		try (InputStream stream = file.getContents(true)) {
-			return org.eclipse.jdt.internal.compiler.util.Util.getInputStreamAsCharArray(stream, encoding);
-		} catch (IOException e) {
-			throw new JavaModelException(e, IJavaModelStatusConstants.IO_EXCEPTION);
+		try {
+			return org.eclipse.jdt.internal.compiler.util.Util.getBytesAsCharArray(file.readAllBytes(), encoding);
 		} catch (CoreException e) {
 			throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
 		}
@@ -1284,7 +1288,7 @@ public class Util {
 	/*
 	 * Appends to the given buffer the fully qualified name (as it appears in the source) of the given type
 	 */
-	private static void getFullyQualifiedName(Type type, StringBuilder buffer) {
+	public static void getFullyQualifiedName(Type type, StringBuilder buffer) {
 		switch (type.getNodeType()) {
 			case ASTNode.ARRAY_TYPE:
 				ArrayType arrayType = (ArrayType) type;
@@ -1906,9 +1910,7 @@ public class Util {
 	}
 
 	public static ClassFileReader newClassFileReader(IResource resource) throws CoreException, ClassFormatException, IOException {
-		try (InputStream in = ((IFile) resource).getContents(true)) {
-			return ClassFileReader.read(in, resource.getFullPath().toString());
-		}
+		return ClassFileReader.read(((IFile) resource).readAllBytes(), resource.getFullPath().toString());
 	}
 
 	/**
@@ -3357,5 +3359,20 @@ public class Util {
 			method = methods[0];
 		}
 		return method;
+	}
+
+	public static String getEntryName(String zipfileName, ZipEntry entry) throws ZipException {
+		String entryName = entry.getName();
+		boolean zipSlip;
+		try {
+		zipSlip = !java.nio.file.Path.of(zipfileName, entryName).normalize()
+					.startsWith(java.nio.file.Path.of(zipfileName).normalize());
+		} catch (Exception pathException) { // for example java.nio.file.InvalidPathException: "Illegal char <<>"
+			return null; // illegal path on OS
+		}
+		if (zipSlip) {
+			throw new ZipException("Zip Slip Vulnerability: Bad zip entry: " + entryName + " in " + zipfileName); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return entryName; // did not escape
 	}
 }

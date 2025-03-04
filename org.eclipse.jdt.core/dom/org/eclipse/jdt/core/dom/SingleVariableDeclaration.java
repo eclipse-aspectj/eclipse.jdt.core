@@ -199,7 +199,7 @@ public class SingleVariableDeclaration extends VariableDeclaration {
 	 * The type; lazily initialized; defaults to an unspecified,
 	 * legal type.
 	 */
-	private Type type = null;
+	private volatile Type type;
 
 	/**
 	 * The type annotations on the varargs token (element type: {@link Annotation}).
@@ -504,8 +504,7 @@ public class SingleVariableDeclaration extends VariableDeclaration {
 			synchronized (this) {
 				if (this.type == null) {
 					preLazyInit();
-					this.type = this.ast.newPrimitiveType(PrimitiveType.INT);
-					postLazyInit(this.type, TYPE_PROPERTY);
+					this.type = postLazyInit(this.ast.newPrimitiveType(PrimitiveType.INT), TYPE_PROPERTY);
 				}
 			}
 		}

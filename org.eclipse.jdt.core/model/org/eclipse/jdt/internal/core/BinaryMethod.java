@@ -15,18 +15,8 @@
 package org.eclipse.jdt.internal.core;
 
 import java.util.Arrays;
-
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.jdt.core.Flags;
-import org.eclipse.jdt.core.IAnnotation;
-import org.eclipse.jdt.core.ILocalVariable;
-import org.eclipse.jdt.core.IMemberValuePair;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.Signature;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.IBinaryAnnotation;
@@ -315,11 +305,11 @@ public String[] getParameterNames() throws JavaModelException {
 		if ((modifiers & ClassFileConstants.AccSynthetic) != 0) {
 			return this.parameterNames = getRawParameterNames(paramCount);
 		}
-		JavadocContents javadocContents = null;
+		IJavadocContents javadocContents = null;
 		IType declaringType = getDeclaringType();
 		PerProjectInfo projectInfo = JavaModelManager.getJavaModelManager().getPerProjectInfoCheckExistence(getJavaProject().getProject());
 		synchronized (projectInfo.javadocCache) {
-			javadocContents = (JavadocContents) projectInfo.javadocCache.get(declaringType);
+			javadocContents = (IJavadocContents) projectInfo.javadocCache.get(declaringType);
 			if (javadocContents == null) {
 				projectInfo.javadocCache.put(declaringType, BinaryType.EMPTY_JAVADOC);
 			}
@@ -750,7 +740,7 @@ protected void toStringName(StringBuilder buffer, int flags) {
 }
 @Override
 public String getAttachedJavadoc(IProgressMonitor monitor) throws JavaModelException {
-	JavadocContents javadocContents = ((BinaryType) this.getDeclaringType()).getJavadocContents(monitor);
+	IJavadocContents javadocContents = ((BinaryType) this.getDeclaringType()).getJavadocContents(monitor);
 	if (javadocContents == null) return null;
 	return javadocContents.getMethodDoc(this);
 }

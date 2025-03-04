@@ -16,25 +16,10 @@ package org.eclipse.jdt.core.tests.model;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.jdt.core.Flags;
-import org.eclipse.jdt.core.IAnnotation;
-import org.eclipse.jdt.core.ICodeAssist;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.ILocalVariable;
-import org.eclipse.jdt.core.IMemberValuePair;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.ISourceRange;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.Signature;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
@@ -42,6 +27,7 @@ import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.LambdaExpression;
 import org.eclipse.jdt.internal.core.LambdaMethod;
@@ -49,8 +35,6 @@ import org.eclipse.jdt.internal.core.LocalVariable;
 import org.eclipse.jdt.internal.core.NameLookup;
 import org.eclipse.jdt.internal.core.NameLookup.Answer;
 import org.eclipse.jdt.internal.core.SourceType;
-
-import junit.framework.Test;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class TypeResolveTests extends ModifyingResourceTests {
@@ -129,7 +113,7 @@ public void setUpSuite() throws Exception {
 			"   return new X() {};" +
 			"  }\n" +
 			"}",
-		}, JavaCore.VERSION_1_4);
+		}, CompilerOptions.getFirstSupportedJavaVersion());
 }
 	static {
 //		TESTS_NUMBERS = new int[] { 182, 183 };
@@ -172,7 +156,7 @@ public void testResolveMemberTypeInInner() throws JavaModelException {
  */
 public void testResolveParameterizedType() throws CoreException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile(
 			"/P/src/X.java",
 			"public class X<T> {\n" +
@@ -241,7 +225,7 @@ public void testResolveTypeInBinary4() throws Exception {
 			"    }\n" +
 			"  }\n" +
 			"}"
-		}, "1.4");
+		}, CompilerOptions.getFirstSupportedJavaVersion());
 		IType type = getPackageFragmentRoot("/TypeResolve/lib212224.jar").getPackageFragment("").getOrdinaryClassFile("X212224$Member.class").getType();
 		String[][] types = type.resolveType("int");
 		assertTypesEqual(
@@ -343,7 +327,7 @@ public void testResolveInnerType2() throws JavaModelException {
  */
 public void testParamAnnotations() throws CoreException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n" +
 				"public class X<T> {\n" +
 				"	X<String> field;\n" +
@@ -362,7 +346,7 @@ public void testParamAnnotations() throws CoreException {
 		waitForAutoBuild();
 
 		ICompilationUnit unit = getCompilationUnit("/P/src/p/X.java");
-		IJavaElement[] variable = ((ICodeAssist) unit).codeSelect(source.indexOf("processor"), "processor".length());
+		IJavaElement[] variable = unit.codeSelect(source.indexOf("processor"), "processor".length());
 
 		assertEquals(1, variable.length);
 		String annotationString = "@Default [in processor [in Test(String) [in X [in X.java [in p [in src [in P]]]]]]]";
@@ -380,7 +364,7 @@ public void testParamAnnotations() throws CoreException {
  */
 public void testParamAnnotations2() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String[] pathAndContents = new String[]{"p/X.java",
 				"package p;\n" +
 				"public class X<T> {\n" +
@@ -392,7 +376,7 @@ public void testParamAnnotations2() throws CoreException, IOException {
 				"}" +
 				"@interface Default{\n" +
 				"}"};
-		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, JavaCore.VERSION_1_5);
+		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion());
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783.jar"));
@@ -410,7 +394,7 @@ public void testParamAnnotations2() throws CoreException, IOException {
  */
 public void testParamAnnotations3() throws CoreException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n" +
 				"public class X<T> {\n" +
 				"	X<String> field;\n" +
@@ -432,7 +416,7 @@ public void testParamAnnotations3() throws CoreException {
 		waitForAutoBuild();
 
 		ICompilationUnit unit = getCompilationUnit("/P/src/p/X.java");
-		IJavaElement[] variable = ((ICodeAssist) unit).codeSelect(source.indexOf("processor"), "processor".length());
+		IJavaElement[] variable = unit.codeSelect(source.indexOf("processor"), "processor".length());
 
 		assertEquals(1, variable.length);
 		String annotationString1 = "@Default [in processor [in Test(int, String, int) [in X [in X.java [in p [in src [in P]]]]]]]";
@@ -464,7 +448,7 @@ public void testParamAnnotations3() throws CoreException {
  */
 public void testParamAnnotations4() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String sourceX =
 				"package p;\n" +
 				"public class X<T> {\n" +
@@ -487,7 +471,7 @@ public void testParamAnnotations4() throws CoreException, IOException {
 				"package p;\n" +
 				"public @interface Default{\n" +
 				"}"};
-		addLibrary(project, "lib334783_2.jar", "lib334783_2src.zip", pathAndContents, JavaCore.VERSION_1_5);
+		addLibrary(project, "lib334783_2.jar", "lib334783_2src.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion());
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783_2.jar"));
@@ -539,7 +523,7 @@ public void testParamAnnotations4() throws CoreException, IOException {
  */
 public void testParamAnnotations5() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String[] pathAndContents = new String[]{"p/X.java",
 				"package p;\n" +
 				"public class X<T> {\n" +
@@ -562,7 +546,7 @@ public void testParamAnnotations5() throws CoreException, IOException {
 				"}"};
 		Map options = new HashMap();
 		options.put(JavaCore.COMPILER_LOCAL_VARIABLE_ATTR, JavaCore.DO_NOT_GENERATE);
-		addLibrary(project, "lib334783_3.jar", "lib334783_3src.zip", pathAndContents, JavaCore.VERSION_1_5, options);
+		addLibrary(project, "lib334783_3.jar", "lib334783_3src.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion(), options);
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783_3.jar"));
@@ -605,7 +589,7 @@ public void testParamAnnotations5() throws CoreException, IOException {
  */
 public void testParamAnnotations6() throws CoreException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n" +
 				"public class X<T> {\n" +
 				"	X<String> field;\n" +
@@ -633,7 +617,7 @@ public void testParamAnnotations6() throws CoreException {
  */
 public void testParamAnnotations7() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String[] pathAndContents = new String[]{"p/X.java",
 				"package p;\n" +
 				"public class X<T> {\n" +
@@ -641,7 +625,7 @@ public void testParamAnnotations7() throws CoreException, IOException {
 				"	public void Test() {}\n" +
 				"}"
 		};
-		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, JavaCore.VERSION_1_5);
+		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion());
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783.jar"));
@@ -660,7 +644,7 @@ public void testParamAnnotations7() throws CoreException, IOException {
  */
 public void testParamAnnotations8() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String[] pathAndContents = new String[]{"p/X.java",
 				"package p;\n" +
 				"public class X<T> {\n" +
@@ -683,7 +667,7 @@ public void testParamAnnotations8() throws CoreException, IOException {
 				"}"};
 		Map options = new HashMap();
 		options.put(JavaCore.COMPILER_LOCAL_VARIABLE_ATTR, JavaCore.DO_NOT_GENERATE);
-		addLibrary(project, "lib334783_3.jar", "lib334783_3src.zip", pathAndContents, JavaCore.VERSION_1_5, options);
+		addLibrary(project, "lib334783_3.jar", "lib334783_3src.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion(), options);
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783_3.jar"));
@@ -726,7 +710,7 @@ public void testParamAnnotations8() throws CoreException, IOException {
  */
 public void testParamAnnotations9() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String[] pathAndContents = new String[]{"p/X.java",
 				"package p;\n" +
 				"public class X {\n" +
@@ -736,7 +720,7 @@ public void testParamAnnotations9() throws CoreException, IOException {
 				"}" +
 				"@interface Default{\n" +
 				"}"};
-		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, JavaCore.VERSION_1_5);
+		addLibrary(project, "lib334783.jar", "libsrc.zip", pathAndContents, CompilerOptions.getFirstSupportedJavaVersion());
 
 		waitForAutoBuild();
 		IPackageFragmentRoot root = project.getPackageFragmentRoot(getFile("/P/lib334783.jar"));
@@ -757,7 +741,7 @@ public void testParamAnnotations9() throws CoreException, IOException {
  */
 public void testBug342393() throws Exception {
 	try {
-		IJavaProject project = createJavaProject("Test342393", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("Test342393", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		project.open(null);
 			String fileContent =  "package p;\n"
 					 + "public class Test {\n"
@@ -857,7 +841,7 @@ public void testBug342393() throws Exception {
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=377710
 public void test377710() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "public class Foo {}\n";
 		createFile("/P/src/Foo.java", source);
 		waitForAutoBuild();
@@ -872,7 +856,7 @@ public void test377710() throws CoreException, IOException {
 //Partial Match is not set for the API Calls.
 public void test405026a() throws CoreException, IOException {
 	try {
-		JavaProject project = (JavaProject) createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		JavaProject project = (JavaProject) createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n"  +
 						"\n" +
 						"public interface test13 {\n"  +
@@ -977,7 +961,7 @@ public void test405026a() throws CoreException, IOException {
 //Partial Match is set for the API's.
 public void test405026b() throws CoreException, IOException {
 	try {
-		JavaProject project = (JavaProject) createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		JavaProject project = (JavaProject) createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n"  +
 						"\n" +
 						"public interface test13 {\n"  +
@@ -1028,7 +1012,7 @@ public void test405026b() throws CoreException, IOException {
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=433404
 public void test433404() throws CoreException, IOException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, "bin", "1.5");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n"  +
 						"public class X {\n"  +
 						" 	FI fi = (i_) -> { return 0;};\n" +
@@ -1060,7 +1044,7 @@ public void test433404() throws CoreException, IOException {
 public void testBug458613() throws CoreException, IOException {
 	IJavaProject prj = null;
 	try {
-		prj = createJavaProject("Bug458613", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.8");
+		prj = createJavaProject("Bug458613", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/Bug458613/src/p");
 		String source = "package p;\n" +
 				"interface I9<T> {\n" +
@@ -1099,7 +1083,7 @@ public void testBug458613() throws CoreException, IOException {
 public void testBug458613b() throws CoreException, IOException {
 	IJavaProject prj = null;
 	try {
-		prj = createJavaProject("Bug458613", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.8");
+		prj = createJavaProject("Bug458613", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/Bug458613/src/p");
 		String source = "package p;\n" +
 				"interface I9<U, T> {\n" +
@@ -1139,7 +1123,7 @@ public void testBug458613b() throws CoreException, IOException {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=479963
 public void test479963() throws CoreException, IOException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.8");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n" +
 						"public class X {\n" +
 						"	public void foo() {\n" +
@@ -1173,7 +1157,7 @@ public void test479963() throws CoreException, IOException {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=479963
 public void test479963a() throws CoreException, IOException {
 	try {
-		createJavaProject("P", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.8");
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_LIB"}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String source = "package p;\n" +
 						"public class X {\n" +
 						"	public void foo() {\n" +

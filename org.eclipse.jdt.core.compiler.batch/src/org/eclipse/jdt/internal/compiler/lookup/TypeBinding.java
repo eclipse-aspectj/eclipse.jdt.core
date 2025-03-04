@@ -41,10 +41,10 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
 
 /*
  * Not all fields defined by this type (& its subclasses) are initialized when it is created.
@@ -102,6 +102,8 @@ abstract public class TypeBinding extends Binding {
 
 	public final static VoidTypeBinding VOID = new VoidTypeBinding();
 
+	public final static TypeBinding [] NUMERIC_TYPES = // // Order sensitive to determine the type in numeric promotion
+			new TypeBinding [] {TypeBinding.DOUBLE, TypeBinding.FLOAT, TypeBinding.LONG, TypeBinding.INT, TypeBinding.SHORT, TypeBinding.BYTE, TypeBinding.CHAR };
 
 public TypeBinding() {
 	super();
@@ -167,7 +169,8 @@ public static final TypeBinding wellKnownBaseType(int id) {
 }
 
 public ReferenceBinding actualType() {
-	return null; // overridden in ParameterizedTypeBinding & WildcardBinding
+	assert false : "Invocation on non-ReferenceBinding not expected"; //$NON-NLS-1$
+	return null; // overridden in ReferenceBinding, ParameterizedTypeBinding & WildcardBinding
 }
 
 TypeBinding [] additionalBounds() {
@@ -305,20 +308,40 @@ public TypeBinding erasure() {
 	return this;
 }
 
+public int enumConstantCount() {
+	throw EclipseCompiler.UNSUPPORTED_OPERATION;
+}
+
+public FieldBinding[] fields() {
+	return Binding.NO_FIELDS;
+}
+
 /**
  * Perform an upwards type projection as per JLS 4.10.5
  * @param scope Relevant scope for evaluating type projection
- * @param mentionedTypeVariables Filter for mentioned type variabled
- * @return Upwards type projection of 'this', or null if downwards projection is undefined
+ * @param mentionedTypeVariables Filter for mentioned type variables
+ * @return Upwards type projection of 'this', or null if upwards projection is undefined
 */
 public TypeBinding upwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
+	return this;
+}
+/**
+ * Perform an upwards type projection as per JLS 4.10.5
+ * @param scope Relevant scope for evaluating type projection
+ * @return Upwards type projection of 'this', or null if upwards projection is undefined
+*/
+public TypeBinding upwardsProjection(Scope scope) {
+	TypeBinding[] mentionedTypeVariables= syntheticTypeVariablesMentioned();
+	if (mentionedTypeVariables != null && mentionedTypeVariables.length > 0) {
+		return upwardsProjection(scope, mentionedTypeVariables);
+	}
 	return this;
 }
 
 /**
  * Perform a downwards type projection as per JLS 4.10.5
  * @param scope Relevant scope for evaluating type projection
- * @param mentionedTypeVariables Filter for mentioned type variabled
+ * @param mentionedTypeVariables Filter for mentioned type variables
  * @return Downwards type projection of 'this', or null if downwards projection is undefined
 */
 public TypeBinding downwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
@@ -668,6 +691,20 @@ public boolean isBoxedPrimitiveType() {
 	}
 }
 
+public TypeBinding unboxedType() {
+	return switch (this.id) {
+		case TypeIds.T_JavaLangBoolean -> TypeBinding.BOOLEAN;
+		case TypeIds.T_JavaLangByte -> TypeBinding.BYTE;
+		case TypeIds.T_JavaLangCharacter -> TypeBinding.CHAR;
+		case TypeIds.T_JavaLangShort -> TypeBinding.SHORT;
+		case TypeIds.T_JavaLangDouble -> TypeBinding.DOUBLE;
+		case TypeIds.T_JavaLangFloat -> TypeBinding.FLOAT;
+		case TypeIds.T_JavaLangInteger -> TypeBinding.INT;
+		case TypeIds.T_JavaLangLong -> TypeBinding.LONG;
+		default -> this;
+	};
+}
+
 /**
  *  Returns true if parameterized type AND not of the form {@code List<?>}
  */
@@ -688,6 +725,11 @@ public boolean isClass() {
 
 public boolean isRecord() {
 	return false;
+}
+
+public boolean isRecordWithComponents() { // do records without components make sense ??!
+	RecordComponentBinding [] components;
+	return isRecord() && (components = components()) != null && components.length > 0;
 }
 
 /* Answer true if the receiver type can be assigned to the argument type (right)
@@ -1643,11 +1685,6 @@ public char[] signature() {
 
 public abstract char[] sourceName();
 
-public void swapUnresolved(UnresolvedReferenceBinding unresolvedType,
-		ReferenceBinding resolvedType, LookupEnvironment environment) {
-	// subclasses must override if they wrap another type binding
-}
-
 TypeBinding [] typeArguments () {
 	return null;
 }
@@ -1693,6 +1730,10 @@ public static boolean notEquals(TypeBinding that, TypeBinding other) {
 		return true;
 	if (that.id != TypeIds.NoId && that.id == other.id)
 		return false;
+	if (that instanceof LocalTypeBinding && other instanceof LocalTypeBinding) {
+		// while a lambda is being resolved, consider a local type as equal to its variant from another lambda copy
+		return ((LocalTypeBinding) that).sourceStart != ((LocalTypeBinding) other).sourceStart;
+	}
 	return true;
 }
 /** Return the primordial type from which the receiver was cloned. Not all types track a prototype, only {@link SourceTypeBinding},
@@ -1746,7 +1787,7 @@ public ReferenceBinding superclass() {
 }
 
 public ReferenceBinding[] permittedTypes() {
-	return Binding.NO_PERMITTEDTYPES;
+	return Binding.NO_PERMITTED_TYPES;
 }
 
 public ReferenceBinding[] superInterfaces() {
@@ -1794,4 +1835,7 @@ public boolean isNonDenotable() {
 	return false;
 }
 
+public boolean isSealed() {
+	return false;
+}
 }

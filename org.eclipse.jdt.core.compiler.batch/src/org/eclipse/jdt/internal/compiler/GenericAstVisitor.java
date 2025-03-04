@@ -14,7 +14,7 @@
 package org.eclipse.jdt.internal.compiler;
 
 import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.ast.StringTemplate; // AspectJ: differentiate from java.lang.StringTemplate when building on JDK 21+
+//import org.eclipse.jdt.internal.compiler.ast.StringTemplate; // AspectJ: differentiate from java.lang.StringTemplate when building on JDK 21+
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
@@ -446,10 +446,6 @@ public abstract class GenericAstVisitor extends ASTVisitor {
 	}
 
 	@Override
-	public boolean visit(StringTemplate expr, BlockScope scope1) {
-		return visitNode(expr);
-	}
-	@Override
 	public boolean visit(NormalAnnotation annotation, BlockScope scope) {
 		return visitNode(annotation);
 	}
@@ -599,10 +595,6 @@ public abstract class GenericAstVisitor extends ASTVisitor {
 		return visitNode(synchronizedStatement);
 	}
 
-	@Override
-	public boolean visit(TemplateExpression templateExpression, BlockScope scope) {
-		return visitNode(templateExpression);
-	}
 	@Override
 	public boolean visit(ThisReference thisReference, BlockScope scope) {
 		return visitNode(thisReference);

@@ -110,15 +110,17 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 		 * @since 3.24
 		 */
 		public static final ModifierKeyword SEALED_KEYWORD = new ModifierKeyword("sealed", SEALED);//$NON-NLS-1$
-		/**
-		 * @since 3.32
-		 * @noreference preview feature
-		 */
-		public static final ModifierKeyword WHEN_KEYWORD = new ModifierKeyword("when", WHEN);//$NON-NLS-1$
+
 		/**
 		 * @since 3.24
 		 */
 		public static final ModifierKeyword NON_SEALED_KEYWORD = new ModifierKeyword("non-sealed", NON_SEALED);//$NON-NLS-1$
+
+		/**
+		 * @since 3.40
+		 * @noreference preview feature
+		 */
+		public static final ModifierKeyword MODULE_KEYWORD = new ModifierKeyword("module", MODULE);//$NON-NLS-1$
 
 		static {
 			KEYWORDS = new HashMap(20);
@@ -136,7 +138,8 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 					STRICTFP_KEYWORD,
 					DEFAULT_KEYWORD,
 					SEALED_KEYWORD,
-					NON_SEALED_KEYWORD
+					NON_SEALED_KEYWORD,
+					MODULE_KEYWORD
 				};
 			for (ModifierKeyword op : ops) {
 				KEYWORDS.put(op.toString(), op);
@@ -341,13 +344,14 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 	 * @since 3.24
 	 */
 	public static final int NON_SEALED = 0x1000;
+
 	/**
-	 * "when" modifier constant (bit mask).
-	 * Applicable only to types.
-	 * @since 3.32
+	 * "module" modifier constant (bit mask).
+	 * Applicable only to imports.
+	 * @since 3.40
 	 * @noreference preview feature
 	 */
-	public static final int WHEN = 0x2000;
+	public static final int MODULE = 0x8000;
 
 	/**
 	 * "default" modifier constant (bit mask) (added in JLS8 API).
@@ -786,6 +790,17 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 	 */
 	public boolean isNonSealed() {
 		return this.modifierKeyword == ModifierKeyword.NON_SEALED_KEYWORD;
+	}
+
+	/**
+	 * Answer true if the receiver is the module modifier, false otherwise.
+	 *
+	 * @return true if the receiver is the module modifier, false otherwise
+	 * @since 3.39
+	 * @noreference preview feature
+	 */
+	public static boolean isModule(int flags) {
+		return (flags & Modifier.MODULE) != 0;
 	}
 
 	@Override

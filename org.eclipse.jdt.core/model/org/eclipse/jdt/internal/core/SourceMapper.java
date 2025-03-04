@@ -31,7 +31,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -41,23 +40,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.Flags;
-import org.eclipse.jdt.core.IField;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IMember;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IModuleDescription;
-import org.eclipse.jdt.core.IOrdinaryClassFile;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.ISourceRange;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
-import org.eclipse.jdt.core.JavaConventions;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.Signature;
-import org.eclipse.jdt.core.SourceRange;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.codeassist.impl.Keywords;
@@ -268,7 +251,6 @@ public class SourceMapper
 	 *  Anonymous counter in case we want to map the source of an anonymous class.
 	 */
 	int anonymousCounter;
-	int anonymousClassName;
 
 	String encoding;
 	String defaultEncoding;
@@ -823,14 +805,8 @@ public class SourceMapper
 		}
 		if (typeInfo.name.length == 0) {
 			this.anonymousCounter++;
-			if (this.anonymousCounter == this.anonymousClassName) {
-				this.types[this.typeDepth] = getType(this.binaryTypeOrModule.getElementName());
-			} else {
-				this.types[this.typeDepth] = getType(DeduplicationUtil.toString(typeInfo.name));
-			}
-		} else {
-			this.types[this.typeDepth] = getType(DeduplicationUtil.toString(typeInfo.name));
 		}
+		this.types[this.typeDepth] = getType(DeduplicationUtil.toString(typeInfo.name));
 		this.typeNameRanges[this.typeDepth] =
 			new SourceRange(typeInfo.nameSourceStart, typeInfo.nameSourceEnd - typeInfo.nameSourceStart + 1);
 		this.typeDeclarationStarts[this.typeDepth] = typeInfo.declarationStart;
@@ -1570,7 +1546,6 @@ public class SourceMapper
 			IProblemFactory factory = new DefaultProblemFactory();
 			SourceElementParser parser = null;
 			boolean doFullParse = false;
-			this.anonymousClassName = 0;
 			String sourceFileName;
 			if (this.binaryTypeOrModule instanceof BinaryType) {
 				if (info == null) {
@@ -1581,18 +1556,7 @@ public class SourceMapper
 					}
 				}
 				sourceFileName = ((BinaryType) this.binaryTypeOrModule).sourceFileName(info);
-				boolean isAnonymousClass = info.isAnonymous();
-
 				char[] fullName = info.getName();
-				if (isAnonymousClass) {
-					String eltName = this.binaryTypeOrModule.getParent().getElementName();
-					eltName = eltName.substring(eltName.lastIndexOf('$') + 1, eltName.length());
-					try {
-						this.anonymousClassName = Integer.parseInt(eltName);
-					} catch(NumberFormatException e) {
-						// ignore
-					}
-				}
 				doFullParse = hasToRetrieveSourceRangesForLocalClass(fullName);
 			} else {
 				sourceFileName = TypeConstants.MODULE_INFO_CLASS_NAME_STRING;
@@ -1628,7 +1592,7 @@ public class SourceMapper
 			byte[] bytes = Util.getZipEntryByteContent(entry, zip);
 			if (bytes != null) {
 				// Order of preference: charSet supplied, this.encoding or this.defaultEncoding in that order
-				return Util.bytesToChar(bytes, charSet == null ? (this.encoding == null ? this.defaultEncoding : this.encoding) : charSet);
+				return Util.getBytesAsCharArray(bytes, charSet == null ? (this.encoding == null ? this.defaultEncoding : this.encoding) : charSet);
 			}
 		} catch (IOException e) {
 			// ignore

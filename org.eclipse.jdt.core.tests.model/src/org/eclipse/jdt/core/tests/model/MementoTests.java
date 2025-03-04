@@ -15,39 +15,19 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.io.File;
 import java.io.IOException;
-
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IAnnotation;
-import org.eclipse.jdt.core.IClassFile;
-import org.eclipse.jdt.core.IClasspathAttribute;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IField;
-import org.eclipse.jdt.core.IImportContainer;
-import org.eclipse.jdt.core.IImportDeclaration;
-import org.eclipse.jdt.core.IInitializer;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.ILocalVariable;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IModuleDescription;
-import org.eclipse.jdt.core.IPackageDeclaration;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.JavaElement;
 import org.eclipse.jdt.internal.core.LocalVariable;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
-
-import junit.framework.Test;
 
 public class MementoTests extends ModifyingResourceTests {
 public MementoTests(String name) {
@@ -116,7 +96,7 @@ public void setUpSuite() throws Exception {
 		"public class X {}"
 		},
 		getExternalResourcePath("myLib"),
-		"1.4");
+		CompilerOptions.getFirstSupportedJavaVersion());
 	this.createJavaProject(
 			"P",
 			new String[] {"src", "!"},
@@ -549,7 +529,7 @@ public void testLocalVariableMemento3() {
  */
 public void testLocalVariableMemento4() throws Exception {
 	try {
-		createJavaProject("P1", new String[] {"src"}, new String[] {getExternalJCLPathString("1.5")}, "bin", "1.5");
+		createJavaProject("P1", new String[] {"src"}, new String[] {getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion())}, "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile(
 			"/P1/src/X.java",
 			"public class X<T> {\n" +

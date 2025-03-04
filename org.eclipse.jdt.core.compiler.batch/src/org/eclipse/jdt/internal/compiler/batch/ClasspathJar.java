@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
@@ -39,11 +38,11 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationDecorator;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
+import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
-import org.eclipse.jdt.internal.compiler.env.IBinaryType;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding.ExternalAnnotationStatus;
+import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.ManifestAnalyzer;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.compiler.util.Util;
@@ -228,6 +227,7 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 		return null; // most common case
 	final char[] packageArray = qualifiedPackageName.toCharArray();
 	final ArrayList answers = new ArrayList();
+
 	// AspectJ Extension
 	try {
 		ensureOpen();
@@ -236,8 +236,9 @@ public char[][][] findTypeNames(final String qualifiedPackageName, String module
 		throw new RuntimeException(e);
 	}
 	// End AspectJ Extension
-	nextEntry : for (Enumeration e = this.zipFile.entries(); e.hasMoreElements(); ) {
-		String fileName = ((ZipEntry) e.nextElement()).getName();
+
+	nextEntry : for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
+		String fileName = e.nextElement().getName();
 
 		// add the package name & all of its parent packages
 		int last = fileName.lastIndexOf('/');
@@ -318,8 +319,8 @@ public synchronized char[][] getModulesDeclaringPackage(String qualifiedPackageN
 	this.packageCache = new HashSet<>(41);
 	this.packageCache.add(Util.EMPTY_STRING);
 
-	for (Enumeration e = this.zipFile.entries(); e.hasMoreElements(); ) {
-		String fileName = ((ZipEntry) e.nextElement()).getName();
+	for (Enumeration<? extends ZipEntry> e = this.zipFile.entries(); e.hasMoreElements(); ) {
+		String fileName = e.nextElement().getName();
 		addToPackageCache(fileName, false);
 	}
 	return singletonModuleNameIf(this.packageCache.contains(qualifiedPackageName));
@@ -416,12 +417,7 @@ public char[] normalizedPath() {
 @Override
 public String getPath() {
 	if (this.path == null) {
-		try {
-			this.path = this.file.getCanonicalPath();
-		} catch (IOException e) {
-			// in case of error, simply return the absolute path
-			this.path = this.file.getAbsolutePath();
-		}
+		this.path = this.file.toPath().normalize().toAbsolutePath().toString();
 	}
 	return this.path;
 }

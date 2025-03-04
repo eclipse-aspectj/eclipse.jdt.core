@@ -14,9 +14,7 @@
 package org.eclipse.jdt.core.tests.rewrite.modifying;
 
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.dom.*;
@@ -450,7 +448,6 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 //		assertEqualString(preview, buf.toString());
 //	}
 
-	/** @deprecated using deprecated code */
 	public void test0010() throws Exception {
 		String source = "\n";
 		CompilationUnit astRoot= createCU(source.toCharArray());
@@ -463,7 +460,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		astRoot.setPackage(packageDeclaration);
 		TypeDeclaration typeDeclaration =  a.newTypeDeclaration();
 		typeDeclaration.setName(a.newSimpleName("X"));
-		typeDeclaration.setModifiers(Modifier.PUBLIC);
+		typeDeclaration.modifiers().addAll(a.newModifiers(Modifier.PUBLIC));
 
 		astRoot.types().add(typeDeclaration);
 
@@ -497,7 +494,6 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	/** @deprecated using deprecated code */
 	public void test0012() throws Exception {
 		String source = "\n";
 		CompilationUnit astRoot= createCU(source.toCharArray());
@@ -507,7 +503,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 
 		TypeDeclaration typeDeclaration =  a.newTypeDeclaration();
 		typeDeclaration.setName(a.newSimpleName("X"));
-		typeDeclaration.setModifiers(Modifier.PUBLIC);
+		typeDeclaration.modifiers().addAll(a.newModifiers(Modifier.PUBLIC));
 
 		astRoot.types().add(typeDeclaration);
 
@@ -532,7 +528,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createCU(cu, false, getJLS3());
+		CompilationUnit astRoot= createCU(cu, false);
 
 		astRoot.recordModifications();
 
@@ -568,7 +564,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createCU(cu, false, getJLS3());
+		CompilationUnit astRoot= createCU(cu, false);
 
 		astRoot.recordModifications();
 
@@ -604,7 +600,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createCU(cu, false, getJLS3());
+		CompilationUnit astRoot= createCU(cu, false);
 
 		astRoot.recordModifications();
 
@@ -637,7 +633,7 @@ public class ASTRewritingModifyingInsertTest extends ASTRewritingModifyingTest {
 		buf.append("package test0016;\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("package-info.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createCU(cu, false, getJLS3());
+		CompilationUnit astRoot= createCU(cu, false);
 
 		astRoot.recordModifications();
 

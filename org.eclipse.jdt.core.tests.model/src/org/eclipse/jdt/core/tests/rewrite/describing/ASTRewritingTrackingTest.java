@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2016 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -16,9 +16,7 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.dom.*;
@@ -43,14 +41,7 @@ public class ASTRewritingTrackingTest extends ASTRewritingTest {
 		return createSuite(ASTRewritingTrackingTest.class);
 	}
 
-	/**
-	 * Internal access method to VariableDeclarationFragment#setExtraDimensions() for avoiding deprecated warnings
-	 *
-	 * @deprecated
-	 */
-	private void internalSetExtraDimensions(VariableDeclarationFragment node, int dimensions) {
-		node.setExtraDimensions(dimensions);
-	}
+
 	public void testNamesWithDelete() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -118,7 +109,8 @@ public class ASTRewritingTrackingTest extends ASTRewritingTest {
 		}
 	}
 
-	public void testNamesWithInsert_only_2_3_4() throws Exception {
+	@SuppressWarnings("deprecation")
+    public void testNamesWithInsert_only_2_3_4() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -164,7 +156,7 @@ public class ASTRewritingTrackingTest extends ASTRewritingTest {
 
 		VariableDeclarationFragment newFrag= ast.newVariableDeclarationFragment();
 		newFrag.setName(ast.newSimpleName("newVariable"));
-		internalSetExtraDimensions(newFrag, 2);
+		newFrag.setExtraDimensions(2);
 
 		rewrite.getListRewrite(field, FieldDeclaration.FRAGMENTS_PROPERTY).insertFirst(newFrag, null);
 

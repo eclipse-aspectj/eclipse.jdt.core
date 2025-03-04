@@ -20,7 +20,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
-
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IWorkspace;
@@ -28,22 +28,7 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IClassFile;
-import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IField;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.ILocalVariable;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IOrdinaryClassFile;
-import org.eclipse.jdt.core.IPackageDeclaration;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.LocalVariableDeclarationMatch;
@@ -54,10 +39,9 @@ import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.SearchRequestor;
 import org.eclipse.jdt.core.search.TypeNameRequestor;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.JarPackageFragmentRoot;
 import org.eclipse.jdt.internal.core.JavaModelStatus;
-
-import junit.framework.Test;
 
 /**
  * Tests the Java search engine where results are JavaElements and source positions.
@@ -100,7 +84,7 @@ public void setUpSuite() throws Exception {
 
 	if (JAVA_PROJECT == null) {
 		JAVA_PROJECT = setUpJavaProject("JavaSearch");
-		setUpJavaProject("JavaSearch15", "1.5");
+		setUpJavaProject("JavaSearch15", CompilerOptions.getFirstSupportedJavaVersion());
 	}
 }
 @Override
@@ -546,7 +530,7 @@ public void testDeclarationOfReferencedTypes09() throws CoreException {
 	);
 	assertSearchResults(
 		"Starting search...\n" +
-		getExternalJCLPathString("1.5") + " java.lang.Object\n" +
+		getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object\n" +
 		"Done searching.",
 		result);
 }
@@ -903,7 +887,7 @@ public void testFieldReference05() throws CoreException {
 	// Set 1.4 compliance level (no constant yet)
 	Hashtable options = JavaCore.getOptions();
 	String currentOption = (String)options.get("org.eclipse.jdt.core.compiler.compliance");
-	options.put("org.eclipse.jdt.core.compiler.compliance", "1.4");
+	options.put("org.eclipse.jdt.core.compiler.compliance", CompilerOptions.getFirstSupportedJavaVersion());
 	JavaCore.setOptions(options);
 
 	try {
@@ -1987,6 +1971,9 @@ public void testPackageDeclarationBug183062b() throws CoreException {
 		""+ getExternalJCLPathString() + " java\n" +
 		""+ getExternalJCLPathString() + " java.io\n" +
 		""+ getExternalJCLPathString() + " java.lang\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation\n" +
+		""+ getExternalJCLPathString() + " java.lang.invoke\n" +
+		""+ getExternalJCLPathString() + " java.util\n" +
 		"src/j1 j1\n" +
 		"src/j2 j2\n" +
 		"src/j3 j3\n" +
@@ -2033,7 +2020,8 @@ public void testPackageDeclarationBug183062e() throws CoreException {
 		getJavaSearchScope(),
 		packageCollector);
 	assertSearchResults(
-		""+ getExternalJCLPathString() + " java.lang",
+		""+ getExternalJCLPathString() + " java.lang\n" +
+		""+ getExternalJCLPathString() + " java.util",
 		packageCollector);
 }
 /**
@@ -2471,7 +2459,7 @@ public void testSearchScope05() throws CoreException, IOException { // was testE
 			scope,
 			this.resultCollector);
 		assertSearchResults(
-			externalJar.getCanonicalPath()+ " p0.X",
+			externalJar.toPath().normalize().toAbsolutePath().toString()+ " p0.X",
 			this.resultCollector);
 
 	} finally {
@@ -4180,7 +4168,9 @@ public void testCamelCaseTypePattern01_CamelCase() throws CoreException {
 	search("RE", TYPE, DECLARATIONS, SearchPattern.R_CAMELCASE_MATCH);
 	assertSearchResults(
 		"src/a3/References.java a3.References [References]\n" +
-		""+ getExternalJCLPathString() + " java.lang.RuntimeException"
+		""+ getExternalJCLPathString() + " java.lang.RuntimeException\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.Retention\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.RetentionPolicy"
 	);
 }
 public void testCamelCaseTypePattern02_CamelCase() throws CoreException {
@@ -4205,7 +4195,9 @@ public void testCamelCaseTypePattern05_CamelCase() throws CoreException {
 	search("R*E*", TYPE, DECLARATIONS, SearchPattern.R_CAMELCASE_MATCH);
 	assertSearchResults(
 		"src/a3/References.java a3.References [References]\n" +
-		""+ getExternalJCLPathString() + " java.lang.RuntimeException"
+		""+ getExternalJCLPathString() + " java.lang.RuntimeException\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.Retention\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.RetentionPolicy"
 	);
 }
 public void testCamelCaseTypePattern06_CamelCase() throws CoreException {
@@ -4357,7 +4349,9 @@ public void testCamelCaseTypePattern05_CamelCaseSamePartCount() throws CoreExcep
 	search("R*E*", TYPE, DECLARATIONS, SearchPattern.R_CAMELCASE_SAME_PART_COUNT_MATCH);
 	assertSearchResults(
 		"src/a3/References.java a3.References [References]\n" +
-		""+ getExternalJCLPathString() + " java.lang.RuntimeException"
+		""+ getExternalJCLPathString() + " java.lang.RuntimeException\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.Retention\n" +
+		""+ getExternalJCLPathString() + " java.lang.annotation.RetentionPolicy"
 	);
 }
 public void testCamelCaseTypePattern06_CamelCaseSamePartCount() throws CoreException {
@@ -4609,8 +4603,6 @@ public void testAnonymousTypeMethodReferenceJarSearchGh375() throws Exception {
  * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/432
  */
 public void testAnonymousTypeMethodReferenceSearchGh432() throws Exception {
-	if (isJRE22)
-		return;
 	String testProjectName = "gh432MethodReferencesSearchBug";
 	String snippet1 = "package p;\n" +
 			"public class TestGh432 {\n" +

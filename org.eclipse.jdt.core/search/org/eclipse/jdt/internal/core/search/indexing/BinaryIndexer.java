@@ -16,7 +16,6 @@ package org.eclipse.jdt.internal.core.search.indexing;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jdt.core.Flags;
@@ -874,6 +873,11 @@ public class BinaryIndexer extends AbstractIndexer implements SuffixConstants {
 			// logging the entry that could not be indexed and continue with the next one
 			// we remove all entries relative to the boggus document
 			this.document.removeAllIndexEntries();
+			if (e instanceof ClassFormatException cfe && cfe.getErrorCode() == ClassFormatException.ErrBadMagic) {
+				Util.log(new Status(IStatus.INFO, JavaCore.PLUGIN_ID,
+						"Could not index empty " + this.document.getPath())); //$NON-NLS-1$
+				return;
+			}
 			Util.log(new Status(IStatus.WARNING,
 					JavaCore.PLUGIN_ID,
 					"The Java indexing could not index " + this.document.getPath() + ". This .class file doesn't follow the class file format specification. Please report this issue against the .class file vendor", //$NON-NLS-1$ //$NON-NLS-2$

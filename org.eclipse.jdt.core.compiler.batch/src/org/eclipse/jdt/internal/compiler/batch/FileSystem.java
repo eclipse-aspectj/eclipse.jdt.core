@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -13,6 +13,8 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								Bug 440687 - [compiler][batch][null] improve command line option for external annotations
+ *     Salesforce - Contribution for
+ *								https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2529
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.batch;
 
@@ -32,27 +34,25 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.zip.ZipFile;
-
 import javax.lang.model.SourceVersion;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationDecorator;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
-import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.UpdateKind;
+import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.UpdatesByKind;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
-import org.eclipse.jdt.internal.compiler.env.IUpdatableModule;
-import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.UpdateKind;
-import org.eclipse.jdt.internal.compiler.env.IUpdatableModule.UpdatesByKind;
-import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.compiler.util.Util;
@@ -168,6 +168,7 @@ public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants 
 	protected boolean annotationsFromClasspath; // should annotation files be read from the classpath (vs. explicit separate path)?
 	private static HashMap<File, Classpath> JRT_CLASSPATH_CACHE = null;
 	protected Map<String,Classpath> moduleLocations = new HashMap<>();
+	private Consumer<NameEnvironmentAnswer> nameEnvironmentAnswerListener; // a listener for findType* answers
 
 	/** Tasks resulting from --add-reads or --add-exports command line options. */
 	// AspectJ extension: raise from package-scoped to public (AjBuildManager reads this field).
@@ -310,7 +311,13 @@ public static Classpath getClasspath(String classpathName, String encoding, Acce
 }
 //New AspectJ Extension
 public static Classpath getJrtClasspath(String jdkHome, String encoding, AccessRuleSet accessRuleSet, Map<String, String> options) {
-	return new ClasspathJrt(new File(convertPathSeparators(jdkHome)), true, accessRuleSet, null);
+	ClasspathJrt classpathJrt = new ClasspathJrt(new File(convertPathSeparators(jdkHome)), true, accessRuleSet, null);
+	try {
+		classpathJrt.initialize();
+	} catch (IOException e) {
+		// Broken entry, but let clients have it anyway.
+	}
+	return classpathJrt;
 }
 
 // Uses the mode rather than a boolean, so we can specify JUST binary (ClasspathLocation.BINARY)
@@ -375,7 +382,7 @@ public static Classpath getClasspath(String classpathName, String encoding,
 						convertPathSeparators(destinationPath));
 			} else if (destinationPath == null) {
 				// class file only mode
-				if (classpathName.endsWith(JRTUtil.JRT_FS_JAR)) {
+				if (Util.isJrt(classpathName)) {
 					if (JRT_CLASSPATH_CACHE == null) {
 						JRT_CLASSPATH_CACHE = new HashMap<>();
 					} else {
@@ -507,7 +514,7 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 					}
 					answer.setBinaryType(ExternalAnnotationDecorator.create(answer.getBinaryType(), classpathEntry.getPath(),
 							qualifiedTypeName, zip));
-					return answer;
+					return notify(answer);
 				} catch (IOException e) {
 					// ignore broken entry, keep searching
 				} finally {
@@ -521,8 +528,20 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 		// globally configured (annotationsFromClasspath), but no .eea found, decorate in order to answer NO_EEA_FILE:
 		answer.setBinaryType(new ExternalAnnotationDecorator(answer.getBinaryType(), null));
 	}
+	return notify(answer);
+}
+
+private NameEnvironmentAnswer notify(NameEnvironmentAnswer answer) {
+	if(answer == null) {
+		return answer;
+	}
+	Consumer<NameEnvironmentAnswer> listener = this.nameEnvironmentAnswerListener;
+	if(listener != null) {
+		listener.accept(answer);
+	}
 	return answer;
 }
+
 private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, /*NonNull*/char[] moduleName) {
 	if (this.knownFileNames.contains(qualifiedTypeName)) return null; // looking for a file which we know was provided at the beginning of the compilation
 
@@ -809,5 +828,17 @@ public void applyModuleUpdates(IUpdatableModule compilerModule, IUpdatableModule
 				update.accept(compilerModule);
 		}
 	}
+}
+
+/**
+ * @param nameEnvironmentAnswerListener
+ *            a listener for {@link NameEnvironmentAnswer} returned by <code>findType*</code> methods; useful for
+ *            tracking used/answered dependencies during compilation (may be <code>null</code> to unset)
+ * @return a previously set listener (may be <code>null</code>)
+ */
+public Consumer<NameEnvironmentAnswer> setNameEnvironmentAnswerListener(Consumer<NameEnvironmentAnswer> nameEnvironmentAnswerListener) {
+	Consumer<NameEnvironmentAnswer> existing = this.nameEnvironmentAnswerListener;
+	this.nameEnvironmentAnswerListener = nameEnvironmentAnswerListener;
+	return existing;
 }
 }

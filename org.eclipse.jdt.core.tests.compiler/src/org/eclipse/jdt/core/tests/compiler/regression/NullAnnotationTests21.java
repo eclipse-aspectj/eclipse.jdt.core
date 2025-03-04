@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021, 2023 GK Software SE, and others.
+ * Copyright (c) 2021, 2024 GK Software SE, and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -16,12 +16,11 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
-import junit.framework.Test;
 
 public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 
@@ -108,7 +107,7 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 				  "				case Number n0 -> consumeNumber(n0);\n" +
 				  "			}\n" +
 				  "		} catch (NullPointerException npe) {\n" +
-				  "			// ignoring the unchecked warning, and expecting the NPE:\n" +
+				  "			// Expecting an NPE because selector is null\n" +
 				  "			System.out.print(npe.getMessage());\n" +
 				  "		}\n" +
 				  "	}\n" +
@@ -116,6 +115,7 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 				  "		System.out.print(i);\n" +
 				  "	}\n" +
 				  "	void consumeNumber(@NonNull Number n) {\n" +
+				  "     System.out.println(\"consumeNumber \");\n" +
 				  "		System.out.print(n.toString());\n" +
 				  "	}\n" +
 				  "	public static void main(String... args) {\n" +
@@ -123,14 +123,7 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 				  "	}\n" +
 				  "}\n"
 			};
-		runner.expectedCompilerLog =
-				"----------\n" +
-				"1. WARNING in X.java (at line 7)\n" +
-				"	case Number n0 -> consumeNumber(n0);\n" +
-				"	                                ^^\n" +
-				"Null type safety (type annotations): The expression of type \'Number\' needs unchecked conversion to conform to \'@NonNull Number\'\n" +
-				"----------\n";
-//		runner.expectedOutputString = "Cannot invoke \"Object.toString()\" because \"n\" is null";
+		runner.expectedCompilerLog = "";
 		runner.expectedOutputString = "null";
 		runner.runConformTest();
 	}
@@ -235,10 +228,10 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 			};
 		runner.expectedCompilerLog =
 				"----------\n" +
-				"1. ERROR in X.java (at line 6)\n" +
-				"	case Number n0 -> consumeNumber(n0);\n" +
-				"	                                ^^\n" +
-				"Null type mismatch: required \'@NonNull Number\' but the provided value is inferred as @Nullable\n" +
+				"1. ERROR in X.java (at line 4)\n" +
+				"	switch (n) {\n" +
+				"	        ^\n" +
+				"Potential null pointer access: this expression has a '@Nullable' type\n" +
 				"----------\n";
 		runner.runNegativeTest();
 	}
@@ -998,14 +991,17 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 		runner.runConformTest();
 	}
 
-	public void testGH1964_since_22() {
+	// disabling the tests since String Template is no longer there - not removing the test in case it comes back later.
+	public void _testGH1964_since_22() {
+		if (this.complianceLevel < ClassFileConstants.JDK23)
+			return;
 		Runner runner = new Runner();
 		runner.customOptions = getCompilerOptions();
 		runner.customOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		runner.customOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
-		runner.customOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_22);
-		runner.customOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_22);
-		runner.customOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_22);
+		runner.customOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_23);
+		runner.customOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_23);
+		runner.customOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_23);
 		runner.vmArguments = new String[] {"--enable-preview"};
 		runner.testFiles = new String[] {
 			"JDK21TestingMain.java",
@@ -1097,5 +1093,274 @@ public class NullAnnotationTests21 extends AbstractNullAnnotationTest {
 		};
 		runner.classLibraries = this.LIBS;
 		runner.runConformTest();
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2521
+	// NPE on exhaustive pattern matching switch expressions with sealed interface
+	public void testIssue2521() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] {
+			"X.java",
+			"""
+			@org.eclipse.jdt.annotation.NonNullByDefault
+
+			public sealed interface X {
+
+				record Stuff() implements X {}
+
+				static Stuff match(X pm) {
+					return switch(pm) {
+						case Stuff s -> s;
+					 	//default -> new Stuff(); //... you should not need as we exhausted it but Eclipse NPE w/o a default.
+					};
+				}
+
+				public static void main(String[] args) {
+				    System.out.println(match(new Stuff()));
+				}
+			}
+			"""
+		};
+		runner.expectedOutputString =
+				"Stuff[]";
+		runner.classLibraries = this.LIBS;
+		runner.runConformTest();
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2522
+	// Pattern matching on sealed classes cannot infer NonNull (JDK 21)
+	public void testIssue2522() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+			"PatternMatching.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+
+			public sealed interface PatternMatching {
+
+			    record Stuff() implements PatternMatching {}
+
+			    @NonNull
+			    static Stuff match(PatternMatching pm, int v) {
+			    	if (v == 0) {
+						Stuff r = switch (pm) {
+						case Stuff s -> s;
+						case null -> throw new NullPointerException();
+						};
+						return r; // no error here - good
+			    	} else if (v == 1) {
+						Stuff r = switch (pm) {
+						case Stuff s -> s;
+						case null -> throw new NullPointerException();
+						};
+						return null; // get error here	- good
+			    	} else if (v == 2) {
+						Stuff r = switch (pm) {
+						case Stuff s -> s;
+						};
+						return r; // no error here -- good
+			    	} else if (v == 3) {
+						Stuff r = switch (pm) {
+						case Stuff s -> null; // <<<<<---------------------------- Line 28 - error Why ???
+						};
+						return r; // get error here - good
+			    	} else if (v == 4) {
+						Stuff r = switch (pm) {
+						case Stuff s -> s;
+						case null -> null;  // <<<-------------------------------- Line 34 - error Why ??
+						};
+						return new Stuff(); // no error here   // good
+			    	}
+			    	return new Stuff();
+			    }
+			}
+			"""
+		};
+		runner.expectedCompilerLog =
+				"""
+				----------
+				1. ERROR in PatternMatching.java (at line 20)
+					return null; // get error here	- good
+					       ^^^^
+				Null type mismatch: required 'PatternMatching.@NonNull Stuff' but the provided value is null
+				----------
+				2. ERROR in PatternMatching.java (at line 30)
+					return r; // get error here - good
+					       ^
+				Null type mismatch: required 'PatternMatching.@NonNull Stuff' but the provided value is null
+				----------
+				""";
+		runner.runNegativeTest();
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2522
+	// Pattern matching on sealed classes cannot infer NonNull (JDK 21)
+	public void testIssue2522_2() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+			"PatternMatching.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+
+			public sealed interface PatternMatching {
+
+			    record Stuff() implements PatternMatching {}
+
+			    @NonNull
+			    static Stuff match(PatternMatching pm, int v) {
+			    	if (v == 0) {
+						return switch (pm) {
+						case Stuff s -> s;
+						case null -> throw new NullPointerException();
+						}; // no error here - good
+			    	} else if (v == 2) {
+						return switch (pm) {
+						case Stuff s -> s;
+						}; // no error here -- good
+			    	} else if (v == 3) {
+						return switch (pm) {
+						case Stuff s -> null;  // get error here - good
+						};
+			    	}
+			    	return new Stuff();
+			    }
+			}
+			"""
+		};
+		runner.expectedCompilerLog =
+				"""
+				----------
+				1. ERROR in PatternMatching.java (at line 20)
+					case Stuff s -> null;  // get error here - good
+					                ^^^^
+				Null type mismatch: required 'PatternMatching.@NonNull Stuff' but the provided value is null
+				----------
+				""";
+		runner.runNegativeTest();
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3381
+	// [Enhanced Switch][Null] Missing Null pointer access warning with total/unconditional patterns
+	public void testIssue3381() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+			"X.java",
+			"""
+			import org.eclipse.jdt.annotation.Nullable;
+
+			public class X {
+				void foo() {
+					@Nullable Integer i = null;
+					switch (i) {
+						case Integer ii -> System.out.println();
+					}
+				}
+				void goo() {
+					@Nullable Integer i = null;
+					switch (i) {
+						default -> System.out.println();
+					}
+				}
+			}
+			"""
+		};
+		runner.expectedCompilerLog =
+				"""
+				----------
+				1. ERROR in X.java (at line 6)
+					switch (i) {
+					        ^
+				Null pointer access: The variable i can only be null at this location
+				----------
+				2. ERROR in X.java (at line 12)
+					switch (i) {
+					        ^
+				Null pointer access: This expression of type Integer is null but requires auto-unboxing
+				----------
+				""";
+		runner.runNegativeTest();
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3319
+	// [Enhanced Switch][Null] Inconsistent nullness propagation
+	public void testIssue3319() {
+		Runner runner = getDefaultRunner();
+		runner.testFiles = new String[] {
+			"X.java",
+			"""
+			import org.eclipse.jdt.annotation.NonNull;
+
+			public class X {
+				static @NonNull Object foo(Object o) {
+					switch (o) {
+						case String s -> {
+							if (o == null) {
+								System.out.println("o cannot be null at all!");
+							}
+							System.out.println();
+						}
+						default -> {
+							if (o == null) {
+								System.out.println("o cannot be null at all!");
+							}
+							System.out.println();
+						}
+					}
+					return new Object();
+				}
+
+				static @NonNull Object foo(X o) {
+					switch (o) {
+						case X s  -> {
+							if (o == null) {
+								System.out.println("o cannot be null at all!");
+							}
+							System.out.println(s);
+						}
+					}
+					return new Object();
+				}
+			}
+			"""
+		};
+		runner.expectedCompilerLog =
+				"----------\n" +
+				"1. ERROR in X.java (at line 7)\n" +
+				"	if (o == null) {\n" +
+				"	    ^\n" +
+				"Null comparison always yields false: The variable o cannot be null at this location\n" +
+				"----------\n" +
+				"2. WARNING in X.java (at line 7)\n" +
+				"	if (o == null) {\n" +
+				"					System.out.println(\"o cannot be null at all!\");\n" +
+				"				}\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"Dead code\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 13)\n" +
+				"	if (o == null) {\n" +
+				"	    ^\n" +
+				"Null comparison always yields false: The variable o cannot be null at this location\n" +
+				"----------\n" +
+				"4. WARNING in X.java (at line 13)\n" +
+				"	if (o == null) {\n" +
+				"					System.out.println(\"o cannot be null at all!\");\n" +
+				"				}\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"Dead code\n" +
+				"----------\n" +
+				"5. ERROR in X.java (at line 25)\n" +
+				"	if (o == null) {\n" +
+				"	    ^\n" +
+				"Null comparison always yields false: The variable o cannot be null at this location\n" +
+				"----------\n" +
+				"6. WARNING in X.java (at line 25)\n" +
+				"	if (o == null) {\n" +
+				"					System.out.println(\"o cannot be null at all!\");\n" +
+				"				}\n" +
+				"	               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"Dead code\n" +
+				"----------\n";
+		runner.runNegativeTest();
 	}
 }

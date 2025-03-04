@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2023 BEA Systems, Inc.
+ * Copyright (c) 2006, 2024 BEA Systems, Inc.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -23,9 +23,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import javax.tools.JavaFileManager;
-
 import org.eclipse.jdt.internal.compiler.apt.util.EclipseFileManager;
 import org.eclipse.jdt.internal.compiler.batch.Main;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -91,8 +89,8 @@ public class BatchProcessingEnvImpl extends BaseProcessingEnvImpl {
 			this._fileManager = manager;
 		}
 		this._processorOptions = Collections.unmodifiableMap(parseProcessorOptions(commandLineArguments));
-    // AspectJ: use AjBatchFilerImpl
-    this._filer = new AjBatchFilerImpl(this._dispatchManager, this);
+		// AspectJ: use AjBatchFilerImpl
+		this._filer = new AjBatchFilerImpl(this._dispatchManager, this, this._compilerOwner);
 		this._messager = new BatchMessagerImpl(this, this._compilerOwner);
 	}
 

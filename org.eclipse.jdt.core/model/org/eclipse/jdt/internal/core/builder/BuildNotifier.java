@@ -14,10 +14,10 @@
 package org.eclipse.jdt.internal.core.builder;
 
 import java.util.function.BooleanSupplier;
-
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
-
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
@@ -117,7 +117,7 @@ public void checkCancel() {
 }
 
 private long getBuildDurationInMs() {
-	return ((System.nanoTime() - this.startTimeNanos) / 1_000_000);
+	return ((System.nanoTime() - this.startTimeNanos) / 1_000_000L);
 }
 
 /**

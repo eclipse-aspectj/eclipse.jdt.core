@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -13,70 +13,13 @@
 package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.Hashtable;
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
-import org.eclipse.jdt.core.dom.ArrayCreation;
-import org.eclipse.jdt.core.dom.ArrayType;
-import org.eclipse.jdt.core.dom.AssertStatement;
-import org.eclipse.jdt.core.dom.Assignment;
-import org.eclipse.jdt.core.dom.Block;
-import org.eclipse.jdt.core.dom.BooleanLiteral;
-import org.eclipse.jdt.core.dom.BreakStatement;
-import org.eclipse.jdt.core.dom.CatchClause;
-import org.eclipse.jdt.core.dom.ChildListPropertyDescriptor;
-import org.eclipse.jdt.core.dom.ClassInstanceCreation;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.ConstructorInvocation;
-import org.eclipse.jdt.core.dom.ContinueStatement;
-import org.eclipse.jdt.core.dom.DoStatement;
-import org.eclipse.jdt.core.dom.Expression;
-import org.eclipse.jdt.core.dom.ExpressionStatement;
-import org.eclipse.jdt.core.dom.Dimension;
-import org.eclipse.jdt.core.dom.ForStatement;
-import org.eclipse.jdt.core.dom.IfStatement;
-import org.eclipse.jdt.core.dom.InfixExpression;
-import org.eclipse.jdt.core.dom.LabeledStatement;
-import org.eclipse.jdt.core.dom.MarkerAnnotation;
-import org.eclipse.jdt.core.dom.MemberValuePair;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.Modifier;
-import org.eclipse.jdt.core.dom.Name;
-import org.eclipse.jdt.core.dom.NormalAnnotation;
-import org.eclipse.jdt.core.dom.ParenthesizedExpression;
-import org.eclipse.jdt.core.dom.PrefixExpression;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.ReturnStatement;
-import org.eclipse.jdt.core.dom.SimpleName;
-import org.eclipse.jdt.core.dom.SimplePropertyDescriptor;
-import org.eclipse.jdt.core.dom.SimpleType;
-import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.Statement;
-import org.eclipse.jdt.core.dom.StringLiteral;
-import org.eclipse.jdt.core.dom.SwitchCase;
-import org.eclipse.jdt.core.dom.SwitchStatement;
-import org.eclipse.jdt.core.dom.SynchronizedStatement;
-import org.eclipse.jdt.core.dom.ThrowStatement;
-import org.eclipse.jdt.core.dom.TryStatement;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
-import org.eclipse.jdt.core.dom.TypeDeclarationStatement;
-import org.eclipse.jdt.core.dom.TypeLiteral;
-import org.eclipse.jdt.core.dom.UnionType;
-import org.eclipse.jdt.core.dom.VariableDeclarationExpression;
-import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
-import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
-import org.eclipse.jdt.core.dom.WhileStatement;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.core.formatter.CodeFormatter;
@@ -113,16 +56,6 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 
-	/** @deprecated using deprecated code */
-	private void internalSetExtraDimensions(VariableDeclarationFragment node, int dimensions) {
-		if (this.apiLevel < AST.JLS8) {
-			node.setExtraDimensions(dimensions);
-		} else {
-			while (dimensions > 0) {
-				node.extraDimensions().add(node.getAST().newDimension());
-			}
-		}
-	}
 	public void testInsert1() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		/* foo(): append a return statement */
@@ -1453,7 +1386,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 	}
 	public void testDoStatement2_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -2616,6 +2549,51 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		buf.append("                return;\n");
 		buf.append("            } catch (Exception e) {\n");
 		buf.append("            }\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		assertEqualString(preview, buf.toString());
+
+	}
+
+	public void testIfStatement_issue3630() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuilder buf= new StringBuilder();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        if (i == 0)\n");
+		buf.append("            System.beep(); // comment\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+		AST ast= astRoot.getAST();
+
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "E");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+		assertTrue("Number of statements not 1", statements.size() == 1);
+
+		{ // replace then statement by a block statement
+			IfStatement ifStatement= (IfStatement) statements.get(0);
+			ASTNode copyNode= rewrite.createCopyTarget(ifStatement.getThenStatement());
+			Block newBlock= ast.newBlock();
+			newBlock.statements().add(copyNode);
+			rewrite.replace(ifStatement.getThenStatement(), newBlock, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+
+		buf= new StringBuilder();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        if (i == 0) {\n");
+		buf.append("            System.beep(); // comment\n");
+		buf.append("        }\n");
 		buf.append("    }\n");
 		buf.append("}\n");
 		assertEqualString(preview, buf.toString());
@@ -4998,7 +4976,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	}
 
 	public void testTryStatement2_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5056,7 +5034,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 	public void testTryStatement3_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5118,7 +5096,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 	public void testTryStatement4_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5169,7 +5147,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 	public void testTryStatementWithResources_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5272,7 +5250,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	}
 
 	public void testTryStatementWithResources2_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5332,7 +5310,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	 */
 	public void testTryStatementWithResources3_since_4() throws Exception {
 
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5405,7 +5383,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	 */
 	public void testTryStatementWithResources4_since_4() throws Exception {
 
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5438,7 +5416,6 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			TryStatement tryStatement = (TryStatement) statement;
 
 			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
-			internalSetExtraDimensions(fragment, 0);
 			fragment.setName(ast.newSimpleName("reader2"));
 			ClassInstanceCreation classInstanceCreation = ast.newClassInstanceCreation();
 			classInstanceCreation.setType(ast.newSimpleType(ast.newSimpleName("FileReader")));
@@ -5480,7 +5457,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	 */
 	public void testTryStatementWithResources5_since_4() throws Exception {
 
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5513,7 +5490,6 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			TryStatement tryStatement = (TryStatement) statement;
 
 			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
-			internalSetExtraDimensions(fragment, 0);
 			fragment.setName(ast.newSimpleName("reader2"));
 			ClassInstanceCreation classInstanceCreation = ast.newClassInstanceCreation();
 			classInstanceCreation.setType(ast.newSimpleType(ast.newSimpleName("FileReader")));
@@ -5553,7 +5529,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/** Add an annotation to a resource, with linebreak (default) */
 	public void testTryStatementWithResources6_since_4() throws Exception {
 
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
 		try {
@@ -5619,7 +5595,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/** Add an annotation to a resource, no linebreak */
 	public void testTryStatementWithResources7_since_4() throws Exception {
 
-		IJavaProject javaProject = createProject("P_17", JavaCore.VERSION_1_7);
+		IJavaProject javaProject = createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_INSERT_NEW_LINE_AFTER_ANNOTATION_ON_LOCAL_VARIABLE, JavaCore.DO_NOT_INSERT);
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE, DefaultCodeFormatterConstants.createAlignmentValue(false, DefaultCodeFormatterConstants.WRAP_NO_SPLIT));
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -5685,7 +5661,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=571377
 	// add resources to existing try statement
 	public void testTryStatementWithResources8_since_9() throws Exception {
-		IJavaProject project = createProject("P_17", JavaCore.VERSION_1_7);
+		IJavaProject project = createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		project.setOption(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK, DefaultCodeFormatterConstants.NEXT_LINE);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 		try {
@@ -5767,8 +5743,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 
-	/** @deprecated using deprecated code */
-	public void testTypeDeclarationStatement_only_2() throws Exception {
+	public void testTypeDeclarationStatement() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuilder buf= new StringBuilder();
 		buf.append("package test1;\n");
@@ -5799,7 +5774,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			newDeclaration.setName(ast.newSimpleName("X"));
 			newDeclaration.setInterface(true);
 
-			rewrite.replace(stmt.getTypeDeclaration(), newDeclaration, null);
+			rewrite.replace(stmt.getDeclaration(), newDeclaration, null);
 		}
 
 		String preview= evaluateRewrite(cu, rewrite);
@@ -5905,7 +5880,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/** Add an annotation to a local variable, no linebreak */
 	public void testVariableDeclarationStatement2_only_3() throws Exception {
 
-		IJavaProject javaProject = createProject("P_17", JavaCore.VERSION_1_7);
+		IJavaProject javaProject = createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_INSERT_NEW_LINE_AFTER_ANNOTATION_ON_LOCAL_VARIABLE, JavaCore.DO_NOT_INSERT);
 		javaProject.setOption(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ANNOTATIONS_ON_LOCAL_VARIABLE, DefaultCodeFormatterConstants.createAlignmentValue(false, DefaultCodeFormatterConstants.WRAP_NO_SPLIT));
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -6249,7 +6224,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=350285
 	// Test that converting a multi catch into a normal catch using complete block copy doesn't change indentation
 	public void testTryStatementWithMultiCatch1_since_4() throws Exception {
-		createProject("P_17", JavaCore.VERSION_1_7);
+		createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 		try {
 			IPackageFragment pack1= currentSourceFolder.createPackageFragment("test1", false, null);
@@ -6322,7 +6297,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=350285
 	// similar to testTryStatementWithMultiCatch1() but has a different brace position
 	public void testTryStatementWithMultiCatch2_since_4() throws Exception {
-		IJavaProject project = createProject("P_17", JavaCore.VERSION_1_7);
+		IJavaProject project = createProject("P_17", CompilerOptions.getFirstSupportedJavaVersion());
 		project.setOption(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK, DefaultCodeFormatterConstants.NEXT_LINE);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 		try {

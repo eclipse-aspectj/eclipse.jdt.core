@@ -15,7 +15,20 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler;
 
-import java.util.ArrayList;
+import java.lang.ref.SoftReference;
+import java.util.*;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.core.compiler.IProblem;
+import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
+import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
+import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
+import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
+import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
+import org.eclipse.jdt.internal.compiler.parser.RecoveryScannerData;
+import org.eclipse.jdt.internal.compiler.util.Util;
+
 /**
  * A compilation result consists of all information returned by the compiler for
  * a single compiled compilation source unit.  This includes:
@@ -36,28 +49,6 @@ import java.util.ArrayList;
  * specific fields and methods which were referenced, but does contain their
  * declaring types and any other types used to locate such fields or methods.
  */
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.eclipse.jdt.core.compiler.CategorizedProblem;
-import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.core.compiler.IProblem;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
-import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
-import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
-import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.parser.RecoveryScannerData;
-import org.eclipse.jdt.internal.compiler.util.Util;
-
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class CompilationResult {
 
@@ -88,6 +79,8 @@ public class CompilationResult {
 	private boolean hasMandatoryErrors;
 	public List<AnnotationBinding[]> annotations = new ArrayList<>(1);
 	private List<Runnable> scheduledProblems;
+	private volatile boolean cacheSource;
+	private volatile SoftReference<char[]> contentRef;
 
 	private static final int[] EMPTY_LINE_ENDS = Util.EMPTY_INT_ARRAY;
 	private static final Comparator PROBLEM_COMPARATOR = new Comparator() {
@@ -499,56 +492,81 @@ public void materializeProblems() {
 	}
 }
 
-	// AspectJ Extension
-	private boolean fromBinarySource = false;
-	public boolean isFromBinarySource() { return fromBinarySource; }
-	public void noSourceAvailable() { fromBinarySource = true; }
+public void cacheSource() {
+	this.cacheSource = true;
+}
 
-	/**
-	 * Can be used to tidy up the problems set, if a problem is accepted by the
-	 * filter, it will be removed. Returns number of problems removed.
-	 */
-	public int removeProblems(ProblemsForRemovalFilter pf) {
-		if (problemCount==0) return 0;
-
-		// Quick first pass - check if anything to do
-		boolean problemsNeedRemoving = false;
-		for (int i = 0; i < problemCount && !problemsNeedRemoving; i++) {
-			if (pf.accept(problems[i])) problemsNeedRemoving = true;
+public char[] getContents() {
+	SoftReference<char[]> cr = this.contentRef;
+	if (cr != null) {
+		char[] cachedContents = cr.get();
+		if (cachedContents != null) {
+			return cachedContents;
 		}
-		if (!problemsNeedRemoving) return 0;
+	}
+	return this.compilationUnit.getContents();
+}
 
-		// Second pass, do the removal - is this expensive?
-		int removed = 0;
-		for (int i = 0; i < problemCount; i++) {
-			if (pf.accept(problems[i])) {
-				if (problemsMap!=null) problemsMap.remove(problems[i]);
-				if (firstErrors!=null) firstErrors.remove(problems[i]);
-				problems[i] = null;
-				removed++;
-			}
+public void cacheContents(char[] contents) {
+	if (this.cacheSource) {
+		this.contentRef = new SoftReference<>(contents);
+	}
+}
+
+public void releaseContent() {
+	this.contentRef = null;
+}
+
+// AspectJ Extension
+private boolean fromBinarySource = false;
+public boolean isFromBinarySource() { return fromBinarySource; }
+public void noSourceAvailable() { fromBinarySource = true; }
+
+/**
+ * Can be used to tidy up the problems set, if a problem is accepted by the
+ * filter, it will be removed. Returns number of problems removed.
+ */
+public int removeProblems(ProblemsForRemovalFilter pf) {
+	if (problemCount==0) return 0;
+
+	// Quick first pass - check if anything to do
+	boolean problemsNeedRemoving = false;
+	for (int i = 0; i < problemCount && !problemsNeedRemoving; i++) {
+		if (pf.accept(problems[i])) problemsNeedRemoving = true;
+	}
+	if (!problemsNeedRemoving) return 0;
+
+	// Second pass, do the removal - is this expensive?
+	int removed = 0;
+	for (int i = 0; i < problemCount; i++) {
+		if (pf.accept(problems[i])) {
+			if (problemsMap!=null) problemsMap.remove(problems[i]);
+			if (firstErrors!=null) firstErrors.remove(problems[i]);
+			problems[i] = null;
+			removed++;
 		}
-		if (removed > 0) {
-			for (int i = 0, index = 0; i < this.problemCount; i++) {
-				CategorizedProblem problem;
-				if ((problem = this.problems[i]) != null) {
-					if (i > index) {
-						this.problems[index++] = problem;
-					} else {
-						index++;
-					}
+	}
+	if (removed > 0) {
+		for (int i = 0, index = 0; i < this.problemCount; i++) {
+			CategorizedProblem problem;
+			if ((problem = this.problems[i]) != null) {
+				if (i > index) {
+					this.problems[index++] = problem;
+				} else {
+					index++;
 				}
 			}
-			this.problemCount -= removed;
 		}
-
-		// Don't adjust the array size as the same deows are likely just to get readded
-		// in the imminent weave...
-		return removed;
+		this.problemCount -= removed;
 	}
 
-	public interface ProblemsForRemovalFilter {
-		boolean accept(IProblem p);
-	}
-	// End AspectJ Extension
+	// Don't adjust the array size as the same deows are likely just to get readded
+	// in the imminent weave...
+	return removed;
+}
+
+public interface ProblemsForRemovalFilter {
+	boolean accept(IProblem p);
+}
+// End AspectJ Extension
 }

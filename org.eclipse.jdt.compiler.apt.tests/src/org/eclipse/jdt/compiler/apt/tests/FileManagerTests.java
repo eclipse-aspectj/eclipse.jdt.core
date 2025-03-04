@@ -31,16 +31,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-
 import javax.lang.model.SourceVersion;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
-
-import org.eclipse.jdt.internal.compiler.apt.util.EclipseFileManager;
-
 import junit.framework.TestCase;
+import org.eclipse.jdt.internal.compiler.apt.util.EclipseFileManager;
 
 /**
  * Test the implementation of the Filer interface,
@@ -228,6 +225,7 @@ public class FileManagerTests extends TestCase {
 		assertNull(loader.findResource("jarresource.txt")); // assert the classloader is closed
 	}
 
+	@SuppressWarnings("removal")
 	public void testBug573287_ArchiveFileObject_openInputStream() throws Exception {
 		Path dir = Files.createTempDirectory("repro573287-");
 		Path target = dir.resolve("copy573287.zip");

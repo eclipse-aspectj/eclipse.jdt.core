@@ -14,29 +14,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import java.util.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
-import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.FunctionalExpression;
-import org.eclipse.jdt.internal.compiler.ast.Invocation;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.RecordPattern;
-import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
-import org.eclipse.jdt.internal.compiler.ast.SwitchExpression;
-import org.eclipse.jdt.internal.compiler.ast.Wildcard;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants.BoundCheckStatus;
 import org.eclipse.jdt.internal.compiler.util.Sorting;
 
@@ -112,6 +92,7 @@ import org.eclipse.jdt.internal.compiler.util.Sorting;
 public class InferenceContext18 {
 
 	public final static boolean DEBUG = false;
+	public final static boolean DEBUG_FINE = false;
 
 	/** to conform with javac regarding https://bugs.openjdk.java.net/browse/JDK-8026527 */
 	static final boolean SIMULATE_BUG_JDK_8026527 = true;
@@ -179,6 +160,8 @@ public class InferenceContext18 {
 	// the following two flags control to what degree we continue with incomplete information:
 	private boolean isInexactVarargsInference = false;
 	boolean prematureOverloadResolution = false;
+	// during reduction we ignore missing types but record that fact here:
+	boolean hasIgnoredMissingType;
 
 	public static boolean isSameSite(InvocationSite site1, InvocationSite site2) {
 		if (site1 == site2)
@@ -593,10 +576,9 @@ public class InferenceContext18 {
 			if (addJDK_8153748ConstraintsFromExpression(ce.valueIfTrue, parameter, method, substitution) == ReductionResult.FALSE)
 				return ReductionResult.FALSE;
 			return addJDK_8153748ConstraintsFromExpression(ce.valueIfFalse, parameter, method, substitution);
-		} else if (argument instanceof SwitchExpression) {
-			SwitchExpression se = (SwitchExpression) argument;
+		} else if (argument instanceof SwitchExpression se) {
 			ReductionResult result = ReductionResult.FALSE;
-			for (Expression re : se.resultExpressions) {
+			for (Expression re : se.resultExpressions()) {
 				result = addJDK_8153748ConstraintsFromExpression(re, parameter, method, substitution);
 				if (result == ReductionResult.FALSE)
 					break;
@@ -709,6 +691,8 @@ public class InferenceContext18 {
 			MethodBinding innerMethod = invocation.binding();
 			if (innerMethod == null)
 				return true; 		  // -> proceed with no new C set elements.
+			if (innerMethod instanceof PolyParameterizedGenericMethodBinding poly && poly.hasOverloads)
+				return true;		  // don't let ambiguous inner method influence outer inference
 
 			Expression[] arguments = invocation.arguments();
 			TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
@@ -738,9 +722,8 @@ public class InferenceContext18 {
 			ConditionalExpression ce = (ConditionalExpression) expri;
 			return addConstraintsToC_OneExpr(ce.valueIfTrue, c, fsi, substF, method)
 					&& addConstraintsToC_OneExpr(ce.valueIfFalse, c, fsi, substF, method);
-		} else if (expri instanceof SwitchExpression) {
-			SwitchExpression se = (SwitchExpression) expri;
-			for (Expression re : se.resultExpressions) {
+		} else if (expri instanceof SwitchExpression se) {
+			for (Expression re : se.resultExpressions()) {
 				if (!addConstraintsToC_OneExpr(re, c, fsi, substF, method))
 					return false;
 			}
@@ -753,6 +736,7 @@ public class InferenceContext18 {
 	protected int getInferenceKind(MethodBinding nonGenericMethod, TypeBinding[] argumentTypes) {
 		switch (this.scope.parameterCompatibilityLevel(nonGenericMethod, argumentTypes)) {
 			case Scope.AUTOBOX_COMPATIBLE:
+			case Scope.COMPATIBLE_IGNORING_MISSING_TYPE: // if in doubt the method with missing types should be accepted to signal its relevance for resolution
 				return CHECK_LOOSE;
 			case Scope.VARARGS_COMPATIBLE:
 				return CHECK_VARARG;
@@ -987,9 +971,8 @@ public class InferenceContext18 {
 		} else if (expri instanceof ConditionalExpression) {
 			ConditionalExpression cond = (ConditionalExpression) expri;
 			return  checkExpression(cond.valueIfTrue, u, r1, v, r2) && checkExpression(cond.valueIfFalse, u, r1, v, r2);
-		} else if (expri instanceof SwitchExpression) {
-			SwitchExpression se = (SwitchExpression) expri;
-			for (Expression re : se.resultExpressions) {
+		} else if (expri instanceof SwitchExpression se) {
+			for (Expression re : se.resultExpressions()) {
 				if (!checkExpression(re, u, r1, v, r2))
 					return false;
 			}
@@ -1094,7 +1077,7 @@ public class InferenceContext18 {
 		}
 		this.initialConstraints = null;
 		if (DEBUG) {
-			System.out.println("reduced to\n"+this); //$NON-NLS-1$
+			System.out.println("Reduced all to:\n"+this); //$NON-NLS-1$
 		}
 		return true;
 	}
@@ -2063,27 +2046,17 @@ public class InferenceContext18 {
 			return false;
 		ReferenceBinding rAlpha = this.environment.createParameterizedType(
 				(ReferenceBinding) typeBinding.original(), alphas, typeBinding.enclosingType(), typeBinding.getTypeAnnotations());
-		TypeBinding[] rPrimes = this.currentBounds.condition18_5_5_item_4(rAlpha, alphas, tPrime, this);
-		if (rPrimes != null) {
-			// TODO:
+		TypeBinding rPrime = this.currentBounds.condition18_5_5_item_4(rAlpha, alphas, tPrime, this);
+		if (rPrime != null) {
 			/* The constraint formula ‹T' = R'› is reduced (18.2) and the resulting bounds are
-			 * incorporated into B1 to produce a new bound set, B2.
-			 * TODO: refactor the method below into two? - instead of creating array - here reusing. */
-			for (TypeBinding rPrime : rPrimes) {
-				if (!rPrime.isParameterizedType()) continue;
-				try {
-					if (!reduceAndIncorporate(ConstraintTypeFormula.create(tPrime, rPrime, ReductionResult.SAME))) {
-						 /* If B2 contains the bound false, inference fails. */
-						return false;
-					}
-				} catch (InferenceFailureException e) {
+			 * incorporated into B1 to produce a new bound set, B2. */
+			try {
+				if (!reduceAndIncorporate(ConstraintTypeFormula.create(tPrime, rPrime, ReductionResult.SAME))) {
+					 /* If B2 contains the bound false, inference fails. */
 					return false;
 				}
-//				if (rPrime.typeArguments().length == 0) continue; // TODO: should we?
-//				if (!reduceWithEqualityConstraints(new TypeBinding[] {tPrime}, new TypeBinding[] {rPrime})) {
-//					 /* If B2 contains the bound false, inference fails. */
-//					return false;
-//				}
+			} catch (InferenceFailureException e) {
+				return false;
 			}
 		} /* else part: Otherwise, B2 is the same as B1.*/
 		return true;

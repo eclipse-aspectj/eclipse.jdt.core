@@ -17,7 +17,6 @@ package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
@@ -63,6 +62,10 @@ class ConstraintTypeFormula extends ConstraintFormula {
 	// return: ReductionResult or ConstraintFormula[]
 	@Override
 	public Object reduce(InferenceContext18 inferenceContext) {
+		if ((this.left.tagBits & TagBits.HasMissingType) != 0 || (this.right.tagBits & TagBits.HasMissingType) != 0) {
+			inferenceContext.hasIgnoredMissingType = true;
+			return TRUE;
+		}
 		switch (this.relation) {
 		case COMPATIBLE:
 			// 18.2.2:
@@ -113,6 +116,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					return ConstraintTypeFormula.create(this.left, this.right, SAME, this.isSoft);
 				} else {
 					// TODO: speculative addition:
+					//       see also note in BoundSet.combineSameSameWithProperType(..)
 					if (this.right instanceof InferenceVariable)
 						return new TypeBound((InferenceVariable) this.right, this.left, SAME, this.isSoft);
 					return FALSE;
@@ -423,8 +427,8 @@ class ConstraintTypeFormula extends ConstraintFormula {
 	// debugging
 	@Override
 	public String toString() {
-		StringBuilder buf = new StringBuilder("Type Constraint:\n"); //$NON-NLS-1$
-		buf.append('\t').append(LEFT_ANGLE_BRACKET);
+		StringBuilder buf = new StringBuilder();
+		buf.append(LEFT_ANGLE_BRACKET);
 		appendTypeName(buf, this.left);
 		buf.append(relationToString(this.relation));
 		appendTypeName(buf, this.right);

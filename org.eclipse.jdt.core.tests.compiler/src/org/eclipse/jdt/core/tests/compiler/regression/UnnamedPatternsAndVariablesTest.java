@@ -7,25 +7,21 @@
  * https://www.eclipse.org/legal/epl-2.0/
  *
  * SPDX-License-Identifier: EPL-2.0
+ *
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.IOException;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.core.util.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
-import junit.framework.Test;
 
 public class UnnamedPatternsAndVariablesTest extends AbstractBatchCompilerTest {
 
-	private static String[] JAVAC_OPTIONS = new String[] { "--enable-preview" };
-
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(UnnamedPatternsAndVariablesTest.class, F_22);
+		return buildMinimalComplianceTestSuite(UnnamedPatternsAndVariablesTest.class, F_23);
 	}
 
 	static {
@@ -39,16 +35,13 @@ public class UnnamedPatternsAndVariablesTest extends AbstractBatchCompilerTest {
 	@Override
 	protected Map<String, String> getCompilerOptions() {
 		CompilerOptions compilerOptions = new CompilerOptions(super.getCompilerOptions());
-		if (compilerOptions.sourceLevel == ClassFileConstants.JDK22) {
-			compilerOptions.enablePreviewFeatures = true;
-		}
 		return compilerOptions.getMap();
 	}
 
 	public void runConformTest(String[] files, String expectedOutput) {
 		if(!isJRE22Plus)
 			return;
-		super.runConformTest(files, expectedOutput, null, JAVAC_OPTIONS);
+		super.runConformTest(files, expectedOutput, null, null);
 	}
 
 	public void testAllSnippetsFromUnnamedVariablesAndPatternsProposal() {

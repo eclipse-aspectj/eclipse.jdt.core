@@ -14,14 +14,12 @@
 
 package org.eclipse.jdt.apt.tests.annotations.pause;
 
-import java.util.Collection;
-import java.util.Set;
-
-import org.eclipse.jdt.apt.tests.annotations.BaseProcessor;
-
 import com.sun.mirror.apt.AnnotationProcessorEnvironment;
 import com.sun.mirror.declaration.AnnotationTypeDeclaration;
 import com.sun.mirror.declaration.Declaration;
+import java.util.Collection;
+import java.util.Set;
+import org.eclipse.jdt.apt.tests.annotations.BaseProcessor;
 
 /**
  * Used to test performance in the IDE.  Processing @Pause
@@ -46,14 +44,13 @@ public class PauseAnnotationProcessor extends BaseProcessor {
         Collection<Declaration> annotatedDecls = _env.getDeclarationsAnnotatedWith(_annotationDecl);
         for (Declaration decl : annotatedDecls) {
         	Pause a = decl.getAnnotation(Pause.class);
-        	int pause = a.value();
-        	System.out.println(phase + " pausing for " + pause + " to process " + decl.getSimpleName() + "...");
+        	int pauseMs = a.value();
+        	System.out.println(phase + " pausing for " + pauseMs + " to process " + decl.getSimpleName() + "...");
         	// busy sleep
-        	long end = System.currentTimeMillis() + pause;
-        	while (System.currentTimeMillis() < end)
-        		for (int i = 0; i < 100000; ++i) {
-        			/* pausing */
-        		}
+        	long timeoutNanos = System.nanoTime() + pauseMs * 1_000_000L;
+        	while (System.nanoTime() < timeoutNanos) {
+        		Thread.onSpinWait();
+        	}
         	System.out.println(phase + " finished pausing");
         }
 	}

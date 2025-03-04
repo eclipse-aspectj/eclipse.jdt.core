@@ -25,22 +25,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
-
+import java.util.*;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestSuite;
-
 import org.eclipse.jdt.core.tests.compiler.regression.NullReferenceImplTests.State;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
@@ -655,9 +643,9 @@ public void test2062_mergedWith() {
 
 public void test2400_state_consistency() {
 	int failures = 0;
-	long start;
+	long startNanos;
 	if (MEASURE_PERFORMANCES) {
-		start = System.currentTimeMillis();
+		startNanos = System.nanoTime();
 	}
 	String header = "state consistency failures: ";
 	for (int l = 0; l < COMBINATION_TESTS_LOOP_NB ; l++) {
@@ -733,7 +721,7 @@ public void test2400_state_consistency() {
 	}
 	if (MEASURE_PERFORMANCES) {
 		System.out.println("mergedWith\t\t\t" + COMBINATION_TESTS_LOOP_NB + "\t" +
-				(System.currentTimeMillis() - start));
+				(System.nanoTime() - startNanos) / 1_000_000L);
 	}
 	for (int i = 0; i < State.states.length; i++) {
 		if (State.states[i].symbolic) {

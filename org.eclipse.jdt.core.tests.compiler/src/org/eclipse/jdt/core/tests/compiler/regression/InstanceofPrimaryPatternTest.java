@@ -13,11 +13,8 @@
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
-
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
 import junit.framework.Test;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 
@@ -37,26 +34,7 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 	public InstanceofPrimaryPatternTest(String testName){
 		super(testName);
 	}
-	// Enables the tests to run individually
-	protected Map<String, String> getCompilerOptions(boolean preview) {
-		Map<String, String> defaultOptions = super.getCompilerOptions();
-		if (this.complianceLevel >= ClassFileConstants.getLatestJDKLevel()
-				&& preview) {
-			defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
-		}
-		return defaultOptions;
-	}
 
-	protected Map<String, String> getCompilerOptions() {
-		return getCompilerOptions(true);
-	}
-
-	@Override
-	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
-		if(!isJRE17Plus)
-			return;
-		runConformTest(testFiles, expectedOutput, customOptions, new String[] {"--enable-preview"}, JAVAC_OPTIONS);
-	}
 	protected void runNegativeTest(
 			String[] testFiles,
 			String expectedCompilerLog,
@@ -73,7 +51,6 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 		runner.runNegativeTest();
 	}
 	public void test001() {
-		Map<String, String> options = getCompilerOptions(true);
 		runConformTest(
 			new String[] {
 				"X.java",
@@ -88,8 +65,7 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 				"	}\n" +
 				"}\n",
 			},
-			"Hello World!",
-			options);
+			"Hello World!");
 	}
 	public void test002() {
 		String expectedDiagnostics = this.complianceLevel < ClassFileConstants.JDK20 ?
@@ -226,12 +202,26 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 				"	}\n" +
 				"}\n",
 			},
+			this.complianceLevel < ClassFileConstants.JDK21 ?
+
 			"----------\n" +
-			"1. ERROR in X.java (at line 4)\n" +
+			"1. ERROR in X.java (at line 3)\n" +
+			"	if (s instanceof Object o) {\n" +
+			"	    ^\n" +
+			"Expression type cannot be a subtype of the Pattern type\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 4)\n" +
 			"	System.out.println(s1);\n" +
 			"	                   ^^\n" +
 			"s1 cannot be resolved to a variable\n" +
-			"----------\n");
+			"----------\n" :
+
+					"----------\n" +
+					"1. ERROR in X.java (at line 4)\n" +
+					"	System.out.println(s1);\n" +
+					"	                   ^^\n" +
+					"s1 cannot be resolved to a variable\n" +
+					"----------\n");
 	}
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1076
 	// ECJ accepts invalid Java code instanceof final Type
@@ -647,5 +637,120 @@ public class InstanceofPrimaryPatternTest extends AbstractRegressionTest {
 			+ "	                                 ^\n"
 			+ "A pattern variable with the same name is already defined in the statement\n"
 			+ "----------\n");
+	}
+
+	public void testGH3074() {
+		runNegativeTest(
+			new String[] {
+				"Example.java",
+				"""
+				class Example<T> {
+					private void foo(String x) {
+						if (x instanceof Example<String> es) {
+
+						}
+					}
+				}
+				"""
+			},
+			"""
+			----------
+			1. ERROR in Example.java (at line 3)
+				if (x instanceof Example<String> es) {
+				    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Incompatible conditional operand types String and Example<String>
+			----------
+			""");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3222
+	// [Patterns][Ternary] Pattern binding variable not recognized in poly conditional operator expression
+	public void testIssue3222() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					interface I  {
+						int foo();
+					}
+
+					static void foo(I i) {
+				        System.out.println(i.foo());
+				    }
+
+					public static void main(String[] args) {
+						foo(args instanceof String [] argv ? () -> argv.length + 13  : () -> 42);
+					}
+
+				}
+				"""
+			},
+			"13");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3222
+	// [Patterns][Ternary] Pattern binding variable not recognized in poly conditional operator expression
+	public void testIssue3222_2() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				public class X {
+
+					interface I  {
+						int foo();
+					}
+
+					static void foo(I i) {
+				        System.out.println(i.foo());
+				    }
+
+					public static void main(String[] args) {
+						foo(!(args instanceof String [] argv) ? () -> 42 : () -> argv.length + 13);
+					}
+
+				}
+				"""
+			},
+			"13");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3222
+	// [Patterns][Ternary] Pattern binding variable not recognized in poly conditional operator expression
+	public void testIssue3222_3() {
+		if (this.complianceLevel < ClassFileConstants.JDK21)
+			return;
+		runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				import java.util.function.Supplier;
+
+				public class X {
+				  interface I {
+				    int foo(Supplier<Integer> arg);
+				    default int foo(Object arg) {
+				      return 13;
+				    }
+				  }
+				  public X() {
+				    super();
+				  }
+				  public static void main(String[] argv) {
+				    int i = ((I) (x) -> {
+				  return x.get();
+				}).foo((argv instanceof String [] args ? () -> args.length + 42 : (Supplier<Integer>) null));
+				    System.out.println(i);
+				  }
+				}
+				"""
+			},
+			"42");
 	}
 }

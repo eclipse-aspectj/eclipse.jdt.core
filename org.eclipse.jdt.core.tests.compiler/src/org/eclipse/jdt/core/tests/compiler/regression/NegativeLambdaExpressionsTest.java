@@ -27,13 +27,11 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.IOException;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.Excuse;
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
-import junit.framework.Test;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class NegativeLambdaExpressionsTest extends AbstractRegressionTest {
@@ -61,6 +59,7 @@ public static Test setUpTest(Test test) throws Exception {
 protected Map getCompilerOptions() {
 	Map defaultOptions = super.getCompilerOptions();
 	defaultOptions.put(CompilerOptions.OPTION_ReportUnnecessaryTypeCheck, CompilerOptions.WARNING);
+	defaultOptions.put(CompilerOptions.OPTION_ReportUnusedLambdaParameter, CompilerOptions.IGNORE);
 	return defaultOptions;
 }
 
@@ -6585,9 +6584,9 @@ public void test406588() {
 				"}\n"
 			},
 			"----------\n" +
-			"1. ERROR in X.java (at line 1)\n" +
-			"	interface I {\n" +
-			"	^\n" +
+			"1. ERROR in X.java (at line 10)\n" + 
+			"	this(Z::new);\n" + 
+			"	     ^^^^^^\n" + 
 			"No enclosing instance of type X.Y is available due to some intermediate constructor invocation\n" +
 			"----------\n");
 }
@@ -6608,9 +6607,9 @@ public void test406586() {
 				"}\n"
 			},
 			"----------\n" +
-			"1. ERROR in X.java (at line 1)\n" +
-			"	interface I {\n" +
-			"	^\n" +
+			"1. ERROR in X.java (at line 8)\n" +
+			"	I i = Y::new;\n" +
+			"	      ^^^^^^\n" +
 			"No enclosing instance of type X is accessible. Must qualify the allocation with an enclosing instance of type X (e.g. x.new A() where x is an instance of X).\n" +
 			"----------\n");
 }
@@ -8612,7 +8611,7 @@ public void test428177() {
 		"5. ERROR in X.java (at line 38)\n" +
 		"	return stream.collect(Collectors.toList()); // NO ERROR\n" +
 		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from List<capture#17-of ? extends String> to Stream<String>\n" +
+		"Type mismatch: cannot convert from List<capture#16-of ? extends String> to Stream<String>\n" +
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428795, - [1.8]Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.ast.MessageSend.analyseCode

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IClassFile;
@@ -25,105 +25,17 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.IProblem;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.ASTVisitor;
-import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
-import org.eclipse.jdt.core.dom.Annotation;
-import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
-import org.eclipse.jdt.core.dom.AnnotationTypeMemberDeclaration;
-import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
-import org.eclipse.jdt.core.dom.ArrayAccess;
-import org.eclipse.jdt.core.dom.ArrayCreation;
-import org.eclipse.jdt.core.dom.ArrayInitializer;
-import org.eclipse.jdt.core.dom.ArrayType;
-import org.eclipse.jdt.core.dom.Assignment;
-import org.eclipse.jdt.core.dom.Block;
-import org.eclipse.jdt.core.dom.BodyDeclaration;
-import org.eclipse.jdt.core.dom.BooleanLiteral;
-import org.eclipse.jdt.core.dom.CastExpression;
-import org.eclipse.jdt.core.dom.CharacterLiteral;
-import org.eclipse.jdt.core.dom.ClassInstanceCreation;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.ConditionalExpression;
-import org.eclipse.jdt.core.dom.Dimension;
-import org.eclipse.jdt.core.dom.EnumDeclaration;
-import org.eclipse.jdt.core.dom.ExpressionStatement;
-import org.eclipse.jdt.core.dom.FieldAccess;
-import org.eclipse.jdt.core.dom.FieldDeclaration;
-import org.eclipse.jdt.core.dom.ImportDeclaration;
-import org.eclipse.jdt.core.dom.InfixExpression;
-import org.eclipse.jdt.core.dom.Initializer;
-import org.eclipse.jdt.core.dom.InstanceofExpression;
-import org.eclipse.jdt.core.dom.MarkerAnnotation;
-import org.eclipse.jdt.core.dom.MemberRef;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.MethodRef;
-import org.eclipse.jdt.core.dom.ModuleDeclaration;
-import org.eclipse.jdt.core.dom.NormalAnnotation;
-import org.eclipse.jdt.core.dom.NullLiteral;
-import org.eclipse.jdt.core.dom.NumberLiteral;
-import org.eclipse.jdt.core.dom.PackageDeclaration;
-import org.eclipse.jdt.core.dom.ParameterizedType;
-import org.eclipse.jdt.core.dom.ParenthesizedExpression;
-import org.eclipse.jdt.core.dom.PostfixExpression;
-import org.eclipse.jdt.core.dom.PrefixExpression;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.QualifiedName;
-import org.eclipse.jdt.core.dom.QualifiedType;
-import org.eclipse.jdt.core.dom.SimpleName;
-import org.eclipse.jdt.core.dom.SimpleType;
-import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.StringLiteral;
-import org.eclipse.jdt.core.dom.SuperFieldAccess;
-import org.eclipse.jdt.core.dom.SuperMethodInvocation;
-import org.eclipse.jdt.core.dom.ThisExpression;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
-import org.eclipse.jdt.core.dom.TypeDeclarationStatement;
-import org.eclipse.jdt.core.dom.TypeLiteral;
-import org.eclipse.jdt.core.dom.TypeParameter;
-import org.eclipse.jdt.core.dom.VariableDeclarationExpression;
-import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
-import org.eclipse.jdt.core.dom.WildcardType;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @SuppressWarnings("rawtypes")
 public abstract class ConverterTestSetup extends AbstractASTTests {
-	/**
-	 * Internal synonym for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
 
-	/**
-	 * Internal synonym for deprecated constant AST.JSL4
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS4_INTERNAL = AST.JLS4;
-
-	/**
-	 * Internal synonym for deprecated constant AST.JSL8
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS8_INTERNAL = AST.JLS8;
-
-	static int getJLS3() {
-		return JLS3_INTERNAL;
+	static int getJLSFirst() {
+		return AST.getAllSupportedVersions().getFirst();
 	}
 
-	static int getJLS4() {
-		return JLS4_INTERNAL;
-	}
-
-	static int getJLS8() {
-		return JLS8_INTERNAL;
-	}
 	protected AST ast;
 	public static List TEST_SUITES = null;
 	public static boolean PROJECT_SETUP = false;
@@ -133,7 +45,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 	}
 
 	protected IPath getConverterJCLPath() {
-		return getConverterJCLPath(""); //$NON-NLS-1$
+		return getConverterJCLPath(CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$
 	}
 
 	protected IPath getConverterJCLPath(String compliance) {
@@ -141,7 +53,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 	}
 
 	protected IPath getConverterJCLSourcePath() {
-		return getConverterJCLSourcePath(""); //$NON-NLS-1$
+		return getConverterJCLSourcePath(CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$
 	}
 
 	protected IPath getConverterJCLSourcePath(String compliance) {
@@ -176,6 +88,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			this.deleteProject("Converter_19"); //$NON-NLS-1$
 			this.deleteProject("Converter_21"); //$NON-NLS-1$
 			this.deleteProject("Converter_22"); //$NON-NLS-1$
+			this.deleteProject("Converter_23"); //$NON-NLS-1$
 			PROJECT_SETUP = false;
 		} else {
 			TEST_SUITES.remove(getClass());
@@ -197,6 +110,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 				this.deleteProject("Converter_19"); //$NON-NLS-1$
 				this.deleteProject("Converter_21"); //$NON-NLS-1$
 				this.deleteProject("Converter_22"); //$NON-NLS-1$
+				this.deleteProject("Converter_23"); //$NON-NLS-1$
 				PROJECT_SETUP = false;
 			}
 		}
@@ -204,30 +118,16 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 		super.tearDownSuite();
 	}
 
+	protected String getExternalJCLPathString(String compliance) {
+		return null;
+	}
 	@Override
 	public void setUpJCLClasspathVariables(String compliance, boolean useFullJCL) throws JavaModelException, IOException {
 		if (useFullJCL) {
 			 super.setUpJCLClasspathVariables(compliance, useFullJCL);
 			 return;
 		}
-		if ("1.5".equals(compliance)
-				|| "1.6".equals(compliance)) {
-			if (JavaCore.getClasspathVariable("CONVERTER_JCL15_LIB") == null) {
-				setupExternalJCL("converterJclMin1.5");
-				JavaCore.setClasspathVariables(
-					new String[] {"CONVERTER_JCL15_LIB", "CONVERTER_JCL15_SRC", "CONVERTER_JCL15_SRCROOT"},
-					new IPath[] {getConverterJCLPath(compliance), getConverterJCLSourcePath(compliance), getConverterJCLRootSourcePath()},
-					null);
-			}
-		} else if ("1.7".equals(compliance)) {
-			if (JavaCore.getClasspathVariable("CONVERTER_JCL17_LIB") == null) {
-				setupExternalJCL("converterJclMin1.7");
-				JavaCore.setClasspathVariables(
-					new String[] {"CONVERTER_JCL17_LIB", "CONVERTER_JCL17_SRC", "CONVERTER_JCL17_SRCROOT"},
-					new IPath[] {getConverterJCLPath("1.7"), getConverterJCLSourcePath("1.7"), getConverterJCLRootSourcePath()},
-					null);
-			}
-		} else if ("1.8".equals(compliance)) {
+		if ("1.8".equals(compliance)) {
 			if (JavaCore.getClasspathVariable("CONVERTER_JCL18_LIB") == null) {
 				setupExternalJCL("converterJclMin1.8");
 				JavaCore.setClasspathVariables(
@@ -283,6 +183,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 						new IPath[] {getConverterJCLPath("14"), getConverterJCLSourcePath("14"), getConverterJCLRootSourcePath()},
 						null);
 			}
+		} else if ("15".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("CONVERTER_JCL15_LIB") == null) {
+				setupExternalJCL("converterJclMin15");
+				JavaCore.setClasspathVariables(
+						new String[] {"CONVERTER_JCL15_LIB", "CONVERTER_JCL15_SRC", "CONVERTER_JCL15_SRCROOT"},
+						new IPath[] {getConverterJCLPath("15"), getConverterJCLSourcePath("15"), getConverterJCLRootSourcePath()},
+						null);
+			}
 		} else if ("17".equals(compliance)) {
 			if (JavaCore.getClasspathVariable("CONVERTER_JCL_17_LIB") == null) {
 				setupExternalJCL("converterJclMin17");
@@ -307,12 +215,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 						new IPath[] {getConverterJCLPath("21"), getConverterJCLSourcePath("21"), getConverterJCLRootSourcePath()},
 						null);
 			}
-		} else if (JavaCore.getClasspathVariable("CONVERTER_JCL_LIB") == null) {
-			setupExternalJCL("converterJclMin");
-			JavaCore.setClasspathVariables(
-				new String[] {"CONVERTER_JCL_LIB", "CONVERTER_JCL_SRC", "CONVERTER_JCL_SRCROOT"},
-				new IPath[] {getConverterJCLPath(), getConverterJCLSourcePath(), getConverterJCLRootSourcePath()},
-				null);
+		}  else if ("22".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("CONVERTER_JCL_22_LIB") == null) {
+				setupExternalJCL("converterJclMin22");
+				JavaCore.setClasspathVariables(
+						new String[] {"CONVERTER_JCL_22_LIB", "CONVERTER_JCL_22_SRC", "CONVERTER_JCL_22_SRCROOT"},
+						new IPath[] {getConverterJCLPath("22"), getConverterJCLSourcePath("22"), getConverterJCLRootSourcePath()},
+						null);
+			}
 		}
 	}
 
@@ -324,11 +234,11 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 		super.setUpSuite();
 
 		if (!PROJECT_SETUP) {
-			setUpJavaProject("Converter"); //$NON-NLS-1$
-			setUpJavaProject("Converter15", "1.5"); //$NON-NLS-1$ //$NON-NLS-2$
-			setUpJavaProject("Converter16", "1.6"); //$NON-NLS-1$ //$NON-NLS-2$
-			setUpJavaProject("Converter17", "1.7"); //$NON-NLS-1$ //$NON-NLS-2$
-			setUpJavaProject("Converter18", "1.8"); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$
+			setUpJavaProject("Converter15", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter16", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter17", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter18", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter9", "9"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter10", "10"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter11", "11"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -341,9 +251,18 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			setUpJavaProject("Converter_19", "19"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_21", "21"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_22", "22"); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter_23", "23"); //$NON-NLS-1$ //$NON-NLS-2$
 			waitUntilIndexesReady(); // needed to find secondary types
 			PROJECT_SETUP = true;
 		}
+	}
+
+	protected IJavaProject setUpJavaProject(final String projectName, String compliance) throws CoreException, IOException {
+		this.currentProject =  setUpJavaProject(projectName, compliance, false);
+		if(CompilerOptions.getFirstSupportedJavaVersion().equals(compliance)) {
+			this.currentProject.setOption(JavaCore.COMPILER_PB_RAW_TYPE_REFERENCE, JavaCore.IGNORE);
+		}
+		return this.currentProject;
 	}
 
 	protected void assertExtraDimensionsEqual(String message, List dimensions, String expected) {
@@ -374,27 +293,27 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 
 	public ASTNode runConversion(ICompilationUnit unit, boolean resolveBindings,
 			boolean bindingsRecovery) {
-		return runConversion(astInternalJLS2(), unit, resolveBindings, false, bindingsRecovery);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), unit, resolveBindings, false, bindingsRecovery);
 	}
 
 	public ASTNode runConversion(ICompilationUnit unit, boolean resolveBindings) {
-		return runConversion(astInternalJLS2(), unit, resolveBindings);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), unit, resolveBindings);
 	}
 
 	public ASTNode runConversion(ICompilationUnit unit, int position, boolean resolveBindings) {
-		return runConversion(astInternalJLS2(), unit, position, resolveBindings);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), unit, position, resolveBindings);
 	}
 
 	public ASTNode runConversion(IClassFile classFile, int position, boolean resolveBindings) {
-		return runConversion(astInternalJLS2(), classFile, position, resolveBindings);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), classFile, position, resolveBindings);
 	}
 
 	public ASTNode runConversion(char[] source, String unitName, IJavaProject project) {
-		return runConversion(astInternalJLS2(), source, unitName, project);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), source, unitName, project);
 	}
 
 	public ASTNode runConversion(char[] source, String unitName, IJavaProject project, boolean resolveBindings) {
-		return runConversion(astInternalJLS2(), source, unitName, project, resolveBindings);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), source, unitName, project, resolveBindings);
 	}
 
 	public ASTNode runConversion(int astLevel, ICompilationUnit unit, boolean resolveBindings) {
@@ -403,6 +322,19 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 
 	public ASTNode runConversion(int astLevel, ICompilationUnit unit, boolean resolveBindings, boolean statementsRecovery) {
 		return runConversion(astLevel, unit, resolveBindings, statementsRecovery, false);
+	}
+
+	public ASTNode runConversion(
+			ICompilationUnit unit,
+			boolean resolveBindings,
+			boolean statementsRecovery,
+			boolean bindingsRecovery) {
+		ASTParser parser = ASTParser.newParser(getJLSFirst());
+		parser.setSource(unit);
+		parser.setResolveBindings(resolveBindings);
+		parser.setStatementsRecovery(statementsRecovery);
+		parser.setBindingsRecovery(bindingsRecovery);
+		return parser.createAST(null);
 	}
 
 	public ASTNode runConversion(
@@ -671,23 +603,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 		}
 
 	}
-	public ASTNode runJLS3Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2) {
-		return runJLS3Conversion(unit, resolveBindings, checkJLS2, false);
+	public ASTNode runJLS3Conversion(ICompilationUnit unit, boolean resolveBindings) {
+		return runJLS3Conversion(unit, resolveBindings, false);
 	}
 
-	public ASTNode runJLS3Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2, boolean bindingRecovery) {
+	public ASTNode runJLS3Conversion(ICompilationUnit unit, boolean resolveBindings, boolean bindingRecovery) {
 
 		// Create parser
-		ASTParser parser;
-		if (checkJLS2) {
-			parser = ASTParser.newParser(astInternalJLS2());
-			parser.setSource(unit);
-			parser.setResolveBindings(resolveBindings);
-			parser.setBindingsRecovery(bindingRecovery);
-			parser.createAST(null);
-		}
-
-		parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(getJLSFirst());
 		parser.setSource(unit);
 		parser.setResolveBindings(resolveBindings);
 		parser.setBindingsRecovery(bindingRecovery);
@@ -704,23 +627,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 		return result;
 	}
 
-	public ASTNode runJLS4Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2) {
-		return runJLS4Conversion(unit, resolveBindings, checkJLS2, false);
+	public ASTNode runJLS4Conversion(ICompilationUnit unit, boolean resolveBindings) {
+		return runJLS4Conversion(unit, resolveBindings, false);
 	}
 
-	public ASTNode runJLS4Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2, boolean bindingRecovery) {
+	public ASTNode runJLS4Conversion(ICompilationUnit unit, boolean resolveBindings, boolean bindingRecovery) {
 
 		// Create parser
-		ASTParser parser;
-		if (checkJLS2) {
-			parser = ASTParser.newParser(astInternalJLS2());
-			parser.setSource(unit);
-			parser.setResolveBindings(resolveBindings);
-			parser.setBindingsRecovery(bindingRecovery);
-			parser.createAST(null);
-		}
-
-		parser = ASTParser.newParser(JLS4_INTERNAL);
+		ASTParser parser = ASTParser.newParser(getJLSFirst());
 		parser.setSource(unit);
 		parser.setResolveBindings(resolveBindings);
 		parser.setBindingsRecovery(bindingRecovery);
@@ -737,26 +651,13 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 		return result;
 	}
 
-	public ASTNode runJLS8Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2) {
-		return runJLS8Conversion(unit, resolveBindings, checkJLS2, false);
+	public ASTNode runJLS8Conversion(ICompilationUnit unit, boolean resolveBindings) {
+		return runJLS8Conversion(unit, resolveBindings, false);
 	}
 
-	/**
-	 * @deprecated references deprecated old AST level
-	 */
-	public ASTNode runJLS8Conversion(ICompilationUnit unit, boolean resolveBindings, boolean checkJLS2, boolean bindingRecovery) {
-
+	public ASTNode runJLS8Conversion(ICompilationUnit unit, boolean resolveBindings, boolean bindingRecovery) {
 		// Create parser
-		ASTParser parser;
-		if (checkJLS2) {
-			parser = ASTParser.newParser(astInternalJLS2());
-			parser.setSource(unit);
-			parser.setResolveBindings(resolveBindings);
-			parser.setBindingsRecovery(bindingRecovery);
-			parser.createAST(null);
-		}
-
-		parser = ASTParser.newParser(AST.JLS8);
+        ASTParser parser = ASTParser.newParser(getJLSFirst());
 		parser.setSource(unit);
 		parser.setResolveBindings(resolveBindings);
 		parser.setBindingsRecovery(bindingRecovery);
@@ -837,10 +738,10 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 	}
 
 	public ASTNode runConversion(char[] source, String unitName, IJavaProject project, Map<String, String> options, boolean resolveBindings) {
-		return runConversion(astInternalJLS2(), source, unitName, project, options, resolveBindings);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), source, unitName, project, options, resolveBindings);
 	}
 	public ASTNode runConversion(char[] source, String unitName, IJavaProject project, Map<String, String> options) {
-		return runConversion(astInternalJLS2(), source, unitName, project, options);
+		return runConversion(AST.getAllSupportedVersions().getFirst(), source, unitName, project, options);
 	}
 
 	protected ASTNode getASTNodeToCompare(org.eclipse.jdt.core.dom.CompilationUnit unit) {

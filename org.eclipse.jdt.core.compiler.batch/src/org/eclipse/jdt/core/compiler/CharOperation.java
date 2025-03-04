@@ -18,7 +18,6 @@ package org.eclipse.jdt.core.compiler;
 
 import java.util.Arrays;
 import java.util.List;
-
 import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
 
 /**
@@ -3751,7 +3750,7 @@ public static final char[] replace(
 		next : for (int i = 0; i < max;) {
 			int index = indexOf(toBeReplaced, array, true, i);
 			if (index == -1) {
-				i++;
+				i = max; // end
 				continue next;
 			}
 			if (occurrenceCount == starts.length) {

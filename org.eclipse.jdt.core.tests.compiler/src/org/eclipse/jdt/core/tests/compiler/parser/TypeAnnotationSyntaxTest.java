@@ -26,17 +26,7 @@ import java.util.Map;
 import junit.framework.Test;
 import org.eclipse.jdt.core.tests.util.CompilerTestSetup;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.ast.Annotation;
-import org.eclipse.jdt.internal.compiler.ast.Argument;
-import org.eclipse.jdt.internal.compiler.ast.ArrayTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.MarkerAnnotation;
-import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.NormalAnnotation;
-import org.eclipse.jdt.internal.compiler.ast.ParameterizedSingleTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.SingleMemberAnnotation;
-import org.eclipse.jdt.internal.compiler.ast.SingleTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
@@ -222,7 +212,7 @@ void traverse (File f) throws IOException {
 		}
 	} else {
 		if (f.getName().endsWith(".java")) {
-			System.out.println(f.getCanonicalPath());
+			System.out.println(f.toPath().normalize().toAbsolutePath().toString());
 			char [] contents = new char[(int) f.length()];
 			FileInputStream fs = new FileInputStream(f);
 			InputStreamReader isr = null;
@@ -232,7 +222,7 @@ void traverse (File f) throws IOException {
 				if (isr != null) isr.close();
 			}
 			isr.read(contents);
-			checkParse(contents, null, f.getCanonicalPath(), null);
+			checkParse(contents, null, f.toPath().normalize().toAbsolutePath().toString(), null);
 		}
 	}
 }

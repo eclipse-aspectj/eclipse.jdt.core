@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -14,7 +14,6 @@
 package org.eclipse.jdt.core.tests.model;
 
 import junit.framework.Test;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -31,6 +30,7 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.SourceType;
 
 /**
@@ -57,13 +57,6 @@ public static Test suite() {
 	return suite;
 }
 
-/**
- * Internal synonym for deprecated constant AST.JSL3
- * to alleviate deprecation warnings.
- * @deprecated
- */
-/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
-
 /* (non-Javadoc)
  * @see org.eclipse.jdt.core.tests.model.AbstractJavaModelTests#setUp()
  */
@@ -75,7 +68,7 @@ protected void setUp() throws Exception {
 		for (int i=0; i<SF_LENGTH; i++) {
 			sourceFolders[i] = "src" + i;
 		}
-		TEST_PROJECT = createJavaProject("TestProject", sourceFolders, new String[] {"JCL_LIB"}, "bin");
+		TEST_PROJECT = createJavaProject("TestProject", sourceFolders, new String[] {"JCL18_LIB"}, "bin");
 		createFolder("/TestProject/src0/org/eclipse/jdt/core/test0");
 		createFile(
 			"/TestProject/src0/org/eclipse/jdt/core/test0/Foo.java",
@@ -1198,7 +1191,7 @@ public void testFindSecondaryType_Unknown03() throws JavaModelException, CoreExc
  */
 public void testBug152841() throws Exception{
 	try {
-		IJavaProject project= createJavaProject("P", new String[] { "src" }, new String[] { "JCL_LIB" }, "bin");
+		IJavaProject project= createJavaProject("P", new String[] { "src" }, new String[] { "JCL18_LIB" }, "bin");
 		IPackageFragmentRoot root = (IPackageFragmentRoot) project.getChildren()[0];
 		IPackageFragment pack= root.createPackageFragment("p", true, null);
 
@@ -1222,7 +1215,7 @@ public void testBug152841() throws Exception{
 		"}";
 		ICompilationUnit cu= pack.createCompilationUnit("Test.java", source, true, null);
 
-		ASTParser parser= ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser= ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setSource(cu);
 		parser.setResolveBindings(true);
 		parser.createAST(null);
@@ -1310,7 +1303,7 @@ public void testBug302455() throws CoreException, InterruptedException {
 public void testBug306477() throws Exception {
 	try {
 		// create test case
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/P/p");
 		createFile(
 			"/P/p/Alice.java",

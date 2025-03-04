@@ -24,24 +24,9 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.StringLiteral;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
-import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
-import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding;
-import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding18;
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.IntersectionTypeBinding18;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.RawTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.TagBits;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
-import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
-import org.eclipse.jdt.internal.compiler.lookup.WildcardBinding;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.JavaElement;
@@ -60,7 +45,7 @@ class TypeBinding implements ITypeBinding {
 	protected static final IVariableBinding[] NO_VARIABLE_BINDINGS = new IVariableBinding[0];
 
 	private static final int VALID_MODIFIERS = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE |
-		Modifier.ABSTRACT | Modifier.STATIC | Modifier.FINAL | Modifier.STRICTFP;
+		Modifier.ABSTRACT | Modifier.STATIC | Modifier.FINAL | Modifier.STRICTFP | Modifier.SEALED | Modifier.NON_SEALED;
 
 	org.eclipse.jdt.internal.compiler.lookup.TypeBinding binding;
 	private TypeBinding prototype = null;
@@ -604,6 +589,13 @@ class TypeBinding implements ITypeBinding {
 		if (isClass()) {
 			ReferenceBinding referenceBinding = (ReferenceBinding) this.binding;
 			final int accessFlags = referenceBinding.getAccessFlags() & VALID_MODIFIERS;
+
+			if (referenceBinding.isSealed()) {
+				return accessFlags | Modifier.SEALED;
+			}
+			if (referenceBinding.isNonSealed()) {
+				return accessFlags | Modifier.NON_SEALED;
+			}
 			if (referenceBinding.isAnonymousType()) {
 				return accessFlags & ~Modifier.FINAL;
 			}
@@ -615,9 +607,17 @@ class TypeBinding implements ITypeBinding {
 			return accessFlags & ~(ClassFileConstants.AccAbstract | ClassFileConstants.AccInterface | ClassFileConstants.AccAnnotation);
 		} else if (isInterface()) {
 			ReferenceBinding referenceBinding = (ReferenceBinding) this.binding;
-			final int accessFlags = referenceBinding.getAccessFlags() & VALID_MODIFIERS;
+			int accessFlags = referenceBinding.getAccessFlags() & VALID_MODIFIERS;
 			// clear the AccAbstract and the AccInterface bits
-			return accessFlags & ~(ClassFileConstants.AccAbstract | ClassFileConstants.AccInterface);
+			accessFlags = accessFlags & ~(ClassFileConstants.AccAbstract | ClassFileConstants.AccInterface);
+
+			if (referenceBinding.isSealed()) {
+				return accessFlags | Modifier.SEALED;
+			}
+			if (referenceBinding.isNonSealed()) {
+				return accessFlags | Modifier.NON_SEALED;
+			}
+			return accessFlags;
 		} else if (isEnum()) {
 			ReferenceBinding referenceBinding = (ReferenceBinding) this.binding;
 			final int accessFlags = referenceBinding.getAccessFlags() & VALID_MODIFIERS;

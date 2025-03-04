@@ -15,7 +15,6 @@
 package org.eclipse.jdt.core.tests.compiler.parser;
 
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
@@ -514,6 +513,313 @@ public void test0009() {
 			expected15ProblemLog,
 			null, null,
 			JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings);
+	}
+}
+
+public void testPatternsInCase() {
+	String[] testFiles = new String[] {
+		"X.java",
+		"""
+		public class X {
+		    public static void main(String [] args) {
+		        Object o = null;
+		        switch (o) {
+		            case X x, null:
+		                break;
+		            case String s, default :
+		               break;
+		        }
+		    }
+	    }
+		"""
+	};
+
+	String expectedProblemLogFrom1_1_6 =
+					"----------\n" +
+					"1. ERROR in X.java (at line 4)\n" +
+					"	switch (o) {\n" +
+					"	        ^\n" +
+					"Cannot switch on a value of type Object. Only convertible int values or enum variables are permitted\n" +
+					"----------\n" +
+					"2. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	^^^^^^^^^^^^^^\n" +
+					"Multi-constant case labels supported from Java 14 onwards only\n" +
+					"----------\n" +
+					"3. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	     ^^^\n" +
+					"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+					"----------\n" +
+					"4. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	     ^^^\n" +
+					"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+					"----------\n" +
+					"5. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	          ^^^^\n" +
+					"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+					"----------\n" +
+					"6. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	          ^^^^\n" +
+					"Cannot mix pattern with other case labels\n" +
+					"----------\n" +
+					"7. ERROR in X.java (at line 5)\n" +
+					"	case X x, null:\n" +
+					"	          ^^^^\n" +
+					"A null case label has to be either the only expression in a case label or the first expression followed only by a default\n" +
+					"----------\n" +
+					"8. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	^^^^^^^^^^^^^^^^^^^^^^\n" +
+					"Multi-constant case labels supported from Java 14 onwards only\n" +
+					"----------\n" +
+					"9. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	     ^^^^^^^^\n" +
+					"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+					"----------\n" +
+					"10. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	     ^^^^^^^^\n" +
+					"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+					"----------\n" +
+					"11. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	               ^^^^^^^\n" +
+					"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+					"----------\n" +
+					"12. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	               ^^^^^^^\n" +
+					"Cannot mix pattern with other case labels\n" +
+					"----------\n" +
+					"13. ERROR in X.java (at line 7)\n" +
+					"	case String s, default :\n" +
+					"	               ^^^^^^^\n" +
+					"A 'default' can occur after 'case' only as a second case label expression and that too only if 'null' precedes  in 'case null, default' \n" +
+					"----------\n";
+
+	String expectedProblemLogFrom7_13 =
+			"----------\n" +
+			"1. ERROR in X.java (at line 4)\n" +
+			"	switch (o) {\n" +
+			"	        ^\n" +
+			"Cannot switch on a value of type Object. Only convertible int values, strings or enum variables are permitted\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	^^^^^^^^^^^^^^\n" +
+			"Multi-constant case labels supported from Java 14 onwards only\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	     ^^^\n" +
+			"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+			"----------\n" +
+			"4. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	     ^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"5. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"6. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"7. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"A null case label has to be either the only expression in a case label or the first expression followed only by a default\n" +
+			"----------\n" +
+			"8. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Multi-constant case labels supported from Java 14 onwards only\n" +
+			"----------\n" +
+			"9. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	     ^^^^^^^^\n" +
+			"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+			"----------\n" +
+			"10. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	     ^^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"11. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"12. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"13. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"A 'default' can occur after 'case' only as a second case label expression and that too only if 'null' precedes  in 'case null, default' \n" +
+			"----------\n";
+
+	String expectedProblemLogFrom14_15 =
+			"----------\n" +
+			"1. ERROR in X.java (at line 4)\n" +
+			"	switch (o) {\n" +
+			"	        ^\n" +
+			"Cannot switch on a value of type Object. Only convertible int values, strings or enum variables are permitted\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	     ^^^\n" +
+			"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	     ^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"4. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"5. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"6. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"A null case label has to be either the only expression in a case label or the first expression followed only by a default\n" +
+			"----------\n" +
+			"7. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	     ^^^^^^^^\n" +
+			"The Java feature 'Type Patterns' is only available with source level 16 and above\n" +
+			"----------\n" +
+			"8. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	     ^^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"9. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"10. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"11. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"A 'default' can occur after 'case' only as a second case label expression and that too only if 'null' precedes  in 'case null, default' \n" +
+			"----------\n";
+
+	String expectedProblemLogFrom16_20 =
+			"----------\n" +
+			"1. ERROR in X.java (at line 4)\n" +
+			"	switch (o) {\n" +
+			"	        ^\n" +
+			"Cannot switch on a value of type Object. Only convertible int values, strings or enum variables are permitted\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	     ^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"4. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"5. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"A null case label has to be either the only expression in a case label or the first expression followed only by a default\n" +
+			"----------\n" +
+			"6. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	     ^^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"7. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n" +
+			"8. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"9. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"A 'default' can occur after 'case' only as a second case label expression and that too only if 'null' precedes  in 'case null, default' \n" +
+			"----------\n";
+
+	String expectedProblemLogFrom21 =
+			"----------\n" +
+			"1. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 5)\n" +
+			"	case X x, null:\n" +
+			"	          ^^^^\n" +
+			"A null case label has to be either the only expression in a case label or the first expression followed only by a default\n" +
+			"----------\n" +
+			"3. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"Cannot mix pattern with other case labels\n" +
+			"----------\n" +
+			"4. ERROR in X.java (at line 7)\n" +
+			"	case String s, default :\n" +
+			"	               ^^^^^^^\n" +
+			"A 'default' can occur after 'case' only as a second case label expression and that too only if 'null' precedes  in 'case null, default' \n" +
+			"----------\n";
+
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) {  // before switching on strings
+		runNegativeTest(
+			testFiles,
+			expectedProblemLogFrom1_1_6);
+	}
+	else if (this.complianceLevel < ClassFileConstants.JDK14) { // before multi case
+		runNegativeTest(
+				testFiles,
+				expectedProblemLogFrom7_13);
+	} else if (this.complianceLevel < ClassFileConstants.JDK16) { // before type patterns
+			runNegativeTest(
+					testFiles,
+					expectedProblemLogFrom14_15);
+	} else if (this.complianceLevel < ClassFileConstants.JDK21) { // before case patterns
+		runNegativeTest(
+				testFiles,
+				expectedProblemLogFrom16_20);
+	} else {
+		runNegativeTest(
+				testFiles,
+				expectedProblemLogFrom21);
 	}
 }
 public void test0010() {
@@ -2031,13 +2337,13 @@ public void test0042() {
 		"}\n"
 	};
 
-	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK22) ?
+	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK23) ?
 			"""
 			----------
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			Unnamed Classes and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
+			Implicitly Declared Classes and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {
@@ -2055,7 +2361,7 @@ public void test0042() {
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			The preview feature Unnamed Classes and Instance Main Methods is only available with source level 22 and above
+			The preview feature Implicitly Declared Classes and Instance Main Methods is only available with source level 23 and above
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {
@@ -2348,7 +2654,6 @@ public void test0049() {
 		"----------\n";
 	String expected14ProblemLog =
 		expected13ProblemLog;
-	String token = (this.complianceLevel >= ClassFileConstants.JDK21) ? "." : "<";
 	String expected15ProblemLog =
 		"----------\n" +
 		"1. ERROR in X.java (at line 6)\n" +
@@ -2359,7 +2664,7 @@ public void test0049() {
 		"2. ERROR in X.java (at line 6)\n" +
 		"	public @MyAnn(\"\",\"\") class Test {		\n" +
 		"	                ^\n" +
-		"Syntax error on token \",\", "+ token +" expected\n" +
+		"Syntax error on token \",\", < expected\n" +
 		"----------\n" +
 		"3. ERROR in X.java (at line 6)\n" +
 		"	public @MyAnn(\"\",\"\") class Test {		\n" +

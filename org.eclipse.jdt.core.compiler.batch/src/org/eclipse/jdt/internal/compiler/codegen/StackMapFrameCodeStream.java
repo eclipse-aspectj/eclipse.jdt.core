@@ -18,7 +18,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
@@ -171,7 +170,7 @@ public class StackMapFrameCodeStream extends CodeStream {
 	public void generateClassLiteralAccessForType(Scope scope, TypeBinding accessedType,
 			FieldBinding syntheticFieldBinding) {
 		if (accessedType.isBaseType() && accessedType != TypeBinding.NULL) {
-			getTYPE(accessedType.id);
+			getClass(accessedType);
 			return;
 		}
 

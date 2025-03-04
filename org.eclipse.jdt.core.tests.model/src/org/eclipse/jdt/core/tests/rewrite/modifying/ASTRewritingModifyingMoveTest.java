@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -14,13 +14,16 @@
 package org.eclipse.jdt.core.tests.rewrite.modifying;
 
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-
-import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ASTRewritingModifyingMoveTest extends ASTRewritingModifyingTest {
@@ -343,7 +346,6 @@ public class ASTRewritingModifyingMoveTest extends ASTRewritingModifyingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	/** @deprecated using deprecated code */
 	public void test0008() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test0008", false, null);
 		StringBuilder buf= new StringBuilder();
@@ -366,9 +368,9 @@ public class ASTRewritingModifyingMoveTest extends ASTRewritingModifyingTest {
 		List types = astRoot.types();
 		TypeDeclaration typeDeclaration1 = (TypeDeclaration)types.get(0);
 		TypeDeclaration typeDeclaration2 = (TypeDeclaration)types.get(1);
-		Name name = typeDeclaration1.getSuperclass();
-		typeDeclaration1.setSuperclass(null);
-		typeDeclaration2.setSuperclass(name);
+		Type name = typeDeclaration1.getSuperclassType();
+		typeDeclaration1.setSuperclassType(null);
+		typeDeclaration2.setSuperclassType(name);
 
 		String preview = evaluateRewrite(cu, astRoot);
 

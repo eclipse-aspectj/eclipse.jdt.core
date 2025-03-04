@@ -15,7 +15,7 @@ package org.eclipse.jdt.core.tests.dom;
 
 import java.io.IOException;
 import java.util.ArrayList;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.BindingKey;
 import org.eclipse.jdt.core.ICompilationUnit;
@@ -24,30 +24,12 @@ import org.eclipse.jdt.core.IProblemRequestor;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.IProblem;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.ASTRequestor;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.IBinding;
-import org.eclipse.jdt.core.dom.IMethodBinding;
-import org.eclipse.jdt.core.dom.ITypeBinding;
-import org.eclipse.jdt.core.dom.IVariableBinding;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.tests.util.Util;
-
-import junit.framework.Test;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class BatchASTCreationTests extends AbstractASTTests {
-
-	/**
-	 * Internal synonym for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
 
 	public static class TestASTRequestor extends ASTRequestor {
 		public ArrayList asts = new ArrayList();
@@ -125,7 +107,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	@Override
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
-		createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 	}
 
 	@Override
@@ -221,7 +203,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	}
 
 	private void createASTs(ICompilationUnit[] cus, TestASTRequestor requestor) {
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.createASTs(cus, new String[] {}, requestor, null);
 	}
 
@@ -1260,7 +1242,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	 */
 	public void test056() throws CoreException, IOException {
 		try {
-			IJavaProject project = createJavaProject("BinaryProject", new String[0], new String[] {"JCL15_LIB"}, "", "1.5");
+			IJavaProject project = createJavaProject("BinaryProject", new String[0], new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 			addLibrary(project, "lib.jar", "src.zip", new String[] {
 				"/BinaryProject/p/X.java",
 				"package p;\n" +
@@ -1268,7 +1250,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 				"  public class Y<K1, V1> {\n" +
 				"  }\n" +
 				"}"
-			}, "1.5");
+			}, CompilerOptions.getFirstSupportedJavaVersion());
 			ITypeBinding[] bindings = createTypeBindings(new String[0], new String[] {
 				"Lp/X<>.Y<Lp/X;:TK;Lp/X;:TV;>;"
 			}, project);
@@ -1398,7 +1380,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	 * Ensures that a raw method binding can be created using its key in batch creation.
 	 * (regression test for bug 87749 different IMethodBindings of generic method have equal getKey())
 	 */
-	public void test063() throws CoreException {
+	public void _2551_test063() throws CoreException {
 		assertRequestedBindingFound(
 			new String[] {
 				"/P/p1/X.java",
@@ -1577,7 +1559,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 	 */
 	public void test068() throws CoreException, IOException {
 		try {
-			IJavaProject project = createJavaProject("P1", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+			IJavaProject project = createJavaProject("P1", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 			addLibrary(project, "lib.jar", "src.zip", new String[] {
 				"/P1/p/X.java",
 				"package p;\n" +
@@ -1591,7 +1573,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 				"  void foo(X.Member x) {\n" +
 				"  }\n" +
 				"}",
-			}, "1.5");
+			}, CompilerOptions.getFirstSupportedJavaVersion());
 			assertRequestedBindingFound(
 				new String[] {
 					"/P1/p1/Z.java",
@@ -1731,7 +1713,7 @@ public class BatchASTCreationTests extends AbstractASTTests {
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=159631
 public void test073() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P072", new String[] {}, Util.getJavaClassLibs(), "", "1.5");
+		IJavaProject project = createJavaProject("P072", new String[] {}, Util.getJavaClassLibs(), "", CompilerOptions.getFirstSupportedJavaVersion());
 		ICompilationUnit compilationUnits[] = new ICompilationUnit[3];
 		compilationUnits[0] = getWorkingCopy(
 			"P072/X.java",
@@ -1753,7 +1735,7 @@ public void test073() throws CoreException, IOException {
 			"    return this.m.equals(p);\n" +
 			"  }\n" +
 			"}");
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(project);
 		class Requestor extends ASTRequestor {
@@ -1878,7 +1860,7 @@ public void test077_Bug163647() throws CoreException {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=152060
 public void test078() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P078", new String[] {}, Util.getJavaClassLibs(), "", "1.5");
+		IJavaProject project = createJavaProject("P078", new String[] {}, Util.getJavaClassLibs(), "", CompilerOptions.getFirstSupportedJavaVersion());
 		ICompilationUnit compilationUnits[] = new ICompilationUnit[1];
 		compilationUnits[0] = getWorkingCopy(
 			"P078/Test.java",
@@ -1900,7 +1882,7 @@ public void test078() throws CoreException, IOException {
 			"            }\n" +
 			"        }\n" +
 			"}");
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(project);
        	final IBinding[] bindings = new IBinding[1];
@@ -1934,7 +1916,7 @@ public void test078() throws CoreException, IOException {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=152060
 public void test079() throws CoreException, IOException {
 	try {
-		IJavaProject project = createJavaProject("P079", new String[] {"src"}, Util.getJavaClassLibs(), "bin", "1.5");
+		IJavaProject project = createJavaProject("P079", new String[] {"src"}, Util.getJavaClassLibs(), "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/P079/src/test");
 		createFile("/P079/src/test/Test.java",
 				"package test;\n" +
@@ -1956,7 +1938,7 @@ public void test079() throws CoreException, IOException {
 				"}");
 		ICompilationUnit compilationUnits[] = new ICompilationUnit[1];
 		compilationUnits[0] = getCompilationUnit("P079", "src", "test", "Test.java");
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(project);
 		final IBinding[] bindings = new IBinding[1];
@@ -1990,7 +1972,7 @@ public void test079() throws CoreException, IOException {
 public void test080() throws CoreException, IOException {
 	final String projectName = "P080";
 	try {
-		IJavaProject project = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", "1.5");
+		IJavaProject project = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/" + projectName + "/src/test");
 		createFile("/" + projectName + "/src/test/Test.java",
 				"package test;\n" +
@@ -2014,7 +1996,7 @@ public void test080() throws CoreException, IOException {
 				"}");
 		ICompilationUnit compilationUnits[] = new ICompilationUnit[1];
 		compilationUnits[0] = getCompilationUnit(projectName, "src", "test", "Test.java");
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(project);
        	final IBinding[] bindings = new IBinding[1];
@@ -2049,7 +2031,7 @@ public void test080() throws CoreException, IOException {
 public void test081() throws CoreException, IOException {
 	final String projectName = "P081";
 	try {
-		IJavaProject javaProject = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", "1.5");
+		IJavaProject javaProject = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String typeName = "java.util.List<java.lang.Integer>";
 		class BindingRequestor extends ASTRequestor {
 			ITypeBinding _result = null;
@@ -2062,7 +2044,7 @@ public void test081() throws CoreException, IOException {
 			BindingKey.createTypeBindingKey(typeName)
 		};
 		final BindingRequestor requestor = new BindingRequestor();
-		final ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		final ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(javaProject);
 		// this doesn't really do a parse; it's a type lookup
@@ -2078,7 +2060,7 @@ public void test081() throws CoreException, IOException {
 public void test082() throws CoreException, IOException {
 	final String projectName = "P082";
 	try {
-		IJavaProject javaProject = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", "1.5");
+		IJavaProject javaProject = createJavaProject(projectName, new String[] {"src"}, Util.getJavaClassLibs(), "bin", CompilerOptions.getFirstSupportedJavaVersion());
 		String typeName = "java.util.List<Integer>";
 		class BindingRequestor extends ASTRequestor {
 			ITypeBinding _result = null;
@@ -2091,7 +2073,7 @@ public void test082() throws CoreException, IOException {
 			BindingKey.createTypeBindingKey(typeName)
 		};
 		final BindingRequestor requestor = new BindingRequestor();
-		final ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		final ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setResolveBindings(true);
 		parser.setProject(javaProject);
 		// this doesn't really do a parse; it's a type lookup
@@ -2242,7 +2224,7 @@ public void test082() throws CoreException, IOException {
 				"}",
 			});
 			TestASTRequestor requestor = new TestASTRequestor();
-			ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+			ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 			parser.setIgnoreMethodBodies(true);
 			parser.createASTs(this.workingCopies, new String[] {}, requestor, null);
 			// statement declaring i should not be in the AST
@@ -2274,7 +2256,7 @@ public void test082() throws CoreException, IOException {
 				"}",
 			});
 			TestASTRequestor requestor = new TestASTRequestor();
-			ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+			ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 			parser.setIgnoreMethodBodies(true);
 			parser.setResolveBindings(true);
 			parser.setProject(getJavaProject("P"));

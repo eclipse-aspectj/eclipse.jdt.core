@@ -22,20 +22,21 @@ import org.eclipse.jdt.internal.compiler.codegen.ExceptionLabel;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 
 public class RecordPattern extends Pattern {
 
 	public Pattern[] patterns;
 	public TypeReference type;
-
-	private TypeBinding expectedType; // for record pattern type inference
 
 	public RecordPattern(TypeReference type, int sourceStart, int sourceEnd) {
 		this.type = type;
@@ -73,7 +74,7 @@ public class RecordPattern extends Pattern {
 	}
 
 	@Override
-	public boolean coversType(TypeBinding t) {
+	public boolean coversType(TypeBinding t, Scope scope) {
 
 		if (!isUnguarded())
 			return false;
@@ -90,7 +91,7 @@ public class RecordPattern extends Pattern {
 		for (int i = 0; i < components.length; i++) {
 			Pattern p = this.patterns[i];
 			RecordComponentBinding componentBinding = components[i];
-			if (!p.coversType(componentBinding.type)) {
+			if (!p.coversType(componentBinding.type, scope)) {
 				return false;
 			}
 		}
@@ -98,26 +99,17 @@ public class RecordPattern extends Pattern {
 	}
 
 	@Override
-	public void setExpectedType(TypeBinding expectedType) {
-		this.expectedType = expectedType;
-	}
-
-	@Override
-	public TypeBinding expectedType() {
-		return this.expectedType;
-	}
-
-	@Override
 	public TypeBinding resolveType(BlockScope scope) {
 
+		this.constant = Constant.NotAConstant;
 		if (this.resolvedType != null)
 			return this.resolvedType;
 
 		this.type.bits |= ASTNode.IgnoreRawTypeCheck;
 		this.resolvedType = this.type.resolveType(scope);
 
-		if (!this.resolvedType.isRecord()) {
-			scope.problemReporter().unexpectedTypeinRecordPattern(this.resolvedType, this.type);
+		if (this.resolvedType == null || !this.resolvedType.isRecord()) {
+			scope.problemReporter().unexpectedTypeinRecordPattern(this.type);
 			return this.resolvedType;
 		}
 		if (this.resolvedType.components().length != this.patterns.length) {
@@ -126,9 +118,8 @@ public class RecordPattern extends Pattern {
 		}
 
 		if (this.resolvedType.isRawType()) {
-			TypeBinding expressionType = expectedType();
-			if (expressionType instanceof ReferenceBinding) {
-				ReferenceBinding binding = inferRecordParameterization(scope, (ReferenceBinding) expressionType);
+			if (this.outerExpressionType instanceof ReferenceBinding) {
+				ReferenceBinding binding = inferRecordParameterization(scope, (ReferenceBinding) this.outerExpressionType);
 				if (binding == null || !binding.isValidBinding()) {
 					scope.problemReporter().cannotInferRecordPatternTypes(this);
 				    return this.resolvedType = null;
@@ -138,16 +129,18 @@ public class RecordPattern extends Pattern {
 		}
 
 		LocalVariableBinding [] bindings = NO_VARIABLES;
-		for (Pattern p : this.patterns) {
+		for (int i = 0, l = this.patterns.length; i < l; ++i) {
+			Pattern p = this.patterns[i];
 			p.resolveTypeWithBindings(bindings, scope);
 			bindings = LocalVariableBinding.merge(bindings, p.bindingsWhenTrue());
+			p.setOuterExpressionType(this.resolvedType.components()[i].type);
 		}
 
 		if (this.resolvedType == null || !this.resolvedType.isValidBinding()) {
 			return this.resolvedType;
 		}
 
-		this.isTotalTypeNode = super.coversType(this.resolvedType);
+		this.isTotalTypeNode = super.coversType(this.resolvedType, scope);
 		RecordComponentBinding[] components = this.resolvedType.capture(scope, this.sourceStart, this.sourceEnd).components();
 		for (int i = 0; i < components.length; i++) {
 			Pattern p1 = this.patterns[i];
@@ -158,9 +151,9 @@ public class RecordPattern extends Pattern {
 						tp.local.binding.type = componentBinding.type;
 				}
 			}
-			TypeBinding expressionType = componentBinding.type;
-			if (p1.isApplicable(expressionType, scope)) {
-				p1.isTotalTypeNode = p1.coversType(componentBinding.type);
+			TypeBinding componentType = componentBinding.type;
+			if (p1.isApplicable(componentType, scope, p1)) {
+				p1.isTotalTypeNode = p1.coversType(componentType, scope);
 				MethodBinding[] methods = this.resolvedType.getMethods(componentBinding.name);
 				if (methods != null && methods.length > 0) {
 					p1.accessorMethod = methods[0];
@@ -170,6 +163,7 @@ public class RecordPattern extends Pattern {
 		}
 		return this.resolvedType;
 	}
+
 
 	private ReferenceBinding inferRecordParameterization(BlockScope scope, ReferenceBinding proposedMatchingType) {
 		InferenceContext18 freshInferenceContext = new InferenceContext18(scope);
@@ -183,11 +177,6 @@ public class RecordPattern extends Pattern {
 	@Override
 	public boolean matchFailurePossible() {
 		return this.patterns.length != 0; // if no deconstruction is involved, no failure is possible.
-	}
-
-	@Override
-	public boolean isUnconditional(TypeBinding t) {
-		return false;
 	}
 
 	@Override
@@ -254,16 +243,22 @@ public class RecordPattern extends Pattern {
 			exceptionLabel.placeEnd();
 			labels.add(exceptionLabel);
 
+			TypeBinding componentType = p.accessorMethod.returnType;
+			checkForPrimitiveType(currentScope, p, componentType);
 			if (TypeBinding.notEquals(p.accessorMethod.original().returnType.erasure(),
-					p.accessorMethod.returnType.erasure()))
-				codeStream.checkcast(p.accessorMethod.returnType); // lastComponent ? [C] : [R, C]
+					componentType.erasure()))
+				codeStream.checkcast(componentType); // lastComponent ? [C] : [R, C]
 			if (p instanceof RecordPattern || !p.isTotalTypeNode) {
 				if (!p.isUnnamed())
-					codeStream.dup(); // lastComponent ? named ? ([C, C] : [R, C, C]) : ([C] : [R, C])
-				codeStream.instance_of(p.resolvedType); // lastComponent ? named ? ([C, boolean] : [R, C, boolean]) : ([boolean] : [R, boolean])
+					codeStream.dup(componentType); // lastComponent ? named ? ([C, C] : [R, C, C]) : ([C] : [R, C])
+				if (p instanceof TypePattern) {
+					((TypePattern) p).generateTypeCheck(currentScope, codeStream);
+				} else {
+					codeStream.instance_of(p.resolvedType); // lastComponent ? named ? ([C, boolean] : [R, C, boolean]) : ([boolean] : [R, boolean])
+				}
 				BranchLabel innerTruthLabel = new BranchLabel(codeStream);
 				codeStream.ifne(innerTruthLabel); // lastComponent ? named ? ([C] : [R, C]) : ([] : [R])
-				int pops = p.isUnnamed() ? 0 : 1; // Not going to store into the component pattern binding, so need to pop, the duped value.
+				int pops = p.isUnnamed() ? 0 : TypeIds.getCategory(componentType.id); // Not going to store into the component pattern binding, so need to pop, the duped value.
 				Pattern current = p;
 				RecordPattern outer = this;
 				while (outer != null) {
@@ -294,6 +289,18 @@ public class RecordPattern extends Pattern {
 				eLabels.addAll(labels);
 			}
 			codeStream.patternAccessorMap.put(trapScope, eLabels);
+		}
+	}
+
+	private void checkForPrimitiveType(BlockScope currentScope, Pattern p, TypeBinding componentType) {
+		if (p.isTotalTypeNode && !componentType.isPrimitiveType() &&  p instanceof TypePattern tp) {
+			TypeBinding providedType = tp.resolvedType;
+			if (providedType != null && providedType.isPrimitiveType()) {
+				PrimitiveConversionRoute route = Pattern.findPrimitiveConversionRoute(componentType, providedType, currentScope);
+				if (route != PrimitiveConversionRoute.NO_CONVERSION_ROUTE) {
+					p.isTotalTypeNode = false;
+				}
+			}
 		}
 	}
 

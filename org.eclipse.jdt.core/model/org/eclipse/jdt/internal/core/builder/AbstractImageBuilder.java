@@ -14,19 +14,56 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.builder;
 
-import org.eclipse.core.runtime.*;
-import org.eclipse.core.resources.*;
+import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
-import org.eclipse.jdt.core.*;
-import org.eclipse.jdt.core.compiler.*;
-import org.eclipse.jdt.internal.compiler.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URI;
+import java.util.*;
+import org.eclipse.core.filesystem.URIUtil;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceProxy;
+import org.eclipse.core.resources.IResourceProxyVisitor;
+import org.eclipse.core.resources.IResourceStatus;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.IJavaModelMarker;
+import org.eclipse.jdt.core.IJavaModelStatusConstants;
+import org.eclipse.jdt.core.IMember;
+import org.eclipse.jdt.core.ISourceRange;
+import org.eclipse.jdt.core.IType;
+import org.eclipse.jdt.core.JavaConventions;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.core.compiler.CompilationParticipant;
+import org.eclipse.jdt.core.compiler.IProblem;
+import org.eclipse.jdt.internal.compiler.AbstractAnnotationProcessorManager;
+import org.eclipse.jdt.internal.compiler.ClassFile;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
+import org.eclipse.jdt.internal.compiler.CompilerConfiguration;
+import org.eclipse.jdt.internal.compiler.DefaultCompilerFactory;
+import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
+import org.eclipse.jdt.internal.compiler.ICompilerFactory;
+import org.eclipse.jdt.internal.compiler.ICompilerRequestor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.problem.*;
+import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.CompilationGroup;
@@ -34,11 +71,6 @@ import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.PackageFragment;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
-
-import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
-
-import java.io.*;
-import java.util.*;
 
 /**
  * The abstract superclass of Java builders.
@@ -85,6 +117,7 @@ public final static Integer S_INFO = Integer.valueOf(IMarker.SEVERITY_INFO);
 public final static Integer P_HIGH = Integer.valueOf(IMarker.PRIORITY_HIGH);
 public final static Integer P_NORMAL = Integer.valueOf(IMarker.PRIORITY_NORMAL);
 public final static Integer P_LOW = Integer.valueOf(IMarker.PRIORITY_LOW);
+public final static String COMPILER_FACTORY_KEY = "AbstractImageBuilder.compilerFactory"; //$NON-NLS-1$
 private final CompilationGroup compilationGroup;
 
 protected AbstractImageBuilder(JavaBuilder javaBuilder, boolean buildStarting, State newState, CompilationGroup compilationGroup) {
@@ -155,9 +188,7 @@ public void acceptResult(CompilationResult result) {
 		ArrayList duplicateTypeNames = null;
 		ArrayList definedTypeNames = new ArrayList(length);
 		ArrayList<CompilationParticipantResult> postProcessingResults = new ArrayList<>();
-		for (int i = 0; i < length; i++) {
-			ClassFile classFile = classFiles[i];
-
+		for (ClassFile classFile : classFiles) {
 			char[][] compoundName = classFile.getCompoundName();
 			char[] typeName = compoundName[compoundName.length - 1];
 			boolean isNestedType = classFile.isNestedType;
@@ -573,12 +604,31 @@ protected Compiler newCompiler() {
 	CompilerOptions compilerOptions = new CompilerOptions(projectOptions);
 	compilerOptions.performMethodsFullRecovery = true;
 	compilerOptions.performStatementsRecovery = true;
-	Compiler newCompiler = new Compiler(
-		this.nameEnvironment,
-		DefaultErrorHandlingPolicies.proceedWithAllProblems(),
-		compilerOptions,
-		this,
-		ProblemFactory.getProblemFactory(Locale.getDefault()));
+
+	ICompilerFactory compilerFactory = null;
+	String compilerFactoryClassName = System.getProperty(COMPILER_FACTORY_KEY);
+	if (compilerFactoryClassName != null) {
+		try {
+			Class<? extends ICompilerFactory> compilerFactoryClass = (Class<? extends ICompilerFactory>) Class.forName(compilerFactoryClassName);
+			Constructor<? extends ICompilerFactory> constructor = compilerFactoryClass.getDeclaredConstructor();
+			compilerFactory = constructor.newInstance();
+		} catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException
+				| IllegalArgumentException | InstantiationException | InvocationTargetException e) {
+			ILog.get().error("Failed to initialize the custom compiler factory - " + compilerFactoryClassName, e); //$NON-NLS-1$
+		}
+	}
+
+	if (compilerFactory == null) {
+		compilerFactory = new DefaultCompilerFactory();
+	}
+
+	Compiler newCompiler = compilerFactory.newCompiler(
+			this.nameEnvironment,
+			DefaultErrorHandlingPolicies.proceedWithAllProblems(),
+			prepareCompilerConfiguration(compilerOptions),
+			this,
+			ProblemFactory.getProblemFactory(Locale.getDefault()));
+
 	CompilerOptions options = newCompiler.options;
 	// temporary code to allow the compiler to revert to a single thread
 	String setting = System.getProperty("jdt.compiler.useSingleThread"); //$NON-NLS-1$
@@ -594,6 +644,79 @@ protected Compiler newCompiler() {
 	}
 
 	return newCompiler;
+}
+
+private CompilerConfiguration prepareCompilerConfiguration(CompilerOptions options) {
+	try {
+		List<URI> annotationProcessorPaths = new ArrayList<>();
+		List<IContainer> generatedSourcePaths = new ArrayList<>();
+		boolean isTest = this.compilationGroup == CompilationGroup.TEST;
+		if (this.javaBuilder.participants != null) {
+			for (CompilationParticipant participant : this.javaBuilder.participants) {
+				if (participant.isAnnotationProcessor()) {
+					URI[] paths = participant.getAnnotationProcessorPaths(this.javaBuilder.javaProject, isTest);
+					if (paths != null) {
+						annotationProcessorPaths.addAll(Arrays.asList(paths));
+					}
+					IContainer[] generatedSrc = participant.getGeneratedSourcePaths(this.javaBuilder.javaProject, isTest);
+					if (generatedSrc != null) {
+						generatedSourcePaths.addAll(Arrays.asList(generatedSrc));
+					}
+				}
+			}
+		}
+
+		ClasspathLocation[] classpathLocations = this.nameEnvironment.binaryLocations;
+		Set<URI> classpaths = new LinkedHashSet<>();
+		Set<URI> modulepaths = new LinkedHashSet<>();
+		for (ClasspathLocation location : classpathLocations) {
+			if (location instanceof ClasspathDirectory cpDirectory) {
+				URI cpURI = cpDirectory.binaryFolder.getRawLocationURI();
+				if (cpURI == null) {
+					continue;
+				}
+				if (cpDirectory.isOnModulePath) {
+					modulepaths.add(cpURI);
+				} else {
+					classpaths.add(cpURI);
+				}
+			} else if (location instanceof ClasspathJar cpJar) {
+				URI cpURI = URIUtil.toURI(cpJar.zipFilename, true);
+				if (cpJar.isOnModulePath) {
+					modulepaths.add(cpURI);
+				} else {
+					classpaths.add(cpURI);
+				}
+			}
+		}
+
+		Map<IContainer, IContainer> sourceOutputMapping = new HashMap<>();
+		Set<IContainer> sourcepaths = new LinkedHashSet<>();
+		Set<IContainer> moduleSourcepaths = new LinkedHashSet<>();
+		ClasspathMultiDirectory[] srcLocations = this.nameEnvironment.sourceLocations;
+		for (ClasspathMultiDirectory sourceLocation : srcLocations) {
+			sourceOutputMapping.put(sourceLocation.sourceFolder, sourceLocation.binaryFolder);
+			if (sourceLocation.isOnModulePath) {
+				moduleSourcepaths.add(sourceLocation.sourceFolder);
+			} else {
+				sourcepaths.add(sourceLocation.sourceFolder);
+			}
+		}
+
+		return new CompilerConfiguration(
+				List.copyOf(sourcepaths),
+				List.copyOf(moduleSourcepaths),
+				List.copyOf(classpaths),
+				List.copyOf(modulepaths),
+				annotationProcessorPaths,
+				generatedSourcePaths,
+				sourceOutputMapping,
+				options);
+	} catch (Exception e) {
+		ILog.get().error("Failed computing compiler configuration", e); //$NON-NLS-1$
+		return new CompilerConfiguration(
+				null, null, null, null, null, null, null, options);
+	}
 }
 
 protected CompilationParticipantResult[] notifyParticipants(SourceFile[] unitsAboutToCompile) {
@@ -666,10 +789,13 @@ protected void processAnnotations(CompilationParticipantResult[] results) {
 		results[i].reset(foundAnnotations ? this.filesWithAnnotations.get(results[i].sourceFile) : null);
 	}
 
-	// even if no files have annotations, must still tell every annotation processor in case the file used to have them
-	for (CompilationParticipant participant : this.javaBuilder.participants)
-		if (participant.isAnnotationProcessor())
-			participant.processAnnotations(results);
+	boolean isEcjUsed = Compiler.class.equals(this.compiler.getClass());
+	if (isEcjUsed) {
+		// even if no files have annotations, must still tell every annotation processor in case the file used to have them
+		for (CompilationParticipant participant : this.javaBuilder.participants)
+			if (participant.isAnnotationProcessor())
+				participant.processAnnotations(results);
+	}
 	processAnnotationResults(results);
 }
 
@@ -905,26 +1031,6 @@ protected char[] writeClassFile(ClassFile classFile, SourceFile compilationUnit,
 	return filePath.lastSegment().toCharArray();
 }
 
-protected void writeClassFileContents(ClassFile classFile, IFile file, String qualifiedFileName, boolean isTopLevelType, SourceFile compilationUnit) throws CoreException {
-//	InputStream input = new SequenceInputStream(
-//			new ByteArrayInputStream(classFile.header, 0, classFile.headerOffset),
-//			new ByteArrayInputStream(classFile.contents, 0, classFile.contentsOffset));
-	InputStream input = new ByteArrayInputStream(classFile.getBytes());
-	if (file.exists()) {
-		// Deal with shared output folders... last one wins... no collision cases detected
-		if (JavaBuilder.DEBUG) {
-			trace("Writing changed class file " + file.getName());//$NON-NLS-1$
-		}
-		if (!file.isDerived()) {
-			file.setDerived(true, null);
-		}
-		file.setContents(input, true, false, null);
-	} else {
-		// Default implementation just writes out the bytes for the new class file...
-		if (JavaBuilder.DEBUG) {
-			trace("Writing new class file " + file.getName());//$NON-NLS-1$
-		}
-		file.create(input, IResource.FORCE | IResource.DERIVED, null);
-	}
-}
+abstract protected void writeClassFileContents(ClassFile classFile, IFile file, String qualifiedFileName, boolean isTopLevelType, SourceFile compilationUnit) throws CoreException;
+
 }

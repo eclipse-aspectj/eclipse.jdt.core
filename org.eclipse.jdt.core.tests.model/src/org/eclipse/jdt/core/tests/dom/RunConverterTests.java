@@ -16,11 +16,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import org.eclipse.jdt.core.tests.junit.extension.TestCase;
-
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RunConverterTests extends junit.framework.TestCase {
@@ -58,10 +56,13 @@ public static Class[] getAllTestClasses() {
 		ASTConverter_15Test.class,
 		ASTConverter_16Test.class,
 		ASTConverter_17Test.class,
+		ASTConverter_23Test.class,
 		ASTConverter_GuardedPattern_Test.class,
 		ASTConverter_RecordPattern_Test.class,
-		ASTConverterStringTemplateTest.class,
 		ASTConverterSuperAfterStatements.class,
+		ASTConverterEitherOrMultiPatternTest.class,
+		CompilationUnitResolverDiscoveryTest.class,
+		//ASTConverterMarkdownTest.class
 	};
 }
 public static Test suite() {

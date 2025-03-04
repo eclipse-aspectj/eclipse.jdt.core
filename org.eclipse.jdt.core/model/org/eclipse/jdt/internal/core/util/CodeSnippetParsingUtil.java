@@ -15,7 +15,6 @@ package org.eclipse.jdt.internal.core.util;
 
 import java.util.Locale;
 import java.util.Map;
-
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
@@ -94,43 +93,6 @@ public class CodeSnippetParsingUtil {
 		CompilationResult compilationResult = new CompilationResult(sourceUnit, 0, 0, compilerOptions.maxProblemsPerUnit);
 		final CompilationUnitDeclaration compilationUnitDeclaration = new CompilationUnitDeclaration(problemReporter, compilationResult, source.length);
 		ASTNode[] result = parser.parseClassBodyDeclarations(source, offset, length, compilationUnitDeclaration);
-
-		if (recordParsingInformation) {
-			this.recordedParsingInformation = getRecordedParsingInformation(compilationResult, compilationUnitDeclaration.comments);
-		}
-		return result;
-	}
-
-	public ASTNode[] parseRecordBodyDeclarations(
-			char[] source,
-			int offset,
-			int length,
-			Map<String, String> settings,
-			boolean recordParsingInformation,
-			boolean enabledStatementRecovery) {
-		if (source == null) {
-			throw new IllegalArgumentException();
-		}
-		CompilerOptions compilerOptions = new CompilerOptions(settings);
-		compilerOptions.ignoreMethodBodies = this.ignoreMethodBodies;
-		final ProblemReporter problemReporter = new ProblemReporter(
-					DefaultErrorHandlingPolicies.proceedWithAllProblems(),
-					compilerOptions,
-					new DefaultProblemFactory(Locale.getDefault()));
-
-		CommentRecorderParser parser = new CommentRecorderParser(problemReporter, false);
-		parser.setMethodsFullRecovery(false);
-		parser.setStatementsRecovery(enabledStatementRecovery);
-
-		ICompilationUnit sourceUnit =
-			new CompilationUnit(
-				source,
-				"", //$NON-NLS-1$
-				compilerOptions.defaultEncoding);
-
-		CompilationResult compilationResult = new CompilationResult(sourceUnit, 0, 0, compilerOptions.maxProblemsPerUnit);
-		final CompilationUnitDeclaration compilationUnitDeclaration = new CompilationUnitDeclaration(problemReporter, compilationResult, source.length);
-		ASTNode[] result = parser.parseRecordBodyDeclarations(source, offset, length, compilationUnitDeclaration);
 
 		if (recordParsingInformation) {
 			this.recordedParsingInformation = getRecordedParsingInformation(compilationResult, compilationUnitDeclaration.comments);

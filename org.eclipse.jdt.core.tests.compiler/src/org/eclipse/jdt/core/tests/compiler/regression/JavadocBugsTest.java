@@ -15,9 +15,7 @@
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.parser.JavadocTagConstants;
@@ -3409,7 +3407,7 @@ public void testBug74369deprecated() {
 		"----------\n" +
 		"1. ERROR in X.java (at line 12)\n" +
 		"	new Y().bar();\n" +
-		"	        ^^^^^\n" +
+		"	        ^^^\n" +
 		"The method bar() from the type Y is deprecated\n" +
 		"----------\n",
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError

@@ -13,31 +13,21 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.dom;
 
+import java.util.List;
+import java.util.function.Consumer;
 import junit.framework.Test;
-
+import org.eclipse.core.resources.IncrementalProjectBuilder;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.JrtPackageFragmentRoot;
 import org.eclipse.jdt.internal.core.SourceModule;
-
-import java.util.List;
-import java.util.function.Consumer;
-
-import org.eclipse.core.resources.IncrementalProjectBuilder;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IClasspathAttribute;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IModularClassFile;
-import org.eclipse.jdt.core.IModuleDescription;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.compiler.IProblem;
+import org.eclipse.text.edits.ReplaceEdit;
 
 @SuppressWarnings({"rawtypes"})
 public class ASTConverter9Test extends ConverterTestSetup {
@@ -1335,7 +1325,7 @@ public class ASTConverter9Test extends ConverterTestSetup {
 			// common check for both parts:
 			Consumer<IBinding> validateBinding = (IBinding binding) -> {
 				assertTrue("Not ModuleBinding", binding instanceof IModuleBinding);
-				IAnnotationBinding[] annotations = ((IModuleBinding) binding).getAnnotations();
+				IAnnotationBinding[] annotations = binding.getAnnotations();
 				assertEquals("Number of annotations",  1, annotations.length);
 				assertEquals("Annotation type", "Deprecated", annotations[0].getAnnotationType().getName());
 			};
@@ -1475,5 +1465,170 @@ public class ASTConverter9Test extends ConverterTestSetup {
 			deleteProject(p);
 		}
 	}
+	public void testStackOverflowInEmptiedModuleDeclarationParsing() throws JavaModelException, CoreException {
+		try {
+			IJavaProject project1 = createJavaProject("ASTParserModelTests", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+			project1.open(null);
+			addClasspathEntry(project1, JavaCore.newContainerEntry(new Path("org.eclipse.jdt.MODULE_PATH")));
+			String content = """
+			module first {
+				requires transitive static second.third;
+				exports pack1.X11 to org.eclipse.jdt;
+			}
+			""";
+			createFile("/ASTParserModelTests/src/module-info.java", content);
+			this.workingCopy = getCompilationUnit("/ASTParserModelTests/src/module-info.java");
+			this.workingCopy.getBuffer().setContents("");
+
+			ASTParser astParser = ASTParser.newParser(AST.getJLSLatest());
+			astParser.setSource(this.workingCopy);
+			astParser.setResolveBindings(true);
+			astParser.setStatementsRecovery(true);
+			ASTNode astNode = astParser.createAST(new NullProgressMonitor());
+			assertEquals("", astNode.toString());
+		} finally {
+			deleteProject("ASTParserModelTests");
+		}
+	}
+	public void testClassCastExceptionWhenOpeningModuleInfoWithClass() throws JavaModelException, CoreException {
+		try {
+			IJavaProject project1 = createJavaProject("ASTParserModelTests", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+			project1.open(null);
+			addClasspathEntry(project1, JavaCore.newContainerEntry(new Path("org.eclipse.jdt.MODULE_PATH")));
+			String content = """
+			module first {
+			}
+			""";
+			createFile("/ASTParserModelTests/src/module-info.java", content);
+			this.workingCopy = getCompilationUnit("/ASTParserModelTests/src/module-info.java");
+			this.workingCopy.becomeWorkingCopy(null);
+			this.workingCopy.applyTextEdit(new ReplaceEdit(0, 6, "class"), null);
+			this.workingCopy.reconcile(AST.getJLSLatest(), true, false, null, null);
+			project1.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
+			assertEquals(0, this.workingCopy.getChildren().length);
+		} finally {
+			deleteProject("ASTParserModelTests");
+		}
+	}
+	public void testStackOverflow_type_schizophrenia() throws JavaModelException, CoreException {
+		try {
+			// empty project, used only as a dependency:
+			IJavaProject project0 = createJavaProject("P0", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+
+			// modular shared project
+			IJavaProject project1 = createJavaProject("P1", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+
+			// HACK#1
+			// the following dependency triggers a code path in ModuleUpdater.determineModulesOfProjectsWithNonEmptyClasspath()
+			// - guarded by containsNonModularDependency()
+			// - if effective it adds ALL-UNNAMED to P1's module requirements:
+			addClasspathEntry(project1, JavaCore.newProjectEntry(project0.getPath())); // not modular!
+
+			project1.open(null);
+			createFolder("/P1/src/common/pack1");
+			createFile("/P1/src/common/pack1/C1.java",
+					"""
+					package common.pack1;
+					import common.pack1.Shared;
+					// the type parameter bound forces resolving 'Shared' from within its module:
+					public interface C1<T extends Shared> {
+						static final String CONST1 = "const1";
+					}
+					""");
+			createFile("/P1/src/common/pack1/Shared.java",
+					"""
+					package common.pack1;
+					// the following import triggers recursive lookup of the class being inserted into compilation:
+					import static common.pack1.Shared.Kind.*;
+					public interface Shared {
+						enum Kind { Good, Bad }
+						static Kind DEFAULT = Good;
+					}
+					""");
+			createFile("/P1/src/module-info.java",
+					"""
+					module first {
+						exports common.pack1;
+					}
+					""");
+
+			// non-modular client project where the SOE occurs:
+			IJavaProject project2 = createJavaProject("P2", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+			addClasspathEntry(project2, JavaCore.newProjectEntry(project1.getPath())); // not modular!
+
+			// the following dependency enables a code path in the constructor of SearchableEnvironment:
+			// - guarded by Arrays.stream(expandedClasspath).anyMatch(IClasspathEntry::isTest)
+			// - if effective tries to add ALL-UNNAMED to module requirements.
+			// - additionally needs HACK#1 to be effective
+			addClasspathEntry(project2, JavaCore.newSourceEntry(new Path("/P2/testsrc"), null, null, new Path("/P2/testbin"),
+					new IClasspathAttribute[] {JavaCore.newClasspathAttribute(IClasspathAttribute.TEST, "true")}));
+			project2.open(null);
+			createFolder("/P2/src/common/test");
+			createFile("/P2/src/common/test/Client.java",
+					"""
+					package common.test;
+					import static common.pack1.C1.*; // this import pulls in classes from the other project
+					import common.pack1.C1;
+					public class Client {
+						String s = CONST1;
+						C1<?> c1;
+					}
+					""");
+
+			IJavaElement[] types = { project2.findType("common.test.Client") };
+			ASTParser astParser = ASTParser.newParser(AST.getJLSLatest());
+			astParser.setProject(project2);
+			IBinding[] bindings = astParser.createBindings(types, null);
+			assertEquals(1, bindings.length);
+			ITypeBinding type = (ITypeBinding) bindings[0];
+			IVariableBinding c1 = type.getDeclaredFields()[0];
+			IModuleBinding module = c1.getType().getModule();
+			assertNotNull(module);
+			assertEquals("", module.getName());
+		} finally {
+			deleteProject("P0");
+			deleteProject("P1");
+			deleteProject("P2");
+		}
+	}
+	public void testRequiresDirectiveNameIsMandatory() throws JavaModelException, CoreException {
+		try {
+			assertTrue(RequiresDirective.NAME_PROPERTY.isMandatory());
+
+			IJavaProject project1 = createJavaProject("ASTParserModelTests", new String[] { "src" },
+					new String[] { "CONVERTER_JCL9_LIB" }, "bin", "9");
+			project1.open(null);
+			addClasspathEntry(project1, JavaCore.newContainerEntry(new Path("org.eclipse.jdt.MODULE_PATH")));
+			String content = """
+			module first {
+				requires other;
+			}
+			""";
+			createFile("/ASTParserModelTests/src/module-info.java", content);
+			this.workingCopy = getCompilationUnit("/ASTParserModelTests/src/module-info.java");
+
+			ASTParser astParser = ASTParser.newParser(AST.getJLSLatest());
+			astParser.setSource(this.workingCopy);
+			astParser.setResolveBindings(true);
+			astParser.setStatementsRecovery(true);
+			CompilationUnit compilationUnit = (CompilationUnit) astParser.createAST(new NullProgressMonitor());
+			ModuleDeclaration moduleDeclaration = compilationUnit.getModule();
+			RequiresDirective requiresDirective = (RequiresDirective)moduleDeclaration.moduleStatements().get(0);
+			try {
+				requiresDirective.setName(null);
+				fail("Expected an IllegalArgumentException to be thrown");
+			} catch (IllegalArgumentException e) {
+				// do nothing
+			}
+		} finally {
+			deleteProject("ASTParserModelTests");
+		}
+	}
+
 // Add new tests here
 }

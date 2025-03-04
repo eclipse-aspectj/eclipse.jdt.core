@@ -20,11 +20,9 @@ package org.eclipse.jdt.core.dom;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -49,7 +47,6 @@ import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.ISourceType;
@@ -63,26 +60,67 @@ import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObject;
-import org.eclipse.jdt.internal.compiler.util.HashtableOfObjectToInt;
 import org.eclipse.jdt.internal.compiler.util.Messages;
 import org.eclipse.jdt.internal.compiler.util.Util;
-import org.eclipse.jdt.internal.core.BinaryMember;
-import org.eclipse.jdt.internal.core.BinaryModule;
 import org.eclipse.jdt.internal.core.CancelableNameEnvironment;
 import org.eclipse.jdt.internal.core.CancelableProblemFactory;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.INameEnvironmentWithProgress;
 import org.eclipse.jdt.internal.core.JavaProject;
-import org.eclipse.jdt.internal.core.LocalVariable;
 import org.eclipse.jdt.internal.core.NameLookup;
-import org.eclipse.jdt.internal.core.SourceRefElement;
 import org.eclipse.jdt.internal.core.SourceTypeElementInfo;
+import org.eclipse.jdt.internal.core.dom.ICompilationUnitResolver;
 import org.eclipse.jdt.internal.core.util.BindingKeyResolver;
 import org.eclipse.jdt.internal.core.util.CommentRecorderParser;
-import org.eclipse.jdt.internal.core.util.DOMFinder;
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
 class CompilationUnitResolver extends Compiler {
+
+	private static final class ECJCompilationUnitResolver implements ICompilationUnitResolver {
+
+		@Override
+		public void resolve(String[] sourceFilePaths, String[] encodings, String[] bindingKeys,
+				FileASTRequestor requestor, int apiLevel, Map<String, String> compilerOptions, List<Classpath> classpath,
+				int flags, IProgressMonitor monitor) {
+			CompilationUnitResolver.resolve(sourceFilePaths, encodings, bindingKeys, requestor, apiLevel, compilerOptions, classpath, flags, monitor);
+		}
+
+		@Override
+		public void parse(ICompilationUnit[] compilationUnits, ASTRequestor requestor, int apiLevel,
+				Map<String, String> compilerOptions, int flags, IProgressMonitor monitor) {
+			CompilationUnitResolver.parse(compilationUnits, requestor, apiLevel, compilerOptions, flags, monitor);
+		}
+
+		@Override
+		public void parse(String[] sourceFilePaths, String[] encodings, FileASTRequestor requestor, int apiLevel,
+				Map<String, String> compilerOptions, int flags, IProgressMonitor monitor) {
+			CompilationUnitResolver.parse(sourceFilePaths, encodings, requestor, apiLevel, compilerOptions, flags, monitor);
+		}
+
+		@Override
+		public void resolve(ICompilationUnit[] compilationUnits, String[] bindingKeys, ASTRequestor requestor,
+				int apiLevel, Map<String, String> compilerOptions, IJavaProject project,
+				WorkingCopyOwner workingCopyOwner, int flags, IProgressMonitor monitor) {
+			CompilationUnitResolver.resolve(compilationUnits, bindingKeys, requestor, apiLevel, compilerOptions, project, workingCopyOwner, flags, monitor);
+		}
+
+		@Override
+		public CompilationUnit toCompilationUnit(org.eclipse.jdt.internal.compiler.env.ICompilationUnit sourceUnit, final boolean initialNeedsToResolveBinding, IJavaProject project, List<Classpath> classpaths, int focalPosition,
+			int apiLevel, Map<String, String> compilerOptions, WorkingCopyOwner parsedUnitWorkingCopyOwner, WorkingCopyOwner typeRootWorkingCopyOwner, int flags, IProgressMonitor monitor) {
+			return CompilationUnitResolver.toCompilationUnit(sourceUnit, initialNeedsToResolveBinding, project,
+					classpaths, focalPosition == -1 ? null : new NodeSearcher(focalPosition), apiLevel, compilerOptions, parsedUnitWorkingCopyOwner, typeRootWorkingCopyOwner, flags, monitor);
+		}
+	}
+
+	private static ECJCompilationUnitResolver FACADE;
+	public static synchronized ICompilationUnitResolver getInstance() {
+		if (FACADE == null) {
+			FACADE = new ECJCompilationUnitResolver();
+		}
+		return FACADE;
+	}
+
+
 	public static final int RESOLVE_BINDING = 0x1;
 	public static final int PARTIAL = 0x2;
 	public static final int STATEMENT_RECOVERY = 0x4;
@@ -324,7 +362,7 @@ class CompilationUnitResolver extends Compiler {
 		long sourceLevel = CompilerOptions.versionToJdkLevel(sourceModeSetting);
 		if (sourceLevel == 0) {
 			// unknown sourceModeSetting
-			sourceLevel = ClassFileConstants.JDK1_3;
+			sourceLevel = CompilerOptions.getFirstSupportedJdkLevel();
 		}
 		ast.scanner.sourceLevel = sourceLevel;
 		String compliance = (String) options.get(JavaCore.COMPILER_COMPLIANCE);
@@ -842,6 +880,19 @@ class CompilationUnitResolver extends Compiler {
 			}
 		}
 	}
+
+	/**
+	 * Parse and resolve bindings for the given java elements with the following options.
+	 *
+	 * @param elements
+	 * @param apiLevel
+	 * @param compilerOptions
+	 * @param javaProject
+	 * @param owner
+	 * @param flags
+	 * @param monitor
+	 * @return an array of bindings that match the resolved elements
+	 */
 	public static IBinding[] resolve(
 		final IJavaElement[] elements,
 		int apiLevel,
@@ -850,79 +901,11 @@ class CompilationUnitResolver extends Compiler {
 		WorkingCopyOwner owner,
 		int flags,
 		IProgressMonitor monitor) {
-
-		final int length = elements.length;
-		final HashMap sourceElementPositions = new HashMap(); // a map from ICompilationUnit to int[] (positions in elements)
-		int cuNumber = 0;
-		final HashtableOfObjectToInt binaryElementPositions = new HashtableOfObjectToInt(); // a map from String (binding key) to int (position in elements)
-		for (int i = 0; i < length; i++) {
-			IJavaElement element = elements[i];
-			if (!(element instanceof SourceRefElement))
-				throw new IllegalStateException(element + " is not part of a compilation unit or class file"); //$NON-NLS-1$
-			Object cu = element.getAncestor(IJavaElement.COMPILATION_UNIT);
-			if (cu != null) {
-				// source member
-				IntArrayList intList = (IntArrayList) sourceElementPositions.get(cu);
-				if (intList == null) {
-					sourceElementPositions.put(cu, intList = new IntArrayList());
-					cuNumber++;
-				}
-				intList.add(i);
-			} else {
-				// binary member or method argument
-				try {
-					String key;
-					if (element instanceof BinaryMember)
-						key = ((BinaryMember) element).getKey(true/*open to get resolved info*/);
-					else if (element instanceof LocalVariable)
-						key = ((LocalVariable) element).getKey(true/*open to get resolved info*/);
-					else if (element instanceof org.eclipse.jdt.internal.core.TypeParameter)
-						key = ((org.eclipse.jdt.internal.core.TypeParameter) element).getKey(true/*open to get resolved info*/);
-					else if (element instanceof BinaryModule)
-						key = ((BinaryModule) element).getKey(true);
-					else
-						throw new IllegalArgumentException(element + " has an unexpected type"); //$NON-NLS-1$
-					binaryElementPositions.put(key, i);
-				} catch (JavaModelException e) {
-					throw new IllegalArgumentException(element + " does not exist", e); //$NON-NLS-1$
-				}
-			}
-		}
-		ICompilationUnit[] cus = new ICompilationUnit[cuNumber];
-		sourceElementPositions.keySet().toArray(cus);
-
-		int bindingKeyNumber = binaryElementPositions.size();
-		String[] bindingKeys = new String[bindingKeyNumber];
-		binaryElementPositions.keysToArray(bindingKeys);
-
-		class Requestor extends ASTRequestor {
-			IBinding[] bindings = new IBinding[length];
-			@Override
-			public void acceptAST(ICompilationUnit source, CompilationUnit ast) {
-				// TODO (jerome) optimize to visit the AST only once
-				IntArrayList intList = (IntArrayList) sourceElementPositions.get(source);
-				for (int i = 0; i < intList.length; i++) {
-					final int index = intList.list[i];
-					SourceRefElement element = (SourceRefElement) elements[index];
-					DOMFinder finder = new DOMFinder(ast, element, true/*resolve binding*/);
-					try {
-						finder.search();
-					} catch (JavaModelException e) {
-						throw new IllegalArgumentException(element + " does not exist", e); //$NON-NLS-1$
-					}
-					this.bindings[index] = finder.foundBinding;
-				}
-			}
-			@Override
-			public void acceptBinding(String bindingKey, IBinding binding) {
-				int index = binaryElementPositions.get(bindingKey);
-				this.bindings[index] = binding;
-			}
-		}
-		Requestor requestor = new Requestor();
-		resolve(cus, bindingKeys, requestor, apiLevel, compilerOptions, javaProject, owner, flags, monitor);
-		return requestor.bindings;
+		// Should not be called anymore? Candidate for deprecation
+		return ASTParser.resolve(elements, apiLevel, compilerOptions, javaProject, owner, flags, getInstance(), monitor);
 	}
+
+
 	/*
 	 * When unit result is about to be accepted, removed back pointers
 	 * to unresolved bindings
@@ -975,7 +958,7 @@ class CompilationUnitResolver extends Compiler {
 			int flags) {
 
 		// temporarily connect ourselves to the ASTResolver - must disconnect when done
-		astRequestor.compilationUnitResolver = this;
+		astRequestor.additionalBindingResolver = this::createBinding;
 		this.bindingTables = new DefaultBindingResolver.BindingTables();
 		CompilationUnitDeclaration unit = null;
 		try {
@@ -1088,7 +1071,7 @@ class CompilationUnitResolver extends Compiler {
 			throw e; // rethrow
 		} finally {
 			// disconnect ourselves from ast requestor
-			astRequestor.compilationUnitResolver = null;
+			astRequestor.additionalBindingResolver = null;
 		}
 	}
 
@@ -1427,6 +1410,62 @@ class CompilationUnitResolver extends Compiler {
 			verifyMethods,
 			analyzeCode,
 			generateCode);
+	}
+
+	public static CompilationUnit toCompilationUnit(org.eclipse.jdt.internal.compiler.env.ICompilationUnit sourceUnit, final boolean initialNeedsToResolveBinding, IJavaProject project, List<Classpath> classpaths, NodeSearcher nodeSearcher,
+			int apiLevel, Map<String, String> compilerOptions, WorkingCopyOwner parsedUnitWorkingCopyOwner, WorkingCopyOwner typeRootWorkingCopyOwner, int flags, IProgressMonitor monitor) {
+		// this -> astParser, pass as args
+		CompilationUnitDeclaration compilationUnitDeclaration = null;
+		boolean needsToResolveBindingsState = initialNeedsToResolveBinding;
+		try {
+			if (initialNeedsToResolveBinding) {
+				try {
+					// parse and resolve
+					compilationUnitDeclaration =
+						CompilationUnitResolver.resolve(
+							sourceUnit,
+							project,
+							classpaths,
+							nodeSearcher,
+							compilerOptions,
+							parsedUnitWorkingCopyOwner,
+							flags,
+							monitor);
+				} catch (JavaModelException e) {
+					flags &= ~ICompilationUnit.ENABLE_BINDINGS_RECOVERY;
+					compilationUnitDeclaration = CompilationUnitResolver.parse(
+							sourceUnit,
+							nodeSearcher,
+							compilerOptions,
+							flags);
+					needsToResolveBindingsState = false;
+				}
+			} else {
+				compilationUnitDeclaration = CompilationUnitResolver.parse(
+						sourceUnit,
+						nodeSearcher,
+						compilerOptions,
+						flags,
+						project);
+				needsToResolveBindingsState = false;
+			}
+			return CompilationUnitResolver.convert(
+				compilationUnitDeclaration,
+				sourceUnit.getContents(),
+				apiLevel,
+				compilerOptions,
+				needsToResolveBindingsState,
+				typeRootWorkingCopyOwner,
+				needsToResolveBindingsState ? new DefaultBindingResolver.BindingTables() : null,
+				flags,
+				monitor,
+				project != null,
+				project);
+		} finally {
+			if (compilationUnitDeclaration != null && initialNeedsToResolveBinding) {
+				compilationUnitDeclaration.cleanUp();
+			}
+		}
 	}
 
 	private void worked(int work) {

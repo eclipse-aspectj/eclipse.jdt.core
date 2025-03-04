@@ -13,9 +13,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
-import org.eclipse.jdt.core.compiler.CharOperation;
-
 import junit.framework.Test;
+import org.eclipse.jdt.core.compiler.CharOperation;
 
 @SuppressWarnings({ "rawtypes" })
 public class CharOperationTest extends AbstractRegressionTest {
@@ -170,5 +169,27 @@ public void test012() {
 			1,
 			4,
 			true));
+}
+
+public void testReplacePerformance001() {
+	// This is the test that takes an excessively long time
+	// The improvement here is drastic, 99% reduction in time
+	testReplaceImpl("This is one line with no matches\n", 9, 0.01);
+}
+
+private void testReplaceImpl(String oneLine, int power, double multiplier) {
+	String total = oneLine;
+	for( int i = 0; i < power; i++ ) {
+		total = total + total; // Double the length
+	}
+	total = oneLine + total;
+
+	// Now replace
+	long start = System.currentTimeMillis();
+	char[] found = CharOperation.replace(total.toCharArray(), new char[]{'/'}, new char[] {'z'});
+	assertNotNull(found);
+	long end = System.currentTimeMillis();
+	long spent = end - start;
+	assertTrue(spent < 10);
 }
 }

@@ -14,31 +14,30 @@
 package org.eclipse.jdt.core.tests.model;
 
 import java.util.List;
-
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.*;
-import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jdt.core.search.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.ITypeBinding;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.search.IJavaSearchConstants;
+import org.eclipse.jdt.core.search.IJavaSearchScope;
+import org.eclipse.jdt.core.search.SearchEngine;
+import org.eclipse.jdt.core.search.SearchParticipant;
+import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.internal.core.ExternalJavaProject;
 import org.eclipse.jdt.internal.core.util.Util;
-
-import junit.framework.Test;
 
 /**
  * Tests APIs that take a WorkingCopyOwner.
  */
 @SuppressWarnings("rawtypes")
 public class WorkingCopyOwnerTests extends ModifyingResourceTests {
-
-	/**
-	 * Internal synonym for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
 
 	ICompilationUnit workingCopy = null;
 
@@ -95,7 +94,7 @@ public class WorkingCopyOwnerTests extends ModifyingResourceTests {
 
 	private void assertProblems(String expectedProblems, String path, String source, WorkingCopyOwner owner) throws JavaModelException {
 		this.workingCopy = getWorkingCopy(path, source);
-		ASTParser parser = ASTParser.newParser(JLS3_INTERNAL);
+		ASTParser parser = ASTParser.newParser(AST.getAllSupportedVersions().getFirst());
 		parser.setSource(this.workingCopy);
 		parser.setResolveBindings(true);
 		parser.setWorkingCopyOwner(owner);
@@ -1072,7 +1071,7 @@ public class WorkingCopyOwnerTests extends ModifyingResourceTests {
 			"  int field;\n" +
 			"}"
 		);
-		CompilationUnit ast = this.workingCopy.reconcile(JLS3_INTERNAL, false, null, null);
+		CompilationUnit ast = this.workingCopy.reconcile(AST.getAllSupportedVersions().getFirst(), false, null, null);
 		assertASTNodeEquals(
 			"Unexpected AST",
 			"public class X {\n" +
@@ -1095,7 +1094,7 @@ public class WorkingCopyOwnerTests extends ModifyingResourceTests {
 			"  int field;\n" +
 			"}"
 		);
-		CompilationUnit ast = this.workingCopy.reconcile(JLS3_INTERNAL, true/*force resolution*/, null, null);
+		CompilationUnit ast = this.workingCopy.reconcile(AST.getAllSupportedVersions().getFirst(), true/*force resolution*/, null, null);
 		TypeDeclaration type = (TypeDeclaration) ast.types().get(0);
 		assertNull("Unexpected binding", type.resolveBinding());
 	}
@@ -1220,7 +1219,7 @@ public class WorkingCopyOwnerTests extends ModifyingResourceTests {
 	 */
 	public void testParseCompilationUnit3() throws CoreException {
 		try {
-			createJavaProject("P1", new String[] {"src"}, new String[] {"JCL_LIB", "lib"}, "bin");
+			createJavaProject("P1", new String[] {"src"}, new String[] {"JCL18_LIB", "lib"}, "bin");
 
 			// create X.class in lib folder
 			/* Evaluate the following in a scrapbook:

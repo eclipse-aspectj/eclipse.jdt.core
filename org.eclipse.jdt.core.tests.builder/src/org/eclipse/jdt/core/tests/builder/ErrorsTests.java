@@ -21,9 +21,7 @@ import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Hashtable;
-
 import junit.framework.Test;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
@@ -275,7 +273,7 @@ public void _test0105() throws JavaModelException, CoreException, IOException { 
 			// waiting for JDK 6: outputFolder.setWritable(true); -- workaround:
 			Process process = null;
 			try {
-				process = Runtime.getRuntime().exec("chmod -R a+w " + outputFolder.getAbsolutePath());
+				process = Runtime.getRuntime().exec(new String[]{"chmod", "-R", "a+w", outputFolder.getAbsolutePath()});
 				process.waitFor();
 			} catch (InterruptedException e) {
 				// go ahead
@@ -291,7 +289,7 @@ public void _test0105() throws JavaModelException, CoreException, IOException { 
 		} catch (Throwable t) {
 			Process process = null;
 			try {
-				process = Runtime.getRuntime().exec("chmod -R a+w " + outputFolder.getAbsolutePath());
+				process = Runtime.getRuntime().exec(new String[]{"chmod", "-R", "a+w", outputFolder.getAbsolutePath()});
 				process.waitFor();
 			} catch (InterruptedException ie) {
 				// go ahead
@@ -423,21 +421,10 @@ public void test0107() throws JavaModelException {
 
 	assertEquals("Wrong type", IResource.FILE, resources[0].getType());
 	IFile classFile = (IFile) resources[0];
-	InputStream stream = null;
 	try {
-		stream = classFile.getContents();
-		ClassFileReader.read(stream, "C.java");
+		ClassFileReader.read(classFile.readAllBytes(), "C.java");
 	} catch (Exception e) {
-		e.printStackTrace();
-		assertTrue("Should not happen", false);
-	} finally {
-		if (stream != null) {
-			try {
-				stream.close();
-			} catch(IOException e) {
-				// ignore
-			}
-		}
+		throw new AssertionError(e);
 	}
 }
 private String getResourceOuput(IResource[] resources) {

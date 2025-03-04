@@ -14,9 +14,7 @@
 package org.eclipse.jdt.core.tests.dom;
 
 import java.util.List;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
@@ -34,7 +32,7 @@ public class ASTConverter16Test extends ConverterTestSetup {
 	@Override
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
-		this.ast = AST.newAST(getJLS3(), false);
+		this.ast = AST.newAST(getJLSFirst(), false);
 	}
 
 	public ASTConverter16Test(String name) {

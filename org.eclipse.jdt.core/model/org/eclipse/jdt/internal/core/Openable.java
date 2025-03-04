@@ -14,15 +14,18 @@
 package org.eclipse.jdt.internal.core;
 
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
-
-import org.eclipse.core.resources.*;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.PerformanceStats;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.internal.codeassist.CompletionEngine;
+import org.eclipse.jdt.internal.codeassist.ICompletionEngine;
+import org.eclipse.jdt.internal.codeassist.ICompletionEngineProvider;
 import org.eclipse.jdt.internal.codeassist.SelectionEngine;
 import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.core.util.Util;
@@ -131,8 +134,10 @@ protected void codeComplete(
 	environment.unitToSkip = unitToSkip;
 
 	// code complete
-	CompletionEngine engine = new CompletionEngine(environment, requestor, project.getOptions(true), project, owner, monitor);
-	engine.complete(cu, position, 0, typeRoot);
+	ICompletionEngineProvider completionEngineProvider = CompletionEngineProviderDiscovery.getInstance();
+	ICompletionEngine completionEngine = completionEngineProvider.newCompletionEngine(environment, requestor, project.getOptions(true), project, owner, monitor);
+	completionEngine.complete(cu, position, 0, typeRoot);
+
 	if(performanceStats != null) {
 		performanceStats.endRun();
 	}
@@ -198,7 +203,7 @@ public boolean exists() {
 				} catch (JavaModelException e) {
 					return false;
 				}
-				return rootInfo.rawPackageInfo.containsKey(((PackageFragment) this).names);
+				return rootInfo.rawPackageInfo.containsKey(List.of(((PackageFragment) this).names));
 			}
 			break;
 		case IJavaElement.CLASS_FILE:

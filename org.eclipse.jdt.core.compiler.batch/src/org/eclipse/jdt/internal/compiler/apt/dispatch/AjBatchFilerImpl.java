@@ -12,21 +12,25 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.apt.dispatch;
 
-import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
-
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.Writer;
+import java.net.URI;
 import javax.lang.model.element.Element;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
-import java.io.*;
-import java.net.URI;
+import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
+import org.eclipse.jdt.internal.compiler.batch.Main;
 
 /**
  * @author s.stupin
  */
 public final class AjBatchFilerImpl extends BatchFilerImpl {
 
-    public AjBatchFilerImpl(BaseAnnotationProcessorManager dispatchManager, BatchProcessingEnvImpl env) {
-        super(dispatchManager, env);
+    public AjBatchFilerImpl(BaseAnnotationProcessorManager dispatchManager, BatchProcessingEnvImpl env, Main main) {
+        super(dispatchManager, env, main);
     }
 
     @Override

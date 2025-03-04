@@ -38,7 +38,6 @@ import java.util.Locale;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
@@ -46,7 +45,6 @@ import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
-
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.Platform;
 
@@ -137,6 +135,11 @@ public class BatchTestUtils {
 
 	public static void compileTree(JavaCompiler compiler, List<String> options, File targetFolder) {
 		compileTree(compiler, options, targetFolder, false);
+	}
+
+	public static void compileTree(StringWriter stringWriter, JavaCompiler compiler, List<String> options, File targetFolder,
+			DiagnosticListener<? super JavaFileObject> listener) {
+		compileTree(stringWriter, compiler, options, targetFolder, false, listener);
 	}
 
 	public static void compileTree(JavaCompiler compiler, List<String> options, File targetFolder,
@@ -232,13 +235,18 @@ public class BatchTestUtils {
 	public static void compileTree(JavaCompiler compiler, List<String> options,
 			File targetFolder, boolean useJLS8Processors,
 			DiagnosticListener<? super JavaFileObject> listener) {
+		StringWriter stringWriter = new StringWriter();
+		compileTree(stringWriter, compiler, options, targetFolder, useJLS8Processors, listener);
+	}
+	public static void compileTree(StringWriter stringWriter, JavaCompiler compiler, List<String> options,
+			File targetFolder, boolean useJLS8Processors,
+			DiagnosticListener<? super JavaFileObject> listener) {
 		StandardJavaFileManager manager = compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
 		// create new list containing inputfile
 		List<File> files = new ArrayList<>();
 		findFilesUnder(targetFolder, files);
 		Iterable<? extends JavaFileObject> units = manager.getJavaFileObjectsFromFiles(files);
-		StringWriter stringWriter = new StringWriter();
 		PrintWriter printWriter = new PrintWriter(stringWriter);
 
 		options.add("-d");
@@ -692,7 +700,7 @@ public class BatchTestUtils {
 		File destinationDir = new File(tmpDir);
 		File destinationFile = new File(destinationDir, processorJar);
 		copyResource(libFile, destinationFile);
-		return destinationFile.getCanonicalPath();
+		return destinationFile.toPath().normalize().toAbsolutePath().toString();
 	}
 
 	/**

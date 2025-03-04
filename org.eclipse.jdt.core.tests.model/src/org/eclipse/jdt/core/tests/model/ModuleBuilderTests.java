@@ -20,7 +20,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
-
+import java.util.function.Consumer;
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IMarker;
@@ -33,29 +34,17 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IAccessRule;
-import org.eclipse.jdt.core.IClasspathAttribute;
-import org.eclipse.jdt.core.IClasspathContainer;
-import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IJavaModelMarker;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IModuleDescription;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IProblemRequestor;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.WorkingCopyOwner;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.lookup.SplitPackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.ClasspathAttribute;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.builder.ClasspathJrt;
 import org.eclipse.jdt.internal.core.util.Messages;
-
-import junit.framework.Test;
 
 public class ModuleBuilderTests extends ModifyingResourceTests {
 	public ModuleBuilderTests(String name) {
@@ -105,8 +94,8 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 
 	@Override
 	public void tearDownSuite() throws Exception {
-		super.tearDownSuite();
 		deleteProject("P1");
+		super.tearDownSuite();
 	}
 
 	// Test that the java.base found as a module package fragment root in the project
@@ -701,8 +690,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testConvertToModule() throws CoreException, IOException {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
 		Hashtable<String, String> javaCoreOptions = JavaCore.getOptions();
 		try {
 			IJavaProject project = setUpJavaProject("ConvertToModule");
@@ -738,8 +725,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testConvertToModuleWithRelease9() throws CoreException, IOException {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
 		Hashtable<String, String> javaCoreOptions = JavaCore.getOptions();
 		try {
 			IJavaProject project = setUpJavaProject("ConvertToModule");
@@ -2677,6 +2662,10 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 				IPath path = rawClasspath[i].getPath();
 				if (path.lastSegment().equals("jrt-fs.jar")) {
 					path = path.removeLastSegments(2).append("jmods").append("java.base.jmod");
+					if (!path.toFile().exists()) {
+						// No jmod? Then this test is not applicable.
+						return;
+					}
 					IClasspathEntry newEntry = JavaCore.newLibraryEntry(path, rawClasspath[i].getSourceAttachmentPath(), new Path("java.base"));
 					rawClasspath[i] = newEntry;
 				}
@@ -2713,6 +2702,10 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 				IPath path = rawClasspath[i].getPath();
 				if (path.lastSegment().equals("jrt-fs.jar")) {
 					path = path.removeLastSegments(2).append("jmods").append("java.base.jmod");
+					if (!path.toFile().exists()) {
+						// No jmod? Then this test is not applicable.
+						return;
+					}
 					IClasspathAttribute[] attributes = {
 							JavaCore.newClasspathAttribute(IClasspathAttribute.MODULE, "true") };
 					IClasspathEntry newEntry = JavaCore.newLibraryEntry(path, rawClasspath[i].getSourceAttachmentPath(),
@@ -3435,6 +3428,48 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 
+	public void test_no_conflicting_packages_for_debugger_both_named() throws CoreException {
+		// the current project is modular, hence we need to suppress a conflict between 2 named modules
+		Hashtable<String, String> javaCoreOptions = JavaCore.getOptions();
+		try {
+			String[] sources = new String[] {
+					"src/module-info.java",
+					"module Test {}\n",
+					"src/java/util/Map___.java",
+					"package java.util;\n" +
+					"abstract class Map___ implements java.util.Map {\n" +
+					"  Map___() {\n" +
+					"    super();\n" +
+					"  }\n" +
+					"  Object[] ___run() throws Throwable {\n" +
+					"    return entrySet().toArray();\n" +
+					"  }\n" +
+					"}"
+			};
+			IClasspathEntry dep = JavaCore.newContainerEntry(new Path(JavaCore.MODULE_PATH_CONTAINER_ID));
+			IJavaProject p1= setupModuleProject("debugger_project", sources, new IClasspathEntry[]{dep});
+			p1.getProject().getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = p1.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			sortMarkers(markers);
+			assertMarkers("Unexpected markers",
+					"The package java.util conflicts with a package accessible from another module: java.base\n" +
+					"The package java.util is accessible from more than one module: Test, java.base\n" +
+					"The method entrySet() is undefined for the type Map___",
+					markers);
+
+			Hashtable<String, String> newOptions=new Hashtable<>(javaCoreOptions);
+			newOptions.put(CompilerOptions.OPTION_JdtDebugCompileMode, JavaCore.ENABLED);
+			JavaCore.setOptions(newOptions);
+			p1.getProject().getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			assertNoErrors();
+
+			assertNull("Option should not be stored", JavaCore.getOption(CompilerOptions.OPTION_JdtDebugCompileMode));
+		} finally {
+			deleteProject("debugger_project");
+			JavaCore.setOptions(javaCoreOptions);
+		}
+	}
+
 	// test that the special OPTION_JdtDebugCompileMode cannot be persisted on a project
 	public void test_no_conflicting_packages_for_debugger_project() throws CoreException {
 		try {
@@ -3902,9 +3937,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testBug512053() throws CoreException, IOException {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		Hashtable<String, String> javaCoreOptions = JavaCore.getOptions();
 		this.sourceWorkspacePath = super.getSourceWorkspacePath() + java.io.File.separator + "bug512053";
 		try {
@@ -7020,8 +7052,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testBug527569c() throws CoreException {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
 		if (!isJRE19) return;
 		IJavaProject p1 = createJava9Project("Bug527569", "17");
 		Map<String, String> options = new HashMap<>();
@@ -7076,12 +7106,12 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	}
 	public void testBug527569e() throws CoreException {
 		if (!isJRE9 || isJRE12) return;
-		IJavaProject p1 = createJava9Project("Bug527569", "1.8");
+		IJavaProject p1 = createJava9Project("Bug527569", CompilerOptions.getFirstSupportedJavaVersion());
 		Map<String, String> options = new HashMap<>();
 		// Make sure the new options map doesn't reset.
-		options.put(CompilerOptions.OPTION_Compliance, "1.7");
-		options.put(CompilerOptions.OPTION_Source, "1.7");
-		options.put(CompilerOptions.OPTION_TargetPlatform, "1.7");
+		options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.getFirstSupportedJavaVersion());
+		options.put(CompilerOptions.OPTION_Source, CompilerOptions.getFirstSupportedJavaVersion());
+		options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.getFirstSupportedJavaVersion());
 		options.put(CompilerOptions.OPTION_Release, "enabled");
 		p1.setOptions(options);
 		try {
@@ -7950,6 +7980,15 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	public void testBug543701() throws Exception {
 		IJavaProject p = createJava9Project("p");
 		String outputDirectory = Util.getOutputDirectory();
+		class Counter implements Consumer<SplitPackageBinding> {
+			int count;
+			@Override
+			public void accept(SplitPackageBinding t) {
+				this.count++;
+			}
+		}
+		Counter counter = new Counter();
+		SplitPackageBinding.instanceListener = counter;
 		try {
 			String jar1Path = outputDirectory + File.separator + "lib1.jar";
 			Util.createJar(new String[] {
@@ -7993,7 +8032,9 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 					"----------\n" +
 					"----------\n",
 					this.problemRequestor);
+			assertTrue("Number of SplitPackageBinding created: "+counter.count, counter.count <= 80);
 		} finally {
+			SplitPackageBinding.instanceListener = null;
 			deleteProject(p);
 			// clean up output dir
 			File outputDir = new File(outputDirectory);
@@ -8274,9 +8315,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 	}
 
 	public void testReleaseOption1() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
 		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_11);
@@ -8372,9 +8410,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption4() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
 		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_8);
@@ -8406,9 +8441,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption5() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		if (!isJRE19) return;
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
@@ -8440,89 +8472,8 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 				Util.flushDirectoryContent(outputDir);
 		}
 	}
-	public void testReleaseOption6() throws Exception {
-		if (isJRE20) return; // Effectively disable it for most older versions.
-		Hashtable<String, String> options = JavaCore.getOptions();
-		IJavaProject p = createJava9Project("p");
-		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_7);
-		p.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_7);
-		p.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_1_7);
-		p.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
-		String outputDirectory = Util.getOutputDirectory();
-		try {
-			String testSource = "interface I {\n" +
-								"  int add(int x, int y);\n" +
-								"}\n" +
-								"public class X {\n" +
-								"  public static void main(String[] args) {\n" +
-								"    I i = (x, y) -> {\n" +
-								"      return x + y;\n" +
-								"    };\n" +
-								"  }\n" +
-								"}\n";
-			String mPath = "p/src/X.java";
-			createFile(mPath,
-					testSource);
-			p.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
-			waitForAutoBuild();
-			IMarker[] markers = p.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
-			assertMarkers("Unexpected markers",
-					"Lambda expressions are allowed only at source level 1.8 or above",  markers);
 
-		} finally {
-			JavaCore.setOptions(options);
-			deleteProject(p);
-			File outputDir = new File(outputDirectory);
-			if (outputDir.exists())
-				Util.flushDirectoryContent(outputDir);
-		}
-	}
-	public void testReleaseOption7() throws Exception {
-		if (isJRE12)
-			return;
-		Hashtable<String, String> options = JavaCore.getOptions();
-		IJavaProject p = createJava9Project("p");
-		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_6);
-		p.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_6);
-		p.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_1_6);
-		p.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
-		String outputDirectory = Util.getOutputDirectory();
-		try {
-			String testSource = "import java.io.*;\n" +
-								"public class X {\n" +
-								"	public static void main(String[] args) {\n" +
-								"		try {\n" +
-								"			System.out.println();\n" +
-								"			Reader r = new FileReader(args[0]);\n" +
-								"			r.read();\n" +
-								"		} catch(IOException | FileNotFoundException e) {\n" +
-								"			e.printStackTrace();\n" +
-								"		}\n" +
-								"	}\n" +
-								"}";
-			String mPath = "p/src/X.java";
-			createFile(mPath,
-					testSource);
-			p.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
-			waitForAutoBuild();
-			IMarker[] markers = p.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
-			sortMarkers(markers);
-			assertMarkers("Unexpected markers",
-							"Multi-catch parameters are not allowed for source level below 1.7\n" +
-							"The exception FileNotFoundException is already caught by the alternative IOException",  markers);
-
-		} finally {
-			JavaCore.setOptions(options);
-			deleteProject(p);
-			File outputDir = new File(outputDirectory);
-			if (outputDir.exists())
-				Util.flushDirectoryContent(outputDir);
-		}
-	}
 	public void testReleaseOption8() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
 		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_9);
@@ -8552,9 +8503,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption9() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		if (!isJRE10) return;
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
@@ -8621,9 +8569,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption11() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		Hashtable<String, String> options = JavaCore.getOptions();
 		IJavaProject p = createJava9Project("p");
 		p.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_8);
@@ -8660,9 +8605,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption12() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		if (!isJRE16)
 			return;
 		Hashtable<String, String> options = JavaCore.getOptions();
@@ -8704,9 +8646,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		}
 	}
 	public void testReleaseOption13() throws Exception {
-		if (isJRE22) // TODO: Fix Issue #1874
-			return;
-
 		if (!isJRE12)
 			return;
 		Hashtable<String, String> options = JavaCore.getOptions();
@@ -9097,6 +9036,57 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 			deleteProject(p1);
 		}
 	}
+	public void testIssue2786_10() throws CoreException {
+		// module java.smartcardio is not in default root modules according to old rules of JEP 261
+		IJavaProject p10 = createJava10Project("J10", new String[] {"src"});
+		p10.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
+		try {
+			createFolder("/J10/src/p1");
+			createFile("/J10/src/p1/X.java",
+					"package p1;\n" +
+					"import javax.smartcardio.Card;\n" +
+					"public class X {\n" +
+					"	Card card;\n" +
+					"}");
+
+			waitForManualRefresh();
+			waitForAutoBuild();
+			p10.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = p10.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			sortMarkers(markers);
+			assertMarkers("unexpected markers",
+					"The import javax.smartcardio cannot be resolved\n" +
+					"Card cannot be resolved to a type",
+					markers);
+		} finally {
+			deleteProject(p10);
+		}
+	}
+	public void testIssue2786_11() throws CoreException {
+		// since JDK-8205169 module java.smartcardio is indeed in default root modules
+		IJavaProject p11 = createJava11Project("J11", new String[] {"src"});
+		p11.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
+		try {
+			createFolder("/J11/src/p1");
+			createFile("/J11/src/p1/X.java",
+					"package p1;\n" +
+					"import javax.smartcardio.Card;\n" +
+					"public class X {\n" +
+					"	Card card;\n" +
+					"}");
+
+			waitForManualRefresh();
+			waitForAutoBuild();
+			p11.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = p11.getProject().findMarkers(null, true, IResource.DEPTH_INFINITE);
+			assertMarkers("Unexpected Markers",
+					"",
+					markers);
+		} finally {
+			deleteProject(p11);
+		}
+	}
+
 	protected void assertNoErrors() throws CoreException {
 		for (IProject p : getWorkspace().getRoot().getProjects()) {
 			int maxSeverity = p.findMaxProblemSeverity(null, true, IResource.DEPTH_INFINITE);

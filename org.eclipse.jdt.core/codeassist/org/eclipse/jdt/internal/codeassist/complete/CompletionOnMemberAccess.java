@@ -34,9 +34,14 @@ package org.eclipse.jdt.internal.codeassist.complete;
  * The source range of the completion node denotes the source range
  * which should be replaced by the completion.
  */
-
-import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.eclipse.jdt.internal.compiler.ast.Expression;
+import org.eclipse.jdt.internal.compiler.ast.FieldReference;
+import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.ast.ThisReference;
+import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
+import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public class CompletionOnMemberAccess extends FieldReference implements CompletionNode {
 
@@ -81,8 +86,12 @@ public class CompletionOnMemberAccess extends FieldReference implements Completi
 			}
 		}
 
-		if (this.actualReceiverType == null || !this.actualReceiverType.isValidBinding())
+		if (this.actualReceiverType == null || !this.actualReceiverType.isValidBinding()) {
+			if (this.receiver.resolvedType != null && this.receiver.resolvedType.problemId() == ProblemReasons.NotFound) {
+				throw new CompletionNodeFound(this, this.receiver.resolvedType, scope);
+			}
 			throw new CompletionNodeFound();
+		}
 		else
 			throw new CompletionNodeFound(this, this.actualReceiverType, scope);
 		// array types are passed along to find the length field

@@ -45,14 +45,14 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching.CheckMode;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.codegen.*;
-import org.eclipse.jdt.internal.compiler.flow.*;
+import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
+import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
 public abstract class Statement extends ASTNode {
-
-	public boolean inPreConstructorContext = false;
 
 	/**
 	 * Answers true if the if is identified as a known coding pattern which
@@ -104,23 +104,6 @@ public boolean completesByContinue() {
 	return false;
 }
 
-/**
- * Switch Expression analysis: *Assuming* this is reachable, analyze if this completes normally
- *  i.e control flow can reach the textually next statement, as per JLS 14 Sec 14.22
- *  For blocks, we don't perform intra-reachability analysis.
- *  Note: delinking this from a similar (opposite) {@link #doesNotCompleteNormally()} since that was
- *  coded for a specific purpose of Lambda Shape Analysis.
- */
-public boolean canCompleteNormally() {
-	return true;
-}
-/**
- * The equivalent function of completesByContinue - implements both the rules concerning continue with
- * and without a label.
- */
-public boolean continueCompletes() {
-	return false;
-}
 	public static final int NOT_COMPLAINED = 0;
 	public static final int COMPLAINED_FAKE_REACHABLE = 1;
 	public static final int COMPLAINED_UNREACHABLE = 2;
@@ -192,12 +175,11 @@ void analyseOneArgument18(BlockScope currentScope, FlowContext flowContext, Flow
 		ce.internalAnalyseOneArgument18(currentScope, flowContext, expectedType, ce.valueIfTrue, flowInfo, ce.ifTrueNullStatus, expectedNonNullness, originalExpected);
 		ce.internalAnalyseOneArgument18(currentScope, flowContext, expectedType, ce.valueIfFalse, flowInfo, ce.ifFalseNullStatus, expectedNonNullness, originalExpected);
 		return;
-	} else 	if (argument instanceof SwitchExpression && argument.isPolyExpression()) {
-		SwitchExpression se = (SwitchExpression) argument;
-		for (int i = 0; i < se.resultExpressions.size(); i++) {
+	} else 	if (argument instanceof SwitchExpression se && se.isPolyExpression()) {
+		for (Expression rExpression : se.resultExpressions()) {
 			se.internalAnalyseOneArgument18(currentScope, flowContext, expectedType,
-					se.resultExpressions.get(i), flowInfo,
-					se.resultExpressionNullStatus.get(i), expectedNonNullness, originalExpected);
+					rExpression, flowInfo,
+					rExpression.nullStatus(flowInfo, flowContext), expectedNonNullness, originalExpected);
 		}
 		return;
 	}
@@ -259,12 +241,11 @@ protected void checkAgainstNullTypeAnnotation(BlockScope scope, TypeBinding requ
 		internalCheckAgainstNullTypeAnnotation(scope, requiredType, ce.valueIfTrue, ce.ifTrueNullStatus, flowContext, flowInfo);
 		internalCheckAgainstNullTypeAnnotation(scope, requiredType, ce.valueIfFalse, ce.ifFalseNullStatus, flowContext, flowInfo);
 		return;
-	} else 	if (expression instanceof SwitchExpression && expression.isPolyExpression()) {
-		SwitchExpression se = (SwitchExpression) expression;
-		for (int i = 0; i < se.resultExpressions.size(); i++) {
+	} else 	if (expression instanceof SwitchExpression se && se.isPolyExpression()) {
+		for (Expression rExpression : se.resultExpressions()) {
 			internalCheckAgainstNullTypeAnnotation(scope, requiredType,
-					se.resultExpressions.get(i),
-					se.resultExpressionNullStatus.get(i), flowContext, flowInfo);
+					rExpression,
+					rExpression.nullStatus(flowInfo, flowContext), flowContext, flowInfo);
 		}
 		return;
 	}
@@ -283,6 +264,33 @@ private void internalCheckAgainstNullTypeAnnotation(BlockScope scope, TypeBindin
 			flowContext.recordNullityMismatch(scope, expression, expression.resolvedType, requiredType, flowInfo, nullStatus, annotationStatus);
 		}
 	}
+}
+
+/**
+ * Returns the immediately enclosing switch expression (carried by closest blockScope),
+ */
+public SwitchExpression enclosingSwitchExpression(Scope current) {
+	boolean implicitYield = this instanceof YieldStatement yield && yield.isImplicit;
+	do {
+		switch(current.kind) {
+			case Scope.METHOD_SCOPE :
+			case Scope.CLASS_SCOPE :
+			case Scope.COMPILATION_UNIT_SCOPE :
+			case Scope.MODULE_SCOPE :
+				return null;
+			case Scope.BLOCK_SCOPE: {
+				BlockScope bs = (BlockScope) current;
+				if (bs.enclosingCase != null) {
+					if (bs.enclosingCase.swich instanceof SwitchExpression se)
+						return se;
+					if (implicitYield)
+						return null; // do not ascend to enclosing: implicit yield always binds to closest switch{expression|statement}
+				}
+				break;
+			}
+		}
+	} while ((current = current.parent) != null);
+	return null;
 }
 
 /**
@@ -360,8 +368,7 @@ public int complainIfUnreachable(FlowInfo flowInfo, BlockScope scope, int previo
 			this.bits &= ~ASTNode.IsReachable;
 		if (flowInfo == FlowInfo.DEAD_END) {
 			if (previousComplaintLevel < COMPLAINED_UNREACHABLE) {
-				if (!this.doNotReportUnreachable())
-					scope.problemReporter().unreachableCode(this);
+				scope.problemReporter().unreachableCode(this);
 				if (endOfBlock)
 					scope.checkUnclosedCloseables(flowInfo, null, null, null);
 			}
@@ -378,9 +385,6 @@ public int complainIfUnreachable(FlowInfo flowInfo, BlockScope scope, int previo
 	return previousComplaintLevel;
 }
 
-protected boolean doNotReportUnreachable() {
-	return false;
-}
 /**
  * Generate invocation arguments, considering varargs methods
  */
@@ -459,6 +463,11 @@ public boolean isEmptyBlock() {
 	return false;
 }
 
+// for switch statement
+public boolean isTrulyExpression() {
+	return false;
+}
+
 public boolean isValidJavaStatement() {
 	//the use of this method should be avoid in most cases
 	//and is here mostly for documentation purpose.....
@@ -500,13 +509,7 @@ public void resolveWithBindings(LocalVariableBinding[] bindings, BlockScope scop
 		scope.exclude(bindings);
 	}
 }
-/**
- * Returns the resolved expression if any associated to this statement - used
- * parameter statement has to be either a SwitchStatement or a SwitchExpression
- */
-public TypeBinding resolveExpressionType(BlockScope scope) {
-	return null;
-}
+
 
 public boolean containsPatternVariable() {
 	return containsPatternVariable(false);

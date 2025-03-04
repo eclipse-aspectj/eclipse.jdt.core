@@ -24,7 +24,6 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.Set;
-
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
@@ -212,7 +211,7 @@ public class IntersectionTypeBinding18 extends ReferenceBinding {
 		if (TypeBinding.equalsEquals(this, other))
 			return true;
 		if (other instanceof ReferenceBinding) {
-			TypeBinding[] rightIntersectingTypes = ((ReferenceBinding) other).getIntersectingTypes();
+			TypeBinding[] rightIntersectingTypes = other.getIntersectingTypes();
 			if (rightIntersectingTypes != null && rightIntersectingTypes.length > 1) {
 				int numRequired = rightIntersectingTypes.length;
 				TypeBinding[] required = new TypeBinding[numRequired];
@@ -348,7 +347,11 @@ public class IntersectionTypeBinding18 extends ReferenceBinding {
 	public ReferenceBinding upwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
 		ReferenceBinding[] projectedTypes = new ReferenceBinding[this.intersectingTypes.length];
 		for (int i = 0; i < this.intersectingTypes.length; ++i) {
-			projectedTypes[i] =  this.intersectingTypes[i].upwardsProjection(scope, mentionedTypeVariables);
+			TypeBinding projected = this.intersectingTypes[i].upwardsProjection(scope, mentionedTypeVariables);
+			if (projected instanceof ReferenceBinding refBinding)
+				projectedTypes[i] =  refBinding;
+			else
+				return null;
 		}
 		return (ReferenceBinding) scope.environment().createIntersectionType18(projectedTypes);
 	}
@@ -357,7 +360,11 @@ public class IntersectionTypeBinding18 extends ReferenceBinding {
 	public ReferenceBinding downwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
 		ReferenceBinding[] projectedTypes = new ReferenceBinding[this.intersectingTypes.length];
 		for (int i = 0; i < this.intersectingTypes.length; ++i) {
-			projectedTypes[i] = this.intersectingTypes[i].downwardsProjection(scope, mentionedTypeVariables);
+			TypeBinding projected = this.intersectingTypes[i].downwardsProjection(scope, mentionedTypeVariables);
+			if (projected instanceof ReferenceBinding refBind)
+				projectedTypes[i] = refBind;
+			else
+				return null;
 		}
 		return (ReferenceBinding) scope.environment().createIntersectionType18(projectedTypes);
 	}

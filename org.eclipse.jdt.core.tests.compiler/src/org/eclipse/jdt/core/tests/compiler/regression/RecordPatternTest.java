@@ -15,14 +15,12 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-
-import junit.framework.Test;
 
 public class RecordPatternTest extends AbstractRegressionTest9 {
 
@@ -301,12 +299,12 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 3)\n" +
 				"	if (r instanceof Rectangle(ColoredPoint(Point(String o1, String o2), Color c),\n" +
 				"	                                              ^^^^^^^^^\n" +
-				"Record component with type int is not compatible with type java.lang.String\n" +
+				"Record component with type int is not compatible with type String\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 3)\n" +
 				"	if (r instanceof Rectangle(ColoredPoint(Point(String o1, String o2), Color c),\n" +
 				"	                                                         ^^^^^^^^^\n" +
-				"Record component with type int is not compatible with type java.lang.String\n" +
+				"Record component with type int is not compatible with type String\n" +
 				"----------\n");
 	}
 	// Test that pattern types that don't match record component's types are reported
@@ -364,12 +362,6 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				},
 				"----------\n" +
 				"1. ERROR in X.java (at line 7)\n" +
-				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
-				"				ColoredPoint(Point(int x1, int y1), Color c1)) -> {\n" +
-				"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-				"The switch statement cannot have more than one unconditional pattern\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 7)\n" +
 				"	case Rectangle(ColoredPoint(Point(int x, int y), Color c),\n" +
 				"				ColoredPoint(Point(int x1, int y1), Color c1)) -> {\n" +
 				"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
@@ -1566,7 +1558,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				+ "public class X {\n"
 				+ "  static void printGenericBoxString1(Box<Object> objectBox) {\n"
 				+ "    if (objectBox instanceof Box<String>(String s)) {\n"
-				+ "      System.out.println(s); // this one should report an unsafe cast error\n"
+				+ "      System.out.println(s);\n"
 				+ "    }\n"
 				+ "  }\n"
 				+ "  public static void main(String[] args) {}\n"
@@ -1576,8 +1568,8 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"----------\n" +
 				"1. ERROR in X.java (at line 4)\n" +
 				"	if (objectBox instanceof Box<String>(String s)) {\n" +
-				"	    ^^^^^^^^^\n" +
-				"Type Box<Object> cannot be safely cast to Box<String>\n" +
+				"	    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+				"Incompatible conditional operand types Box<Object> and Box<String>\n" +
 				"----------\n");
 	}
 	public void test48() {
@@ -1715,8 +1707,13 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"----------\n" +
 				"1. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(int x, int y) r -> 1;\n" +
-				"	                             ^\n" +
-				"Syntax error on token \"r\", delete this token\n" +
+				"	                           ^\n" +
+				"Syntax error, insert \":\" to complete SwitchLabel\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 4)\n" +
+				"	case Rectangle(int x, int y) r -> 1;\n" +
+				"	                                  ^\n" +
+				"Syntax error, insert \"AssignmentOperator Expression\" to complete Expression\n" +
 				"----------\n");
 	}
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2004
@@ -1966,7 +1963,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 7)\n" +
 				"	if (p instanceof R(String a)) {\n" +
 				"	                   ^^^^^^^^\n" +
-				"Record component with type capture#2-of ? extends I is not compatible with type java.lang.String\n" +
+				"Record component with type capture#2-of ? extends I is not compatible with type String\n" +
 				"----------\n");
 	}
 	public void testRecordPatternTypeInference_010() {
@@ -2513,7 +2510,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"2. ERROR in X.java (at line 6)\n" +
 			"	case Record<String>(Object o, StringBuilder s) -> {break;}\n" +
 			"	                              ^^^^^^^^^^^^^^^\n" +
-			"Record component with type String is not compatible with type java.lang.StringBuilder\n" +
+			"Record component with type String is not compatible with type StringBuilder\n" +
 			"----------\n");
 	}
 	public void testIssue1224_5() {
@@ -2677,7 +2674,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (box) {     // Not Exhaustive!\n" +
 			"	               ^^^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust003() {
@@ -2761,7 +2758,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 16)\n" +
 			"	return switch (box) {     // Not Exhaustive!\n" +
 			"	               ^^^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust005() {
@@ -2824,7 +2821,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 11)\n" +
 			"	return switch (box) {     // Not Exhaustive!\n" +
 			"	               ^^^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust007() {
@@ -2857,7 +2854,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (p) {     // Not Exhaustive!\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust008() {
@@ -2891,7 +2888,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (p) {     // Not Exhaustive!\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust009() {
@@ -2969,7 +2966,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (r) {\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	// implicit permitted - class
@@ -3002,7 +2999,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (r) {\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	// implicit permitted - class - the class C missing
@@ -3036,7 +3033,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (r) {\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust014() {
@@ -3069,7 +3066,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 11)\n" +
 			"	return switch (r) {\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecPatExhaust015() {
@@ -3185,7 +3182,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"1. ERROR in X.java (at line 12)\n" +
 			"	return switch (r) {\n" +
 			"	               ^\n" +
-			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"A switch expression should have a default case\n" +
 			"----------\n");
 	}
 	public void testRecordPatternTypeInference_012() {
@@ -4409,7 +4406,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"2. ERROR in X.java (at line 10)\n" +
 				"	if (o instanceof R2(Short d)) {\n" +
 				"	                    ^^^^^^^\n" +
-				"Record component with type short is not compatible with type java.lang.Short\n" +
+				"Record component with type short is not compatible with type Short\n" +
 				"----------\n" +
 				"3. ERROR in X.java (at line 13)\n" +
 				"	if (o instanceof R2(int d)) {\n" +
@@ -4422,7 +4419,9 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 	public void testIssue1999() {
 		Map<String, String> options = getCompilerOptions();
 		options.put(CompilerOptions.OPTION_ReportUnnecessaryTypeCheck, CompilerOptions.ERROR);
-		runNegativeTest(new String[] {
+		runNegativeTest(
+				true,
+				new String[] {
 				"X.java",
 				"""
 				interface I {
@@ -4454,13 +4453,15 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				}
 				"""
 				},
+				null,
+				options,
 				"----------\n" +
 				"1. ERROR in X.java (at line 18)\n" +
 				"	if (a instanceof A) {} // warn here\n" +
 				"	    ^^^^^^^^^^^^^^\n" +
 				"The expression of type A is already an instance of type A\n" +
 				"----------\n",
-				null, true, options);
+				JavacTestOptions.Excuse.EclipseWarningConfiguredAsError);
 	}
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2007
 	public void testIssue2007() {
@@ -4689,5 +4690,235 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"	                                      ^^\n" +
 				"Syntax error on tokens, delete these tokens\n" +
 				"----------\n");
+	}
+
+	public void testIssue3066() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+				public record X<T>(int x) {
+					public static void main(String[] args) {
+						Object o = new Object();
+						switch (o) {
+						case X<String>(int x):
+						default:
+						}
+					}
+				}
+				"""
+			},
+			"""
+			----------
+			1. ERROR in X.java (at line 5)
+				case X<String>(int x):
+				     ^^^^^^^^^^^^^^^^
+			Type Object cannot be safely cast to X<String>
+			----------
+			""");
+	}
+
+	public void testIssue3066_notApplicable() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+				public record X(int x) {
+					public static void main(String[] args) {
+						java.io.Serializable o = "";
+						switch (o) {
+						case X(int x):
+						default:
+						}
+					}
+				}
+				"""
+			},
+			"""
+			----------
+			1. ERROR in X.java (at line 5)
+				case X(int x):
+				     ^^^^^^^^
+			Type mismatch: cannot convert from Serializable to X
+			----------
+			""");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3173
+	// [21][Enhanced Switch] False error about allegedly non-exhaustive switch
+	public void testIssue3173() {
+		runConformTest(new String[] {
+				"RecordPatternDemo.java",
+				"""
+				public class RecordPatternDemo {
+				    public static void main(String[] args) {
+				        record Box<T>(T contents) { }
+
+				        Box<Box<String>> doubleBoxed = new Box<>(new Box<>("Contents"));
+				        String unboxed = switch (doubleBoxed) {
+				            case Box(Box(String s)) -> s;
+				        };
+
+				        System.out.println(unboxed);
+				    }
+				}
+				"""
+				},
+				"Contents");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3173
+	// [21][Enhanced Switch] False error about allegedly non-exhaustive switch
+	public void testIssue3173_2() {
+		runConformTest(new String[] {
+				"RecordPatternDemo.java",
+				"""
+				public class RecordPatternDemo {
+				    public static void main(String[] args) {
+				        record Box<T>(T contents) { }
+
+				        Box<Box<String>> doubleBoxed = new Box<>(new Box<>("Contents"));
+				        String unboxed = switch (doubleBoxed) {
+				            case Box(Box(String s)) -> s;
+				            default -> "default";
+				        };
+
+				        System.out.println(unboxed);
+				    }
+				}
+				"""
+				},
+				"Contents");
+	}
+	public void testJEP440Example() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+				class A {
+				}
+
+				class B extends A {
+				}
+
+				sealed interface I permits C, D {
+				}
+
+				final class C implements I {
+				}
+
+				final class D implements I {
+				}
+
+				record Pair<T>(T x, T y) {
+				}
+
+				public class X {
+					static Pair<A> p1;
+					static Pair<I> p2;
+
+					public static void main(String[] args) {
+						// As of Java 21
+						switch (p1) {                 // Error!
+						    case Pair<A>(A a, B b) -> System.out.println();
+						    case Pair<A>(B b, A a) -> System.out.println();
+						}
+
+						switch (p2) {
+						    case Pair<I>(I i, C c) -> System.out.println();
+						    case Pair<I>(I i, D d) -> System.out.println();
+						}
+
+						switch (p2) {
+						    case Pair<I>(C c, I i) -> System.out.println();
+						    case Pair<I>(D d, C c) -> System.out.println();
+						    case Pair<I>(D d1, D d2) -> System.out.println();
+						}
+
+						switch (p2) {                        // Error!
+					    	case Pair<I>(C fst, D snd) -> System.out.println();
+					    	case Pair<I>(D fst, C snd) -> System.out.println();
+					    	case Pair<I>(I fst, C snd) -> System.out.println();
+						}
+					}
+				}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 25)\n" +
+			"	switch (p1) {                 // Error!\n" +
+			"	        ^^\n" +
+			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 41)\n" +
+			"	switch (p2) {                        // Error!\n" +
+			"	        ^^\n" +
+			"An enhanced switch statement should be exhaustive; a default label expected\n" +
+			"----------\n");
+	}
+
+	public void testRecordCoverage() {
+		runConformTest(new String[] {
+				"X.java",
+				"""
+				sealed interface I permits A, B, C {
+				}
+
+				final class A implements I {
+				}
+
+				final class B implements I {
+				}
+
+				record C(int j) implements I {
+				} // Implicitly final
+
+				record Box(I i) {
+				}
+
+				public class X {
+					int testExhaustiveRecordPatterns(Box b) {
+						return switch (b) { // Exhaustive!
+						case Box(A aa) -> 0;
+						case Box(B bb) -> 1;
+						case Box(C cc) -> 2;
+						};
+					}
+
+					record IPair(I i, I j) {
+					}
+
+					int testExhaustiveRecordPatterns(IPair p) {
+						return switch (p) { // Exhaustive!
+							case IPair(A a1, A a2) -> 0;
+							case IPair(A a1, B b2) -> 1;
+							case IPair(A a1, C c3) -> 2;
+
+							case IPair(B b1, A b2) -> 3;
+							case IPair(B b1, B b2) -> 4;
+							case IPair(B b1, C b2) -> 5;
+
+
+							case IPair(C c1, A c2) -> 6;
+							case IPair(C c1, B c2) -> 7;
+							case IPair(C c1, C c2) -> 8;
+						};
+					}
+					public static void main(String [] args) {
+						X x = new X();
+						System.out.print(x.testExhaustiveRecordPatterns(new Box(new A())));
+						System.out.print(x.testExhaustiveRecordPatterns(new Box(new B())));
+						System.out.print(x.testExhaustiveRecordPatterns(new Box(new C(42))));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new A(), new A())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new A(), new B())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new A(), new C(42))));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new B(), new A())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new B(), new B())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new B(), new C(42))));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new C(42), new A())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new C(42), new B())));
+						System.out.print(x.testExhaustiveRecordPatterns(new IPair(new C(42), new C(42))));
+					}
+				}
+				"""
+			},
+			"012012345678");
 	}
 }

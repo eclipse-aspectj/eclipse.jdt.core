@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -20,64 +20,14 @@ package org.eclipse.jdt.core.dom;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.dom.MethodBinding.LambdaMethod;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.ArrayAllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.FieldReference;
-import org.eclipse.jdt.internal.compiler.ast.ImportReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocAllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.JavadocFieldReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocImplicitTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocMessageSend;
-import org.eclipse.jdt.internal.compiler.ast.JavadocModuleReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocQualifiedTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocSingleNameReference;
-import org.eclipse.jdt.internal.compiler.ast.JavadocSingleTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.Literal;
-import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.MemberValuePair;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
-import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
-import org.eclipse.jdt.internal.compiler.ast.ParameterizedQualifiedTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.QualifiedNameReference;
-import org.eclipse.jdt.internal.compiler.ast.QualifiedSuperReference;
-import org.eclipse.jdt.internal.compiler.ast.QualifiedTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.Receiver;
-import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
-import org.eclipse.jdt.internal.compiler.ast.SingleTypeReference;
-import org.eclipse.jdt.internal.compiler.ast.ThisReference;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
-import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
-import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
-import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
-import org.eclipse.jdt.internal.compiler.lookup.ElementValuePair;
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
-import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
-import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemFieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemPackageBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.RecordComponentBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.SyntheticArgumentBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TagBits;
-import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
-import org.eclipse.jdt.internal.compiler.lookup.VoidTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.core.util.Util;
 
@@ -574,7 +524,10 @@ class DefaultBindingResolver extends BindingResolver {
 			org.eclipse.jdt.internal.compiler.lookup.MethodBinding methodBinding = messageSend.binding;
 			if (methodBinding instanceof ParameterizedGenericMethodBinding) {
 				ParameterizedGenericMethodBinding genericMethodBinding = (ParameterizedGenericMethodBinding) methodBinding;
-				return genericMethodBinding.inferredReturnType;
+				if (genericMethodBinding.wasInferred && messageSend.typeArguments == null) {
+					return org.eclipse.jdt.internal.compiler.lookup.TypeBinding.notEquals(
+							genericMethodBinding.original().returnType, genericMethodBinding.returnType);
+				}
 			}
 		}
 		return false;
@@ -836,7 +789,7 @@ class DefaultBindingResolver extends BindingResolver {
 				ImportReference importReference = (ImportReference) node;
 				final boolean isStatic = importReference.isStatic();
 				if ((importReference.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.OnDemand) != 0) {
-					Binding binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, importReference.tokens.length), true, isStatic);
+					Binding binding = this.scope.getImport(importReference.tokens, true, importReference.modifiers);
 					if (binding != null) {
 						if (isStatic) {
 							if (binding instanceof org.eclipse.jdt.internal.compiler.lookup.TypeBinding) {
@@ -861,7 +814,7 @@ class DefaultBindingResolver extends BindingResolver {
 						}
 					}
 				} else {
-					Binding binding = this.scope.getImport(importReference.tokens, false, isStatic);
+					Binding binding = this.scope.getImport(importReference.tokens, false, importReference.modifiers);
 					if (binding != null) {
 						if (isStatic) {
 							if (binding instanceof org.eclipse.jdt.internal.compiler.lookup.TypeBinding) {
@@ -1169,13 +1122,13 @@ class DefaultBindingResolver extends BindingResolver {
 				if (this.scope == null) return null;
 				if (importReferenceLength == index) {
 					try {
-						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), (importReference.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.OnDemand) != 0, importReference.isStatic());
+						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), (importReference.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.OnDemand) != 0, importReference.modifiers);
 					} catch (AbortCompilation e) {
 						// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=53357
 					}
 				} else {
 					try {
-						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), true, importReference.isStatic());
+						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), true, importReference.modifiers);
 					} catch (AbortCompilation e) {
 						// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=53357
 					}
@@ -1401,13 +1354,13 @@ class DefaultBindingResolver extends BindingResolver {
 				if (this.scope == null) return null;
 				if (importReferenceLength == index && !inModule) {
 					try {
-						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), (importReference.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.OnDemand) != 0, importReference.isStatic());
+						binding = this.scope.getImport(CharOperation.subarray(importReference.tokens, 0, index), (importReference.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.OnDemand) != 0, importReference.modifiers);
 					} catch (AbortCompilation e) {
 						// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=53357
 					}
 				} else {
 					try {
-						binding = this.scope.getImport(inModule ? importReference.tokens : CharOperation.subarray(importReference.tokens, 0, index), true, importReference.isStatic());
+						binding = this.scope.getImport(inModule ? importReference.tokens : CharOperation.subarray(importReference.tokens, 0, index), true, importReference.modifiers);
 					} catch (AbortCompilation e) {
 						// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=53357
 					}
@@ -1866,6 +1819,24 @@ class DefaultBindingResolver extends BindingResolver {
 			org.eclipse.jdt.internal.compiler.ast.TypeDeclaration typeDeclaration = (org.eclipse.jdt.internal.compiler.ast.TypeDeclaration) node;
 			IBinding declaringMember = getDeclaringMember(typeDeclaration, typeDeclaration.scope);
 			ITypeBinding typeBinding = internalGetTypeBinding(typeDeclaration.binding, declaringMember);
+			if (typeBinding == null) {
+				return null;
+			}
+			this.bindingsToAstNodes.put(typeBinding, type);
+			String key = typeBinding.getKey();
+			if (key != null) {
+				this.bindingTables.bindingKeysToBindings.put(key, typeBinding);
+			}
+			return typeBinding;
+		}
+		return null;
+	}
+
+	@Override
+	synchronized ITypeBinding resolveType(ImplicitTypeDeclaration type) {
+		final Object node = this.newAstToOldAst.get(type);
+		if (node instanceof org.eclipse.jdt.internal.compiler.ast.ImplicitTypeDeclaration implicitTypeDeclaration) {
+			ITypeBinding typeBinding = internalGetTypeBinding(implicitTypeDeclaration.binding, null);
 			if (typeBinding == null) {
 				return null;
 			}

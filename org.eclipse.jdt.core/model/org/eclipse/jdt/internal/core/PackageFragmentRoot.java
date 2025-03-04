@@ -17,9 +17,15 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.jar.Manifest;
-
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -438,7 +444,7 @@ public char[][] fullInclusionPatternChars() {
 public String getElementName() {
 	IResource res = resource();
 	if (res instanceof IFolder)
-		return ((IFolder) res).getName();
+		return res.getName();
 	return ""; //$NON-NLS-1$
 }
 /**
@@ -625,10 +631,8 @@ public IClasspathEntry getResolvedClasspathEntry() throws JavaModelException {
 	IClasspathEntry resolvedEntry = null;
 	JavaProject project = getJavaProject();
 	project.getResolvedClasspath(); // force the resolved entry cache to be populated
-	Map rootPathToResolvedEntries = project.getPerProjectInfo().rootPathToResolvedEntries;
-	if (rootPathToResolvedEntries != null) {
-		resolvedEntry = (IClasspathEntry) rootPathToResolvedEntries.get(getPath());
-	}
+	Map<IPath, IClasspathEntry> rootPathToResolvedEntries = project.getPerProjectInfo().getRootPathToResolvedEntries();
+	resolvedEntry = rootPathToResolvedEntries.get(getPath());
 	if (resolvedEntry == null) {
 		throw new JavaModelException(new JavaModelStatus(IJavaModelStatusConstants.ELEMENT_NOT_ON_CLASSPATH, this));
 	}

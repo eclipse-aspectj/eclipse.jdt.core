@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -33,7 +33,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
-
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.FileObject;
@@ -45,11 +44,9 @@ import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
-
+import junit.framework.TestCase;
 import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
 import org.junit.Test;
-
-import junit.framework.TestCase;
 
 public class InMemoryCompilationTest extends TestCase {
 	@Test
@@ -194,7 +191,16 @@ public class InMemoryCompilationTest extends TestCase {
 				throws IOException {
 			List<JavaFileObject> result = new ArrayList<>();
 			if (location == StandardLocation.SOURCE_PATH && kinds.contains(Kind.SOURCE)) {
-				result.addAll(sources);
+				for (InMemoryJavaSourceFileObject sourceFileObject : sources) {
+					String name = sourceFileObject.getAbsClassName();
+					int lastDot = name.lastIndexOf('.');
+					if (lastDot == -1)
+						continue;
+					String packName = name.substring(0, lastDot-1);
+					boolean match = recurse ? packName.startsWith(packageName) : packName.equals(packageName);
+					if (match)
+						result.add(sourceFileObject);
+				}
 			}
 			if (super.hasLocation(location)) {
 				Iterable<JavaFileObject> superResult = super.list(location, packageName, kinds, recurse);

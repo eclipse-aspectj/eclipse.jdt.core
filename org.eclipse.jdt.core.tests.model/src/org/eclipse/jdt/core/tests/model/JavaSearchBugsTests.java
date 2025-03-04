@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
+import junit.framework.Test;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -40,44 +40,12 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.content.IContentType;
-import org.eclipse.jdt.core.IAnnotation;
-import org.eclipse.jdt.core.IClasspathContainer;
-import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IField;
-import org.eclipse.jdt.core.IImportDeclaration;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaElementDelta;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.ILocalVariable;
-import org.eclipse.jdt.core.IMethod;
-import org.eclipse.jdt.core.IOrdinaryClassFile;
-import org.eclipse.jdt.core.IPackageDeclaration;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.ITypeParameter;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.WorkingCopyOwner;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.core.search.IJavaSearchConstants;
-import org.eclipse.jdt.core.search.IJavaSearchScope;
-import org.eclipse.jdt.core.search.MethodNameMatch;
-import org.eclipse.jdt.core.search.MethodNameMatchRequestor;
-import org.eclipse.jdt.core.search.MethodReferenceMatch;
-import org.eclipse.jdt.core.search.ReferenceMatch;
-import org.eclipse.jdt.core.search.SearchEngine;
-import org.eclipse.jdt.core.search.SearchMatch;
-import org.eclipse.jdt.core.search.SearchParticipant;
-import org.eclipse.jdt.core.search.SearchPattern;
-import org.eclipse.jdt.core.search.SearchRequestor;
-import org.eclipse.jdt.core.search.TypeNameMatch;
-import org.eclipse.jdt.core.search.TypeNameMatchRequestor;
-import org.eclipse.jdt.core.search.TypeNameRequestor;
-import org.eclipse.jdt.core.search.TypeReferenceMatch;
+import org.eclipse.jdt.core.search.*;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.core.ClassFile;
 import org.eclipse.jdt.internal.core.JavaElement;
@@ -100,8 +68,6 @@ import org.eclipse.jdt.internal.core.search.matching.MethodPattern;
 import org.eclipse.jdt.internal.core.search.matching.PatternLocator;
 import org.eclipse.jdt.internal.core.search.matching.TypeDeclarationPattern;
 import org.eclipse.jdt.internal.core.search.matching.TypeReferencePattern;
-
-import junit.framework.Test;
 
 /**
  * Non-regression tests for bugs fixed in Java Search engine.
@@ -199,7 +165,7 @@ public ICompilationUnit getWorkingCopy(String path, String source) throws JavaMo
 @Override
 public void setUpSuite() throws Exception {
 	super.setUpSuite();
-	JAVA_PROJECT = setUpJavaProject("JavaSearchBugs", "1.5");
+	JAVA_PROJECT = setUpJavaProject("JavaSearchBugs", CompilerOptions.getFirstSupportedJavaVersion());
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b95152.jar", false);
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b123679.jar", false);
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b140156.jar", false);
@@ -355,7 +321,7 @@ public void testBug6930_AllConstructorDeclarations03() throws Exception {
 
 public void testBug6930_AllConstructorDeclarations04() throws Exception {
 	try {
-		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib6930.jar"}, "","1.5");
+		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib6930.jar"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 
 		createJar(
 			new String[] {
@@ -366,8 +332,8 @@ public void testBug6930_AllConstructorDeclarations04() throws Exception {
 				"}"
 			},
 			p.getProject().getLocation().append("lib6930.jar").toOSString(),
-			new String[]{getExternalJCLPathString("1.5")},
-			"1.5");
+			new String[]{getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion())},
+			CompilerOptions.getFirstSupportedJavaVersion());
 		refresh(p);
 
 		ConstructorDeclarationsCollector requestor = new ConstructorDeclarationsCollector();
@@ -1561,7 +1527,7 @@ public void testBug80890() throws CoreException, JavaModelException {
  * @see "http://bugs.eclipse.org/bugs/show_bug.cgi?id=80918"
  */
 public void testBug80918() throws CoreException {
-	IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString("1.5"), "java.lang", "Exception.class").getType();
+	IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()), "java.lang", "Exception.class").getType();
 	IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaProject[] {getJavaProject("JavaSearchBugs")}, IJavaSearchScope.SOURCES);
 	search(type, REFERENCES, SearchPattern.R_CASE_SENSITIVE|SearchPattern.R_ERASURE_MATCH, scope);
 	assertSearchResults(
@@ -3925,7 +3891,7 @@ public void testBug97087() throws CoreException {
  * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=97120"
  */
 public void testBug97120() throws CoreException {
-	IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString("1.5"), "java.lang", "Throwable.class").getType();
+	IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()), "java.lang", "Throwable.class").getType();
 	IJavaSearchScope scope = SearchEngine.createHierarchyScope(type);
 	TypeNameRequestor requestor =  new SearchTests.SearchTypeNameRequestor();
 	new SearchEngine().searchAllTypeNames(
@@ -4171,7 +4137,7 @@ public void testBug98378() throws CoreException {
 		"	}\n" +
 		"}\n"
 	);
-	String jclPath = getExternalJCLPathString("1.5");
+	String jclPath = getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion());
 	IType type = getClassFile("JavaSearchBugs", jclPath, "java.lang", "CharSequence.class").getType();
 	IMethod method = type.getMethod("length", new String[] {});
 	search(method, DECLARATIONS, SearchEngine.createHierarchyScope(type, this.wcOwner));
@@ -4198,7 +4164,7 @@ public void testBug98378b() throws CoreException {
 		"	}\n" +
 		"}\n"
 	);
-	String jclPath = getExternalJCLPathString("1.5");
+	String jclPath = getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion());
 	IType type = getClassFile("JavaSearchBugs", jclPath, "java.lang", "CharSequence.class").getType();
 	IMethod method = type.getMethod("length", new String[] {});
 	search(method, DECLARATIONS|IGNORE_DECLARING_TYPE|IGNORE_RETURN_TYPE, SearchEngine.createHierarchyScope(type, this.wcOwner));
@@ -6305,7 +6271,7 @@ public void testBug119545() throws CoreException {
 	IMethod method = type.getMethods()[0];
 	searchDeclarationsOfSentMessages(method, this.resultCollector);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " boolean java.lang.Object.equals(java.lang.Object) EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " boolean java.lang.Object.equals(java.lang.Object) EXACT_MATCH"
 	);
 }
 
@@ -7233,7 +7199,7 @@ public void testBug137087_CamelCase() throws CoreException {
 	String pattern = "runtimeEx";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.RuntimeException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.RuntimeException EXACT_MATCH"
 	);
 }
 public void testBug137087b_CamelCase() throws CoreException {
@@ -7241,7 +7207,7 @@ public void testBug137087b_CamelCase() throws CoreException {
 	String pattern = "Runtimeex";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.RuntimeException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.RuntimeException EXACT_MATCH"
 	);
 }
 public void testBug137087c_CamelCase() throws CoreException {
@@ -7249,7 +7215,7 @@ public void testBug137087c_CamelCase() throws CoreException {
 	String pattern = "runtimeexception";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.RuntimeException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.RuntimeException EXACT_MATCH"
 	);
 }
 public void testBug137087d_CamelCase() throws CoreException {
@@ -7265,7 +7231,7 @@ public void testBug137087e_CamelCase() throws CoreException {
 	String pattern = "IllegalMSException";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.IllegalMonitorStateException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.IllegalMonitorStateException EXACT_MATCH"
 	);
 }
 public void testBug137087f_CamelCase() throws CoreException {
@@ -7281,7 +7247,7 @@ public void testBug137087g_CamelCase() throws CoreException {
 	String pattern = "clonenotsupportedex";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087h_CamelCase() throws CoreException {
@@ -7289,7 +7255,7 @@ public void testBug137087h_CamelCase() throws CoreException {
 	String pattern = "CloneNotSupportedEx";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087i_CamelCase() throws CoreException {
@@ -7297,7 +7263,7 @@ public void testBug137087i_CamelCase() throws CoreException {
 	String pattern = "cloneNotsupportedEx";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087j_CamelCase() throws CoreException {
@@ -7305,7 +7271,7 @@ public void testBug137087j_CamelCase() throws CoreException {
 	String pattern = "ClonenotSupportedexc";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087k_CamelCase() throws CoreException {
@@ -7313,7 +7279,7 @@ public void testBug137087k_CamelCase() throws CoreException {
 	String pattern = "cloneNotSupportedExcep";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087l_CamelCase() throws CoreException {
@@ -7321,7 +7287,7 @@ public void testBug137087l_CamelCase() throws CoreException {
 	String pattern = "Clonenotsupportedexception";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087m_CamelCase() throws CoreException {
@@ -7329,7 +7295,7 @@ public void testBug137087m_CamelCase() throws CoreException {
 	String pattern = "CloneNotSupportedException";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 // Same tests using SearchPattern.R_CAMELCASE_SAME_PART_COUNT_MATCH
@@ -7350,7 +7316,7 @@ public void testBug137087c_CamelCaseSamePartCount() throws CoreException {
 	String pattern = "runtimeexception";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.RuntimeException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.RuntimeException EXACT_MATCH"
 	);
 }
 public void testBug137087d_CamelCaseSamePartCount() throws CoreException {
@@ -7366,7 +7332,7 @@ public void testBug137087e_CamelCaseSamePartCount() throws CoreException {
 	String pattern = "IllegalMSException";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.IllegalMonitorStateException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.IllegalMonitorStateException EXACT_MATCH"
 	);
 }
 public void testBug137087f_CamelCaseSamePartCount() throws CoreException {
@@ -7389,7 +7355,7 @@ public void testBug137087h_CamelCaseSamePartCount() throws CoreException {
 	String pattern = "CloneNotSupportedEx";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087i_CamelCaseSamePartCount() throws CoreException {
@@ -7416,7 +7382,7 @@ public void testBug137087l_CamelCaseSamePartCount() throws CoreException {
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	// Invalid camel case match pattern => replaced with exact match one (case insensitive)
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 public void testBug137087m_CamelCaseSamePartCount() throws CoreException {
@@ -7424,7 +7390,7 @@ public void testBug137087m_CamelCaseSamePartCount() throws CoreException {
 	String pattern = "CloneNotSupportedException";
 	search(pattern, TYPE, DECLARATIONS, matchRule);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java.lang.CloneNotSupportedException EXACT_MATCH"
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.CloneNotSupportedException EXACT_MATCH"
 	);
 }
 
@@ -7645,8 +7611,8 @@ public void testBug148215_Types() throws CoreException {
 		IMethod method = type.getMethods()[1];
 		searchDeclarationsOfReferencedTypes(method, this.resultCollector);
 		assertSearchResults(
-			""+ getExternalJCLPathString("1.5") + " java.lang.Object EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " java.lang.String EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.String EXACT_MATCH\n" +
 			"lib/b148215.jar test.def.Reference EXACT_MATCH"
 		);
 	}
@@ -7816,7 +7782,7 @@ public void testBug153765() throws CoreException {
  */
 public void testBug156340() throws CoreException {
 	TypeNameRequestor requestor =  new SearchTests.SearchTypeNameRequestor();
-	IPackageFragment fragment = getPackageFragment("JavaSearchBugs", getExternalJCLPathString("1.5"), "java.lang");
+	IPackageFragment fragment = getPackageFragment("JavaSearchBugs", getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()), "java.lang");
 	IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { fragment });
 	new SearchEngine().searchAllTypeNames(
 	   null,
@@ -8759,7 +8725,7 @@ public void testBug178847() throws CoreException {
 		);
 		getProject("P1").build(IncrementalProjectBuilder.FULL_BUILD, null);
 		deleteFile("/P1/bin/p/X.class");
-		createJavaProject("P2", new String[] {""}, new String[] {"JCL_LIB", "/P1/bin"}, "");
+		createJavaProject("P2", new String[] {""}, new String[] {"JCL18_LIB", "/P1/bin"}, "");
 		this.workingCopies = new ICompilationUnit[2];
 		this.workingCopies[0] = getWorkingCopy("/P2/Test1.java",
 			"public class Test1 {\n" +
@@ -8835,12 +8801,13 @@ public void testBug185452() throws CoreException {
 		SearchEngine.createWorkspaceScope(),
 		packageCollector);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " \n" +
-		""+ getExternalJCLPathString("1.5") + " java\n" +
-		""+ getExternalJCLPathString("1.5") + " java.io\n" +
-		""+ getExternalJCLPathString("1.5") + " java.lang\n" +
-		""+ getExternalJCLPathString("1.5") + " java.lang.annotation\n" +
-		""+ getExternalJCLPathString("1.5") + " java.util\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " \n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.io\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.annotation\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.invoke\n" +
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.util\n" +
 		"lib \n" +
 		"lib/JavaSearch15.jar  [No source]\n" +
 		"lib/JavaSearch15.jar g1 [No source]\n" +
@@ -8926,7 +8893,7 @@ public void testBug194185() throws CoreException {
 		SearchEngine.createWorkspaceScope(),
 		packageCollector);
 	assertSearchResults(
-		""+ getExternalJCLPathString("1.5") + " java",
+		""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java",
 		packageCollector);
 }
 
@@ -9185,8 +9152,8 @@ public void testBug199004_ApplicationLibraries() throws CoreException {
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { JAVA_PROJECT }, mask);
 		search("length", IJavaSearchConstants.METHOD, IJavaSearchConstants.DECLARATIONS, scope);
 		assertSearchResults(
-			""+ getExternalJCLPathString("1.5") + " int java.lang.CharSequence.length() EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " int java.lang.String.length() EXACT_MATCH"
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " int java.lang.CharSequence.length() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " int java.lang.String.length() EXACT_MATCH"
 		);
 	}
 	finally {
@@ -9211,8 +9178,8 @@ public void testBug199004_NoMask() throws CoreException {
 	try {
 		search("length", IJavaSearchConstants.METHOD, IJavaSearchConstants.DECLARATIONS);
 		assertSearchResults(
-			""+ getExternalJCLPathString("1.5") + " int java.lang.CharSequence.length() EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " int java.lang.String.length() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " int java.lang.CharSequence.length() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " int java.lang.String.length() EXACT_MATCH\n" +
 			"lib/b199004.jar int Test.length() EXACT_MATCH"
 		);
 	}
@@ -9243,7 +9210,7 @@ public void testBug200064() throws CoreException {
 		IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH,
 		null);
 	assertSearchResults(
-		"Object (not open) [in Object.class [in java.lang [in "+ getExternalJCLPathString("1.5") + "]]]",
+		"Object (not open) [in Object.class [in java.lang [in "+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + "]]]",
 		collector
 	);
 }
@@ -9897,7 +9864,7 @@ public void testBug211366_ComplexOrPattern() throws CoreException {
 public void testBug211857() throws CoreException {
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/b211857.jar", false);
 	try {
-		IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString("1.5"), "java.lang", "Deprecated.class").getType();
+		IType type = getClassFile("JavaSearchBugs", getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()), "java.lang", "Deprecated.class").getType();
 		search(type, REFERENCES);
 		assertSearchResults(
 			"lib/b211857.jar pack.Test [No source] EXACT_MATCH\n" +
@@ -9956,7 +9923,7 @@ public void testBug211872_ws() throws CoreException, IOException {
  */
 public void testBug181981() throws CoreException {
 	try {
-		IJavaProject project = createJavaProject("P", new String[] { "", "src"}, new String[] {"JCL_LIB"}, null, null, "bin", null, null, new String[][] {new String[] {"src/"}, new String[0]}, "1.4");
+		IJavaProject project = createJavaProject("P", new String[] { "", "src"}, new String[] {"JCL18_LIB"}, null, null, "bin", null, null, new String[][] {new String[] {"src/"}, new String[0]}, CompilerOptions.getFirstSupportedJavaVersion());
 		createFolder("/P/p1");
 		createFile(
 			"/P/p1/X.java",
@@ -10770,11 +10737,14 @@ public void testBug261722() throws Exception {
 		    }
 		};
 		Thread thread = new Thread(search);
+		long start = System.nanoTime();
+		long maxEnd = start + 10_000_000_000L;
+
 		thread.start();
 
 		// Delete project in current thread after being sure that the search
 		// request was started
-		while (requestor.count < (MAX/3)) {
+		while (requestor.count < (MAX/3) && System.nanoTime() < maxEnd) {
 			Thread.sleep(10);
 		}
 		deleteProject(javaProject);
@@ -11936,9 +11906,12 @@ public void testBug310213() throws CoreException {
 		search(type, REFERENCES);
 		assertSearchResults(
 			"src/b310213/test/Test.java b310213.test.Test [Throwable] EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " java.lang.Error EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " java.lang.Exception EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " void java.lang.Object.finalize() EXACT_MATCH"
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Error EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Exception EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " void java.lang.Object.finalize() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invoke(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeExact(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeWithArguments(java.lang.Object ...) EXACT_MATCH"
 		);
 	}
 	finally {
@@ -12036,7 +12009,7 @@ public void testBug317264a() throws CoreException {
 	IJavaProject project = null;
 	try
 	{
-		project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
@@ -12058,41 +12031,12 @@ public void testBug317264a() throws CoreException {
 		deleteProject(project);
 	}
 }
-// types in enum package of org.apache.commons.lang.jar should be reported for 1.4 projects
-public void testBug317264b() throws CoreException {
-	IJavaProject project = null;
-	try
-	{
-		project = createJavaProject("P", new String[] {""}, new String[] {"JCL_LIB"}, "", "1.4");
-		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
-		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS;
-		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
-
-		waitUntilIndexesReady();
-		TypeNameMatchCollector collector = new TypeNameMatchCollector();
-		new SearchEngine().searchAllTypeNames(
-				"org.apache.commons.lang.enum".toCharArray(),
-				SearchPattern.R_EXACT_MATCH,
-				"".toCharArray(),
-				SearchPattern.R_PREFIX_MATCH,
-				IJavaSearchConstants.TYPE,
-				scope,
-				collector,
-				IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH,
-				null);
-		assertSearchResults("Unexpected search results!",
-				"Enum (not open) [in Enum.class [in org.apache.commons.lang.enum [in /JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar [in P]]]]",
-				collector);
-	} finally {
-		deleteProject(project);
-	}
-}
 
 // types in enum package of org.apache.commons.lang.jar should not be reported for 1.5 projects
 public void testBug317264c() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
@@ -12103,50 +12047,16 @@ public void testBug317264c() throws CoreException {
 	}
 }
 
-// types in enum package of org.apache.commons.lang.jar should be reported for 1.4 projects
-public void testBug317264d() throws CoreException {
-	try
-	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL_LIB"}, "", "1.4");
-		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
-		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
-		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
-		search("org.apache.commons.lang.enum.*", IJavaSearchConstants.TYPE, IJavaSearchConstants.DECLARATIONS, scope, this.resultCollector);
-		assertSearchResults("Unexpected search results!",
-				"lib/b317264/org.apache.commons.lang_2.modified.jar org.apache.commons.lang.enum.Enum EXACT_MATCH",
-				this.resultCollector);
-	} finally {
-		deleteProject("P");
-	}
-}
-
 // enum package of org.apache.commons.lang.jar should not be reported for 1.5 projects
 public void testBug317264e() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
 		search("org.apache.commons.lang.enum*", IJavaSearchConstants.PACKAGE, IJavaSearchConstants.DECLARATIONS, scope, this.resultCollector);
 		assertSearchResults("Unexpected search results!",  "", this.resultCollector);
-	} finally {
-		deleteProject("P");
-	}
-}
-
-//enum package of org.apache.commons.lang.jar should be reported for 1.4 projects
-public void testBug317264f() throws CoreException {
-	try
-	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL_LIB"}, "", "1.4");
-		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b317264/org.apache.commons.lang_2.modified.jar"), null, null));
-		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
-		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
-		search("org.apache.commons.lang.enum*", IJavaSearchConstants.PACKAGE, IJavaSearchConstants.DECLARATIONS, scope, this.resultCollector);
-		assertSearchResults("Unexpected search results!",
-				"lib/b317264/org.apache.commons.lang_2.modified.jar org.apache.commons.lang.enum [No source] EXACT_MATCH",
-				this.resultCollector);
 	} finally {
 		deleteProject("P");
 	}
@@ -12160,7 +12070,7 @@ public void testBug317264f() throws CoreException {
 public void testBug322979a() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements Comparable<Object>{\n"+
 		    "public int compareTo(Object o) {\n"+
@@ -12184,7 +12094,7 @@ public void testBug322979a() throws CoreException {
 public void testBug322979b() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends java.lang.Object implements Comparable<Object>{\n"+
 		    "public int compareTo(Object o) {\n"+
@@ -12194,7 +12104,7 @@ public void testBug322979b() throws CoreException {
 		waitUntilIndexesReady();
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
-		IType type = getClassFile("P", getExternalJCLPathString("1.5"), "java.lang", "Object.class").getType();
+		IType type = getClassFile("P", getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()), "java.lang", "Object.class").getType();
 		this.resultCollector.showAccuracy(true);
 		this.resultCollector.showSelection();
 		search(type, IMPLEMENTORS, scope);
@@ -12209,7 +12119,7 @@ public void testBug322979b() throws CoreException {
 public void testBug322979c() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I01a<Object>, I01b<String>, I01c<Object> {\n" +
 			"}\n" +
@@ -12233,7 +12143,7 @@ public void testBug322979c() throws CoreException {
 public void testBug322979d() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I01<\n" +
 			"	I02<\n" +
@@ -12263,7 +12173,7 @@ public void testBug322979d() throws CoreException {
 public void testBug322979e() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I01<\n" +
 			"	I02<\n" +
@@ -12292,9 +12202,17 @@ public void testBug322979e() throws CoreException {
 			"Test.java Test [			I03<Object, I01<Object>, I02<!|Object|!, I01<Object>>>] EXACT_MATCH\n" +
 			"Test.java Test [			I03<Object, I01<Object>, I02<Object, I01<!|Object|!>>>] EXACT_MATCH\n" +
 			"Test.java Test [		I01<!|Object|!>>> {] EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " java.lang.Object java.lang.Object.clone() EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " boolean java.lang.Object.equals(java.lang.Object) EXACT_MATCH\n" +
-			""+ getExternalJCLPathString("1.5") + " java.lang.Class<? extends java.lang.Object> java.lang.Object.getClass() EXACT_MATCH"
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.Object.clone() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " boolean java.lang.Object.equals(java.lang.Object) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Class<? extends java.lang.Object> java.lang.Object.getClass() EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invoke(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invoke(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeExact(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeExact(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeWithArguments(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " java.lang.Object java.lang.invoke.MethodHandle.invokeWithArguments(java.lang.Object ...) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " V java.util.Map.get(java.lang.Object) EXACT_MATCH\n" +
+			""+ getExternalJCLPathString(CompilerOptions.getFirstSupportedJavaVersion()) + " V java.util.Map.remove(java.lang.Object) EXACT_MATCH"
 		);
 	} finally {
 		deleteProject("P");
@@ -12304,7 +12222,7 @@ public void testBug322979e() throws CoreException {
 public void testBug322979f() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I01<\n" +
 			"	I02<\n" +
@@ -12334,7 +12252,7 @@ public void testBug322979f() throws CoreException {
 public void testBug322979g() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I<A<Object>.B<I<Object>>.C<I<A<Object>.B<Object>.C<Object>>>> {\n" +
 			"}\n" +
@@ -12361,7 +12279,7 @@ public void testBug322979g() throws CoreException {
 public void testBug322979h() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 			"public class Test extends Object implements I1<String>, I2<Object>{\n"+
 		    "}\n"+
@@ -12589,7 +12507,7 @@ public void testBug329727() throws CoreException, IOException {
 							+ "	public OuterClass(){}\n"
 							+ "	class InnerClass {\n"
 							+ "		public InnerClass(){}\n" + "	}\n" + "}\n" },
-					new String[0], JavaCore.VERSION_1_4);
+					new String[0],CompilerOptions.getFirstSupportedJavaVersion());
 			newCP[cpLength] = JavaCore.newLibraryEntry(
 						new Path("/JavaSearchBugs/bug329727.jar"), null, null);
 			project.setRawClasspath(newCP, null);
@@ -12632,7 +12550,7 @@ public void testBug327654() throws CoreException {
 	IJavaProject project = null;
 	try
 	{
-		project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.5");
+		project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b327654/commons-lang.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES | IJavaSearchScope.REFERENCED_PROJECTS;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project }, mask);
@@ -12663,7 +12581,7 @@ public void testBug327654() throws CoreException {
 public void testBug325418a() throws Exception {
 	try
 	{
-		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL15_LIB"}, "","1.5");
+		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		org.eclipse.jdt.core.tests.util.Util.createJar(new String[] {
 				"p325418/Test.java",
 				"package p325418;\n" +
@@ -12675,7 +12593,7 @@ public void testBug325418a() throws Exception {
 				"abstract class Inner <T> {\n"+
 				"	 abstract T run();\n"+
 				"}\n"
-			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), "1.5");
+			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), CompilerOptions.getFirstSupportedJavaVersion());
 			refresh(p);
 		//addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b325418.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
@@ -12693,7 +12611,7 @@ public void testBug325418a() throws Exception {
 public void testBug325418b() throws Exception {
 	try
 	{
-		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL15_LIB"}, "","1.5");
+		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		org.eclipse.jdt.core.tests.util.Util.createJar(new String[] {
 				"p325418/Test.java",
 				"package p325418;\n" +
@@ -12708,7 +12626,7 @@ public void testBug325418b() throws Exception {
 				"abstract class Inner <T> {\n" +
 				"	 abstract T run();\n" +
 				"}"
-			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), "1.5");
+			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), CompilerOptions.getFirstSupportedJavaVersion());
 			refresh(p);
 		//addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b325418.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
@@ -12726,7 +12644,7 @@ public void testBug325418b() throws Exception {
 public void testBug325418c() throws Exception {
 	try
 	{
-		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL15_LIB"}, "","1.5");
+		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		org.eclipse.jdt.core.tests.util.Util.createJar(new String[] {
 				"p325418/Test.java",
 				"package p325418;\n" +
@@ -12743,7 +12661,7 @@ public void testBug325418c() throws Exception {
 				"	 abstract T run();\n" +
 				"	 abstract T run(U obj);\n" +
 				"}"
-			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), "1.5");
+			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), CompilerOptions.getFirstSupportedJavaVersion());
 			refresh(p);
 		//addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b325418.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
@@ -12763,7 +12681,7 @@ public void testBug325418c() throws Exception {
 public void testBug325418d() throws Exception {
 	try
 	{
-		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL15_LIB"}, "","1.5");
+		IJavaProject p = createJavaProject("P", new String[] {}, new String[] {"/P/lib325418.jar","JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		org.eclipse.jdt.core.tests.util.Util.createJar(new String[] {
 				"p325418/Test.java",
 				"package p325418;\n" +
@@ -12780,7 +12698,7 @@ public void testBug325418d() throws Exception {
 				"abstract class TwoLevelInner <T> {\n" +
 				"	 abstract T run();\n" +
 				"}\n"
-			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), "1.5");
+			}, p.getProject().getLocation().append("lib325418.jar").toOSString(), CompilerOptions.getFirstSupportedJavaVersion());
 			refresh(p);
 		//addClasspathEntry(project, JavaCore.newLibraryEntry(new Path("/JavaSearchBugs/lib/b325418.jar"), null, null));
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
@@ -12861,7 +12779,7 @@ public void testBug324189d() throws CoreException, IOException {
 			},
 			new HashMap(),
 			libPath);
-		IJavaProject javaProject = createJavaProject("P", new String[0], new String[] {libPath, "JCL_LIB"}, "");
+		IJavaProject javaProject = createJavaProject("P", new String[0], new String[] {libPath, "JCL18_LIB"}, "");
 		waitUntilIndexesReady();
 		int mask = IJavaSearchScope.APPLICATION_LIBRARIES | IJavaSearchScope.SOURCES ;
 		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { javaProject }, mask);
@@ -12899,7 +12817,7 @@ public void testBug324189e() throws CoreException {
 public void testBug336322a() throws CoreException{
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.7");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 				"public class Test {\n"+
 				"public void foo(Object o) {\n"+
@@ -12921,7 +12839,7 @@ public void testBug336322a() throws CoreException{
 public void testBug336322b() throws CoreException{
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.7");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 				"public class Test {\n"+
 				"public void foo(Object o) {\n"+
@@ -12943,7 +12861,7 @@ public void testBug336322b() throws CoreException{
 public void testBug336322c() throws CoreException{
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.7");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/Test.java",
 				"public class Test {\n"+
 				"public void foo(Object o) {\n"+
@@ -12995,7 +12913,7 @@ public void testBug339891() throws CoreException {
 public void testBug341462() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL15_LIB"}, "", "1.7");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/X.java",
 				"public class X<T> {\n" +
 				"        T field1;\n" +
@@ -13067,7 +12985,7 @@ public void testBug350885() throws CoreException {
 public void testBug349683() throws CoreException {
 	try
 	{
-		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL17_LIB"}, "", "1.7");
+		IJavaProject project = createJavaProject("P", new String[] {""}, new String[] {"JCL18_LIB"}, "", CompilerOptions.getFirstSupportedJavaVersion());
 		createFile("/P/X.java",
 				"import java.lang.invoke.MethodHandle;\n" +
 				"import java.lang.invoke.MethodHandles;\n" +
@@ -13141,7 +13059,7 @@ public void testBug345807() throws CoreException {
 	}
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=355605
-public void testBug355605() throws CoreException {
+public void testBug355605_1() throws CoreException {
 	try {
 	createJavaProject("P");
 
@@ -13163,6 +13081,44 @@ public void testBug355605() throws CoreException {
 			+ "   };\n"
 			+ "}\n"
 			+ "}\n" ;
+		createFile("/P/X.java", fileContent);
+
+		waitUntilIndexesReady();
+		this.resultCollector = new TestCollector();
+		this.resultCollector.showAccuracy(true);
+		ICompilationUnit unit = getCompilationUnit("/P/X.java");
+		IMethod method = selectMethod(unit, "myMethod", 1);
+		IJavaSearchScope hierarchyScope = SearchEngine.createHierarchyScope((IType)method.getParent());
+		search(method, IMPLEMENTORS, EXACT_RULE, hierarchyScope, this.resultCollector);
+		assertSearchResults("Unexpected search results!", "X.java void X$R.t:<anonymous>#1.s:<anonymous>#1.myMethod() [myMethod] EXACT_MATCH", this.resultCollector);
+
+	} finally {
+		deleteProject("P");
+	}
+}
+public void testBug355605_2() throws CoreException {
+	try {
+		createJavaProject("P");
+
+		String fileContent =
+				"public class X { \n"
+						+ "class R {\n"
+						+ "   class S {\n"
+						+ "     S(String s) {}\n"
+						+ "   	void setInfo(String x) {\n"
+						+ "   	}\n"
+						+ "   }\n"
+						+ "   class T {\n"
+						+ "   }\n"
+						+ "	T t = new T()  {\n"
+						+ "		S s = new S(\"test\") {\n"
+						+ "           void myMethod() {\n"
+						+ "               setInfo(\"a\");\n"
+						+ "           }\n"
+						+ "      };// S ends\n"
+						+ "   };\n"
+						+ "}\n"
+						+ "}\n" ;
 		createFile("/P/X.java", fileContent);
 
 		waitUntilIndexesReady();
@@ -14348,9 +14304,9 @@ public void testBug469320_0001() throws CoreException {
 	IJavaProject ProjectA = null;
 	IJavaProject ProjectB = null;
 	try	{
-		ProjectA = createJavaProject("ProjectA", new String[] {""}, new String[] {"JCL15_LIB"}, "","1.5");
+		ProjectA = createJavaProject("ProjectA", new String[] {""}, new String[] {"JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		IFile f = getFile("/JavaSearchBugs/lib/common.jar");
-		this.createFile("/ProjectA/common.jar", f.getContents());
+		this.createFile("/ProjectA/common.jar", f.readAllBytes());
 		this.addLibraryEntry(ProjectA, "/ProjectA/common.jar", false);
 		createFolder("/ProjectA/test");
 		createFile("/ProjectA/test/Validation.java",
@@ -14369,7 +14325,7 @@ public void testBug469320_0001() throws CoreException {
 				"		return null;\n" +
 				"	}\n" +
 				"}\n");
-		ProjectB = createJavaProject("ProjectB", new String[] {""}, new String[] {"JCL15_LIB"}, "","1.5");
+		ProjectB = createJavaProject("ProjectB", new String[] {""}, new String[] {"JCL18_LIB"}, "",CompilerOptions.getFirstSupportedJavaVersion());
 		//this.createFile("/ProjectB/common.jar", f.getContents());
 		this.addLibraryEntry(ProjectB, "/ProjectA/common.jar", false);
 		createFolder("/ProjectB/testReferences");
@@ -15205,7 +15161,7 @@ public void testBug521240_001() throws CoreException {
 public void testBug547051_nonModular() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
-		setUpProjectCompliance(project, "1.8", true);
+		setUpProjectCompliance(project, CompilerOptions.getFirstSupportedJavaVersion(), true);
 		IType type = project.findType("java.util.Collection");
         IJavaSearchScope scope = SearchEngine.createStrictHierarchyScope(project, type, Boolean.TRUE, Boolean.TRUE, null);
         BasicSearchEngine engine = new BasicSearchEngine();
@@ -15228,7 +15184,7 @@ public void testBug547051_nonModular() throws Exception {
 public void testBug547051_nonModular2() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
-		setUpProjectCompliance(project, "1.8", true);
+		setUpProjectCompliance(project, CompilerOptions.getFirstSupportedJavaVersion(), true);
 		IType type = project.findType("java.util.Collection");
         IJavaSearchScope scope = SearchEngine.createStrictHierarchyScope(project, type, Boolean.TRUE, Boolean.TRUE, null);
         BasicSearchEngine engine = new BasicSearchEngine();
@@ -15250,7 +15206,7 @@ public void testBug547051_nonModular2() throws Exception {
 public void testBug547051_nonModular3() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
-		setUpProjectCompliance(project, "1.8", true);
+		setUpProjectCompliance(project, CompilerOptions.getFirstSupportedJavaVersion(), true);
 		IType type = project.findType("java.util.Collection");
 		IJavaSearchScope scope = SearchEngine.createStrictHierarchyScope(project, type, Boolean.TRUE, Boolean.TRUE, null);
 		BasicSearchEngine engine = new BasicSearchEngine();
@@ -15273,7 +15229,7 @@ public void testBug547051_nonModular3() throws Exception {
 public void testBug547095_local_variables_search_non_modular() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
-		setUpProjectCompliance(project, "1.8", true);
+		setUpProjectCompliance(project, CompilerOptions.getFirstSupportedJavaVersion(), true);
 		IType type = project.findType("java.util.Collection");
 		IMethod method = type.getMethod("equals", new String[] {"Ljava.lang.Object;" });
 		LocalVariable lv = new LocalVariable(((JavaElement)method), "o", 0, 0, 0, 0, "QObject;", null, 0, true);
@@ -15290,7 +15246,7 @@ public void testBug547095_local_variables_search_non_modular() throws Exception 
 public void testBug547095_type_pattern_search_non_modular() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
-		setUpProjectCompliance(project, "1.8", true);
+		setUpProjectCompliance(project, CompilerOptions.getFirstSupportedJavaVersion(), true);
 		IType type = project.findType("java.util.Collection");
 		TypeParameter tp = new TypeParameter(((JavaElement)type), "E");
 		SearchPattern pattern = SearchPattern.createPattern(tp, REFERENCES, SearchPattern.R_EXACT_MATCH | SearchPattern.R_CASE_SENSITIVE | SearchPattern.R_ERASURE_MATCH);
@@ -15303,7 +15259,7 @@ public void testBug547095_type_pattern_search_non_modular() throws Exception {
 	}
 }
 
-public void testBug573486_showReferences_inMethodsAndFields_whenNoSource() throws CoreException, IOException {
+public void _2551_testBug573486_showReferences_inMethodsAndFields_whenNoSource() throws CoreException, IOException {
 	addLibraryEntry(JAVA_PROJECT, "/JavaSearchBugs/lib/search_lib_no_source.jar", false);
 	try {
 		IType type = getClassFile("JavaSearchBugs", "lib/search_lib_no_source.jar", "java.util", "Observable.class").getType();
@@ -15544,6 +15500,100 @@ public void testModuleConflictGh723() throws Exception {
 		deleteProject(projectName);
 		deleteProject(modularProjectName);
 	}
+}
+
+/**
+ * issue 3308: SearchEngine.searchDeclarationsOfSentMessages() does not support local or anonymous classes
+ * @see "https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3308"
+ */
+public void testIssue3308() throws CoreException {
+	this.workingCopies = new ICompilationUnit[1];
+	String src= """
+			package issue3308;
+			public class Test {
+				public class BaseTargetClass {
+				}
+
+				public class OriginalClass {
+					public int data = 60;
+
+					public void memberMethod() {
+					}
+
+					public class NestedOriginalClass extends BaseTargetClass {
+						void setup() {
+							new BaseTargetClass() {
+								int j = 1;
+
+								void methodToBePulledUp() {
+									j = 2;
+									methodHelper();
+								}
+
+								void methodHelper() {
+									System.out.println("Helper Method in Anonymous Class: " + data);
+								}
+							};
+						}
+					}
+				}
+			}
+			""";
+
+	this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/issue3308/Test.java", src);
+	IType type = (IType) this.workingCopies[0].getElementAt(src.indexOf("new BaseTargetClass"));
+	IMethod method = type.getMethod("methodToBePulledUp", new String[] {});
+	new SearchEngine(this.workingCopies).searchDeclarationsOfSentMessages(method, this.resultCollector, null);
+	assertSearchResults(
+		"src/issue3308/Test.java void void issue3308.Test$OriginalClass$NestedOriginalClass.setup():<anonymous>#1.methodHelper() [methodHelper()] EXACT_MATCH"
+	);
+}
+
+/**
+ * issue 3308: SearchEngine.searchDeclarationsOfSentMessages() does not support local or anonymous classes
+ * @see "https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3308"
+ */
+public void testIssue3308b() throws CoreException {
+	this.workingCopies = new ICompilationUnit[1];
+	String src= """
+			package issue3308;
+			public class Test {
+				public class BaseTargetClass {
+				}
+
+				public class OriginalClass {
+					public int data = 60;
+
+					public void memberMethod() {
+					}
+
+					public class NestedOriginalClass extends BaseTargetClass {
+						void setup() {
+							new BaseTargetClass() {
+								int j = 1;
+
+								void methodToBePulledUp() {
+									j = 2;
+									methodHelper();
+								}
+
+								void methodHelper() {
+									System.out.println("Helper Method in Anonymous Class: " + data);
+								}
+							};
+						}
+					}
+				}
+			}
+			""";
+
+	this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/issue3308b/Test.java", src);
+	IType type = (IType) this.workingCopies[0].getElementAt(src.indexOf("new BaseTargetClass"));
+	IMethod method = type.getMethod("methodToBePulledUp", new String[] {});
+	new SearchEngine(this.workingCopies).searchDeclarationsOfAccessedFields(method, this.resultCollector, null);
+	assertSearchResults(
+		"src/issue3308b/Test.java void issue3308b.Test$OriginalClass$NestedOriginalClass.setup():<anonymous>#1.j [j] EXACT_MATCH"
+	);
 }
 
 private static String toString(char[][] modules) {

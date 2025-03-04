@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -39,6 +39,7 @@ public class FieldBinding extends VariableBinding {
 	public int compoundUseFlag = 0; // number or accesses via postIncrement or compoundAssignment
 
 	public FakedTrackingVariable closeTracker;
+	public long extendedTagBits;
 
 protected FieldBinding() {
 	super(null, null, 0, null);
@@ -439,13 +440,11 @@ public void setAnnotations(AnnotationBinding[] annotations, boolean forceStore) 
 	this.declaringClass.storeAnnotations(this, annotations, forceStore);
 }
 public FieldDeclaration sourceField() {
-	SourceTypeBinding sourceType;
 	//	AspectJ Extension
-	if (declaringClass instanceof BinaryTypeBinding) return null;
+	if (this.declaringClass instanceof BinaryTypeBinding) return null;
 	//	End AspectJ Extension
-	try {
-		sourceType = (SourceTypeBinding) this.declaringClass;
-	} catch (ClassCastException e) {
+
+	if (!(this.declaringClass instanceof SourceTypeBinding sourceType)) {
 		return null;
 	}
 
@@ -465,7 +464,7 @@ public FieldDeclaration sourceField() {
 // AspectJ Extension
 public boolean alwaysNeedsAccessMethod(boolean isReadAccess) { return false; }
 public SyntheticMethodBinding getAccessMethod(boolean isReadAccess) {
-	throw new RuntimeException("unimplemented");
+	throw new RuntimeException("unimplemented"); //$NON-NLS-1$
 }
 
 public FieldBinding getFieldBindingForLookup() { return this; }

@@ -56,36 +56,20 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
-import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.Annotation;
-import org.eclipse.jdt.internal.compiler.ast.Argument;
-import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
-import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
-import org.eclipse.jdt.internal.compiler.ast.SwitchStatement;
-import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationPosition;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
@@ -95,7 +79,6 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -139,7 +122,7 @@ public class SourceTypeBinding extends ReferenceBinding {
 	Map[] synthetics;
 	char[] genericReferenceTypeSignature;
 
-	private SimpleLookupTable storedAnnotations = null; // keys are this ReferenceBinding & its fields and methods, value is an AnnotationHolder
+	private Map<Binding, AnnotationHolder> storedAnnotations = null; // keys are this ReferenceBinding & its fields and methods, value is an AnnotationHolder
 
 	public int defaultNullness;
 	boolean memberTypesSorted = false;
@@ -163,6 +146,7 @@ public class SourceTypeBinding extends ReferenceBinding {
 	public boolean isVarArgs =  false; // for record declaration
 	private FieldBinding[] implicitComponentFields; // cache
 	private MethodBinding[] recordComponentAccessors = null; // hash maybe an overkill
+	public boolean supertypeAnnotationsUpdated = false; // have any supertype annotations been updated during CompleteTypeBindingsSteps.INTEGRATE_ANNOTATIONS_IN_HIERARCHY?
 
 public SourceTypeBinding(char[][] compoundName, PackageBinding fPackage, ClassScope scope) {
 	this.compoundName = compoundName;
@@ -192,6 +176,7 @@ public SourceTypeBinding(SourceTypeBinding prototype) {
 
 	this.superclass = prototype.superclass;
 	this.superInterfaces = prototype.superInterfaces;
+	this.permittedTypes = prototype.permittedTypes;
 	this.fields = prototype.fields;
 	this.methods = prototype.methods;
 	this.memberTypes = prototype.memberTypes;
@@ -1158,243 +1143,47 @@ private void checkAnnotationsInType() {
 
 void faultInTypesForFieldsAndMethods() {
 	if (!isPrototype()) throw new IllegalStateException();
-	checkPermitsInType();
+	if (!this.isLocalType())
+		complainIfUnpermittedSubtyping();  // this has nothing to do with fields and methods but time is ripe for this check.
 	checkAnnotationsInType();
 	internalFaultInTypeForFieldsAndMethods();
 }
 
-private Map.Entry<TypeReference, ReferenceBinding> getFirstSealedSuperTypeOrInterface(TypeDeclaration typeDecl) {
-	boolean isAnySuperTypeSealed = typeDecl.superclass != null && this.superclass != null ? this.superclass.isSealed() : false;
-	if (isAnySuperTypeSealed)
-		return new AbstractMap.SimpleEntry<>(typeDecl.superclass, this.superclass);
+private boolean isAnUnpermittedSubtypeOf(ReferenceBinding superType) {
 
-	ReferenceBinding[] superInterfaces1 = this.superInterfaces();
-	int l = superInterfaces1 != null ? superInterfaces1.length : 0;
-	for (int i = 0; i < l; ++i) {
-		ReferenceBinding superInterface = superInterfaces1[i];
-		if (superInterface.isSealed()) {
-			return new AbstractMap.SimpleEntry<>(typeDecl.superInterfaces[i], superInterface);
-		}
+	if (superType == null || !superType.isSealed())
+		return false;
+
+	for (ReferenceBinding permittedType : superType.actualType().permittedTypes()) {
+		if (TypeBinding.equalsEquals(this, permittedType))
+			return false;
 	}
-	return null;
+
+	return true;
 }
-// TODO: Optimize the multiple loops - defer until the feature becomes standard.
-private void checkPermitsInType() {
-//	if (/* this.isRecordDeclaration || */this.isEnum())
-//		return; // handled separately
+
+private void complainIfUnpermittedSubtyping() {
+
+	// Diagnose unauthorized subtyping: This cannot be correctly hoisted into ClassScope.{ connectSuperclass() | connectSuperInterfaces() | connectPermittedTypes() }
+	// but can be taken up now
+
 	TypeDeclaration typeDecl = this.scope.referenceContext;
-	if (this.isInterface()) {
-		if (isSealed() && isNonSealed()) {
-			this.scope.problemReporter().sealedInterfaceIsSealedAndNonSealed(this, typeDecl);
-			return;
-		}
+	if (this.isAnUnpermittedSubtypeOf(this.superclass)) {
+		this.scope.problemReporter().sealedSupertypeDoesNotPermit(this, typeDecl.superclass, this.superclass);
 	}
-	boolean hasPermittedTypes = this.permittedTypes != null && this.permittedTypes.length > 0;
-	if (hasPermittedTypes) {
-		if (!this.isSealed())
-			this.scope.problemReporter().sealedMissingSealedModifier(this, typeDecl);
-		ModuleBinding sourceModuleBinding = this.module();
-		boolean isUnnamedModule = sourceModuleBinding.isUnnamed();
-		if (isUnnamedModule) {
-			PackageBinding sourceTypePackage = this.getPackage();
-			for (int i =0, l = this.permittedTypes.length; i < l; i++) {
-				ReferenceBinding permType = this.permittedTypes[i];
-				if (!permType.isValidBinding()) continue;
-				if (sourceTypePackage != permType.getPackage()) {
-					TypeReference permittedTypeRef = typeDecl.permittedTypes[i];
-					this.scope.problemReporter().sealedPermittedTypeOutsideOfPackage(permType, this, permittedTypeRef, sourceTypePackage);
-				}
-			}
-		} else {
-			for (int i = 0, l = this.permittedTypes.length; i < l; i++) {
-				ReferenceBinding permType = this.permittedTypes[i];
-				if (!permType.isValidBinding()) continue;
-				ModuleBinding permTypeModule = permType.module();
-				if (permTypeModule != null && sourceModuleBinding != permTypeModule) {
-					TypeReference permittedTypeRef = typeDecl.permittedTypes[i];
-					this.scope.problemReporter().sealedPermittedTypeOutsideOfModule(permType, this, permittedTypeRef, sourceModuleBinding);
-				}
-			}
+
+	for (int i = 0, l = this.superInterfaces.length; i < l; ++i) {
+		ReferenceBinding superInterface = this.superInterfaces[i];
+		if (this.isAnUnpermittedSubtypeOf(superInterface)) {
+			TypeReference superInterfaceRef = typeDecl.superInterfaces[i];
+			this.scope.problemReporter().sealedSupertypeDoesNotPermit(this, superInterfaceRef, superInterface);
 		}
 	}
 
-//	ReferenceBinding superType = this.superclass();
-	Map.Entry<TypeReference, ReferenceBinding> sealedEntry = getFirstSealedSuperTypeOrInterface(typeDecl);
-	boolean foundSealedSuperTypeOrInterface = sealedEntry != null;
-	if (this.isLocalType()) {
-		if (this.isSealed() || this.isNonSealed())
-			return; // already handled elsewhere
-		if (foundSealedSuperTypeOrInterface) {
-			this.scope.problemReporter().sealedLocalDirectSuperTypeSealed(this, sealedEntry.getKey(), sealedEntry.getValue());
-			return;
-		}
-	} else if (this.isNonSealed()) {
-		if (!foundSealedSuperTypeOrInterface) {
-			if (this.isClass() && !this.isRecord()) // record to give only illegal modifier error.
-				this.scope.problemReporter().sealedDisAllowedNonSealedModifierInClass(this, typeDecl);
-			else if (this.isInterface())
-				this.scope.problemReporter().sealedDisAllowedNonSealedModifierInInterface(this, typeDecl);
-		}
-	}
-	if (foundSealedSuperTypeOrInterface) {
-		if (!(this.isFinal() || this.isSealed() || this.isNonSealed())) {
-			if (this.isClass())
-				this.scope.problemReporter().sealedMissingClassModifier(this, typeDecl, sealedEntry.getValue());
-			else if (this.isInterface())
-				this.scope.problemReporter().sealedMissingInterfaceModifier(this, typeDecl, sealedEntry.getValue());
-		}
-		List<SourceTypeBinding> typesInCU = collectAllTypeBindings(typeDecl, this.scope.compilationUnitScope());
-		if (!typeDecl.isRecord() && typeDecl.superclass != null && !checkPermitsAndAdd(this.superclass, typesInCU)) {
-			reportSealedSuperTypeDoesNotPermitProblem(typeDecl.superclass, this.superclass);
-		}
-		for (int i = 0, l = this.superInterfaces.length; i < l; ++i) {
-			ReferenceBinding superInterface = this.superInterfaces[i];
-			if (superInterface != null && !checkPermitsAndAdd(superInterface, typesInCU)) {
-				TypeReference superInterfaceRef = typeDecl.superInterfaces[i];
-				reportSealedSuperTypeDoesNotPermitProblem(superInterfaceRef, superInterface);
-			}
-		}
-	}
 	for (ReferenceBinding memberType : this.memberTypes)
-		((SourceTypeBinding) memberType).checkPermitsInType();
+		((SourceTypeBinding) memberType).complainIfUnpermittedSubtyping();
 
-	if (this.scope.referenceContext.permittedTypes == null) {
-		// Ignore implicitly permitted case
-		return;
-	}
-	// In case of errors, be safe.
-	int l = this.permittedTypes.length <= this.scope.referenceContext.permittedTypes.length ?
-			this.permittedTypes.length : this.scope.referenceContext.permittedTypes.length;
-	for (int i = 0; i < l; i++) {
-	    TypeReference permittedTypeRef = this.scope.referenceContext.permittedTypes[i];
-		ReferenceBinding permittedType = this.permittedTypes[i];
-		if (permittedType == null || !permittedType.isValidBinding())
-			continue;
-		if (this.isClass()) {
-			ReferenceBinding permSuperType = permittedType.superclass();
-			permSuperType = getActualType(permSuperType);
-			if (!TypeBinding.equalsEquals(this, permSuperType)) {
-				this.scope.problemReporter().sealedNotDirectSuperClass(permittedType, permittedTypeRef, this);
-				continue;
-			}
-		} else if (this.isInterface()) {
-			ReferenceBinding[] permSuperInterfaces = permittedType.superInterfaces();
-			boolean foundSuperInterface = false;
-			if (permSuperInterfaces != null) {
-				for (ReferenceBinding psi : permSuperInterfaces) {
-					psi = getActualType(psi);
-					if (TypeBinding.equalsEquals(this, psi)) {
-						foundSuperInterface = true;
-						break;
-					}
-				}
-				if (!foundSuperInterface) {
-					this.scope.problemReporter().sealedNotDirectSuperInterface(permittedType, permittedTypeRef, this);
-					continue;
-				}
-			}
-		}
-	}
 	return;
-}
-
-private void reportSealedSuperTypeDoesNotPermitProblem(TypeReference superTypeRef, TypeBinding superType) {
-	ModuleBinding sourceModuleBinding = this.module();
-	boolean isUnnamedModule = sourceModuleBinding.isUnnamed();
-	boolean isClass =  false;
-	if (superType.isClass()) {
-		isClass =  true;
-	}
-	boolean sealedSuperTypeDoesNotPermit = false;
-	ReferenceBinding superReferenceBinding = null;
-	if (superType instanceof ReferenceBinding) {
-		superReferenceBinding = (ReferenceBinding) superType;
-		if (isUnnamedModule) {
-			PackageBinding superTypePackage = superReferenceBinding.getPackage();
-			PackageBinding pkg = this.getPackage();
-			sealedSuperTypeDoesNotPermit = pkg!= null && pkg.equals(superTypePackage);
-		} else {
-			ModuleBinding superTypeModule = superReferenceBinding.module();
-			ModuleBinding mod = this.module();
-			sealedSuperTypeDoesNotPermit  = mod!= null && mod.equals(superTypeModule);
-		}
-	}
-	if (sealedSuperTypeDoesNotPermit) {
-		if (isClass) {
-			this.scope.problemReporter().sealedSuperClassDoesNotPermit(this, superTypeRef, superType);
-		} else {
-			this.scope.problemReporter().sealedSuperInterfaceDoesNotPermit(this, superTypeRef, superType);
-		}
-	} else {
-		if (superReferenceBinding instanceof SourceTypeBinding && isUnnamedModule) {
-			PackageBinding superTypePackage = superReferenceBinding.getPackage();
-			if (isClass) {
-				this.scope.problemReporter().sealedSuperClassInDifferentPackage(this, superTypeRef, superType, superTypePackage);
-			} else {
-				this.scope.problemReporter().sealedSuperInterfaceInDifferentPackage(this, superTypeRef, superType, superTypePackage);
-			}
-		} else {
-			if (isClass) {
-				this.scope.problemReporter().sealedSuperClassDisallowed(this, superTypeRef, superType);
-			} else {
-				this.scope.problemReporter().sealedSuperInterfaceDisallowed(this, superTypeRef, superType);
-			}
-		}
-	}
-}
-
-private ReferenceBinding getActualType(ReferenceBinding ref) {
-	return ref.isParameterizedType() || ref.isRawType() ? ref.actualType(): ref;
-}
-public List<SourceTypeBinding> collectAllTypeBindings(TypeDeclaration typeDecl, CompilationUnitScope unitScope) {
-	class TypeBindingsCollector extends ASTVisitor {
-		List<SourceTypeBinding> types = new ArrayList<>();
-		@Override
-		public boolean visit(
-				TypeDeclaration localTypeDeclaration,
-				BlockScope scope1) {
-				checkAndAddBinding(localTypeDeclaration.binding);
-				return true;
-			}
-			@Override
-			public boolean visit(
-				TypeDeclaration memberTypeDeclaration,
-				ClassScope scope1) {
-				checkAndAddBinding(memberTypeDeclaration.binding);
-				return true;
-			}
-			@Override
-			public boolean visit(
-				TypeDeclaration typeDeclaration,
-				CompilationUnitScope scope1) {
-				checkAndAddBinding(typeDeclaration.binding);
-				return true; // do nothing by default, keep traversing
-			}
-			private void checkAndAddBinding(SourceTypeBinding stb) {
-				if (stb != null)
-					this.types.add(stb);
-			}
-	}
-	TypeBindingsCollector typeCollector = new TypeBindingsCollector();
-	typeDecl.traverse(typeCollector, unitScope);
-	return typeCollector.types;
-}
-
-private boolean checkPermitsAndAdd(ReferenceBinding superType, List<SourceTypeBinding> types) {
-	if (superType == null
-			|| superType.equals(this.scope.getJavaLangObject())
-			|| !superType.isSealed())
-		return true;
-	if (superType.isSealed()) {
-		superType = getActualType(superType);
-		ReferenceBinding[] superPermittedTypes = superType.permittedTypes();
-		for (ReferenceBinding permittedType : superPermittedTypes) {
-			permittedType = getActualType(permittedType);
-			if (permittedType.isValidBinding() && TypeBinding.equalsEquals(this, permittedType))
-				return true;
-		}
-	}
-	return false;
 }
 
 @Override
@@ -2708,6 +2497,8 @@ private MethodBinding checkRecordCanonicalConstructor(MethodBinding explicitCano
 
 @Override
 public ReferenceBinding[] permittedTypes() {
+	if (!isPrototype())
+		return this.permittedTypes = this.prototype.permittedTypes();
 	return this.permittedTypes;
 }
 
@@ -3358,7 +3149,7 @@ public MethodBinding [] setMethods(MethodBinding[] methods) {
 	return this.methods = methods;
 }
 
-//Propagate writes to all annotated variants so the clones evolve along.
+// Propagate writes to all annotated variants so the clones evolve along.
 public ReferenceBinding [] setPermittedTypes(ReferenceBinding [] permittedTypes) {
 
 	if (!isPrototype())
@@ -3374,6 +3165,22 @@ public ReferenceBinding [] setPermittedTypes(ReferenceBinding [] permittedTypes)
 	return this.permittedTypes = permittedTypes;
 }
 
+private void setImplicitPermittedType(SourceTypeBinding permittedType) {
+	ReferenceBinding[] typesPermitted = this.permittedTypes();
+	int sz = typesPermitted == null ? 0 : typesPermitted.length;
+	if (this.scope.referenceCompilationUnit() == permittedType.scope.referenceCompilationUnit()) {
+		if (sz == 0) {
+			typesPermitted = new ReferenceBinding[] { permittedType };
+		} else {
+			System.arraycopy(typesPermitted, 0, typesPermitted = new ReferenceBinding[sz + 1], 0, sz);
+			typesPermitted[sz] = permittedType;
+		}
+		this.setPermittedTypes(typesPermitted);
+	} else if (sz == 0) {
+		this.setPermittedTypes(Binding.NO_PERMITTED_TYPES);
+	}
+}
+
 // Propagate writes to all annotated variants so the clones evolve along.
 public ReferenceBinding setSuperClass(ReferenceBinding superClass) {
 
@@ -3386,6 +3193,11 @@ public ReferenceBinding setSuperClass(ReferenceBinding superClass) {
 			SourceTypeBinding annotatedType = (SourceTypeBinding) annotatedTypes[i];
 			annotatedType.superclass = superClass;
 		}
+	}
+	if (superClass != null && superClass.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope.referenceContext.permittedTypes == null) {
+		sourceSuperType.setImplicitPermittedType(this);
+		if (this.isAnonymousType() && superClass.isEnum())
+			this.modifiers |= ClassFileConstants.AccFinal;
 	}
 	return this.superclass = superClass;
 }
@@ -3401,6 +3213,12 @@ public ReferenceBinding [] setSuperInterfaces(ReferenceBinding [] superInterface
 		for (int i = 0, length = annotatedTypes == null ? 0 : annotatedTypes.length; i < length; i++) {
 			SourceTypeBinding annotatedType = (SourceTypeBinding) annotatedTypes[i];
 			annotatedType.superInterfaces = superInterfaces;
+		}
+	}
+	for (int i = 0, length = superInterfaces == null ? 0 : superInterfaces.length; i < length; i++) {
+		ReferenceBinding superInterface = superInterfaces[i];
+		if (superInterface.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope.referenceContext.permittedTypes == null) {
+			sourceSuperType.setImplicitPermittedType(this);
 		}
 	}
 	return this.superInterfaces = superInterfaces;
@@ -3435,7 +3253,7 @@ public int sourceStart() { // AspectJ - made non final
 	return this.scope.referenceContext.sourceStart;
 }
 @Override
-SimpleLookupTable storedAnnotations(boolean forceInitialize, boolean forceStore) {
+Map<Binding, AnnotationHolder> storedAnnotations(boolean forceInitialize, boolean forceStore) {
 	if (!isPrototype())
 		return this.prototype.storedAnnotations(forceInitialize, forceStore);
 
@@ -3444,7 +3262,7 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize, boolean forceStore)
 		final CompilerOptions globalOptions = this.scope.environment().globalOptions;
 		if (!globalOptions.storeAnnotations && !forceStore)
 			return null; // not supported during this compile
-		this.storedAnnotations = new SimpleLookupTable(3);
+		this.storedAnnotations = new HashMap<>();
 	}
 	return this.storedAnnotations;
 }

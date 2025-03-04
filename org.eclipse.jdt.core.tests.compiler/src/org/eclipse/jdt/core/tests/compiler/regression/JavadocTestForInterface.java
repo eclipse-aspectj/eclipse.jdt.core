@@ -14,9 +14,7 @@
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -993,7 +991,7 @@ public class JavadocTestForInterface extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 3)\n"
 				+ "	x.foo();\n"
-				+ "	  ^^^^^\n"
+				+ "	  ^^^\n"
 				+ "The method foo() from the type IX is deprecated\n"
 				+ "----------\n",
 				null, null, JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings);
@@ -1085,7 +1083,7 @@ public class JavadocTestForInterface extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 4)\n"
 				+ "	x.foo(2);\n"
-				+ "	  ^^^^^^\n"
+				+ "	  ^^^\n"
 				+ "The method foo(int) from the type IX is deprecated\n"
 				+ "----------\n");
 	}
@@ -1119,7 +1117,7 @@ public class JavadocTestForInterface extends JavadocTest {
 			"----------\n"
 				+ "1. WARNING in X.java (at line 4)\n"
 				+ "	x.foo(2);\n"
-				+ "	  ^^^^^^\n"
+				+ "	  ^^^\n"
 				+ "The method foo(int) from the type IX is deprecated\n"
 				+ "----------\n"
 				+ "----------\n"

@@ -14,7 +14,6 @@
 package org.eclipse.jdt.core.tests.dom;
 
 import java.util.List;
-
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
@@ -30,7 +29,6 @@ public class ASTConverterBugsTestJLS4 extends ASTConverterBugsTestJLS3 {
 
 public ASTConverterBugsTestJLS4(String name) {
     super(name);
-    this.testLevel = getJLS4();
 }
 
 public static Test suite() {

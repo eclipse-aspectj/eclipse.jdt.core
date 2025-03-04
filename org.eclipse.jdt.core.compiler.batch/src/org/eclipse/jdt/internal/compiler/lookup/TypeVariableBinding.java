@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -43,16 +43,18 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-
+import java.util.function.Consumer;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
-import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching.CheckMode;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
+import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching.CheckMode;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants.BoundCheckStatus;
@@ -76,6 +78,12 @@ public class TypeVariableBinding extends ReferenceBinding {
 	public ReferenceBinding[] superInterfaces; // MUST NOT be modified directly, use setter !
 	public char[] genericTypeSignature;
 	LookupEnvironment environment;
+
+	/*
+	 * In one particular situation a TVB will be cloned and the clone will be used as the 'naked' type
+	 * within TypeSystem. This may require some updating inside TypeSystem's hash structure.
+	 */
+	Consumer<TypeVariableBinding> updateWhenSettingTypeAnnotations;
 
 	public TypeVariableBinding(char[] sourceName, Binding declaringElement, int rank, LookupEnvironment environment) {
 		this.sourceName = sourceName;
@@ -147,7 +155,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 			return BoundCheckStatus.OK;
 
 		BoundCheckStatus nullStatus = BoundCheckStatus.OK;
-		boolean checkNullAnnotations = scope.environment().usesNullTypeAnnotations() && (location == null || (location.bits & ASTNode.InsideJavadoc) == 0);
+		boolean checkNullAnnotations = scope != null && scope.environment().usesNullTypeAnnotations() && (location == null || (location.bits & ASTNode.InsideJavadoc) == 0);
 
 		if (argumentType.kind() == Binding.WILDCARD_TYPE) {
 			WildcardBinding wildcard = (WildcardBinding) argumentType;
@@ -337,6 +345,25 @@ public class TypeVariableBinding extends ReferenceBinding {
 	public boolean canBeInstantiated() {
 		return false;
 	}
+
+	@Override
+	public List<TypeBinding> collectMissingTypes(List<TypeBinding> missingTypes) {
+		if ((this.tagBits & TagBits.HasMissingType) != 0 && !this.inRecursiveFunction) {
+			this.inRecursiveFunction = true;
+			try {
+				if (this.superclass != null) {
+					missingTypes = this.superclass.collectMissingTypes(missingTypes);
+				}
+				for (ReferenceBinding superIfc : this.superInterfaces) {
+					missingTypes = superIfc.collectMissingTypes(missingTypes);
+				}
+			} finally {
+				this.inRecursiveFunction = false;
+			}
+		}
+		return missingTypes;
+	}
+
 	/**
 	 * Collect the substitutes into a map for certain type variables inside the receiver type
 	 * e.g. {@code Collection<T>.collectSubstitutes(Collection<List<X>>, Map)} will populate Map with: {@code T --> List<X>}
@@ -704,6 +731,43 @@ public class TypeVariableBinding extends ReferenceBinding {
 	    return true;
 	}
 
+	@Override
+	public boolean isSealed() {
+		if (this.superclass != null && this.superclass.isSealed())
+			return true;
+
+		if (this.superInterfaces != null && this.superInterfaces != Binding.NO_SUPERINTERFACES) {
+		    for (int i = 0, length = this.superInterfaces.length; i < length; i++) {
+		        if (this.superInterfaces[i].isSealed())
+		        	return true;
+		    }
+		}
+		return false;
+	}
+
+
+	@Override
+	public ReferenceBinding[] permittedTypes() {
+		Set<ReferenceBinding> permittedTypes = new HashSet<>();
+		if (this.superclass != null && this.superclass.isSealed()) {
+			for (ReferenceBinding pt : this.superclass.permittedTypes()) {
+				if (boundCheck(null, pt, null, null) != BoundCheckStatus.MISMATCH)
+					permittedTypes.add(pt);
+			}
+		}
+		if (this.superInterfaces != null && this.superInterfaces != Binding.NO_SUPERINTERFACES) {
+		    for (int i = 0, length = this.superInterfaces.length; i < length; i++) {
+		        if (this.superInterfaces[i].isSealed()) {
+		        	for (ReferenceBinding pt : this.superInterfaces[i].permittedTypes()) {
+		        		if (boundCheck(null, pt, null, null) != BoundCheckStatus.MISMATCH)
+							permittedTypes.add(pt);
+					}
+		        }
+		    }
+		}
+		return permittedTypes.toArray(new ReferenceBinding[0]);
+	}
+
 //	/**
 //	 * Returns the original type variable for a given variable.
 //	 * Only different from receiver for type variables of generic methods of parameterized types
@@ -798,7 +862,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 		TypeBinding oldSuperclass = this.superclass, oldFirstInterface = null;
 		if (this.superclass != null) {
 			ReferenceBinding resolveType = (ReferenceBinding) BinaryTypeBinding.resolveType(this.superclass, this.environment, true /* raw conversion */);
-			this.tagBits |= resolveType.tagBits & TagBits.ContainsNestedTypeReferences;
+			this.tagBits |= resolveType.tagBits & (TagBits.ContainsNestedTypeReferences | TagBits.HasMissingType);
 			long superNullTagBits = resolveType.tagBits & TagBits.AnnotationNullMASK;
 			if (superNullTagBits != 0L) {
 				if (nullTagBits == 0L) {
@@ -817,7 +881,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 			oldFirstInterface = interfaces[0];
 			for (int i = length; --i >= 0;) {
 				ReferenceBinding resolveType = (ReferenceBinding) BinaryTypeBinding.resolveType(interfaces[i], this.environment, true /* raw conversion */);
-				this.tagBits |= resolveType.tagBits & TagBits.ContainsNestedTypeReferences;
+				this.tagBits |= resolveType.tagBits &  (TagBits.ContainsNestedTypeReferences | TagBits.HasMissingType);
 				long superNullTagBits = resolveType.tagBits & TagBits.AnnotationNullMASK;
 				if (superNullTagBits != 0L) {
 					if (nullTagBits == 0L) {
@@ -1067,8 +1131,8 @@ public class TypeVariableBinding extends ReferenceBinding {
 				annotatedType.firstBound = firstBound;
 			}
 		}
-		if (firstBound != null && firstBound.hasNullTypeAnnotations())
-			this.tagBits |= TagBits.HasNullTypeAnnotation;
+		if (firstBound != null)
+			this.tagBits |= firstBound.tagBits & (TagBits.HasNullTypeAnnotation|TagBits.HasMissingType);
 		return firstBound;
 	}
 	/* An annotated type variable use differs from its declaration exactly in its annotations and in nothing else.
@@ -1164,12 +1228,12 @@ public class TypeVariableBinding extends ReferenceBinding {
 	}
 
 	@Override
-	public ReferenceBinding upwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
+	public TypeBinding upwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
 		return this;
 	}
 
 	@Override
-	public ReferenceBinding downwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
+	public TypeBinding downwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
 		return this;
 	}
 

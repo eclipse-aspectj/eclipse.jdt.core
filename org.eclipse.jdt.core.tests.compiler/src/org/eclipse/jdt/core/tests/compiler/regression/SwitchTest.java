@@ -16,18 +16,16 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.File;
 import java.util.Map;
-
 import junit.framework.Test;
-
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.ToolFactory;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
-import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class SwitchTest extends AbstractRegressionTest {
@@ -189,14 +187,9 @@ public void test007() {
 			"}",
 		},
 		"----------\n" +
-		"1. ERROR in p\\X.java (at line 5)\n" +
-		"	case (int) (1.0 / 0.0) :\n" +
-		"	^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Duplicate case\n" +
-		"----------\n" +
-		"2. ERROR in p\\X.java (at line 7)\n" +
+		"1. ERROR in p\\X.java (at line 7)\n" +
 		"	case (int) (2.0 / 0.0) :\n" +
-		"	^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"	     ^^^^^^^^^^^^^^^^^\n" +
 		"Duplicate case\n" +
 		"----------\n"
 	);
@@ -285,7 +278,7 @@ public void test010() {
 			"2. ERROR in X.java (at line 5)\n" +
 			"	case 0 : \n" +
 			"	     ^\n" +
-			"Type mismatch: cannot convert from int to X\n" +
+			"Case constant of type int is incompatible with switch selector type X\n" +
 			"----------\n" +
 			"3. ERROR in X.java (at line 6)\n" +
 			"	Zork z;\n" +
@@ -934,42 +927,42 @@ public void testCaseTypeMismatch() {
 		"1. ERROR in X.java (at line 4)\n" +
 		"	case 123: break;\n" +
 		"	     ^^^\n" +
-		"Type mismatch: cannot convert from int to String\n" +
+		"Case constant of type int is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"2. ERROR in X.java (at line 5)\n" +
 		"	case (byte) 1: break;\n" +
 		"	     ^^^^^^^^\n" +
-		"Type mismatch: cannot convert from byte to String\n" +
+		"Case constant of type byte is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"3. ERROR in X.java (at line 6)\n" +
 		"	case (char) 2: break;\n" +
 		"	     ^^^^^^^^\n" +
-		"Type mismatch: cannot convert from char to String\n" +
+		"Case constant of type char is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"4. ERROR in X.java (at line 7)\n" +
 		"	case (short)3: break;\n" +
 		"	     ^^^^^^^^\n" +
-		"Type mismatch: cannot convert from short to String\n" +
+		"Case constant of type short is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"5. ERROR in X.java (at line 8)\n" +
 		"	case (int) 4: break;\n" +
 		"	     ^^^^^^^\n" +
-		"Type mismatch: cannot convert from int to String\n" +
+		"Case constant of type int is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"6. ERROR in X.java (at line 9)\n" +
 		"	case (long) 5: break;\n" +
 		"	     ^^^^^^^^\n" +
-		"Type mismatch: cannot convert from long to String\n" +
+		"Case constant of type long is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"7. ERROR in X.java (at line 10)\n" +
 		"	case (float) 6: break;\n" +
 		"	     ^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from float to String\n" +
+		"Case constant of type float is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"8. ERROR in X.java (at line 11)\n" +
 		"	case (double) 7: break;\n" +
 		"	     ^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from double to String\n" +
+		"Case constant of type double is incompatible with switch selector type String\n" +
 		"----------\n" +
 		"9. ERROR in X.java (at line 12)\n" +
 		"	case (boolean) 8: break;\n" +
@@ -979,9 +972,9 @@ public void testCaseTypeMismatch() {
 		"10. ERROR in X.java (at line 12)\n" +
 		"	case (boolean) 8: break;\n" +
 		"	     ^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from boolean to String\n" +
+		"Case constant of type boolean is incompatible with switch selector type String\n" +
 		"----------\n";
-		String oldMessage =
+	String oldMessage =
 			"----------\n" +
 			"1. ERROR in X.java (at line 3)\n" +
 			"	switch(args[0]) {\n" +
@@ -1024,7 +1017,7 @@ public void testCaseTypeMismatch2() {
 		"1. ERROR in X.java (at line 7)\n" +
 		"	case Days.Sunday: break;\n" +
 		"	     ^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from Days to String\n" +
+		"Case constant of type Days is incompatible with switch selector type String\n" +
 		"----------\n";
 		String oldMessage =
 			"----------\n" +
@@ -1059,17 +1052,17 @@ public void testCaseTypeMismatch3() {
 		"1. ERROR in X.java (at line 7)\n" +
 		"	case \"0\": break;\n" +
 		"	     ^^^\n" +
-		"Type mismatch: cannot convert from String to int\n" +
+		"Case constant of type String is incompatible with switch selector type int\n" +
 		"----------\n" +
 		"2. ERROR in X.java (at line 10)\n" +
 		"	case \"Sunday\": break;\n" +
 		"	     ^^^^^^^^\n" +
-		"Type mismatch: cannot convert from String to Days\n" +
+		"Case constant of type String is incompatible with switch selector type Days\n" +
 		"----------\n" +
 		"3. ERROR in X.java (at line 13)\n" +
 		"	case \"0\": break;\n" +
 		"	     ^^^\n" +
-		"Type mismatch: cannot convert from String to Integer\n" +
+		"Case constant of type String is incompatible with switch selector type Integer\n" +
 		"----------\n";
 
 		this.runNegativeTest(new String[] {
@@ -1097,28 +1090,10 @@ public void testCaseTypeMismatch3() {
 public void testDuplicateCase() {
 		String newMessage =
 			"----------\n" +
-			"1. ERROR in X.java (at line 4)\n" +
+			"1. ERROR in X.java (at line 5)\n" +
 			"	case \"123\": break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 5)\n" +
-			"	case \"123\": break;\n" +
-			"	^^^^^^^^^^\n" +
-			"Duplicate case\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 6)\n" +
-			"	default: return args;\n" +
-			"	         ^^^^^^^^^^^^\n" +
-			"Void methods cannot return a value\n" +
-			"----------\n";
-
-		String oldMessage =
-			"----------\n" +
-			"1. ERROR in X.java (at line 3)\n" +
-			"	switch(args[0]) {\n" +
-			"	       ^^^^^^^\n" +
-			"Cannot switch on a value of type String for source level below 1.7. Only convertible int values or enum variables are permitted\n" +
 			"----------\n" +
 			"2. ERROR in X.java (at line 6)\n" +
 			"	default: return args;\n" +
@@ -1138,72 +1113,54 @@ public void testDuplicateCase() {
 			"	}\n" +
 			"}\n",
 		},
-		this.complianceLevel >= JDKLevelSupportingStringSwitch ? newMessage : oldMessage);
+		newMessage);
 }
 
 // JDK7: Strings in Switch.
 public void testDuplicateCase2() {
 		String newMessage =
 			"----------\n" +
-			"1. ERROR in X.java (at line 9)\n" +
+			"1. ERROR in X.java (at line 10)\n" +
 			"	case \"123\": break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"2. ERROR in X.java (at line 10)\n" +
-			"	case \"123\": break;\n" +
-			"	^^^^^^^^^^\n" +
-			"Duplicate case\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 11)\n" +
+			"2. ERROR in X.java (at line 11)\n" +
 			"	case \"1\" + \"2\" + \"3\": break;\n" +
-			"	^^^^^^^^^^^^^^^^^^^^\n" +
+			"	     ^^^^^^^^^^^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"4. ERROR in X.java (at line 13)\n" +
+			"3. ERROR in X.java (at line 13)\n" +
 			"	case local: break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"5. ERROR in X.java (at line 14)\n" +
+			"4. ERROR in X.java (at line 14)\n" +
 			"	case field: break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"6. ERROR in X.java (at line 15)\n" +
+			"5. ERROR in X.java (at line 15)\n" +
 			"	case ifield: break;\n" +
 			"	     ^^^^^^\n" +
 			"Cannot make a static reference to the non-static field ifield\n" +
 			"----------\n" +
-			"7. ERROR in X.java (at line 16)\n" +
+			"6. ERROR in X.java (at line 16)\n" +
 			"	case inffield: break;\n" +
 			"	     ^^^^^^^^\n" +
 			"Cannot make a static reference to the non-static field inffield\n" +
 			"----------\n" +
-			"8. ERROR in X.java (at line 19)\n" +
-			"	default: break;\n" +
-			"	^^^^^^^\n" +
-			"The default case is already defined\n" +
-			"----------\n";
-
-		String oldMessage =
+			"7. ERROR in X.java (at line 17)\n" +
+			"	case nffield: break;\n" +
+			"	     ^^^^^^^\n" +
+			"case expressions must be constant expressions\n" +
 			"----------\n" +
-			"1. ERROR in X.java (at line 8)\n" +
-			"	switch(args[0]) {\n" +
-			"	       ^^^^^^^\n" +
-			"Cannot switch on a value of type String for source level below 1.7. Only convertible int values or enum variables are permitted\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 15)\n" +
-			"	case ifield: break;\n" +
-			"	     ^^^^^^\n" +
-			"Cannot make a static reference to the non-static field ifield\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 16)\n" +
-			"	case inffield: break;\n" +
+			"8. ERROR in X.java (at line 18)\n" +
+			"	case argument: break;\n" +
 			"	     ^^^^^^^^\n" +
-			"Cannot make a static reference to the non-static field inffield\n" +
+			"case expressions must be constant expressions\n" +
 			"----------\n" +
-			"4. ERROR in X.java (at line 19)\n" +
+			"9. ERROR in X.java (at line 19)\n" +
 			"	default: break;\n" +
 			"	^^^^^^^\n" +
 			"The default case is already defined\n" +
@@ -1234,7 +1191,7 @@ public void testDuplicateCase2() {
 			"    }\n" +
 			"}\n"
 		},
-		this.complianceLevel >= JDKLevelSupportingStringSwitch ? newMessage : oldMessage);
+		newMessage);
 }
 // JDK7: Strings in Switch.
 public void testVariableCase() {
@@ -1368,19 +1325,6 @@ public void testNullCase() {
 			"	case true ? (String) null : (String) null : break;\n" +
 			"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 			"case expressions must be constant expressions\n" +
-			"----------\n" +
-			"7. WARNING in X.java (at line 12)\n" +
-			"	case true ? (String) null : (String) null : break;\n" +
-			"	                            ^^^^^^^^^^^^^\n" +
-			"Dead code\n" +
-			"----------\n";
-
-		String oldMessage =
-			"----------\n" +
-			"1. ERROR in X.java (at line 6)\n" +
-			"	switch(args[0]) {\n" +
-			"	       ^^^^^^^\n" +
-			"Cannot switch on a value of type String for source level below 1.7. Only convertible int values or enum variables are permitted\n" +
 			"----------\n";
 
 		this.runNegativeTest(new String[] {
@@ -1401,51 +1345,48 @@ public void testNullCase() {
 			"    }\n" +
 			"}\n"
 		},
-		this.complianceLevel >= JDKLevelSupportingStringSwitch ? newMessage : oldMessage);
+		newMessage);
 }
 // JDK7: Strings in Switch.
 public void testDuplicateCase3() {
 		String newMessage =
 			"----------\n" +
-			"1. ERROR in X.java (at line 9)\n" +
-			"	case \"123\": break;\n" +
-			"	^^^^^^^^^^\n" +
-			"Duplicate case\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 10)\n" +
+			"1. ERROR in X.java (at line 10)\n" +
 			"	case \"1\" + \"2\" + \"3\": break;\n" +
-			"	^^^^^^^^^^^^^^^^^^^^\n" +
+			"	     ^^^^^^^^^^^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"3. ERROR in X.java (at line 12)\n" +
+			"2. ERROR in X.java (at line 12)\n" +
 			"	case local: break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"4. ERROR in X.java (at line 13)\n" +
+			"3. ERROR in X.java (at line 13)\n" +
 			"	case field: break;\n" +
-			"	^^^^^^^^^^\n" +
+			"	     ^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"5. ERROR in X.java (at line 14)\n" +
+			"4. ERROR in X.java (at line 14)\n" +
 			"	case ifield: break;\n" +
-			"	^^^^^^^^^^^\n" +
+			"	     ^^^^^^\n" +
 			"Duplicate case\n" +
 			"----------\n" +
-			"6. ERROR in X.java (at line 18)\n" +
-			"	default: break;\n" +
-			"	^^^^^^^\n" +
-			"The default case is already defined\n" +
-			"----------\n";
-
-		String oldMessage =
+			"5. ERROR in X.java (at line 15)\n" +
+			"	case inffield: break;\n" +
+			"	     ^^^^^^^^\n" +
+			"case expressions must be constant expressions\n" +
 			"----------\n" +
-			"1. ERROR in X.java (at line 8)\n" +
-			"	switch(args[0]) {\n" +
-			"	       ^^^^^^^\n" +
-			"Cannot switch on a value of type String for source level below 1.7. Only convertible int values or enum variables are permitted\n" +
+			"6. ERROR in X.java (at line 16)\n" +
+			"	case nffield: break;\n" +
+			"	     ^^^^^^^\n" +
+			"case expressions must be constant expressions\n" +
 			"----------\n" +
-			"2. ERROR in X.java (at line 18)\n" +
+			"7. ERROR in X.java (at line 17)\n" +
+			"	case argument: break;\n" +
+			"	     ^^^^^^^^\n" +
+			"case expressions must be constant expressions\n" +
+			"----------\n" +
+			"8. ERROR in X.java (at line 18)\n" +
 			"	default: break;\n" +
 			"	^^^^^^^\n" +
 			"The default case is already defined\n" +
@@ -1475,7 +1416,7 @@ public void testDuplicateCase3() {
 			"    }\n" +
 			"}\n"
 		},
-		this.complianceLevel >= JDKLevelSupportingStringSwitch ? newMessage : oldMessage);
+		newMessage);
 }
 
 public void testDuplicateHashCode() {
@@ -2571,17 +2512,12 @@ public void test383643() {
 			"	        ^\n" +
 			"p cannot be resolved to a variable\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 4)\n" +
-			"	switch (p) {\n" +
-			"	        ^\n" +
-			"The switch statement should have a default case\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 5)\n" +
+			"2. ERROR in X.java (at line 5)\n" +
 			"	case ONE:\n" +
 			"	     ^^^\n" +
 			"ONE cannot be resolved to a variable\n" +
 			"----------\n" +
-			"4. ERROR in X.java (at line 8)\n" +
+			"3. ERROR in X.java (at line 8)\n" +
 			"	case TWO:\n" +
 			"	     ^^^\n" +
 			"TWO cannot be resolved to a variable\n" +
@@ -3365,6 +3301,434 @@ public void testGHI1782() throws Exception {
 		assertEquals("Wrong contents", expectedOutput, result);
 	}
 }
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2190
+// [Enhanced switch] Case null disallowed when switching on arrays
+public void testIssue2190() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK21)
+		return;
+
+	this.runConformTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+			public static void main(String[] args) {
+				int[] aa = {1};
+				switch (aa) {
+				    case null -> System.out.println("AA");
+				    default -> System.out.println("BB");
+				}
+
+				int[] cc = null;
+				switch (cc) {
+				    case null -> System.out.println("AA");
+				    default -> System.out.println("BB");
+				}
+			}
+		}
+		""",
+	},
+	"BB\n"
+	+ "AA");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1777
+// [Enhanced switch] Compiler fails to complain about non-exhaustive switch
+public void testIssue1777() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK21)
+		return;
+
+	this.runNegativeTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+			public static void main(String argv[]) {
+				Color c = Color.getColor();
+				try {
+					switch (c) {
+		                case null -> System.out.println("Null");
+						case R -> System.out.print("R");
+						case Y -> System.out.println("Y");
+					};
+				} catch (MatchException e) {
+					System.out.print("OK!");
+				} catch (Exception e) {
+					System.out.print("NOT OK: " + e);
+				}
+				System.out.print("END");
+			}
+		}
+		enum Color {
+			R, Y, B;
+			public static Color getColor() {
+				return B;
+			}
+		}
+		""",
+	},
+	"----------\n"
+	+ "1. ERROR in X.java (at line 5)\n"
+	+ "	switch (c) {\n"
+	+ "	        ^\n"
+	+ "An enhanced switch statement should be exhaustive; a default label expected\n"
+	+ "----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1777
+// [Enhanced switch] Compiler fails to complain about non-exhaustive switch
+public void testIssue1777_2() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK21)
+		return;
+
+	this.runConformTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+			public static void main(String argv[]) {
+				Color c = Color.getColor();
+				try {
+					switch (c) {
+		                case null -> System.out.println("Null");
+						case R -> System.out.print("R");
+						case Y -> System.out.println("Y");
+						case B -> System.out.print("B");
+					};
+				} catch (MatchException e) {
+					System.out.print("OK!");
+				} catch (Exception e) {
+					System.out.print("NOT OK: " + e);
+				}
+				System.out.print("END");
+			}
+		}
+		enum Color {
+			R, Y, B;
+			public static Color getColor() {
+				return B;
+			}
+		}
+		""",
+	},
+	"BEND");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1777
+// [Enhanced switch] Compiler fails to complain about non-exhaustive switch
+public void testIssue1777_3() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK21)
+		return;
+
+	this.runConformTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+			public static void main(String argv[]) {
+				Color c = Color.getColor();
+				try {
+					switch (c) {
+		                default -> System.out.print("Default");
+						case R -> System.out.print("R");
+						case Y -> System.out.println("Y");
+					};
+				} catch (MatchException e) {
+					System.out.print("OK!");
+				} catch (Exception e) {
+					System.out.print("NOT OK: " + e);
+				}
+				System.out.print("END");
+			}
+		}
+		enum Color {
+			R, Y, B;
+			public static Color getColor() {
+				return B;
+			}
+		}
+		""",
+	},
+	"DefaultEND");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3274
+// [Enhanced Switch] Compiler tolerates pure expressions in switch rule expressions in a switch statement
+public void testIssue3274() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return;
+
+	this.runNegativeTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+		       static public void main (String[] args) {
+		               int a = 0x21;
+		               int b = 0xff;
+		               System.out.println(
+		               switch (a) {
+		               case 0x21 : {
+		                       switch (b) {
+		                       default -> "default";
+		                       }
+		               }
+		               case 0x3b : yield "3b <- WTH?";
+		               default : yield "default";
+		               });
+		       }
+		}
+		""",
+	},
+	"----------\n" +
+	"1. ERROR in X.java (at line 9)\n" +
+	"	default -> \"default\";\n" +
+	"	           ^^^^^^^^^\n" +
+	"Invalid expression as statement\n" +
+	"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3276
+// [Switch Expression] Verify error since at least 4.18 on switch expression with instance creation in switch block
+public void testIssue3276() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return;
+
+	this.runConformTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+
+			static int foo() {
+				return 42;
+			}
+		       static public void main (String[] args) {
+		               int a = 0x3a;
+		               int b = 0xff;
+		               System.out.println(
+		               switch (a) {
+		               case 0x21 : foo();
+		                           yield 10;
+		               case 0x3b : b++ ;
+		               default :  new X();
+		               			  yield 42;
+		               });
+		       }
+		}
+		""",
+	},
+	"42");
+}
+
+public void testNonConstantCase() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return;
+	this.runNegativeTest(new String[] {
+		"X.java",
+		"""
+		public class X {
+			public static void main(String[] args) {
+				Integer i = Integer.valueOf(-1);
+				int b = 10;
+				switch (i) {
+					case b -> System.out.println("Null");
+					case -1 -> System.out.println(-1);
+					default -> System.out.println("default");
+				}
+			}
+		}
+		""",
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 6)\n" +
+		"	case b -> System.out.println(\"Null\");\n" +
+		"	     ^\n" +
+		"case expressions must be constant expressions\n" +
+		"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3376
+// Incorrect control flow analysis causes statement subsequent to a switch statement to be flagged unreachable under some circumstances
+public void testIssue3376() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return;
+
+	this.runConformTest(new String[] {
+		"SwitchTest.java",
+		"""
+		public class SwitchTest {
+		    String unreachableCode(String arg) {
+		        String result;
+		        switch (arg) {
+		            case "a" -> {
+		                result = "A";
+		            }
+		            default -> throw new RuntimeException(arg);
+		        }
+		        return result;      // <- ecj reports "Unreachable code"
+		    }
+
+		    String unreachableCode2(String arg) {
+		        String result;
+		        switch (arg) {
+		            case "a" -> result = "A";
+		            default -> throw new RuntimeException(arg);
+		        }
+		        return result;
+		    }
+
+		     String unreachableCode3(String arg) {
+		        String result;
+		        switch (arg) {
+		            case "a" -> {
+		                result = "A";
+		                break;       // <- this makes ecj happy
+		            }
+		            default -> throw new RuntimeException(arg);
+		        }
+		        return result;
+		    }
+
+		    public static void main(String[] args) {
+				System.out.println(new SwitchTest().unreachableCode("a"));
+				System.out.println(new SwitchTest().unreachableCode2("a"));
+				System.out.println(new SwitchTest().unreachableCode3("a"));
+			}
+
+		}
+		""",
+	},
+	"A\nA\nA");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3376
+// Incorrect control flow analysis causes statement subsequent to a switch statement to be flagged unreachable under some circumstances
+public void testIssue3376_2() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return;
+
+	this.runNegativeTest(new String[] {
+		"SwitchTest.java",
+		"""
+		public class SwitchTest {
+		    String unreachableCode(String arg) {
+		        String result;
+		        switch (arg) {
+		            case "a" : {
+		                result = "A";
+		            }
+		            default : throw new RuntimeException(arg);
+		        }
+		        return result;
+		    }
+		}
+		""",
+	},
+	"----------\n" +
+	"1. ERROR in SwitchTest.java (at line 10)\n" +
+	"	return result;\n" +
+	"	^^^^^^^^^^^^^^\n" +
+	"Unreachable code\n" +
+	"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3379
+// [Enhanced Switch] Wrong error message: Cannot switch on a value of type Integer... at levels that don't support enhanced switch
+public void testIssue3379() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return; // uses switch rules.
+	String [] sources = new String[] {
+			"X.java",
+			"""
+			public class X {
+				public static void main(String[] args) {
+					Integer i = 42;
+					switch (i) {
+						case null -> System.out.println("Null");
+						default -> System.out.println("Default: " + i);
+					}
+				}
+			}
+			""",
+		};
+
+	if (this.complianceLevel < ClassFileConstants.JDK21) {
+		this.runNegativeTest(sources,
+		"----------\n" +
+		"1. ERROR in X.java (at line 5)\n" +
+		"	case null -> System.out.println(\"Null\");\n" +
+		"	     ^^^^\n" +
+		"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+		"----------\n");
+	} else {
+		this.runConformTest(sources, "Default: 42");
+	}
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3379
+// [Enhanced Switch] Wrong error message: Cannot switch on a value of type Integer... at levels that don't support enhanced switch
+public void testIssue3379_2() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return; // uses switch rules.
+	String [] sources = new String[] {
+			"X.java",
+			"""
+			public class X {
+				public static void main(String[] args) {
+					Long i = 42l;
+					switch (i) {
+						case null -> System.out.println("Null");
+						default -> System.out.println("Default: " + i);
+					}
+				}
+			}
+			""",
+		};
+
+	if (this.complianceLevel < ClassFileConstants.JDK21) {
+		this.runNegativeTest(sources,
+		"----------\n" +
+		"1. ERROR in X.java (at line 4)\n" +
+		"	switch (i) {\n" +
+		"	        ^\n" +
+		"Cannot switch on a value of type Long. Only convertible int values, strings or enum variables are permitted\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 5)\n" +
+		"	case null -> System.out.println(\"Null\");\n" +
+		"	     ^^^^\n" +
+		"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+		"----------\n");
+	} else {
+		this.runConformTest(sources, "Default: 42");
+	}
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3379
+// [Enhanced Switch] Wrong error message: Cannot switch on a value of type Integer... at levels that don't support enhanced switch
+public void testIssue3379_3() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK14)
+		return; // uses switch rules.
+
+	String [] sources = new String[] {
+			"X.java",
+			"""
+				public class X {
+					public static void main(String[] args) {
+						Short i = 42;
+						switch (i) {
+							case null -> System.out.println("Null");
+							default -> System.out.println("Default: " + i);
+						}
+					}
+				}
+			""",
+		};
+
+	if (this.complianceLevel < ClassFileConstants.JDK21) {
+		this.runNegativeTest(sources,
+			"----------\n" +
+			"1. ERROR in X.java (at line 5)\n" +
+			"	case null -> System.out.println(\"Null\");\n" +
+			"	     ^^^^\n" +
+			"The Java feature 'Pattern Matching in Switch' is only available with source level 21 and above\n" +
+			"----------\n");
+	} else {
+		this.runConformTest(sources, "Default: 42");
+	}
+}
+
 public static Class testClass() {
 	return SwitchTest.class;
 }

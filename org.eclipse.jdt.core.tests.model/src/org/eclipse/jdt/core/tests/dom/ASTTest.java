@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -24,110 +24,12 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
-
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTMatcher;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.ASTVisitor;
-import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
-import org.eclipse.jdt.core.dom.Annotation;
-import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
-import org.eclipse.jdt.core.dom.AnnotationTypeMemberDeclaration;
-import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
-import org.eclipse.jdt.core.dom.ArrayAccess;
-import org.eclipse.jdt.core.dom.ArrayCreation;
-import org.eclipse.jdt.core.dom.ArrayInitializer;
-import org.eclipse.jdt.core.dom.ArrayType;
-import org.eclipse.jdt.core.dom.AssertStatement;
-import org.eclipse.jdt.core.dom.Assignment;
-import org.eclipse.jdt.core.dom.Block;
-import org.eclipse.jdt.core.dom.BlockComment;
-import org.eclipse.jdt.core.dom.BodyDeclaration;
-import org.eclipse.jdt.core.dom.BooleanLiteral;
-import org.eclipse.jdt.core.dom.BreakStatement;
-import org.eclipse.jdt.core.dom.CastExpression;
-import org.eclipse.jdt.core.dom.CatchClause;
-import org.eclipse.jdt.core.dom.CharacterLiteral;
-import org.eclipse.jdt.core.dom.ClassInstanceCreation;
-import org.eclipse.jdt.core.dom.Comment;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.ConditionalExpression;
-import org.eclipse.jdt.core.dom.ConstructorInvocation;
-import org.eclipse.jdt.core.dom.ContinueStatement;
-import org.eclipse.jdt.core.dom.Dimension;
-import org.eclipse.jdt.core.dom.DoStatement;
-import org.eclipse.jdt.core.dom.EmptyStatement;
-import org.eclipse.jdt.core.dom.EnhancedForStatement;
-import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
-import org.eclipse.jdt.core.dom.EnumDeclaration;
-import org.eclipse.jdt.core.dom.Expression;
-import org.eclipse.jdt.core.dom.ExpressionStatement;
-import org.eclipse.jdt.core.dom.FieldAccess;
-import org.eclipse.jdt.core.dom.FieldDeclaration;
-import org.eclipse.jdt.core.dom.ForStatement;
-import org.eclipse.jdt.core.dom.IExtendedModifier;
-import org.eclipse.jdt.core.dom.IfStatement;
-import org.eclipse.jdt.core.dom.ImportDeclaration;
-import org.eclipse.jdt.core.dom.InfixExpression;
-import org.eclipse.jdt.core.dom.Initializer;
-import org.eclipse.jdt.core.dom.InstanceofExpression;
-import org.eclipse.jdt.core.dom.Javadoc;
-import org.eclipse.jdt.core.dom.LabeledStatement;
-import org.eclipse.jdt.core.dom.LineComment;
-import org.eclipse.jdt.core.dom.MarkerAnnotation;
-import org.eclipse.jdt.core.dom.MemberRef;
-import org.eclipse.jdt.core.dom.MemberValuePair;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.MethodRef;
-import org.eclipse.jdt.core.dom.MethodRefParameter;
-import org.eclipse.jdt.core.dom.Modifier;
-import org.eclipse.jdt.core.dom.ModuleDeclaration;
-import org.eclipse.jdt.core.dom.Name;
-import org.eclipse.jdt.core.dom.NormalAnnotation;
-import org.eclipse.jdt.core.dom.NullLiteral;
-import org.eclipse.jdt.core.dom.NumberLiteral;
-import org.eclipse.jdt.core.dom.PackageDeclaration;
-import org.eclipse.jdt.core.dom.ParameterizedType;
-import org.eclipse.jdt.core.dom.ParenthesizedExpression;
-import org.eclipse.jdt.core.dom.PostfixExpression;
-import org.eclipse.jdt.core.dom.PrefixExpression;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.QualifiedName;
-import org.eclipse.jdt.core.dom.QualifiedType;
-import org.eclipse.jdt.core.dom.ReturnStatement;
-import org.eclipse.jdt.core.dom.SimpleName;
-import org.eclipse.jdt.core.dom.SimpleType;
-import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.Statement;
-import org.eclipse.jdt.core.dom.StringLiteral;
-import org.eclipse.jdt.core.dom.SuperConstructorInvocation;
-import org.eclipse.jdt.core.dom.SuperFieldAccess;
-import org.eclipse.jdt.core.dom.SuperMethodInvocation;
-import org.eclipse.jdt.core.dom.SwitchCase;
-import org.eclipse.jdt.core.dom.SwitchStatement;
-import org.eclipse.jdt.core.dom.SynchronizedStatement;
-import org.eclipse.jdt.core.dom.TagElement;
-import org.eclipse.jdt.core.dom.TextElement;
-import org.eclipse.jdt.core.dom.ThisExpression;
-import org.eclipse.jdt.core.dom.ThrowStatement;
-import org.eclipse.jdt.core.dom.TryStatement;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
-import org.eclipse.jdt.core.dom.TypeDeclarationStatement;
-import org.eclipse.jdt.core.dom.TypeLiteral;
-import org.eclipse.jdt.core.dom.TypeParameter;
-import org.eclipse.jdt.core.dom.VariableDeclarationExpression;
-import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
-import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
-import org.eclipse.jdt.core.dom.WhileStatement;
-import org.eclipse.jdt.core.dom.WildcardType;
-import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
-
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
+import org.eclipse.jdt.internal.core.dom.util.DOMASTUtil;
 
 // testing
 
@@ -146,6 +48,13 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 	 * @deprecated
 	 */
 	protected static final int AST_INTERNAL_JLS9 = AST.JLS9;
+
+	/**
+	 * Internal synonym for constant AST.JSL9
+	 * to alleviate deprecation warnings once AST.JLS9 is deprecated in future.
+	 * @deprecated
+	 */
+	protected static final int AST_INTERNAL_JLS23 = AST.JLS23;
 
 	class CheckPositionsMatcher extends ASTMatcher {
 
@@ -854,10 +763,8 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		Method[] methods = c.getMethods();
 		for (int i = 0, max = methods.length; i < max; i++) {
 			if (methods[i].getName().startsWith("test")) { //$NON-NLS-1$
-				suite.addTest(new ASTTest(methods[i].getName(), AST.JLS2));
-				suite.addTest(new ASTTest(methods[i].getName(), JLS3_INTERNAL));
-				suite.addTest(new ASTTest(methods[i].getName(), AST.JLS4));
 				suite.addTest(new ASTTest(methods[i].getName(), getJLS8()));
+				suite.addTest(new ASTTest(methods[i].getName(), AST_INTERNAL_JLS23));
 			}
 		}
 		return suite;
@@ -899,14 +806,6 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		return name;
 	}
 
-	/**
-	 * Internal access method to VariableDeclarationFragment#setExtraDimensions for avoiding deprecated warnings.
-	 *
-	 * @deprecated
-	 */
-	private void setExtraDimensions(VariableDeclarationFragment node, int dimensions) {
-		node.setExtraDimensions(dimensions);
-	}
 	/**
 	 * Snippets that show how to...
 	 * @deprecated using deprecated code
@@ -1410,46 +1309,32 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 
 	@SuppressWarnings("deprecation")
 	private static int getApiLevel(String s) {
-		if (s == null)
-			return AST.JLS12;
-		switch (s) {
-		case JavaCore.VERSION_1_2 : return AST.JLS2;
-        case JavaCore.VERSION_1_3: return AST.JLS3;
-        case JavaCore.VERSION_1_4: return AST.JLS4;
-        case JavaCore.VERSION_1_5: return AST.JLS4;
-        case JavaCore.VERSION_1_6: return AST.JLS4;
-        case JavaCore.VERSION_1_7: return AST.JLS4;
-        case JavaCore.VERSION_1_8: return AST.JLS8;
-        case JavaCore.VERSION_9: return AST.JLS9;
-        case JavaCore.VERSION_10: return AST.JLS10;
-        case JavaCore.VERSION_11: return AST.JLS11;
-        case JavaCore.VERSION_12: return AST.JLS12;
-        case JavaCore.VERSION_13: return AST.JLS13;
-        case JavaCore.VERSION_14: return AST.JLS14;
-        case JavaCore.VERSION_15: return AST.JLS15;
-        case JavaCore.VERSION_16: return AST.JLS16;
-        case JavaCore.VERSION_17: return AST.JLS17;
-        case JavaCore.VERSION_18: return AST.JLS18;
-        case JavaCore.VERSION_19: return AST.JLS19;
-        case JavaCore.VERSION_20: return AST.JLS20;
-        default:  return AST.JLS2;
+		if (s.equals(JavaCore.VERSION_1_8)) {
+			return AST.JLS8;
 		}
+		try {
+			int apiLevel = Integer.valueOf(s);
+			if (AST.isSupportedVersion(apiLevel)) {
+				return apiLevel;
+			}
+		} catch (NumberFormatException e) {
+			fail("Invalid AST API level:" + e.getMessage());
+		}
+		return AST.getJLSLatest();
+
 	}
 	/** @deprecated using deprecated code */
 	public void testAST() {
 
-		assertSame(AST.JLS2, 2);
-		assertSame(JLS3_INTERNAL, 3);
-
 		AST a0 = new AST(); // deprecated, now 3 from JavaCore.defaultOptions
-		int apiLevelCal = ASTTest.getApiLevel(JavaCore.getDefaultOptions().get(JavaCore.COMPILER_SOURCE));
+		int apiLevelCal = getApiLevel(JavaCore.getDefaultOptions().get(JavaCore.COMPILER_SOURCE));
 		assertTrue(a0.apiLevel() == apiLevelCal);
 		AST a1 = new AST(new HashMap()); // deprecated, but still 2.0
-		assertTrue(a1.apiLevel() == AST.JLS2);
+		assertEquals(AST.JLS8,a1.apiLevel());
 		AST a2 = AST.newAST(AST.JLS2, false);
-		assertTrue(a2.apiLevel() == AST.JLS2);
+		assertEquals(AST.JLS8, a2.apiLevel());
 		AST a3 = AST.newAST(JLS3_INTERNAL, false);
-		assertTrue(a3.apiLevel() == JLS3_INTERNAL);
+		assertEquals(AST.JLS8, a3.apiLevel());
 
 		// modification count is always non-negative
 		assertTrue(this.ast.modificationCount() >= 0);
@@ -2730,7 +2615,19 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.isOnDemand() == true);
 
-		if (this.ast.apiLevel() >= JLS3_INTERNAL) {
+		if (this.ast.apiLevel() >= AST_INTERNAL_JLS23) {
+			Modifier mod = this.ast.newModifier(ModifierKeyword.STATIC_KEYWORD);
+			x.modifiers().add(mod);
+			assertTrue(this.ast.modificationCount() > previousCount);
+			assertTrue(x.isStatic() == true);
+			previousCount = this.ast.modificationCount();
+			x.modifiers().clear();
+			mod = this.ast.newModifier(ModifierKeyword.MODULE_KEYWORD);
+			x.modifiers().add(mod);
+			assertTrue(this.ast.modificationCount() > previousCount);
+			assertTrue(x.modifiers().size() == 1);
+			assertEquals(((Modifier) x.modifiers().get(0)).getKeyword(), ModifierKeyword.MODULE_KEYWORD);
+		} else if (this.ast.apiLevel() >= JLS3_INTERNAL) {
 			x.setStatic(true);
 			assertTrue(this.ast.modificationCount() > previousCount);
 			assertTrue(x.isStatic() == true);
@@ -3626,7 +3523,8 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		});
 	}
 
-	public void testVariableDeclarationFragment() {
+	@SuppressWarnings("deprecation")
+    public void testVariableDeclarationFragment() {
 		long previousCount = this.ast.modificationCount();
 		final VariableDeclarationFragment x = this.ast.newVariableDeclarationFragment();
 		assertTrue(this.ast.modificationCount() > previousCount);
@@ -3645,7 +3543,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 
 		previousCount = this.ast.modificationCount();
 		if (this.ast.apiLevel() < getJLS8()) {
-			setExtraDimensions(x, 1);
+			x.setExtraDimensions(1);
 		} else {
 			x.extraDimensions().add(this.ast.newDimension());
 		}
@@ -3654,7 +3552,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 
 		previousCount = this.ast.modificationCount();
 		if (this.ast.apiLevel() < getJLS8()) {
-			setExtraDimensions(x, 0);
+			x.setExtraDimensions(0);
 		} else {
 			x.extraDimensions().remove(0);
 		}
@@ -3664,7 +3562,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		// check that property cannot be set negative
 		if (this.ast.apiLevel() < getJLS8()) {
 			try {
-				setExtraDimensions(x, -1);
+				x.setExtraDimensions(-1);
 				fail();
 			} catch (IllegalArgumentException e) {
 				// pass
@@ -4980,11 +4878,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		previousCount = this.ast.modificationCount();
 		assertTrue(x.getAST() == this.ast);
 		assertTrue(x.getParent() == null);
-		if (this.ast.apiLevel() == AST.JLS2) {
-			assertTrue(x.getTypeDeclaration() == x1);
-		} else {
-			assertTrue(x.getDeclaration() == x1);
-		}
+		assertTrue(x.getDeclaration() == x1);
 		assertTrue(x1.getParent() == x);
 		assertTrue(x.getNodeType() == ASTNode.TYPE_DECLARATION_STATEMENT);
 		assertTrue(x.structuralPropertiesForType() ==
@@ -5027,7 +4921,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 				}
 				@Override
 				public ASTNode get() {
-					return x.getTypeDeclaration();
+					return x.getDeclaration();
 				}
 				@Override
 				public void set(ASTNode value) {
@@ -6639,7 +6533,11 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(x.getParent() == null);
 		assertTrue(x.getExpression().getParent() == x);
 		assertTrue(x.getLeadingComment() == null);
-		assertTrue(!x.isDefault());
+		if (this.ast.apiLevel() < AST_INTERNAL_JLS23) {
+			assertTrue(!x.isDefault());
+		} else {
+			assertEquals(0, x.expressions().size());
+		}
 		assertTrue(x.getNodeType() == ASTNode.SWITCH_CASE);
 		assertTrue(x.structuralPropertiesForType() ==
 			SwitchCase.propertyDescriptors(this.ast.apiLevel()));
@@ -9601,10 +9499,6 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			ASTNode.JAVADOC_REGION,
 			ASTNode.JAVADOC_TEXT_ELEMENT,
 			ASTNode.RECORD_PATTERN,
-			ASTNode.ENHANCED_FOR_WITH_RECORD_PATTERN,
-			ASTNode.STRING_TEMPLATE_EXPRESSION,
-			ASTNode.STRING_FRAGMENT,
-			ASTNode.STRING_TEMPLATE_COMPONENT,
 			ASTNode.EitherOr_MultiPattern,
 			ASTNode.UNNAMED_CLASS
 		};
@@ -9656,11 +9550,8 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertEquals("node types missing in test", Collections.EMPTY_SET, declaredNodeTypes);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void testASTLevels() throws Exception {
-		int[] apilLevels = {AST.JLS2, AST.JLS3, AST.JLS4, AST.JLS8, AST.JLS9, AST.JLS10, AST.JLS11,
-				AST.JLS12, AST.JLS13, AST.JLS14, AST.JLS15, AST.JLS16, AST.JLS17,AST.JLS18, AST.JLS19, AST.JLS20};
-		for (int level : apilLevels) {
+		for (int level : AST.getAllVersions()) {
 			try {
 				DOMASTUtil.checkASTLevel(level);
 			} catch (IllegalArgumentException e) {

@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -39,28 +39,16 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
-import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.ArrayAllocationExpression;
-import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
-import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.FunctionalExpression;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.OperatorIds;
-import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
-import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.codegen.OperandStack.OperandCategory;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 import org.eclipse.jdt.internal.compiler.util.Util;
@@ -92,7 +80,7 @@ public class CodeStream {
 	static final int L_UNKNOWN = 0, L_OPTIMIZABLE = 2, L_CANNOT_OPTIMIZE = 4;
 	public BranchLabel[] labels = new BranchLabel[LABELS_INCREMENT];
 	public int lastEntryPC; // last entry recorded
-	public int lastAbruptCompletion; // position of last instruction which abrupts completion: goto/return/athrow
+	public int lastAbruptCompletion; // position of last instruction which abrupts completion: goto/return/athrow/{table/lookup}switch
 
 	public int[] lineSeparatorPositions;
 	// line number of the body start and the body end
@@ -123,8 +111,7 @@ public class CodeStream {
 	// to handle goto_w
 	public boolean wideMode = false;
 
-	public Stack<TypeBinding> switchSaveTypeBindings = new Stack<>();
-	public int lastSwitchCumulativeSyntheticVars = 0;
+	public OperandStack operandStack = null;
 
 	public Map<BlockScope, List<ExceptionLabel>> patternAccessorMap = new HashMap<>();
 	public Stack<BlockScope> accessorExceptionTrapScopes = new Stack<>();
@@ -230,7 +217,7 @@ public void aaload() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_aaload;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 }
 
 public void aastore() {
@@ -241,7 +228,7 @@ public void aastore() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_aastore;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 }
 
 public void aconst_null() {
@@ -255,7 +242,7 @@ public void aconst_null() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_aconst_null;
-	pushTypeBinding(TypeBinding.NULL);
+	this.operandStack.push(TypeBinding.NULL);
 }
 
 public void addDefinitelyAssignedVariables(Scope scope, int initStateIndex) {
@@ -315,7 +302,7 @@ public void aload(int iArg) {
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
-	pushTypeBinding(iArg);
+	this.operandStack.push(iArg);
 	if (iArg > 255) { // Widen
 		if (this.classFileOffset + 3 >= this.bCodeStream.length) {
 			resizeByteArray();
@@ -338,13 +325,13 @@ public void aload(int iArg) {
 public void aload_0() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(0);
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
 	}
 	if (this.maxLocals == 0) {
 		this.maxLocals = 1;
 	}
+	this.operandStack.push(0);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -355,12 +342,12 @@ public void aload_0() {
 public void aload_1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(1);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
+	this.operandStack.push(1);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -371,12 +358,12 @@ public void aload_1() {
 public void aload_2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(2);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
+	this.operandStack.push(2);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -387,12 +374,12 @@ public void aload_2() {
 public void aload_3() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(3);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
+	this.operandStack.push(3);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -408,14 +395,16 @@ public void anewarray(TypeBinding typeBinding) {
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_anewarray;
 	writeUnsignedShort(this.constantPool.literalIndexForType(typeBinding));
-	pushTypeBinding(1, typeBinding);
+
+	ClassScope scope = this.classFile.referenceBinding.scope;
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(scope.createArrayType(typeBinding, 1));
 }
 
 public void areturn() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
-	// the stackDepth should be equal to 0
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -505,13 +494,15 @@ public void arraylength() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_arraylength;
-	pushTypeBinding(1, TypeBinding.INT);
+	if (!(this.operandStack instanceof OperandStack.NullStack) && !(this.operandStack.pop() instanceof ArrayBinding))
+		throw new AssertionError("Unexpected non-array type"); //$NON-NLS-1$
+	this.operandStack.push(TypeBinding.INT);
 }
 
 public void astore(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
@@ -536,7 +527,7 @@ public void astore(int iArg) {
 public void astore_0() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.maxLocals == 0) {
 		this.maxLocals = 1;
 	}
@@ -550,7 +541,7 @@ public void astore_0() {
 public void astore_1() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
@@ -564,7 +555,7 @@ public void astore_1() {
 public void astore_2() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
@@ -578,7 +569,7 @@ public void astore_2() {
 public void astore_3() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
@@ -592,7 +583,7 @@ public void astore_3() {
 public void athrow() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -604,7 +595,7 @@ public void athrow() {
 public void baload() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -615,7 +606,7 @@ public void baload() {
 public void bastore() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -626,7 +617,7 @@ public void bastore() {
 public void bipush(byte b) {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.BYTE);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 1 >= this.bCodeStream.length) {
@@ -640,7 +631,7 @@ public void bipush(byte b) {
 public void caload() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -651,7 +642,7 @@ public void caload() {
 public void castore() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -691,7 +682,8 @@ public void checkcast(int baseId) {
 		case TypeIds.T_boolean :
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangBooleanConstantPoolName));
 	}
-	pushTypeBinding(1, TypeBinding.wellKnownBaseType(baseId));
+	this.operandStack.pop(OperandCategory.ONE);
+	this.operandStack.push(this.classFile.referenceBinding.scope.environment().computeBoxingType(TypeBinding.wellKnownBaseType(baseId)));
 }
 
 public void checkcast(TypeBinding typeBinding) {
@@ -706,14 +698,15 @@ public void checkcast(TypeReference typeReference, TypeBinding typeBinding, int 
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_checkcast;
 	writeUnsignedShort(this.constantPool.literalIndexForType(typeBinding));
-	pushTypeBinding(1, typeBinding);
-
+	this.operandStack.pop(OperandCategory.ONE);
+	this.operandStack.push(typeBinding);
 }
 
 public void d2f() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(1, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -724,7 +717,8 @@ public void d2f() {
 public void d2i() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -739,7 +733,8 @@ public void d2l() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_d2l;
-	pushTypeBinding(1, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.LONG);
 }
 
 public void dadd() {
@@ -750,7 +745,9 @@ public void dadd() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dadd;
-	pushTypeBinding(2, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 }
 
 public void daload() {
@@ -760,7 +757,7 @@ public void daload() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_daload;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 }
 
 public void dastore() {
@@ -771,7 +768,7 @@ public void dastore() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dastore;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 }
 
 public void dcmpg() {
@@ -782,7 +779,9 @@ public void dcmpg() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dcmpg;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.INT);
 }
 
 public void dcmpl() {
@@ -793,13 +792,15 @@ public void dcmpl() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dcmpl;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.INT);
 }
 
 public void dconst_0() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -812,7 +813,7 @@ public void dconst_0() {
 public void dconst_1() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -825,7 +826,9 @@ public void dconst_1() {
 public void ddiv() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -841,7 +844,7 @@ public void dload(int iArg) {
 	if (this.maxLocals < iArg + 2) {
 		this.maxLocals = iArg + 2; // + 2 because it is a double
 	}
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (iArg > 255) { // Widen
 		if (this.classFileOffset + 3 >= this.bCodeStream.length) {
 			resizeByteArray();
@@ -864,7 +867,7 @@ public void dload(int iArg) {
 public void dload_0() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals < 2) {
@@ -880,7 +883,7 @@ public void dload_0() {
 public void dload_1() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals < 3) {
@@ -896,7 +899,7 @@ public void dload_1() {
 public void dload_2() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals < 4) {
@@ -912,7 +915,7 @@ public void dload_2() {
 public void dload_3() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.maxLocals < 5) {
@@ -928,7 +931,9 @@ public void dload_3() {
 public void dmul() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -943,12 +948,15 @@ public void dneg() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dneg;
-	pushTypeBinding(1, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 }
 
 public void drem() {
 	this.countLabels = 0;
-	pushTypeBinding(2, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	this.stackDepth -= 2;
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
@@ -960,8 +968,7 @@ public void drem() {
 public void dreturn() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
-	// the stackDepth should be equal to 0
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -973,7 +980,7 @@ public void dreturn() {
 public void dstore(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.maxLocals <= iArg + 1) {
 		this.maxLocals = iArg + 2;
 	}
@@ -998,7 +1005,7 @@ public void dstore(int iArg) {
 public void dstore_0() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.maxLocals < 2) {
 		this.maxLocals = 2;
 	}
@@ -1012,7 +1019,7 @@ public void dstore_0() {
 public void dstore_1() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.maxLocals < 3) {
 		this.maxLocals = 3;
 	}
@@ -1026,7 +1033,7 @@ public void dstore_1() {
 public void dstore_2() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.maxLocals < 4) {
 		this.maxLocals = 4;
 	}
@@ -1040,7 +1047,7 @@ public void dstore_2() {
 public void dstore_3() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.DOUBLE);
 	if (this.maxLocals < 5) {
 		this.maxLocals = 5;
 	}
@@ -1054,7 +1061,9 @@ public void dstore_3() {
 public void dsub() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1062,12 +1071,16 @@ public void dsub() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dsub;
 }
 
+public void dup(TypeBinding type) {
+	if (TypeIds.getCategory(type.id) == 2)
+		dup2();
+	else
+		dup();
+}
 public void dup() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	if (isSwitchStackTrackingActive()) {
-		pushTypeBinding(this.switchSaveTypeBindings.peek());
-	}
+	this.operandStack.push(this.operandStack.peek());
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
 	}
@@ -1078,19 +1091,10 @@ public void dup() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dup;
 }
 
-private void adjustTypeBindingStackForDupX1() {
-	if (isSwitchStackTrackingActive()) {
-		TypeBinding[] topStack = { popTypeBinding(), popTypeBinding() };
-		pushTypeBinding(topStack[0]);
-		pushTypeBinding(topStack[1]);
-		pushTypeBinding(topStack[0]);
-	}
-}
-
 public void dup_x1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	adjustTypeBindingStackForDupX1();
+	this.operandStack.dup_x1();
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1100,31 +1104,10 @@ public void dup_x1() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dup_x1;
 }
 
-private void adjustTypeBindingStackForDupX2() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	TypeBinding val1 = popTypeBinding();
-	TypeBinding val2 = popTypeBinding();
-	if (TypeIds.getCategory(val1.id) == 1) {
-		if (TypeIds.getCategory(val2.id) == 2) {
-			pushTypeBinding(val1);
-			pushTypeBinding(val2);
-			pushTypeBinding(val1);
-		} else { // 1
-			TypeBinding val3 = popTypeBinding();
-			if (TypeIds.getCategory(val3.id) == 1) {
-				pushTypeBinding(val1);
-				pushTypeBinding(val3);
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-			}
-		}
-	}
-}
 public void dup_x2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	adjustTypeBindingStackForDupX2();
+	this.operandStack.dup_x2();
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1134,27 +1117,10 @@ public void dup_x2() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dup_x2;
 }
 
-private void adjustTypeBindingStackForDup2() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	TypeBinding val1 = popTypeBinding();
-	if (TypeIds.getCategory(val1.id) == 2) {
-		pushTypeBinding(val1);
-		pushTypeBinding(val1);
-	} else { // val1 category 1
-		TypeBinding val2 = popTypeBinding();
-		if (TypeIds.getCategory(val2.id) == 1) {
-			pushTypeBinding(val2);
-			pushTypeBinding(val1);
-			pushTypeBinding(val2);
-			pushTypeBinding(val1);
-		}
-	}
-}
 public void dup2() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	adjustTypeBindingStackForDup2();
+	this.operandStack.dup2();
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1164,34 +1130,10 @@ public void dup2() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dup2;
 }
 
-private void adjustTypeBindingStackForDup2X1() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	TypeBinding val1 = popTypeBinding();
-	TypeBinding val2 = popTypeBinding();
-	if (TypeIds.getCategory(val1.id) == 2) {
-		if (TypeIds.getCategory(val2.id) == 1) {
-			pushTypeBinding(val1);
-			pushTypeBinding(val2);
-			pushTypeBinding(val1);
-		}
-	} else { // val1 cat 1
-		if (TypeIds.getCategory(val2.id) == 1) {
-			TypeBinding val3 = popTypeBinding();
-			if (TypeIds.getCategory(val3.id) == 1) {
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-				pushTypeBinding(val3);
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-			}
-		}
-	}
-}
 public void dup2_x1() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	adjustTypeBindingStackForDup2X1();
+	this.operandStack.dup2_x1();
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1201,55 +1143,10 @@ public void dup2_x1() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_dup2_x1;
 }
 
-private void adjustTypeBindingStackForDup2X2() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	TypeBinding val1 = popTypeBinding();
-	if (TypeIds.getCategory(val1.id) == 2) {
-		TypeBinding val2 = popTypeBinding();
-		if (TypeIds.getCategory(val2.id) == 2) { // Form 4
-			pushTypeBinding(val1);
-			pushTypeBinding(val2);
-			pushTypeBinding(val1);
-		} else {
-			TypeBinding val3 = popTypeBinding();
-			if (TypeIds.getCategory(val3.id) == 1) { // Form 2
-				pushTypeBinding(val1);
-				pushTypeBinding(val3);
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-			}
-		}
-		pushTypeBinding(val1);
-		pushTypeBinding(val1);
-	} else { // val1 category 1
-		TypeBinding val2 = popTypeBinding();
-		if (TypeIds.getCategory(val2.id) == 1) {
-			TypeBinding val3 = popTypeBinding();
-			if (TypeIds.getCategory(val3.id) == 2) { // Form 3
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-				pushTypeBinding(val3);
-				pushTypeBinding(val2);
-				pushTypeBinding(val1);
-			} else { // val3 cat 1
-				TypeBinding val4 = popTypeBinding();
-				if (TypeIds.getCategory(val4.id) == 1) { // Form 1
-					pushTypeBinding(val2);
-					pushTypeBinding(val1);
-					pushTypeBinding(val4);
-					pushTypeBinding(val3);
-					pushTypeBinding(val2);
-					pushTypeBinding(val1);
-				}
-			}
-		}
-	}
-}
 public void dup2_x2() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	adjustTypeBindingStackForDup2X2();
+	this.operandStack.dup2_x2();
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1289,7 +1186,8 @@ public void exitUserScope(BlockScope currentScope) {
 public void f2d() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(1, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1306,13 +1204,15 @@ public void f2i() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_f2i;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.INT);
 }
 
 public void f2l() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(1, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1325,7 +1225,9 @@ public void f2l() {
 public void fadd() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1336,7 +1238,7 @@ public void fadd() {
 public void faload() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1347,7 +1249,7 @@ public void faload() {
 public void fastore() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1358,7 +1260,9 @@ public void fastore() {
 public void fcmpg() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1369,7 +1273,9 @@ public void fcmpg() {
 public void fcmpl() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1380,7 +1286,7 @@ public void fcmpl() {
 public void fconst_0() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1393,7 +1299,7 @@ public void fconst_0() {
 public void fconst_1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1406,7 +1312,7 @@ public void fconst_1() {
 public void fconst_2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -1419,7 +1325,9 @@ public void fconst_2() {
 public void fdiv() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1443,47 +1351,43 @@ public void fieldAccess(byte opcode, FieldBinding fieldBinding, TypeBinding decl
 			returnTypeSize = 1;
 			break;
 	}
-	this.fieldAccess(opcode, returnTypeSize, declaringClass.constantPoolName(), fieldBinding.name, returnType.signature(), returnType.id, returnType);
+	this.fieldAccess(opcode, returnTypeSize, declaringClass.constantPoolName(), fieldBinding.name, returnType.signature(), returnType);
 }
 
-private void fieldAccess(byte opcode, int returnTypeSize, char[] declaringClass, char[] fieldName, char[] signature, int typeId) {
-	fieldAccess(opcode, returnTypeSize, declaringClass, fieldName, signature, typeId, null);
-}
-private void fieldAccess(byte opcode, int returnTypeSize, char[] declaringClass, char[] fieldName, char[] signature, int typeId, TypeBinding typeBinding) {
+private void fieldAccess(byte opcode, int returnTypeSize, char[] declaringClass, char[] fieldName, char[] signature, TypeBinding fieldType) {
 	this.countLabels = 0;
 	switch(opcode) {
 		case Opcodes.OPC_getfield :
 			if (returnTypeSize == 2) {
 				this.stackDepth++;
 			}
-			pushTypeBinding(1, typeBinding);
+			this.operandStack.pop(OperandCategory.ONE);
+			this.operandStack.push(fieldType);
 			break;
 		case Opcodes.OPC_getstatic :
 			if (returnTypeSize == 2) {
 				this.stackDepth += 2;
-				pushTypeBinding(typeBinding);
 			} else {
 				this.stackDepth++;
-				pushTypeBinding(typeBinding);
 			}
+			this.operandStack.push(fieldType);
 			break;
 		case Opcodes.OPC_putfield :
 			if (returnTypeSize == 2) {
 				this.stackDepth -= 3;
-				popTypeBinding(2);
 			} else {
 				this.stackDepth -= 2;
-				popTypeBinding(2);
 			}
+			this.operandStack.pop();
+			this.operandStack.pop(OperandCategory.ONE);
 			break;
 		case Opcodes.OPC_putstatic :
 			if (returnTypeSize == 2) {
 				this.stackDepth -= 2;
-				popTypeBinding();
-		} else {
+			} else {
 				this.stackDepth--;
-				popTypeBinding();
 			}
+			this.operandStack.pop();
 	}
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
@@ -1502,7 +1406,7 @@ public void fload(int iArg) {
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (iArg > 255) { // Widen
@@ -1526,7 +1430,7 @@ public void fload(int iArg) {
 public void fload_0() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.maxLocals == 0) {
 		this.maxLocals = 1;
 	}
@@ -1542,7 +1446,7 @@ public void fload_0() {
 public void fload_1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
@@ -1558,7 +1462,7 @@ public void fload_1() {
 public void fload_2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
@@ -1574,7 +1478,7 @@ public void fload_2() {
 public void fload_3() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
@@ -1590,7 +1494,9 @@ public void fload_3() {
 public void fmul() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1605,13 +1511,16 @@ public void fneg() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_fneg;
-	pushTypeBinding(1, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 }
 
 public void frem() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1622,8 +1531,7 @@ public void frem() {
 public void freturn() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
-	// the stackDepth should be equal to 0
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1635,7 +1543,7 @@ public void freturn() {
 public void fstore(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
@@ -1660,7 +1568,7 @@ public void fstore(int iArg) {
 public void fstore_0() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.maxLocals == 0) {
 		this.maxLocals = 1;
 	}
@@ -1674,7 +1582,7 @@ public void fstore_0() {
 public void fstore_1() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
@@ -1688,7 +1596,7 @@ public void fstore_1() {
 public void fstore_2() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
@@ -1702,7 +1610,7 @@ public void fstore_2() {
 public void fstore_3() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.FLOAT);
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
@@ -1716,7 +1624,9 @@ public void fstore_3() {
 public void fsub() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -1725,6 +1635,7 @@ public void fsub() {
 }
 
 public void generateBoxingConversion(int unboxedTypeID) {
+	TypeBinding boxedType = this.classFile.referenceBinding.scope.environment().computeBoxingType(TypeBinding.wellKnownBaseType(unboxedTypeID));
     switch (unboxedTypeID) {
         case TypeIds.T_byte :
             if (this.targetLevel >= ClassFileConstants.JDK1_5) {
@@ -1737,7 +1648,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.byteByteSignature,
                     unboxedTypeID,
-                    TypeBinding.BYTE);
+                    boxedType);
             } else {
                // new Byte( byte )
                 newWrapperFor(unboxedTypeID);
@@ -1751,7 +1662,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.ByteConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.BYTE);
+                    boxedType);
             }
             break;
         case TypeIds.T_short :
@@ -1765,7 +1676,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.shortShortSignature,
                     unboxedTypeID,
-                    TypeBinding.SHORT);
+                    boxedType);
             } else {
                 // new Short(short)
             	newWrapperFor(unboxedTypeID);
@@ -1779,7 +1690,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.ShortConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.SHORT);
+                    boxedType);
             }
             break;
         case TypeIds.T_char :
@@ -1793,7 +1704,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.charCharacterSignature,
                     unboxedTypeID,
-                    TypeBinding.CHAR);
+                    boxedType);
             } else {
                 // new Char( char )
                 newWrapperFor(unboxedTypeID);
@@ -1807,7 +1718,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.CharConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.CHAR);
+                    boxedType);
             }
             break;
         case TypeIds.T_int :
@@ -1821,7 +1732,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.IntIntegerSignature,
                     unboxedTypeID,
-                    TypeBinding.INT);
+                    boxedType);
             } else {
                 // new Integer(int)
                 newWrapperFor(unboxedTypeID);
@@ -1835,7 +1746,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.IntConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.INT);
+                    boxedType);
             }
             break;
         case TypeIds.T_long :
@@ -1849,7 +1760,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.longLongSignature,
                     unboxedTypeID,
-                    TypeBinding.LONG);
+                    boxedType);
             } else {
                 // new Long( long )
                 newWrapperFor(unboxedTypeID);
@@ -1864,7 +1775,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.LongConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.LONG);
+                    boxedType);
             }
             break;
         case TypeIds.T_float :
@@ -1878,7 +1789,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.floatFloatSignature,
                     unboxedTypeID,
-                    TypeBinding.FLOAT);
+                    boxedType);
             } else {
                 // new Float(float)
                 newWrapperFor(unboxedTypeID);
@@ -1892,7 +1803,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.FloatConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.FLOAT);
+                    boxedType);
             }
             break;
         case TypeIds.T_double :
@@ -1906,7 +1817,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.doubleDoubleSignature,
                     unboxedTypeID,
-                    TypeBinding.DOUBLE);
+                    boxedType);
             } else {
                 // new Double( double )
             	newWrapperFor(unboxedTypeID);
@@ -1922,7 +1833,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.DoubleConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.DOUBLE);
+                    boxedType);
             }
 
             break;
@@ -1937,7 +1848,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.ValueOf,
                     ConstantPool.booleanBooleanSignature,
                     unboxedTypeID,
-                    TypeBinding.BOOLEAN);
+                    boxedType);
             } else {
                 // new Boolean(boolean)
                 newWrapperFor(unboxedTypeID);
@@ -1951,7 +1862,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
                     ConstantPool.Init,
                     ConstantPool.BooleanConstrSignature,
                     unboxedTypeID,
-                    TypeBinding.BOOLEAN);
+                    boxedType);
             }
     }
 }
@@ -1961,7 +1872,7 @@ public void generateBoxingConversion(int unboxedTypeID) {
  */
 public void generateClassLiteralAccessForType(Scope scope, TypeBinding accessedType, FieldBinding syntheticFieldBinding) {
 	if (accessedType.isBaseType() && accessedType != TypeBinding.NULL) {
-		getTYPE(accessedType.id);
+		getClass(accessedType);
 		return;
 	}
 	if (this.targetLevel >= ClassFileConstants.JDK1_5) {
@@ -2018,7 +1929,6 @@ public void generateClassLiteralAccessForType(Scope scope, TypeBinding accessedT
 		goto_(endLabel);
 
 		int savedStackDepth = this.stackDepth;
-		int switchSaveTypeBindingsStackSize = this.switchSaveTypeBindings.size();
 
 		// Generate the body of the exception handler
 		/* ClassNotFoundException on stack -- the class literal could be doing more things
@@ -2043,7 +1953,6 @@ public void generateClassLiteralAccessForType(Scope scope, TypeBinding accessedT
 		athrow();
 		endLabel.place();
 		this.stackDepth = savedStackDepth;
-		popTypeBinding(this.switchSaveTypeBindings.size() - switchSaveTypeBindingsStackSize);
 	}
 }
 
@@ -2122,11 +2031,11 @@ public void generateEmulationForConstructor(Scope scope, MethodBinding methodBin
 			this.generateInlinedValue(i);
 			TypeBinding parameter = methodBinding.parameters[i];
 			if (parameter.isBaseType()) {
-				getTYPE(parameter.id);
+				getClass(parameter);
 			} else if (parameter.isArrayType()) {
 				ArrayBinding array = (ArrayBinding)parameter;
 				if (array.leafComponentType.isBaseType()) {
-					getTYPE(array.leafComponentType.id);
+					getClass(array.leafComponentType);
 				} else {
 					this.ldc(String.valueOf(array.leafComponentType.constantPoolName()).replace('/', '.'));
 					invokeClassForName();
@@ -2178,11 +2087,11 @@ public void generateEmulationForMethod(Scope scope, MethodBinding methodBinding)
 			this.generateInlinedValue(i);
 			TypeBinding parameter = methodBinding.parameters[i];
 			if (parameter.isBaseType()) {
-				getTYPE(parameter.id);
+				getClass(parameter);
 			} else if (parameter.isArrayType()) {
 				ArrayBinding array = (ArrayBinding)parameter;
 				if (array.leafComponentType.isBaseType()) {
-					getTYPE(array.leafComponentType.id);
+					getClass(array.leafComponentType);
 				} else {
 					this.ldc(String.valueOf(array.leafComponentType.constantPoolName()).replace('/', '.'));
 					invokeClassForName();
@@ -2604,7 +2513,6 @@ public void invokeDynamicForStringConcat(StringBuilder recipe, List<TypeBinding>
 			1, // Ljava/lang/String;
 			ConstantPool.ConcatWithConstants,
 			signature.toString().toCharArray(),
-			TypeIds.T_JavaLangObject,
 			getPopularBinding(ConstantPool.JavaLangStringConstantPoolName));
 }
 /**
@@ -2657,7 +2565,6 @@ public void generateStringConcatenationAppend(BlockScope blockScope, Expression 
  * @param accessBinding the access method binding to generate
  */
 public void generateSyntheticBodyForConstructorAccess(SyntheticMethodBinding accessBinding) {
-	initializeMaxLocals(accessBinding);
 	MethodBinding constructorBinding = accessBinding.targetMethod;
 	TypeBinding[] parameters = constructorBinding.parameters;
 	int length = parameters.length;
@@ -2722,13 +2629,11 @@ public void generateSyntheticBodyForConstructorAccess(SyntheticMethodBinding acc
 	return_();
 }
 public void generateSyntheticBodyForArrayConstructor(SyntheticMethodBinding methodBinding) {
-	initializeMaxLocals(methodBinding);
 	iload_0();
 	newArray(null, null, (ArrayBinding) methodBinding.returnType);
 	areturn();
 }
 public void generateSyntheticBodyForArrayClone(SyntheticMethodBinding methodBinding) {
-	initializeMaxLocals(methodBinding);
 	TypeBinding arrayType = methodBinding.parameters[0];
 	aload_0();
 	invoke(   // // invokevirtual: "[I".clone:()Ljava/lang/Object;
@@ -2743,7 +2648,6 @@ public void generateSyntheticBodyForArrayClone(SyntheticMethodBinding methodBind
 	areturn();
 }
 public void generateSyntheticBodyForFactoryMethod(SyntheticMethodBinding methodBinding) {
-	initializeMaxLocals(methodBinding);
 	MethodBinding constructorBinding = methodBinding.targetMethod;
 	TypeBinding[] parameters = methodBinding.parameters;
 	int length = parameters.length;
@@ -2775,7 +2679,6 @@ public void generateSyntheticBodyForFactoryMethod(SyntheticMethodBinding methodB
 // return (X) Enum.valueOf(X.class, name);
 //}
 public void generateSyntheticBodyForEnumValueOf(SyntheticMethodBinding methodBinding) {
-	initializeMaxLocals(methodBinding);
 	final ReferenceBinding declaringClass = methodBinding.declaringClass;
 	generateClassLiteralAccessForType(((SourceTypeBinding) methodBinding.declaringClass).scope, declaringClass, null);
 	aload_0();
@@ -2793,8 +2696,6 @@ public void generateSyntheticBodyForEnumValueOf(SyntheticMethodBinding methodBin
  * the lambda does not deserialize properly.
  */
 public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding methodBinding,SyntheticMethodBinding[] syntheticMethodBindings) {
-	initializeMaxLocals(methodBinding);
-
 	// Compute a map of hashcodes to a list of synthetic methods whose names share a hashcode
 	Map hashcodesTosynthetics = new LinkedHashMap();
 	for (SyntheticMethodBinding syntheticMethodBinding : syntheticMethodBindings) {
@@ -3038,7 +2939,7 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 			}
 			// Example: invokeDynamic(0, 0, 1, "m".toCharArray(), "()Lcom/foo/X$Foo;".toCharArray());
 			invokeDynamic(funcEx.bootstrapMethodNumber, index, 1, funcEx.descriptor.selector,
-					sig.toString().toCharArray(), funcEx.resolvedType.id, funcEx.resolvedType);
+					sig.toString().toCharArray(), funcEx.resolvedType);
 			areturn();
 			if (j < count - 1) {
 				nextOne.place();
@@ -3104,7 +3005,6 @@ public void loadInt(int value) {
 //}
 public void generateSyntheticBodyForEnumValues(SyntheticMethodBinding methodBinding) {
 	ClassScope scope = ((SourceTypeBinding)methodBinding.declaringClass).scope;
-	initializeMaxLocals(methodBinding);
 	TypeBinding enumArray = methodBinding.returnType;
 	fieldAccess(Opcodes.OPC_getstatic, scope.referenceContext.enumValuesSyntheticfield, null /* default declaringClass */);
 	dup();
@@ -3124,8 +3024,6 @@ public void generateSyntheticBodyForEnumValues(SyntheticMethodBinding methodBind
 	areturn();
 }
 public void generateSyntheticBodyForEnumInitializationMethod(SyntheticMethodBinding methodBinding) {
-	// no local used
-	this.maxLocals = 0;
 	// generate all enum constants
 	SourceTypeBinding sourceTypeBinding = (SourceTypeBinding) methodBinding.declaringClass;
 	TypeDeclaration typeDeclaration = sourceTypeBinding.scope.referenceContext;
@@ -3142,7 +3040,6 @@ public void generateSyntheticBodyForEnumInitializationMethod(SyntheticMethodBind
 	return_();
 }
 public void generateSyntheticBodyForFieldReadAccess(SyntheticMethodBinding accessMethod) {
-	initializeMaxLocals(accessMethod);
 	FieldBinding fieldBinding = accessMethod.targetReadField;
 	// target method declaring class may not be accessible (247953);
 	TypeBinding declaringClass = accessMethod.purpose == SyntheticMethodBinding.SuperFieldReadAccess
@@ -3180,7 +3077,6 @@ public void generateSyntheticBodyForFieldReadAccess(SyntheticMethodBinding acces
 }
 
 public void generateSyntheticBodyForFieldWriteAccess(SyntheticMethodBinding accessMethod) {
-	initializeMaxLocals(accessMethod);
 	FieldBinding fieldBinding = accessMethod.targetWriteField;
 	// target method declaring class may not be accessible (247953);
 	TypeBinding declaringClass = accessMethod.purpose == SyntheticMethodBinding.SuperFieldWriteAccess
@@ -3198,7 +3094,6 @@ public void generateSyntheticBodyForFieldWriteAccess(SyntheticMethodBinding acce
 }
 
 public void generateSyntheticBodyForMethodAccess(SyntheticMethodBinding accessMethod) {
-	initializeMaxLocals(accessMethod);
 	MethodBinding targetMethod = accessMethod.targetMethod;
 	TypeBinding[] parameters = targetMethod.parameters;
 	int length = parameters.length;
@@ -3307,7 +3202,6 @@ ReferenceBinding findDirectSuperTypeTowards(SyntheticMethodBinding accessMethod,
 
 public void generateSyntheticBodyForSwitchTable(SyntheticMethodBinding methodBinding) {
 	ClassScope scope = ((SourceTypeBinding)methodBinding.declaringClass).scope;
-	initializeMaxLocals(methodBinding);
 	final BranchLabel nullLabel = new BranchLabel(this);
 	FieldBinding syntheticFieldBinding = methodBinding.targetReadField;
 	fieldAccess(Opcodes.OPC_getstatic, syntheticFieldBinding, null /* default declaringClass */);
@@ -3446,7 +3340,6 @@ public void generateSyntheticOuterArgumentValues(BlockScope currentScope, Refere
 	}
 }
 public void generateSyntheticBodyForRecordCanonicalConstructor(SyntheticMethodBinding canonConstructor) {
-	initializeMaxLocals(canonConstructor);
 	SourceTypeBinding declaringClass = (SourceTypeBinding) canonConstructor.declaringClass;
 	ReferenceBinding superClass = declaringClass.superclass();
 	MethodBinding superCons = superClass.getExactConstructor(new TypeBinding[0]);
@@ -3475,31 +3368,28 @@ public void generateSyntheticBodyForRecordCanonicalConstructor(SyntheticMethodBi
 	return_();
 }
 public void generateSyntheticBodyForRecordEquals(SyntheticMethodBinding methodBinding, int index) {
-	initializeMaxLocals(methodBinding);
 	aload_0();
 	aload_1();
 	String sig = new String(methodBinding.signature());
 	sig = sig.substring(0, 1)+ new String(methodBinding.declaringClass.signature()) + sig.substring(1);
 	invokeDynamic(index, methodBinding.parameters.length, 1, methodBinding.selector, sig.toCharArray(),
-			TypeIds.T_boolean, TypeBinding.BOOLEAN);
+			TypeBinding.BOOLEAN);
 	ireturn();
 }
 public void generateSyntheticBodyForRecordHashCode(SyntheticMethodBinding methodBinding, int index) {
-	initializeMaxLocals(methodBinding);
 	aload_0();
 	String sig = new String(methodBinding.signature());
 	sig = sig.substring(0, 1)+ new String(methodBinding.declaringClass.signature()) + sig.substring(1);
 	invokeDynamic(index, methodBinding.parameters.length, 1, methodBinding.selector, sig.toCharArray(),
-			TypeIds.T_int, TypeBinding.INT);
+			TypeBinding.INT);
 	ireturn();
 }
 public void generateSyntheticBodyForRecordToString(SyntheticMethodBinding methodBinding, int index) {
-	initializeMaxLocals(methodBinding);
 	aload_0();
 	String sig = new String(methodBinding.signature());
 	sig = sig.substring(0, 1)+ new String(methodBinding.declaringClass.signature()) + sig.substring(1);
 	invokeDynamic(index, methodBinding.parameters.length, 1, methodBinding.selector, sig.toCharArray(),
-			TypeIds.T_JavaLangObject, getPopularBinding(ConstantPool.JavaLangStringConstantPoolName));
+			getPopularBinding(ConstantPool.JavaLangStringConstantPoolName));
 	areturn();
 }
 
@@ -3809,109 +3699,30 @@ public static TypeBinding getConstantPoolDeclaringClass(Scope currentScope, Meth
 	}
 	return constantPoolDeclaringClass;
 }
-protected int getPosition() {
-	return this.position;
-}
 
-public void getTYPE(int baseTypeID) {
+public void getClass(TypeBinding baseType) {
 	this.countLabels = 0;
-	switch (baseTypeID) {
-		case TypeIds.T_byte :
-			// getstatic: java.lang.Byte.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangByteConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_short :
-			// getstatic: java.lang.Short.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangShortConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_char :
-			// getstatic: java.lang.Character.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangCharacterConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_int :
-			// getstatic: java.lang.Integer.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangIntegerConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_long :
-			// getstatic: java.lang.Long.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangLongConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_float :
-			// getstatic: java.lang.Float.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangFloatConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_double :
-			// getstatic: java.lang.Double.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangDoubleConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_boolean :
-			// getstatic: java.lang.Boolean.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangBooleanConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-		case TypeIds.T_void :
-			// getstatic: java.lang.Void.TYPE
-			fieldAccess(
-					Opcodes.OPC_getstatic,
-					1, // return type size
-					ConstantPool.JavaLangVoidConstantPoolName,
-					ConstantPool.TYPE,
-					ConstantPool.JavaLangClassSignature,
-					baseTypeID);
-			break;
-	}
+	char [] constantPoolName = switch (baseType.id) {
+					case TypeIds.T_byte -> ConstantPool.JavaLangByteConstantPoolName;
+					case TypeIds.T_short -> ConstantPool.JavaLangShortConstantPoolName;
+					case TypeIds.T_char -> ConstantPool.JavaLangCharacterConstantPoolName;
+					case TypeIds.T_int -> ConstantPool.JavaLangIntegerConstantPoolName;
+					case TypeIds.T_long -> ConstantPool.JavaLangLongConstantPoolName;
+					case TypeIds.T_float -> ConstantPool.JavaLangFloatConstantPoolName;
+					case TypeIds.T_double -> ConstantPool.JavaLangDoubleConstantPoolName;
+					case TypeIds.T_boolean -> ConstantPool.JavaLangBooleanConstantPoolName;
+					case TypeIds.T_void -> ConstantPool.JavaLangVoidConstantPoolName;
+					default-> throw new AssertionError("Unknown base type"); //$NON-NLS-1$
+				};
+	fieldAccess(
+			Opcodes.OPC_getstatic,
+			1, // return type size
+			constantPoolName,
+			ConstantPool.TYPE,
+			ConstantPool.JavaLangClassSignature,
+			getPopularBinding(ConstantPool.JavaLangClassConstantPoolName));
 }
 
-/**
- * We didn't call it goto, because there is a conflit with the goto keyword
- */
 public void goto_(BranchLabel label) {
 	if (this.wideMode) {
 		goto_w(label);
@@ -3972,7 +3783,7 @@ public void i2b() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_i2b;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 }
 
 public void i2c() {
@@ -3982,13 +3793,14 @@ public void i2c() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_i2c;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 }
 
 public void i2d() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4005,13 +3817,15 @@ public void i2f() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_i2f;
-	pushTypeBinding(1, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.FLOAT);
 }
 
 public void i2l() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(1, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4028,13 +3842,14 @@ public void i2s() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_i2s;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 }
 
 public void iadd() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4045,7 +3860,7 @@ public void iadd() {
 public void iaload() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4056,7 +3871,8 @@ public void iaload() {
 public void iand() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4067,7 +3883,7 @@ public void iand() {
 public void iastore() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4078,7 +3894,7 @@ public void iastore() {
 public void iconst_0() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4091,7 +3907,7 @@ public void iconst_0() {
 public void iconst_1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4104,7 +3920,7 @@ public void iconst_1() {
 public void iconst_2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4116,7 +3932,7 @@ public void iconst_2() {
 public void iconst_3() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4129,7 +3945,7 @@ public void iconst_3() {
 public void iconst_4() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4142,7 +3958,7 @@ public void iconst_4() {
 public void iconst_5() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4155,7 +3971,7 @@ public void iconst_5() {
 public void iconst_m1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -4168,7 +3984,8 @@ public void iconst_m1() {
 public void idiv() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4179,7 +3996,8 @@ public void idiv() {
 public void if_acmpeq(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth-=2;
-	popTypeBinding(2);
+	this.operandStack.pop(OperandCategory.ONE);
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_acmpne, lbl);
 	} else {
@@ -4195,7 +4013,8 @@ public void if_acmpeq(BranchLabel lbl) {
 public void if_acmpne(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth-=2;
-	popTypeBinding(2);
+	this.operandStack.pop(OperandCategory.ONE);
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_acmpeq, lbl);
 	} else {
@@ -4211,7 +4030,8 @@ public void if_acmpne(BranchLabel lbl) {
 public void if_icmpeq(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmpne, lbl);
 	} else {
@@ -4227,7 +4047,8 @@ public void if_icmpeq(BranchLabel lbl) {
 public void if_icmpge(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmplt, lbl);
 	} else {
@@ -4243,7 +4064,8 @@ public void if_icmpge(BranchLabel lbl) {
 public void if_icmpgt(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmple, lbl);
 	} else {
@@ -4259,7 +4081,8 @@ public void if_icmpgt(BranchLabel lbl) {
 public void if_icmple(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmpgt, lbl);
 	} else {
@@ -4275,7 +4098,8 @@ public void if_icmple(BranchLabel lbl) {
 public void if_icmplt(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmpge, lbl);
 	} else {
@@ -4291,7 +4115,8 @@ public void if_icmplt(BranchLabel lbl) {
 public void if_icmpne(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding(2);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_if_icmpeq, lbl);
 	} else {
@@ -4307,7 +4132,7 @@ public void if_icmpne(BranchLabel lbl) {
 public void ifeq(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifne, lbl);
 	} else {
@@ -4323,7 +4148,7 @@ public void ifeq(BranchLabel lbl) {
 public void ifge(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_iflt, lbl);
 	} else {
@@ -4339,7 +4164,7 @@ public void ifge(BranchLabel lbl) {
 public void ifgt(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifle, lbl);
 	} else {
@@ -4355,7 +4180,7 @@ public void ifgt(BranchLabel lbl) {
 public void ifle(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifgt, lbl);
 	} else {
@@ -4371,7 +4196,7 @@ public void ifle(BranchLabel lbl) {
 public void iflt(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifge, lbl);
 	} else {
@@ -4387,7 +4212,7 @@ public void iflt(BranchLabel lbl) {
 public void ifne(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifeq, lbl);
 	} else {
@@ -4403,7 +4228,7 @@ public void ifne(BranchLabel lbl) {
 public void ifnonnull(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifnull, lbl);
 	} else {
@@ -4419,7 +4244,7 @@ public void ifnonnull(BranchLabel lbl) {
 public void ifnull(BranchLabel lbl) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.wideMode) {
 		generateWideRevertedConditionalBranch(Opcodes.OPC_ifnonnull, lbl);
 	} else {
@@ -4460,7 +4285,7 @@ public void iload(int iArg) {
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (iArg > 255) { // Widen
@@ -4484,7 +4309,7 @@ public void iload(int iArg) {
 public void iload_0() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.maxLocals <= 0) {
 		this.maxLocals = 1;
 	}
@@ -4500,7 +4325,7 @@ public void iload_0() {
 public void iload_1() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
@@ -4516,7 +4341,7 @@ public void iload_1() {
 public void iload_2() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
@@ -4532,7 +4357,7 @@ public void iload_2() {
 public void iload_3() {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
@@ -4548,7 +4373,8 @@ public void iload_3() {
 public void imul() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4563,7 +4389,7 @@ public void ineg() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ineg;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 }
 
 public void init(ClassFile targetClassFile) {
@@ -4588,10 +4414,10 @@ public void init(ClassFile targetClassFile) {
 	this.maxLocals = 0;
 	this.position = 0;
 
-	this.clearTypeBindingStack();
-	this.lastSwitchCumulativeSyntheticVars = 0;
+	this.operandStack = null;
 	this.patternAccessorMap.clear();
 	this.accessorExceptionTrapScopes.clear();
+	this.targetLevel = targetClassFile.targetJDK;
 }
 
 /**
@@ -4654,18 +4480,10 @@ public boolean inlineForwardReferencesFromLabelsTargeting(BranchLabel targetLabe
 	return (chaining & (L_OPTIMIZABLE|L_CANNOT_OPTIMIZE)) == L_OPTIMIZABLE; // check was some standards, and no case/recursive
 }
 
-/**
- * We didn't call it instanceof because there is a conflict with the
- * instanceof keyword
- */
 public void instance_of(TypeBinding typeBinding) {
 	this.instance_of(null, typeBinding);
 }
 
-/**
- * We didn't call it instanceof because there is a conflict with the
- * instanceof keyword
- */
 public void instance_of(TypeReference typeReference, TypeBinding typeBinding) {
 	this.countLabels = 0;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -4674,38 +4492,23 @@ public void instance_of(TypeReference typeReference, TypeBinding typeBinding) {
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_instanceof;
 	writeUnsignedShort(this.constantPool.literalIndexForType(typeBinding));
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.pop(TypeIds.getCategory(typeBinding.id));
+	this.operandStack.push(TypeBinding.INT);
 }
 
 protected void invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, char[] declaringClass, char[] selector, char[] signature, TypeBinding type) {
 	invoke(opcode, receiverAndArgsSize, returnTypeSize, declaringClass, selector, signature, TypeIds.T_JavaLangObject, type);
 }
-protected void _invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, char[] declaringClass, char[] selector, char[] signature, int typeId) {
-//	invoke18(opcode, receiverAndArgsSize, returnTypeSize, declaringClass, opcode == Opcodes.OPC_invokeinterface, selector, signature, typeId);
-}
-protected void invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, char[] declaringClass, char[] selector, char[] signature, int typeId, TypeBinding type) {
-	invoke18(opcode, receiverAndArgsSize, returnTypeSize, declaringClass, opcode == Opcodes.OPC_invokeinterface, selector, signature, typeId, type);
-}
 
-private void popInvokeTypeBinding(int receiverAndArgsSize) {
-	if (!isSwitchStackTrackingActive())
-		return;
-	for (int i = 0; i < receiverAndArgsSize;) {
-		TypeBinding typeBinding = popTypeBinding();
-		// 571929: receiverAndArgsSize counts slots, so when we pop a long/double, we popped two slots
-		if (TypeIds.getCategory(typeBinding.id) == 2) {
-			i += 2;
-		} else {
-			i++;
-		}
-	}
+protected void invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, char[] declaringClass, char[] selector, char[] signature, int typeId, TypeBinding returnType) {
+	invoke18(opcode, receiverAndArgsSize, returnTypeSize, declaringClass, opcode == Opcodes.OPC_invokeinterface, selector, signature, returnType);
 }
 
 // Starting with 1.8 we can no longer deduce isInterface from opcode, invokespecial can be used for default methods, too.
 // Hence adding explicit parameter 'isInterface', which is needed only for non-ctor invokespecial invocations
 // (i.e., other clients may still call the shorter overload).
 private void invoke18(byte opcode, int receiverAndArgsSize, int returnTypeSize, char[] declaringClass,
-		boolean isInterface, char[] selector, char[] signature, int typeId, TypeBinding type) {
+		boolean isInterface, char[] selector, char[] signature, TypeBinding returnType) {
 	this.countLabels = 0;
 	if (opcode == Opcodes.OPC_invokeinterface) {
 		// invokeinterface
@@ -4729,9 +4532,9 @@ private void invoke18(byte opcode, int receiverAndArgsSize, int returnTypeSize, 
 		writeUnsignedShort(this.constantPool.literalIndexForMethod(declaringClass, selector, signature, isInterface));
 	}
 	this.stackDepth += returnTypeSize - receiverAndArgsSize;
-	popInvokeTypeBinding(receiverAndArgsSize);
+	this.operandStack.pop(receiverAndArgsSize);
 	if (returnTypeSize > 0) {
-		pushTypeBinding(type);
+		this.operandStack.push(returnType);
 	}
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
@@ -4739,12 +4542,12 @@ private void invoke18(byte opcode, int receiverAndArgsSize, int returnTypeSize, 
 }
 
 public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, char[] selector, char[] signature,
-		int typeId, TypeBinding type) {
-	this.invokeDynamic(bootStrapIndex, argsSize, returnTypeSize, selector, signature, false, null, null, typeId, type);
+		TypeBinding type) {
+	this.invokeDynamic(bootStrapIndex, argsSize, returnTypeSize, selector, signature, false, null, null, type);
 }
 
 public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, char[] selector, char[] signature, boolean isConstructorReference, TypeReference lhsTypeReference, TypeReference [] typeArguments,
-		int typeId, TypeBinding type) {
+		TypeBinding type) {
 	if (this.classFileOffset + 4 >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -4755,9 +4558,9 @@ public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, 
 	this.bCodeStream[this.classFileOffset++] = 0;
 	this.bCodeStream[this.classFileOffset++] = 0;
 	this.stackDepth += returnTypeSize - argsSize;
-	popInvokeTypeBinding(argsSize);
+	this.operandStack.pop(argsSize);
 	if (returnTypeSize > 0) {
-		pushTypeBinding(type);
+		this.operandStack.push(type);
 	}
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
@@ -4790,6 +4593,8 @@ public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declari
 					ReferenceBinding nestedType = (ReferenceBinding) declaringClass;
 					// enclosing instances
 					receiverAndArgsSize += nestedType.getEnclosingInstancesSlotSize();
+//					ReferenceBinding checkedTargetType = nestedType.isAnonymousType() ? (ReferenceBinding)nestedType.superclass().erasure() : nestedType;
+//					receiverAndArgsSize += !checkedTargetType.isNestedType() || checkedTargetType.isStatic() ? 0 : checkedTargetType.getEnclosingInstancesSlotSize();
 					// outer local variables
 					SyntheticArgumentBinding[] syntheticArguments = nestedType.syntheticOuterLocalVariables();
 					if (syntheticArguments != null) {
@@ -4849,7 +4654,6 @@ public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declari
 			declaringClass.isInterface(),
 			methodBinding.selector,
 			methodBinding.signature(this.classFile),
-			methodBinding.returnType.id,
 			methodBinding.returnType);
 }
 
@@ -5400,8 +5204,7 @@ public void invokeStringConcatenationAppendForType(int typeID) {
 			receiverAndArgsSize = 2;
 			break;
 	}
-	// TODO: revisit after bug 561726 is fixed
-	TypeBinding type = this.targetLevel >= ClassFileConstants.JDK14 ?
+	TypeBinding type = this.targetLevel >= ClassFileConstants.JDK1_5 ?
 		getPopularBinding(ConstantPool.JavaLangStringBuilderConstantPoolName) : null;
 	invoke(
 			Opcodes.OPC_invokevirtual,
@@ -5573,6 +5376,145 @@ public void invokeStringValueOf(int typeID) {
 			getPopularBinding(ConstantPool.JavaLangStringConstantPoolName));
 }
 
+//record PrimitiveConvertorRecord(int t2t, char[] methodName, char[] signature, int typeID, int receiverAndArgsSize, int returnTypeSize) {}
+public void invokeExactConversionsSupport(int typeFromTo) {
+	// invokestatic: java/lang/runtime/ExactConversionsSupport.is{Functions}(argumentType)
+	char[] signature;
+	int typeID = typeFromTo & TypeIds.COMPILE_TYPE_MASK;
+	int receiverAndArgsSize = TypeIds.getCategory(typeID);
+	int returnTypeSize = 1; // boolean always
+	char[] methodName;
+	switch (typeFromTo) { // TODO: put this in an array of records.
+		case TypeIds.Int2Float :
+			methodName = ConstantPool.isIntToFloatExact;
+			signature = ConstantPool.isIntToFloatExactSignature;
+			typeID = TypeIds.T_int;
+			break;
+		case TypeIds.Long2Float :
+			methodName = ConstantPool.isLongToFloatExact;
+			signature = ConstantPool.isLongToFloatExactSignature;
+			typeID = TypeIds.T_long;
+			break;
+		case TypeIds.Long2Double :
+			methodName = ConstantPool.isLongToDoubleExact;
+			signature = ConstantPool.isLongToDoubleExactSignature;
+			typeID = TypeIds.T_long;
+			break;
+		case TypeIds.Float2Double :
+			methodName = ConstantPool.isFloatToDoubleExact;
+			signature = ConstantPool.isFloatToDoubleExactSignature;
+			typeID = TypeIds.T_float;
+			break;
+		case TypeIds.Double2Byte :
+			methodName = ConstantPool.isDoubleToByteExact;
+			signature = ConstantPool.isDoubleToByteExactSignature;
+			typeID = TypeIds.T_byte;
+			break;
+		case TypeIds.Double2Short :
+			methodName = ConstantPool.isDoubleToShortExact;
+			signature = ConstantPool.isDoubleToShortExactSignature;
+			typeID = TypeIds.T_short;
+			break;
+		case TypeIds.Double2Char :
+			methodName = ConstantPool.isDoubleToCharExact;
+			signature = ConstantPool.isDoubleToCharExactSignature;
+			typeID = TypeIds.T_char;
+			break;
+		case TypeIds.Double2Int :
+			methodName = ConstantPool.isDoubleToIntExact;
+			signature = ConstantPool.isDoubleToIntExactSignature;
+			typeID = TypeIds.T_int;
+			break;
+		case TypeIds.Double2Long :
+			methodName = ConstantPool.isDoubleToLongExact;
+			signature = ConstantPool.isDoubleToLongExactSignature;
+			typeID = TypeIds.T_long;
+			break;
+		case TypeIds.Double2Float :
+			methodName = ConstantPool.isDoubleToFloatExact;
+			signature = ConstantPool.isDoubleToFloatExactSignature;
+			typeID = TypeIds.T_float;
+			break;
+		case TypeIds.Float2Byte :
+			methodName = ConstantPool.isFloatToByteExact;
+			signature = ConstantPool.isFloatToByteExactSignature;
+			typeID = TypeIds.T_byte;
+			break;
+		case TypeIds.Float2Short :
+			methodName = ConstantPool.isFloatToShortExact;
+			signature = ConstantPool.isFloatToShortExactSignature;
+			typeID = TypeIds.T_short;
+			break;
+		case TypeIds.Float2Char :
+			methodName = ConstantPool.isFloatToCharExact;
+			signature = ConstantPool.isFloatToCharExactSignature;
+			typeID = TypeIds.T_char;
+			break;
+		case TypeIds.Float2Int :
+			methodName = ConstantPool.isFloatToIntExact;
+			signature = ConstantPool.isFloatToIntExactSignature;
+			typeID = TypeIds.T_int;
+			break;
+		case TypeIds.Float2Long :
+			methodName = ConstantPool.isFloatToLongExact;
+			signature = ConstantPool.isFloatToLongExactSignature;
+			typeID = TypeIds.T_long;
+			break;
+		case TypeIds.Long2Byte :
+			methodName = ConstantPool.isLongToByteExact;
+			signature = ConstantPool.isLongToByteExactSignature;
+			typeID = TypeIds.T_byte;
+			break;
+		case TypeIds.Long2Short :
+			methodName = ConstantPool.isLongToShortExact;
+			signature = ConstantPool.isLongToShortExactSignature;
+			typeID = TypeIds.T_short;
+			break;
+		case TypeIds.Long2Char :
+			methodName = ConstantPool.isLongToCharExact;
+			signature = ConstantPool.isLongToCharExactSignature;
+			typeID = TypeIds.T_char;
+			break;
+		case TypeIds.Long2Int :
+			methodName = ConstantPool.isLongToIntExact;
+			signature = ConstantPool.isLongToIntExactSignature;
+			typeID = TypeIds.T_int;
+			break;
+		case TypeIds.Int2Byte :
+		case TypeIds.Char2Byte :
+		case TypeIds.Short2Byte :
+			methodName = ConstantPool.isIntToByteExact;
+			signature = ConstantPool.isIntToByteExactSignature;
+			typeID = TypeIds.T_byte;
+			break;
+		case TypeIds.Int2Short :
+		case TypeIds.Char2Short :
+			methodName = ConstantPool.isIntToShortExact;
+			signature = ConstantPool.isIntToShortExactSignature;
+			typeID = TypeIds.T_short;
+			break;
+		case TypeIds.Int2Char :
+		case TypeIds.Short2Char :
+		case TypeIds.Byte2Char:
+			methodName = ConstantPool.isIntToCharExact;
+			signature = ConstantPool.isIntToCharExactSignature;
+			typeID = TypeIds.T_char;
+			break;
+		default :
+			return; // should not occur
+	}
+	char[] declaringClass = ConstantPool.JAVA_LANG_RUNTIME_EXACTCONVERSIONSSUPPORT;
+	invoke(
+			Opcodes.OPC_invokestatic,
+			receiverAndArgsSize, // receiverAndArgsSize
+			returnTypeSize, // return type size
+			declaringClass,
+			methodName,
+			signature,
+			typeID,
+			TypeBinding.BOOLEAN);
+}
+
 public void invokeThrowableToString() {
 	char[] declaringClass = ConstantPool.JavaLangThrowableConstantPoolName;
 	invoke(
@@ -5611,7 +5553,8 @@ public void invokeThrowableGetMessage() {
 public void ior() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5622,7 +5565,8 @@ public void ior() {
 public void irem() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5633,8 +5577,7 @@ public void irem() {
 public void ireturn() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
-	// the stackDepth should be equal to 0
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5669,7 +5612,8 @@ public boolean isDefinitelyAssigned(Scope scope, int initStateIndex, LocalVariab
 public void ishl() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5680,7 +5624,8 @@ public void ishl() {
 public void ishr() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5691,7 +5636,7 @@ public void ishr() {
 public void istore(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.maxLocals <= iArg) {
 		this.maxLocals = iArg + 1;
 	}
@@ -5716,7 +5661,7 @@ public void istore(int iArg) {
 public void istore_0() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.maxLocals == 0) {
 		this.maxLocals = 1;
 	}
@@ -5730,7 +5675,7 @@ public void istore_0() {
 public void istore_1() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.maxLocals <= 1) {
 		this.maxLocals = 2;
 	}
@@ -5744,7 +5689,7 @@ public void istore_1() {
 public void istore_2() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.maxLocals <= 2) {
 		this.maxLocals = 3;
 	}
@@ -5758,7 +5703,7 @@ public void istore_2() {
 public void istore_3() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	if (this.maxLocals <= 3) {
 		this.maxLocals = 4;
 	}
@@ -5772,7 +5717,8 @@ public void istore_3() {
 public void isub() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5783,7 +5729,8 @@ public void isub() {
 public void iushr() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5794,36 +5741,13 @@ public void iushr() {
 public void ixor() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ixor;
-}
-
-final public void jsr(BranchLabel lbl) {
-	if (this.wideMode) {
-		jsr_w(lbl);
-		return;
-	}
-	this.countLabels = 0;
-	if (this.classFileOffset >= this.bCodeStream.length) {
-		resizeByteArray();
-	}
-	this.position++;
-	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_jsr;
-	lbl.branch();
-}
-
-final public void jsr_w(BranchLabel lbl) {
-	this.countLabels = 0;
-	if (this.classFileOffset >= this.bCodeStream.length) {
-		resizeByteArray();
-	}
-	this.position++;
-	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_jsr_w;
-	lbl.branchWide();
 }
 
 public void l2d() {
@@ -5833,13 +5757,15 @@ public void l2d() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_l2d;
-	pushTypeBinding(1, TypeBinding.DOUBLE);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.DOUBLE);
 }
 
 public void l2f() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(1, TypeBinding.FLOAT);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5850,7 +5776,8 @@ public void l2f() {
 public void l2i() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(1, TypeBinding.INT);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5861,7 +5788,8 @@ public void l2i() {
 public void ladd() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5876,13 +5804,14 @@ public void laload() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_laload;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 }
 
 public void land() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5893,7 +5822,7 @@ public void land() {
 public void lastore() {
 	this.countLabels = 0;
 	this.stackDepth -= 4;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5904,7 +5833,9 @@ public void lastore() {
 public void lcmp() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -5915,7 +5846,7 @@ public void lcmp() {
 public void lconst_0() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -5928,7 +5859,7 @@ public void lconst_0() {
 public void lconst_1() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -5942,7 +5873,7 @@ public void ldc(float constant) {
 	this.countLabels = 0;
 	int index = this.constantPool.literalIndex(constant);
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.FLOAT);
+	this.operandStack.push(TypeBinding.FLOAT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (index > 255) {
@@ -5968,7 +5899,7 @@ public void ldc(int constant) {
 	this.countLabels = 0;
 	int index = this.constantPool.literalIndex(constant);
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (index > 255) {
@@ -6093,7 +6024,7 @@ public void ldc(TypeBinding typeBinding) {
 	this.countLabels = 0;
 	int index = this.constantPool.literalIndexForType(typeBinding);
 	this.stackDepth++;
-	pushTypeBinding(typeBinding);
+	this.operandStack.push(getPopularBinding(ConstantPool.JavaLangClassConstantPoolName));
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (index > 255) {
@@ -6119,7 +6050,7 @@ public void ldc2_w(double constant) {
 	this.countLabels = 0;
 	int index = this.constantPool.literalIndex(constant);
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.DOUBLE);
+	this.operandStack.push(TypeBinding.DOUBLE);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	// Generate a ldc2_w
@@ -6135,7 +6066,7 @@ public void ldc2_w(long constant) {
 	this.countLabels = 0;
 	int index = this.constantPool.literalIndex(constant);
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	// Generate a ldc2_w
@@ -6149,7 +6080,7 @@ public void ldc2_w(long constant) {
 
 public void ldcForIndex(int index) {
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.INT);
+	this.operandStack.push(ConstantPool.JavaLangStringConstantPoolName);
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
 	}
@@ -6175,7 +6106,8 @@ public void ldcForIndex(int index) {
 public void ldiv() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6189,7 +6121,7 @@ public void lload(int iArg) {
 	if (this.maxLocals <= iArg + 1) {
 		this.maxLocals = iArg + 2;
 	}
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (iArg > 255) { // Widen
@@ -6213,7 +6145,7 @@ public void lload(int iArg) {
 public void lload_0() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.maxLocals < 2) {
 		this.maxLocals = 2;
 	}
@@ -6229,7 +6161,7 @@ public void lload_0() {
 public void lload_1() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.maxLocals < 3) {
 		this.maxLocals = 3;
 	}
@@ -6245,7 +6177,7 @@ public void lload_1() {
 public void lload_2() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.maxLocals < 4) {
 		this.maxLocals = 4;
 	}
@@ -6261,7 +6193,7 @@ public void lload_2() {
 public void lload_3() {
 	this.countLabels = 0;
 	this.stackDepth += 2;
-	pushTypeBinding(TypeBinding.LONG);
+	this.operandStack.push(TypeBinding.LONG);
 	if (this.maxLocals < 5) {
 		this.maxLocals = 5;
 	}
@@ -6277,7 +6209,8 @@ public void lload_3() {
 public void lmul() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6292,7 +6225,7 @@ public void lneg() {
 	}
 	this.position++;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_lneg;
-	pushTypeBinding(1, TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 }
 
 public final void load(LocalVariableBinding localBinding) {
@@ -6406,7 +6339,7 @@ public final void load(TypeBinding typeBinding, int resolvedPosition) {
 public void lookupswitch(CaseLabel defaultLabel, int[] keys, int[] sortedIndexes, CaseLabel[] casesLabel) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	int length = keys.length;
 	int pos = this.position;
 	defaultLabel.placeInstruction();
@@ -6425,18 +6358,20 @@ public void lookupswitch(CaseLabel defaultLabel, int[] keys, int[] sortedIndexes
 		this.position++;
 		this.bCodeStream[this.classFileOffset++] = 0;
 	}
-	defaultLabel.branch();
+	defaultLabel.branchWide();
 	writeSignedWord(length);
 	for (int i = 0; i < length; i++) {
 		writeSignedWord(keys[sortedIndexes[i]]);
-		casesLabel[sortedIndexes[i]].branch();
+		casesLabel[sortedIndexes[i]].branchWide();
 	}
+	this.lastAbruptCompletion = this.position; // multiway goto, with no fall through
 }
 
 public void lor() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6447,7 +6382,8 @@ public void lor() {
 public void lrem() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6458,8 +6394,7 @@ public void lrem() {
 public void lreturn() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
-	// the stackDepth should be equal to 0
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6471,7 +6406,8 @@ public void lreturn() {
 public void lshl() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6482,7 +6418,8 @@ public void lshl() {
 public void lshr() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6493,7 +6430,7 @@ public void lshr() {
 public void lstore(int iArg) {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.maxLocals <= iArg + 1) {
 		this.maxLocals = iArg + 2;
 	}
@@ -6518,7 +6455,7 @@ public void lstore(int iArg) {
 public void lstore_0() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.maxLocals < 2) {
 		this.maxLocals = 2;
 	}
@@ -6532,7 +6469,7 @@ public void lstore_0() {
 public void lstore_1() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.maxLocals < 3) {
 		this.maxLocals = 3;
 	}
@@ -6546,7 +6483,7 @@ public void lstore_1() {
 public void lstore_2() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.maxLocals < 4) {
 		this.maxLocals = 4;
 	}
@@ -6560,7 +6497,7 @@ public void lstore_2() {
 public void lstore_3() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.LONG);
 	if (this.maxLocals < 5) {
 		this.maxLocals = 5;
 	}
@@ -6574,7 +6511,8 @@ public void lstore_3() {
 public void lsub() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6585,7 +6523,8 @@ public void lsub() {
 public void lushr() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6596,7 +6535,8 @@ public void lushr() {
 public void lxor() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	pushTypeBinding(2, TypeBinding.LONG);
+	this.operandStack.pop(TypeBinding.LONG);
+	this.operandStack.peek(TypeBinding.LONG);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6607,7 +6547,7 @@ public void lxor() {
 public void monitorenter() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6618,7 +6558,7 @@ public void monitorenter() {
 public void monitorexit() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6633,7 +6573,9 @@ public void multianewarray(
 		ArrayAllocationExpression allocationExpression) {
 	this.countLabels = 0;
 	this.stackDepth += (1 - dimensions);
-	pushTypeBinding(dimensions, typeBinding);
+	for (int i = 0; i < dimensions; i++)
+		this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(typeBinding);
 	if (this.classFileOffset + 3 >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6643,16 +6585,14 @@ public void multianewarray(
 	this.bCodeStream[this.classFileOffset++] = (byte) dimensions;
 }
 
-// We didn't call it new, because there is a conflict with the new keyword
 public void new_(TypeBinding typeBinding) {
 	this.new_(null, typeBinding);
 }
 
-// We didn't call it new, because there is a conflict with the new keyword
 public void new_(TypeReference typeReference, TypeBinding typeBinding) {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(typeBinding);
+	this.operandStack.push(typeBinding);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 3 >= this.bCodeStream.length) {
@@ -6663,15 +6603,28 @@ public void new_(TypeReference typeReference, TypeBinding typeBinding) {
 	writeUnsignedShort(this.constantPool.literalIndexForType(typeBinding));
 }
 
-public void newarray(int array_Type) {
+public void newarray(int arrayTypeCode) {
 	this.countLabels = 0;
 	if (this.classFileOffset + 1 >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
 	this.position += 2;
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_newarray;
-	this.bCodeStream[this.classFileOffset++] = (byte) array_Type;
-	pushTypeBinding(1, TypeBinding.wellKnownBaseType(array_Type));
+	this.bCodeStream[this.classFileOffset++] = (byte) arrayTypeCode;
+
+	ClassScope scope = this.classFile.referenceBinding.scope;
+	this.operandStack.pop(TypeBinding.INT);
+	this.operandStack.push(switch (arrayTypeCode) {
+				case ClassFileConstants.INT_ARRAY -> scope.createArrayType(TypeBinding.INT, 1);
+				case ClassFileConstants.BYTE_ARRAY -> scope.createArrayType(TypeBinding.BYTE, 1);
+				case ClassFileConstants.BOOLEAN_ARRAY -> scope.createArrayType(TypeBinding.BOOLEAN, 1);
+				case ClassFileConstants.SHORT_ARRAY -> scope.createArrayType(TypeBinding.SHORT, 1);
+				case ClassFileConstants.CHAR_ARRAY -> scope.createArrayType(TypeBinding.CHAR, 1);
+				case ClassFileConstants.LONG_ARRAY -> scope.createArrayType(TypeBinding.LONG, 1);
+				case ClassFileConstants.FLOAT_ARRAY -> scope.createArrayType(TypeBinding.FLOAT, 1);
+				case ClassFileConstants.DOUBLE_ARRAY -> scope.createArrayType(TypeBinding.DOUBLE, 1);
+				default -> throw new UnsupportedOperationException("Unknown base type");	//$NON-NLS-1$
+			});
 }
 
 public void newArray(ArrayBinding arrayBinding) {
@@ -6714,7 +6667,7 @@ public void newJavaLangAssertionError() {
 	// new: java.lang.AssertionError
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangAssertionErrorConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangAssertionErrorConstantPoolName);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -6729,7 +6682,7 @@ public void newJavaLangError() {
 	// new: java.lang.Error
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangErrorConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangErrorConstantPoolName);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -6743,7 +6696,7 @@ public void newJavaLangIncompatibleClassChangeError() {
 	// new: java.lang.Error
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangIncompatibleClassChangeErrorConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangIncompatibleClassChangeErrorConstantPoolName);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -6757,7 +6710,7 @@ public void newJavaLangMatchException() {
 	// new: java.lang.MatchException
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangMatchExceptionConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangMatchExceptionConstantPoolName);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -6782,7 +6735,7 @@ public void newNoClassDefFoundError() {
 	// new: java.lang.NoClassDefFoundError
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangNoClassDefFoundErrorConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangNoClassDefFoundErrorConstantPoolName);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
@@ -6798,7 +6751,7 @@ public void newStringContatenation() {
 	// new: java.lang.StringBuilder
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(ConstantPool.JavaLangStringBufferConstantPoolName);
+	this.operandStack.push(ConstantPool.JavaLangStringBuilderConstantPoolName);
 	if (this.stackDepth > this.stackMax) {
 		this.stackMax = this.stackDepth;
 	}
@@ -6827,39 +6780,39 @@ public void newWrapperFor(int typeID) {
 	switch (typeID) {
 		case TypeIds.T_int : // new: java.lang.Integer
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangIntegerConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangIntegerConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangIntegerConstantPoolName);
 		break;
 		case TypeIds.T_boolean : // new: java.lang.Boolean
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangBooleanConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangBooleanConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangBooleanConstantPoolName);
 			break;
 		case TypeIds.T_byte : // new: java.lang.Byte
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangByteConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangByteConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangByteConstantPoolName);
 			break;
 		case TypeIds.T_char : // new: java.lang.Character
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangCharacterConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangCharacterConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangCharacterConstantPoolName);
 			break;
 		case TypeIds.T_float : // new: java.lang.Float
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangFloatConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangFloatConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangFloatConstantPoolName);
 			break;
 		case TypeIds.T_double : // new: java.lang.Double
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangDoubleConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangDoubleConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangDoubleConstantPoolName);
 			break;
 		case TypeIds.T_short : // new: java.lang.Short
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangShortConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangShortConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangShortConstantPoolName);
 			break;
 		case TypeIds.T_long : // new: java.lang.Long
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangLongConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangLongConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangLongConstantPoolName);
 			break;
 		case TypeIds.T_void : // new: java.lang.Void
 			writeUnsignedShort(this.constantPool.literalIndexForType(ConstantPool.JavaLangVoidConstantPoolName));
-			pushTypeBinding(ConstantPool.JavaLangVoidConstantPoolName);
+			this.operandStack.push(ConstantPool.JavaLangVoidConstantPoolName);
 	}
 }
 
@@ -6895,10 +6848,17 @@ public void optimizeBranch(int oldPosition, BranchLabel lbl) {
 	}
 }
 
+public void pop(TypeBinding type) {
+	if (TypeIds.getCategory(type.id) == 2)
+		pop2();
+	else
+		pop();
+}
+
 public void pop() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(OperandCategory.ONE);
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6906,23 +6866,10 @@ public void pop() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_pop;
 }
 
-private void adjustTypeBindingStackForPop2() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	TypeBinding v1 = this.switchSaveTypeBindings.peek();
-	if (TypeIds.getCategory(v1.id) == 1) {
-		TypeBinding v2 = this.switchSaveTypeBindings.peek();
-		if (TypeIds.getCategory(v2.id) == 1) {
-			popTypeBinding(2);
-		}
-	} else {
-		popTypeBinding();
-	}
-}
 public void pop2() {
 	this.countLabels = 0;
 	this.stackDepth -= 2;
-	adjustTypeBindingStackForPop2();
+	this.operandStack.pop2();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -6932,8 +6879,8 @@ public void pop2() {
 
 public void pushExceptionOnStack(TypeBinding binding) {
 	this.stackDepth = 1;
-//	clearTypeBindingStack();
-	pushTypeBinding(binding);
+	this.operandStack.clear();
+	this.operandStack.push(binding);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 }
@@ -6941,7 +6888,7 @@ public void pushExceptionOnStack(TypeBinding binding) {
 public void pushOnStack(TypeBinding binding) {
 	if (++this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
-	pushTypeBinding(binding);
+	this.operandStack.push(binding);
 }
 
 public void record(LocalVariableBinding local) {
@@ -7160,6 +7107,9 @@ public void reset(AbstractMethodDeclaration referenceMethod, ClassFile targetCla
 	init(targetClassFile);
 	this.methodDeclaration = referenceMethod;
 	this.lambdaExpression = null;
+
+	this.operandStack = createOperandStack(referenceMethod.scope.compilerOptions());
+
 	int[] lineSeparatorPositions2 = this.lineSeparatorPositions;
 	if (lineSeparatorPositions2 != null) {
 		int length = lineSeparatorPositions2.length;
@@ -7186,10 +7136,21 @@ public void reset(AbstractMethodDeclaration referenceMethod, ClassFile targetCla
 	initializeMaxLocals(referenceMethod.binding);
 }
 
+private OperandStack createOperandStack(CompilerOptions compilerOptions) {
+	if ((this.generateAttributes & (ClassFileConstants.ATTR_VARS
+			| ClassFileConstants.ATTR_STACK_MAP_TABLE
+			| ClassFileConstants.ATTR_STACK_MAP)) == 0) {
+		return new OperandStack.NullStack();
+	}
+
+	return this.targetLevel >= ClassFileConstants.JDK1_6 && JavaFeature.SWITCH_EXPRESSIONS.isSupported(compilerOptions.sourceLevel, compilerOptions.enablePreviewFeatures) ?
+										new OperandStack(this.classFile) : new OperandStack.NullStack();
+}
 public void reset(LambdaExpression lambda, ClassFile targetClassFile) {
 	init(targetClassFile);
 	this.lambdaExpression = lambda;
 	this.methodDeclaration = null;
+	this.operandStack = createOperandStack(lambda.scope.compilerOptions());
 	int[] lineSeparatorPositions2 = this.lineSeparatorPositions;
 	if (lineSeparatorPositions2 != null) {
 		int length = lineSeparatorPositions2.length;
@@ -7211,6 +7172,14 @@ public void reset(LambdaExpression lambda, ClassFile targetClassFile) {
 	initializeMaxLocals(lambda.binding);
 }
 
+public void reset(SyntheticMethodBinding smb, ClassFile targetClassFile) {
+	init(targetClassFile);
+	this.lambdaExpression = null;
+	this.methodDeclaration = null;
+	this.operandStack = new OperandStack.NullStack();
+	initializeMaxLocals(smb);
+}
+
 public void reset(ClassFile givenClassFile) {
 	this.targetLevel = givenClassFile.targetJDK;
 	int produceAttributes = givenClassFile.produceAttributes;
@@ -7227,6 +7196,7 @@ public void reset(ClassFile givenClassFile) {
  */
 public void resetForProblemClinit(ClassFile targetClassFile) {
 	init(targetClassFile);
+	this.operandStack = new OperandStack.NullStack();
 	initializeMaxLocals(null);
 }
 
@@ -7246,29 +7216,8 @@ private final void resizeByteArray() {
 	System.arraycopy(this.bCodeStream, 0, this.bCodeStream = new byte[requiredSize], 0, length);
 }
 
-final public void ret(int index) {
-	this.countLabels = 0;
-	if (index > 255) { // Widen
-		if (this.classFileOffset + 3 >= this.bCodeStream.length) {
-			resizeByteArray();
-		}
-		this.position += 2;
-		this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_wide;
-		this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ret;
-		writeUnsignedShort(index);
-	} else { // Don't Widen
-		if (this.classFileOffset + 1 >= this.bCodeStream.length) {
-			resizeByteArray();
-		}
-		this.position += 2;
-		this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_ret;
-		this.bCodeStream[this.classFileOffset++] = (byte) index;
-	}
-}
-
 public void return_() {
 	this.countLabels = 0;
-	// the stackDepth should be equal to 0
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -7280,7 +7229,7 @@ public void return_() {
 public void saload() {
 	this.countLabels = 0;
 	this.stackDepth--;
-	pushTypeBindingArray();
+	this.operandStack.xaload();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -7291,7 +7240,7 @@ public void saload() {
 public void sastore() {
 	this.countLabels = 0;
 	this.stackDepth -= 3;
-	popTypeBinding(3);
+	this.operandStack.xastore();
 	if (this.classFileOffset >= this.bCodeStream.length) {
 		resizeByteArray();
 	}
@@ -7424,7 +7373,7 @@ public void sendOperator(int operatorConstant, int type_ID) {
 public void sipush(int s) {
 	this.countLabels = 0;
 	this.stackDepth++;
-	pushTypeBinding(TypeBinding.SHORT);
+	this.operandStack.push(TypeBinding.INT);
 	if (this.stackDepth > this.stackMax)
 		this.stackMax = this.stackDepth;
 	if (this.classFileOffset >= this.bCodeStream.length) {
@@ -7558,11 +7507,10 @@ public void swap() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_swap;
 }
 
-public void tableswitch(CaseLabel defaultLabel, int low, int high, int[] keys,
-		int[] sortedIndexes, int[] mapping, CaseLabel[] casesLabel) {
+public void tableswitch(CaseLabel defaultLabel, int low, int high, int[] keys, int[] sortedIndexes, CaseLabel[] casesLabel) {
 	this.countLabels = 0;
 	this.stackDepth--;
-	popTypeBinding();
+	this.operandStack.pop(TypeBinding.INT);
 	int length = casesLabel.length;
 	int pos = this.position;
 	defaultLabel.placeInstruction();
@@ -7581,7 +7529,7 @@ public void tableswitch(CaseLabel defaultLabel, int low, int high, int[] keys,
 		this.position++;
 		this.bCodeStream[this.classFileOffset++] = 0;
 	}
-	defaultLabel.branch();
+	defaultLabel.branchWide();
 	writeSignedWord(low);
 	writeSignedWord(high);
 	int i = low, j = 0;
@@ -7592,14 +7540,15 @@ public void tableswitch(CaseLabel defaultLabel, int low, int high, int[] keys,
 		int index = sortedIndexes[j];
 		int key = keys[index];
 		if (key == i) {
-			casesLabel[mapping[index]].branch();
+			casesLabel[index].branchWide();
 			j++;
 			if (i == high) break; // if high is maxint, then avoids wrapping to minint.
 		} else {
-			defaultLabel.branch();
+			defaultLabel.branchWide();
 		}
 		i++;
 	}
+	this.lastAbruptCompletion = this.position; // multiway goto, with no fall through
 }
 
 public void throwAnyException(LocalVariableBinding anyExceptionVariable) {
@@ -7716,10 +7665,17 @@ protected void writeWidePosition(BranchLabel label) {
 		this.writeSignedWord(forward, offset);
 	}
 }
-private boolean isSwitchStackTrackingActive() {
-	return this.methodDeclaration != null && this.methodDeclaration.containsSwitchWithTry;
-}
-private TypeBinding retrieveLocalType(int currentPC, int resolvedPosition) {
+
+public TypeBinding retrieveLocalType(int currentPC, int resolvedPosition) {
+
+	if (this.operandStack instanceof OperandStack.NullStack)
+		return null;
+
+	if ((this.generateAttributes & (ClassFileConstants.ATTR_VARS
+			| ClassFileConstants.ATTR_STACK_MAP_TABLE
+			| ClassFileConstants.ATTR_STACK_MAP)) == 0)
+		return null; // can't retrieve what we didn't record.
+
 	for (int i = this.allLocalsCounter  - 1 ; i >= 0; i--) {
 		LocalVariableBinding localVariable = this.locals[i];
 		if (localVariable == null) continue;
@@ -7739,67 +7695,54 @@ private TypeBinding retrieveLocalType(int currentPC, int resolvedPosition) {
 			}
 		}
 	}
+
+	if (this.methodDeclaration != null && this.methodDeclaration.binding != null) {
+		ReferenceBinding declaringClass = this.methodDeclaration.binding.declaringClass;
+		if (resolvedPosition == 0 && !this.methodDeclaration.isStatic()) {
+			return declaringClass;
+		}
+		int enumOffset = declaringClass.isEnum() ? 2 : 0; // String name, int ordinal
+		int argSlotSize = 1 + enumOffset; // this==aload0
+		if (this.methodDeclaration.binding.isConstructor()) {
+			if (declaringClass.isEnum()) {
+				switch (resolvedPosition) {
+					case 1:
+						return this.methodDeclaration.scope.getJavaLangString();
+					case 2:
+						return TypeBinding.INT;
+					default: break;
+				}
+			}
+			if (declaringClass.isNestedType()) {
+				ReferenceBinding[] enclosingTypes = declaringClass.syntheticEnclosingInstanceTypes();
+				if (enclosingTypes != null) {
+					if (resolvedPosition < argSlotSize + enclosingTypes.length)
+						return enclosingTypes[resolvedPosition - argSlotSize];
+				}
+				final SyntheticArgumentBinding[] syntheticOuterLocalVariables = declaringClass.syntheticOuterLocalVariables();
+				if (syntheticOuterLocalVariables != null) {
+					for (SyntheticArgumentBinding extraSyntheticArgument : syntheticOuterLocalVariables) {
+						if (extraSyntheticArgument.resolvedPosition == resolvedPosition)
+							return extraSyntheticArgument.type;
+					}
+				}
+			}
+		}
+	} else if (this.lambdaExpression != null) {
+		ReferenceBinding declaringClass = this.lambdaExpression.binding.declaringClass;
+		if (resolvedPosition == 0 && !this.lambdaExpression.binding.isStatic()) {
+			return declaringClass;
+		}
+	}
+
 	return null;
 }
-private void pushTypeBinding(int resolvedPosition) {
-	if (!isSwitchStackTrackingActive())
-		return;
-	assert resolvedPosition < this.maxLocals;
-	TypeBinding type = retrieveLocalType(this.position, resolvedPosition);
-	if (type == null && resolvedPosition == 0 && !this.methodDeclaration.isStatic()) {
-		type = this.methodDeclaration.binding.declaringClass; // thisReference.resolvedType
-	}
-	assert type != null;
-	pushTypeBinding(type);
-}
-private void pushTypeBindingArray() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	assert this.switchSaveTypeBindings.size() >= 2; // atleast arrayref and index in the typebinding stack
-	TypeBinding[] arrayref_t = {popTypeBinding()/* index */, popTypeBinding()/* arrayref */};
-	TypeBinding type = arrayref_t[1]; // arrayref
-	assert type instanceof ArrayBinding;
-	pushTypeBinding(((ArrayBinding) type).leafComponentType);
-}
+
 private TypeBinding getPopularBinding(char[] typeName) {
 	Scope scope = this.classFile.referenceBinding.scope;
-	assert scope != null;
 	Supplier<ReferenceBinding> finder = scope.getCommonReferenceBinding(typeName);
 	return finder != null ? finder.get() : TypeBinding.NULL;
 }
-
-private void pushTypeBinding(char[] typeName) {
-	if (!isSwitchStackTrackingActive())
-		return;
-	pushTypeBinding(getPopularBinding(typeName));
-}
-private void pushTypeBinding(TypeBinding typeBinding) {
-	if (isSwitchStackTrackingActive()) {
-		assert typeBinding != null;
-		this.switchSaveTypeBindings.push(typeBinding);
-	}
-}
-private void pushTypeBinding(int nPop, TypeBinding typeBinding) {
-	if (!isSwitchStackTrackingActive())
-		return;
-	popTypeBinding(nPop);
-	pushTypeBinding(typeBinding);
-}
-private TypeBinding popTypeBinding() {
-	return isSwitchStackTrackingActive() ? this.switchSaveTypeBindings.pop() : null;
-}
-private void popTypeBinding(int nPop) {
-	if (!isSwitchStackTrackingActive())
-		return;
-	for (int i = 0; i< nPop; ++i)
-		popTypeBinding();
-}
-public void clearTypeBindingStack() {
-	if (!isSwitchStackTrackingActive())
-		return;
-	this.switchSaveTypeBindings.clear();
-}
-
 /**
  * Stack the scope responsible for any pattern access exceptions not trapped by subscopes.
  * Not all scopes bear responsibility: only method scopes (including clinit, init, lambdas)
@@ -7841,5 +7784,9 @@ public void handleRecordAccessorExceptions(BlockScope scope) {
 	swap();                      // [MatchException, MatchException, String, Throwable]
 	invokeJavaLangMatchExceptionConstructor(); // [MatchException]
 	athrow();
+}
+void debugStackDepth(int stackDepth1) throws IllegalArgumentException{
+	if (stackDepth1 < 0)
+		throw new IllegalArgumentException();
 }
 }

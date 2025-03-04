@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15,11 +15,15 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.runtime;
 
-import java.io.*;
-import java.util.*;
-
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 /**
  * The root of the VM launchers that launch VMs on the same machine.
@@ -117,6 +121,20 @@ protected String buildClassPath() {
 	}
 
 	return classPathString.toString();
+}
+protected void addDebugOptions(List<String> commandLine) {
+	long vmVersion = Util.getMajorMinorVMVersion();
+	addDebugOptions(commandLine, vmVersion);
+}
+private void addDebugOptions(List<String> commandLine, long vmVersion) {
+	if (vmVersion != -1) {
+		if (vmVersion < ClassFileConstants.JDK22) {
+			commandLine.add("-Xdebug");
+		}
+		if (vmVersion < ClassFileConstants.JDK23) {
+			commandLine.add("-Xnoagent");
+		}
+	}
 }
 /**
  * Launches the VM by exec'ing the command line and returns the resulting Process.

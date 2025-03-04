@@ -15,14 +15,12 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
-import org.eclipse.jdt.core.tests.util.Util;
-
-import junit.framework.Test;
 
 public class PreviewFeatureTest extends AbstractRegressionTest9 {
 
@@ -259,9 +257,9 @@ public class PreviewFeatureTest extends AbstractRegressionTest9 {
 			options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		try {
 			if (this.complianceLevel < ClassFileConstants.getLatestJDKLevel())
-				assertFalse(JavaFeature.STRING_TEMPLATES.isSupported(new CompilerOptions(options)));
+				assertFalse(JavaFeature.PRIMITIVES_IN_PATTERNS.isSupported(new CompilerOptions(options)));
 			else
-				assertTrue(JavaFeature.STRING_TEMPLATES.isSupported(new CompilerOptions(options)));
+				assertTrue(JavaFeature.PRIMITIVES_IN_PATTERNS.isSupported(new CompilerOptions(options)));
 		} finally {
 			options.put(CompilerOptions.OPTION_EnablePreviews, old);
 		}

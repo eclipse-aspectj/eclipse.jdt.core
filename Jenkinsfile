@@ -1,16 +1,16 @@
 pipeline {
 	options {
 		timeout(time: 90, unit: 'MINUTES')
-		buildDiscarder(logRotator(numToKeepStr:'15'))
+		buildDiscarder(logRotator(numToKeepStr: (env.BRANCH_NAME == 'master' || env.BRANCH_NAME ==~ 'BETA.*') ? '100':'5', artifactNumToKeepStr: (env.BRANCH_NAME == 'master' || env.BRANCH_NAME ==~ 'BETA.*') ? '15':'2'))
 		disableConcurrentBuilds(abortPrevious: true)
 		timestamps()
 	}
 	agent {
-		label "centos-latest"
+		label "ubuntu-latest"
 	}
 	tools {
 		maven 'apache-maven-latest'
-		jdk 'openjdk-jdk21-latest'
+		jdk 'openjdk-jdk23-latest'
 	}
 	stages {
 		stage('Build') {
@@ -31,14 +31,15 @@ pipeline {
 					mvn clean install -f org.eclipse.jdt.core.compiler.batch -DlocalEcjVersion=99.99 -Dmaven.repo.local=$WORKSPACE/.m2/repository -DcompilerBaselineMode=disable -DcompilerBaselineReplace=none
 					
 					mvn -U clean verify --batch-mode --fail-at-end -Dmaven.repo.local=$WORKSPACE/.m2/repository \
-						-Ptest-on-javase-22 -Pbree-libs -Papi-check -Pjavadoc -Pp2-repo \
+						-Ptest-on-javase-23 -Pbree-libs -Papi-check -Pjavadoc -Pp2-repo \
 						-Dmaven.test.failure.ignore=true \
 						-Dcompare-version-with-baselines.skip=false \
 						-Djava.io.tmpdir=$WORKSPACE/tmp -Dproject.build.sourceEncoding=UTF-8 \
-						-Dtycho.surefire.argLine="--add-modules ALL-SYSTEM -Dcompliance=1.8,11,17,21,22 -Djdt.performance.asserts=disabled" \
+						-Dtycho.surefire.argLine="--add-modules ALL-SYSTEM -Dcompliance=1.8,11,17,21,23 -Djdt.performance.asserts=disabled" \
 						-DDetectVMInstallationsJob.disabled=true \
 						-Dtycho.apitools.debug \
 						-Dtycho.debug.artifactcomparator \
+						-e \
 						-Dcbi-ecj-version=99.99
 					"""
 			}

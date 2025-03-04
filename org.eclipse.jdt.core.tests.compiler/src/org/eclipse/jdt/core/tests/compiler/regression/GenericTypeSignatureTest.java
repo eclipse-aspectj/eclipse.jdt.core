@@ -18,9 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-
 import junit.framework.Test;
-
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.ToolFactory;
@@ -79,7 +77,7 @@ public class GenericTypeSignatureTest extends AbstractRegressionTest {
 //		TESTS_RANGE = new int[] { 21, 50 };
 //	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_1_5);
+		return buildMinimalComplianceTestSuite(testClass(), FIRST_SUPPORTED_JAVA_VERSION);
 	}
 
 	public static Class testClass() {
@@ -159,7 +157,7 @@ public class GenericTypeSignatureTest extends AbstractRegressionTest {
 					cmdLineAsString = cmdLine.toString();
 				}
 				// Launch process
-				process = Runtime.getRuntime().exec(cmdLineAsString, null, GenericTypeSignatureTest.this.dirPath.toFile());
+				process = Runtime.getRuntime().exec(cmdLineAsString.split("\\s"), null, GenericTypeSignatureTest.this.dirPath.toFile());
 	            // Log errors
 	            Logger errorLogger = new Logger(process.getErrorStream(), "ERROR");
 

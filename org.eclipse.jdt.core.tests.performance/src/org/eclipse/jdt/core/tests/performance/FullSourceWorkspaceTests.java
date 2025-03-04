@@ -22,22 +22,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.DateFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.StringTokenizer;
-
+import java.util.*;
+import junit.framework.Test;
+import junit.framework.TestSuite;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -54,17 +46,7 @@ import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
-import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaModelStatusConstants;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IOrdinaryClassFile;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IType;
-import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
@@ -85,9 +67,6 @@ import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 import org.eclipse.test.internal.performance.data.DataPoint;
 import org.eclipse.test.performance.Dimension;
 import org.eclipse.test.performance.Performance;
-
-import junit.framework.Test;
-import junit.framework.TestSuite;
 
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -125,17 +104,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 		}
 	}
 	protected static String compliance() {
-		String compliance = null;
-		if ("1.3".equals(COMPLIANCE)) {
-			compliance = CompilerOptions.VERSION_1_3;
-		} else if ("1.4".equals(COMPLIANCE)) {
-			compliance = CompilerOptions.VERSION_1_4;
-		} else if ("1.5".equals(COMPLIANCE) || "5.0".equals(COMPLIANCE)) {
-			compliance = CompilerOptions.VERSION_1_5;
-		} else if ("1.6".equals(COMPLIANCE) || "6.0".equals(COMPLIANCE)) {
-			compliance = CompilerOptions.VERSION_1_6;
-		}
-		return compliance;
+		return null;
 	}
 
 	// Garbage collect constants
@@ -164,19 +133,11 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 			IWorkspace workspace = ResourcesPlugin.getWorkspace();
 			IWorkspaceRoot workspaceRoot = workspace.getRoot();
 			File pluginDir = workspaceRoot.getProject(JavaCore.PLUGIN_ID).getLocation().toFile();
-			try {
-				outputDir = pluginDir.getCanonicalPath() + File.separator + "bin";
-			} catch (IOException e) {
-				// skip
-			}
+			outputDir = pluginDir.toPath().normalize().toAbsolutePath().toString() + File.separator + "bin";
 		} else {
 			outputDir = Util.toNativePath(container) + File.separator + "bin";
 		}
-		if (outputDir == null) {
-			COMPILER_OUTPUT_DIR = "none";
-		} else {
-			COMPILER_OUTPUT_DIR = "\""+outputDir+"\"";
-		}
+		COMPILER_OUTPUT_DIR = "\""+outputDir+"\"";
 	}
 
 
@@ -223,7 +184,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 
 	// Time measuring
 	int nbMeasures;
-	long startMeasuring, testDuration;
+	private long startNanos, testDurationNanos;
 
 	// Error threshold. Statistic should not be take into account when it's reached
 	protected final static double ERROR_THRESHOLD = 0.005; // default is 0.5%
@@ -458,7 +419,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 		File tempFile = new File(tmpRoot, nameInProject);
 		if (!tempFile.isFile() || tempFile.length() != size) {
 			String githubUrl = GITHUB_TESTS_BINARIES + nameInProject;
-			try(BufferedInputStream bin = new BufferedInputStream(new URL(githubUrl).openStream())){
+			try(BufferedInputStream bin = new BufferedInputStream(URI.create(githubUrl).toURL().openStream())){
 				Files.copy(bin, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
 		}
@@ -641,7 +602,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 		System.out.println("Running "+this.scenarioReadableName+"...");
 
 		// Time measuring
-		this.testDuration = 0;
+		this.testDurationNanos = 0;
 		this.nbMeasures = 0;
 
 		// Wait 2 seconds
@@ -656,7 +617,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 		// Get wksp info
 		IWorkspace workspace = ResourcesPlugin.getWorkspace();
 		final IWorkspaceRoot workspaceRoot = workspace.getRoot();
-		String targetWorkspacePath = workspaceRoot.getLocation().toFile().getCanonicalPath();
+		String targetWorkspacePath = workspaceRoot.getLocation().toFile().toPath().normalize().toAbsolutePath().toString();
 
 		// Modify resources workspace preferences to avoid disturbing tests while running them
 		IEclipsePreferences resourcesPreferences = InstanceScope.INSTANCE.getNode(ResourcesPlugin.PI_RESOURCES);
@@ -668,7 +629,7 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 		File wkspDir = new File(targetWorkspacePath);
 		FullSourceProjectsFilter filter = new FullSourceProjectsFilter();
 		File[] directories = wkspDir.listFiles(filter);
-		long start = System.currentTimeMillis();
+		long startNano = System.nanoTime();
 		int dirLength = directories.length;
 		if (dirLength < 62) {
 			File file = fetchFromBinariesProject("full-source-R3_0.zip", 34_494_852);
@@ -676,14 +637,14 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 			System.out.println("Unzipping "+fullSourceZipPath);
 			System.out.print("	in "+targetWorkspacePath+"...");
 			Util.unzip(fullSourceZipPath, targetWorkspacePath);
-			System.out.println(" done in "+(System.currentTimeMillis()-start)+"ms.");
+			System.out.println(" done in " + (System.nanoTime() - startNano) / 1_000_000L + "ms.");
 			directories = wkspDir.listFiles(filter);
 			dirLength = directories.length;
 		}
 
 		// Init environment with existing porjects
 		System.out.print("Create and open projects in environment...");
-		start = System.currentTimeMillis();
+		startNano = System.nanoTime();
 		for (int i = 0; i < dirLength; i++) {
 			String dirName = directories[i].getName();
 			IProject project = workspaceRoot.getProject(dirName);
@@ -693,12 +654,12 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 				ENV.addProject(dirName);
 			}
 		}
-		System.out.println("("+(System.currentTimeMillis()-start)+"ms)");
+		System.out.println("(" + (System.nanoTime() - startNano) / 1_000_000L + "ms)");
 
 		// Create lib entries for the JDKs
 		String jreLibPath = JavaCore.getClasspathVariable("JRE_LIB").toOSString();
 		System.out.print("Create lib entries for the JDKs...");
-		start = System.currentTimeMillis();
+		startNano = System.nanoTime();
 		String[] jdkLibs = Util.getJavaClassLibs();
 		int jdkLibsLength = jdkLibs.length;
 		IClasspathEntry[] jdkEntries = new IClasspathEntry[jdkLibsLength];
@@ -708,11 +669,11 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 				jdkEntries[jdkEntriesCount++] = JavaCore.newLibraryEntry(new Path(jdkLibs[i]), null, null);
 			}
 		}
-		System.out.println(jdkLibsLength+" found ("+(System.currentTimeMillis()-start)+"ms)");
+		System.out.println(jdkLibsLength + " found (" + (System.nanoTime() - startNano) / 1_000_000L + "ms)");
 
 		// Set classpaths (workaround bug 73253 Project references not set on project open)
 		System.out.print("Set projects classpaths...");
-		start = System.currentTimeMillis();
+		startNano = System.nanoTime();
 		ALL_PROJECTS = JavaCore.create(workspaceRoot).getJavaProjects();
 		int projectsLength = ALL_PROJECTS.length;
 		for (int i = 0; i < projectsLength; i++) {
@@ -745,47 +706,13 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 //			System.arraycopy(bigProjectEntries, 0, bigProjectEntries = new IClasspathEntry[bpeLength+1], 0, bpeLength);
 //			bigProjectEntries[bpeLength] = JavaCore.newProjectEntry(JDT_CORE_PROJECT.getPath());
 		}
-		System.out.println("("+(System.currentTimeMillis()-start)+"ms)");
+		System.out.println("(" + (System.nanoTime() - startNano) / 1_000_000L + "ms)");
 
 		// Initialize Parser wokring copy
 		IJavaElement element = JDT_CORE_PROJECT.findType("org.eclipse.jdt.internal.compiler.parser.Parser");
 		assertTrue("Parser should exist in org.eclipse.jdt.core project!", element != null && element.exists());
 		PARSER_WORKING_COPY = (ICompilationUnit) element.getParent();
 	}
-
-	/*
-	 * Create JUnit project and add it to the workspace
-	 *
-	private void setUpJunitProject() throws CoreException, IOException {
-		IWorkspace workspace = ResourcesPlugin.getWorkspace();
-		IWorkspaceRoot workspaceRoot = workspace.getRoot();
-		final String targetWorkspacePath = workspaceRoot.getLocation().toFile().getCanonicalPath();
-
-		// Print for log in case of project creation troubles...
-		System.out.println("Create '"+JUNIT_PROJECT_NAME+"' project in "+workspaceRoot.getLocation()+":");
-		long start = System.currentTimeMillis();
-
-		// Print for log in case of project creation troubles...
-		String genericsZipPath = getPluginDirectoryPath() + File.separator + JUNIT_PROJECT_NAME + "src.zip";
-		start = System.currentTimeMillis();
-		System.out.println("Unzipping "+genericsZipPath);
-		System.out.print("	in "+targetWorkspacePath+"...");
-
-		// Unzip file
-		Util.unzip(genericsZipPath, targetWorkspacePath);
-		System.out.println(" "+(System.currentTimeMillis()-start)+"ms.");
-
-		// Add project to workspace
-		System.out.print("	- add project to full source workspace...");
-		start = System.currentTimeMillis();
-		ENV.addProject(JUNIT_PROJECT_NAME);
-		JUNIT_PROJECT = createJavaProject(JUNIT_PROJECT_NAME, new String[]{ "src" }, "bin", "1.5");
-		JUNIT_PROJECT.setRawClasspath(JUNIT_PROJECT.getResolvedClasspath(true), null);
-
-		// Print for log in case of project creation troubles...
-		System.out.println(" "+(System.currentTimeMillis()-start)+"ms.");
-	}
-	*/
 
 	/**
 	 * @deprecated Use {@link #tagAsGlobalSummary(String,Dimension,boolean)} instead
@@ -831,20 +758,22 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 	}
 	public void startMeasuring() {
 		if (PRINT && this.nbMeasures==0) System.out.println("	Measures (~Elapsed Process time):");
-		this.startMeasuring = System.currentTimeMillis();
+		this.startNanos = System.nanoTime();
 		super.startMeasuring();
 	}
 	public void stopMeasuring() {
 		super.stopMeasuring();
 		this.nbMeasures++;
-		long duration = System.currentTimeMillis() - this.startMeasuring;
-		if (PRINT) System.out.println("		- n° "+this.nbMeasures+": "+duration+"ms");
-		this.testDuration += duration;
+		long durationNanos = System.nanoTime() - this.startNanos;
+		if (PRINT) {
+			System.out.println("		- n° " + this.nbMeasures + ": " + durationNanos / 1_000_000L + "ms");
+		}
+		this.testDurationNanos += durationNanos;
 	}
 	public void commitMeasurements() {
 		if (PRINT) {
-			System.out.println("	Test duration = "+this.testDuration+"ms");
-			System.out.println("	Time average = "+(((this.testDuration*1000)/this.nbMeasures)/1000));
+			System.out.println("	Test duration = " + this.testDurationNanos / 1_000_000L + "ms");
+			System.out.println("	Time average = " + ((this.testDurationNanos / this.nbMeasures) / 1_000_000L));
 		}
 		super.commitMeasurements();
 	}
@@ -965,16 +894,6 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 				// set classpath and output location
 				IJavaProject javaProject = ENV.getJavaProject(projectName);
 				javaProject.setRawClasspath(entries, projectPath.append(outputPath), null);
-
-				// set compliance level options
-				if ("1.5".equals(compliance)) {
-					Map options = new HashMap();
-					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_1_5);
-					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_5);
-					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_5);
-					javaProject.setOptions(options);
-				}
-
 				result[0] = javaProject;
 			}
 		};
@@ -1253,7 +1172,6 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 			optionsMap.put(CompilerOptions.OPTION_ReportFieldHiding, warning);
 			optionsMap.put(CompilerOptions.OPTION_ReportPossibleAccidentalBooleanAssignment, warning);
 			optionsMap.put(CompilerOptions.OPTION_ReportEmptyStatement, warning);
-			optionsMap.put(CompilerOptions.OPTION_ReportAssertIdentifier, warning);
 			optionsMap.put(CompilerOptions.OPTION_ReportUndocumentedEmptyBlock, warning);
 			optionsMap.put(CompilerOptions.OPTION_ReportUnnecessaryTypeCheck, warning);
 			optionsMap.put(CompilerOptions.OPTION_ReportUnnecessaryElse, warning);
@@ -1270,12 +1188,10 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 			optionsMap.put(CompilerOptions.OPTION_ReportUnusedParameterWhenImplementingAbstract, enabled);
 			optionsMap.put(CompilerOptions.OPTION_ReportUnusedParameterWhenOverridingConcrete, enabled);
 			optionsMap.put(CompilerOptions.OPTION_ReportSpecialParameterHidingField, enabled);
-			optionsMap.put(CompilerOptions.OPTION_InlineJsr, enabled);
 		}
 
 		// Ignore 3.1 options
 		optionsMap.put(CompilerOptions.OPTION_ReportMissingSerialVersion, CompilerOptions.IGNORE);
-		optionsMap.put(CompilerOptions.OPTION_ReportEnumIdentifier, CompilerOptions.IGNORE);
 
 		// Ignore 3.2 options
 		optionsMap.put(CompilerOptions.OPTION_ReportUnusedLabel, CompilerOptions.IGNORE);
@@ -1293,14 +1209,10 @@ public abstract class FullSourceWorkspaceTests extends TestCase {
 	}
 
 	protected String getExternalPath() {
-		String path = "";
-		try {
-			path = ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile().getParentFile().getCanonicalPath();
-			if (path.charAt(path.length()-1) != File.separatorChar)
-				path += File.separatorChar;
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		String path = ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile().getParentFile().toPath()
+				.normalize().toAbsolutePath().toString();
+		if (path.charAt(path.length() - 1) != File.separatorChar)
+			path += File.separatorChar;
 		return path;
 	}
 

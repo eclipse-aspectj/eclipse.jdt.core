@@ -13,15 +13,26 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.model;
 
-import org.eclipse.core.resources.*;
+import junit.framework.Test;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
-import org.eclipse.jdt.core.*;
-
-import junit.framework.Test;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaModel;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
+import org.eclipse.jdt.core.JavaCore;
 /**
  * Tests IJavaModel API.
  */
@@ -299,13 +310,31 @@ public void testCreatePkgHandleInDifferentProject() throws CoreException {
 	try {
 		createJavaProject("P1", new String[] {}, "bin");
 		IFolder folder = createFolder("/P1/lib/x/y");
-		createJavaProject("P2", new String[] {}, new String[] {"/P1/lib"}, "");
+		IJavaProject p2 = createJavaProject("P2", new String[] {}, new String[] {"/P1/lib"}, "");
 		IJavaElement element = JavaCore.create(folder);
 		assertElementEquals(
 			"Unexpected element",
 			"x.y [in /P1/lib [in P2]]",
 			element
 		);
+		IFolder folder2 = createFolder("/P1/lib/x/z");
+		assertElementEquals(
+				"Unexpected element",
+				"x.z [in /P1/lib [in P2]]",
+				JavaCore.create(folder2)
+			);
+		p2.getProject().close(null);
+		assertElementEquals(
+			"Unexpected element",
+			"<null>", // closed
+			JavaCore.create(folder2)
+		);
+		p2.getProject().open(null);
+		assertElementEquals(
+				"Unexpected element",
+				"x.z [in /P1/lib [in P2]]", // open again
+				JavaCore.create(folder2)
+			);
 	} finally {
 		deleteProjects(new String[] {"P1", "P2"});
 	}

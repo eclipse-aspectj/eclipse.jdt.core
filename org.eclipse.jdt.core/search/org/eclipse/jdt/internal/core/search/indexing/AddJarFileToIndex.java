@@ -24,15 +24,12 @@ import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipError;
 import java.util.zip.ZipFile;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
@@ -161,7 +158,6 @@ class AddJarFileToIndex extends BinaryContainer {
 					// external file -> it is ok to use toFile()
 					zip = new ZipFile(this.containerPath.toFile());
 					zipFilePath = (Path) this.containerPath;
-					// path is already canonical since coming from a library classpath entry
 				}
 
 				if (this.isCancelled) {
@@ -227,7 +223,7 @@ class AddJarFileToIndex extends BinaryContainer {
 				IPath indexPath = null;
 				IndexLocation indexLocation;
 				if ((indexLocation = index.getIndexLocation()) != null) {
-					indexPath = new Path(indexLocation.getCanonicalFilePath());
+					indexPath = indexLocation.getIndexPath();
 				}
 				boolean hasModuleInfoClass = false;
 				for (Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements();) {
@@ -287,8 +283,9 @@ class AddJarFileToIndex extends BinaryContainer {
 			}
 		} catch (IOException | ZipError e) {
 			if (e instanceof NoSuchFileException) {
-				IStatus info = new Status(IStatus.INFO, JavaCore.PLUGIN_ID, "File no longer exists: " + this.containerPath, e); //$NON-NLS-1$
-				org.eclipse.jdt.internal.core.util.Util.log(info);
+				org.eclipse.jdt.internal.core.util.Util.log(Status.info("Can not index not existing zip " + this.containerPath)); //$NON-NLS-1$
+			} else if ("zip file is empty".equals(e.getMessage())) { //$NON-NLS-1$
+				org.eclipse.jdt.internal.core.util.Util.log(Status.info("Can not index empty zip " + this.containerPath)); //$NON-NLS-1$
 			} else {
 				org.eclipse.jdt.internal.core.util.Util.log(e, "Failed to index " + this.containerPath); //$NON-NLS-1$
 			}

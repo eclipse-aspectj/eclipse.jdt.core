@@ -15,9 +15,13 @@ package org.eclipse.jdt.internal.core.search.matching;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IField;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.core.search.*;
+import org.eclipse.jdt.core.search.FieldDeclarationMatch;
+import org.eclipse.jdt.core.search.SearchMatch;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.lookup.*;
@@ -277,6 +281,27 @@ protected void reportDeclaration(FieldBinding fieldBinding, MatchLocator locator
 
 	ReferenceBinding declaringClass = fieldBinding.declaringClass;
 	IType type = locator.lookupType(declaringClass);
+	if (type == null) {
+		if (declaringClass instanceof LocalTypeBinding) {
+			ReferenceBinding refBinding= declaringClass;
+			while (refBinding instanceof LocalTypeBinding localBinding) {
+				MethodBinding enclosingBinding= localBinding.enclosingMethod;
+				refBinding= enclosingBinding.declaringClass;
+			}
+			type= locator.lookupType(refBinding);
+			if (type != null) {
+				if (type.getTypeRoot() instanceof ICompilationUnit cu) {
+					FieldDeclaration fieldDecl= fieldBinding.sourceField();
+					if (fieldDecl != null) {
+						IJavaElement element= cu.getElementAt(fieldDecl.sourceStart());
+						if (element instanceof IField) {
+							type= ((IField) element).getDeclaringType();
+						}
+					}
+				}
+			}
+		}
+	}
 	if (type == null) return; // case of a secondary type
 
 	char[] bindingName = fieldBinding.name;

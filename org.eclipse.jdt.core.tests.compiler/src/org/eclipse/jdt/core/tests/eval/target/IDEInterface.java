@@ -13,8 +13,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.eval.target;
 
-import java.io.*;
-import java.net.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
 /**
  * The interface to the IDE. When connected, it uses TCP/IP sockets
  * to get code snippet classes and global variable classes from the IDE.
@@ -46,7 +48,7 @@ public class IDEInterface {
 	 * Whether timing info should be printed to stdout
 	 */
 	static final boolean TIMING = false;
-	long startTime;
+	private long startNanos;
 
 	int portNumber = 0;
 	Socket socket;
@@ -85,7 +87,7 @@ protected byte[][] getNextClasses() {
 		return new byte[0][];
 	}
 	if (TIMING) {
-		this.startTime = System.currentTimeMillis();
+		this.startNanos = System.nanoTime();
 	}
 	try {
 		DataInputStream in = new DataInputStream(this.socket.getInputStream());
@@ -115,7 +117,7 @@ protected boolean getRunFlag() {
 		return false;
 	}
 	if (TIMING) {
-		this.startTime = System.currentTimeMillis();
+		this.startNanos = System.nanoTime();
 	}
 	try {
 		DataInputStream in = new DataInputStream(this.socket.getInputStream());
@@ -153,7 +155,7 @@ protected void sendResult(Class resultType, Object resultValue) {
 		disconnect();
 	}
 	if (TIMING) {
-		System.out.println("Time to run on target is " + (System.currentTimeMillis() - this.startTime) + "ms");
+		System.out.println("Time to run on target is " + (System.nanoTime() - this.startNanos) / 1_000_000L + "ms");
 	}
 }
 }

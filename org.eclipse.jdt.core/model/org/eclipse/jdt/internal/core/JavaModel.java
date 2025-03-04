@@ -17,8 +17,6 @@ package org.eclipse.jdt.internal.core;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Map;
-
-import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -29,7 +27,14 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaModel;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IOpenable;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
@@ -201,9 +206,8 @@ public JavaModel getJavaModel() {
 public IJavaProject getJavaProject(IResource resource) {
 	switch(resource.getType()){
 		case IResource.FOLDER:
-			return new JavaProject(((IFolder)resource).getProject(), this);
 		case IResource.FILE:
-			return new JavaProject(((IFile)resource).getProject(), this);
+			return new JavaProject(resource.getProject(), this);
 		case IResource.PROJECT:
 			return new JavaProject((IProject)resource, this);
 		default:

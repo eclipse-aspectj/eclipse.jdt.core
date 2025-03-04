@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -34,25 +34,7 @@ import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
-import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
-import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
-import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemFieldBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
-import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TagBits;
-import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
-import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
+import org.eclipse.jdt.internal.compiler.lookup.*;
 
 /**
  * AspectJ Extension - support for FieldBinding.alwaysNeedsAccessMethod
@@ -677,6 +659,10 @@ public TypeBinding resolveType(BlockScope scope) {
 		this.receiver.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 		receiverCast = true;
 	}
+	if (this.receiver instanceof ThisReference) {
+		this.receiver.bits |= this.bits & ASTNode.IsStrictlyAssigned; // mark as assignment-lhs, where 'this.f' is legal even in early construction context
+		((ThisReference) this.receiver).inFieldReference = true;
+	}
 	this.actualReceiverType = this.receiver.resolveType(scope);
 	if (this.actualReceiverType == null) {
 		this.constant = Constant.NotAConstant;
@@ -690,6 +676,9 @@ public TypeBinding resolveType(BlockScope scope) {
 	}
 	// the case receiverType.isArrayType and token = 'length' is handled by the scope API
 	FieldBinding fieldBinding = this.binding = scope.getField(this.actualReceiverType, this.token, this);
+	if (this.receiver instanceof ThisReference ref && ref.isThis()) {
+		checkFieldAccessInEarlyConstructionContext(scope, fieldBinding.name, fieldBinding, this.actualReceiverType);
+	}
 	if (!fieldBinding.isValidBinding()) {
 		this.constant = Constant.NotAConstant;
 		if (this.receiver.resolvedType instanceof ProblemReferenceBinding) {
@@ -757,16 +746,6 @@ public TypeBinding resolveType(BlockScope scope) {
 					&& (TypeBinding.equalsEquals(sourceType, declaringClass) || TypeBinding.equalsEquals(sourceType.superclass, declaringClass)) // enum constant body
 					&& methodScope.isInsideInitializerOrConstructor()) {
 				scope.problemReporter().enumStaticFieldUsedDuringInitialization(this.binding, this);
-			}
-		}
-	} else {
-		if (this.inPreConstructorContext && this.actualReceiverType != null &&
- 				(this.receiver instanceof ThisReference thisReference
- 						&& thisReference.isImplicitThis())) { // explicit thisReference error flagging taken care in ThisReference
-			MethodScope ms = scope.methodScope();
-			MethodBinding method = ms != null ? ms.referenceMethodBinding() : null;
-			if (method != null && TypeBinding.equalsEquals(method.declaringClass, this.actualReceiverType)) {
-				scope.problemReporter().errorExpressionInPreConstructorContext(this);
 			}
 		}
 	}

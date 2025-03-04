@@ -19,10 +19,17 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.impl.*;
-import org.eclipse.jdt.internal.compiler.codegen.*;
-import org.eclipse.jdt.internal.compiler.flow.*;
-import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
+import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.flow.LoopingFlowContext;
+import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.Constant;
+import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 
 public class DoStatement extends Statement {
 
@@ -165,7 +172,6 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 
 	// labels management
 	BranchLabel actionLabel = new BranchLabel(codeStream);
-	if (this.action != null) actionLabel.tagBits |= BranchLabel.USED;
 	actionLabel.place();
 	this.breakLabel.initialize(codeStream);
 	boolean hasContinueLabel = this.continueLabel != null;
@@ -267,28 +273,4 @@ public boolean doesNotCompleteNormally() {
 public boolean completesByContinue() {
 	return this.action.continuesAtOuterLabel();
 }
-
-@Override
-public boolean canCompleteNormally() {
-	Constant cst = this.condition.constant;
-	boolean isConditionTrue = cst == null || cst != Constant.NotAConstant && cst.booleanValue() == true;
-	cst = this.condition.optimizedBooleanConstant();
-	boolean isConditionOptimizedTrue = cst == null ? true : cst != Constant.NotAConstant && cst.booleanValue() == true;
-
-	if (!(isConditionTrue || isConditionOptimizedTrue)) {
-		if (this.action == null || this.action.canCompleteNormally())
-			return true;
-		if (this.action != null && this.action.continueCompletes())
-			return true;
-	}
-	if (this.action != null && this.action.breaksOut(null))
-		return true;
-
-	return false;
-}
-@Override
-public boolean continueCompletes() {
-	return this.action.continuesAtOuterLabel();
-}
-
 }

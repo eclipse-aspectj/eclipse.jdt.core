@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
@@ -30,12 +29,11 @@ import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
-
-import org.eclipse.jdt.core.tests.compiler.regression.AbstractBatchCompilerTest;
-import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
-
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import org.eclipse.jdt.core.tests.compiler.regression.AbstractBatchCompilerTest;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
 
 @SuppressWarnings("restriction")
 public class AnnotationProcessingCompilerToolTest extends AbstractBatchCompilerTest {
@@ -77,7 +75,7 @@ public class AnnotationProcessingCompilerToolTest extends AbstractBatchCompilerT
 			null /* standardJavaFileManager */,
 			Arrays.asList(
 					"-d", OUTPUT_DIR,
-			        "-source", "1.6",
+			        "-source", CompilerOptions.getFirstSupportedJavaVersion(),
 			        "-g", "-preserveAllLocals",
 			        "-cp",  OUTPUT_DIR  + File.pathSeparator + _extJar.getAbsolutePath() ,
 			        "-s", OUTPUT_DIR  +  File.separator + "src-gen",
@@ -94,7 +92,7 @@ public class AnnotationProcessingCompilerToolTest extends AbstractBatchCompilerT
 			+ "	last round: false\n"
 			+ "Discovered processor service org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGenProcessor\n"
 			+ "  supporting [org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGen]\n"
-			+ "  in jar:"  + Path.of(_extJar.getCanonicalPath()).toUri().toURL().toString() +"!/\n"
+			+ "  in jar:"  + Path.of(_extJar.toPath().normalize().toAbsolutePath().toString()).toUri().toURL().toString() +"!/\n"
 			+ "Processor org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGenProcessor matches [org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGen] and returns true\n"
 			+ "Round 2:\n"
 			+ "	input files: {p1.gen.Class1,p1.gen.Class2,p1.Class0}\n"
@@ -161,7 +159,7 @@ public class AnnotationProcessingCompilerToolTest extends AbstractBatchCompilerT
 			null /* standardJavaFileManager */,
 			Arrays.asList(
 					"-d", OUTPUT_DIR,
-			        "-source", "1.6",
+			        "-source", CompilerOptions.getFirstSupportedJavaVersion(),
 			        "-g", "-preserveAllLocals",
 			        "-cp",  OUTPUT_DIR  + File.pathSeparator + _extJar.getAbsolutePath() ,
 			        "-s", OUTPUT_DIR  +  File.separator + "src-gen",
@@ -180,7 +178,7 @@ public class AnnotationProcessingCompilerToolTest extends AbstractBatchCompilerT
 			},
 			"Discovered processor service org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGenProcessor\n" +
 			"  supporting [org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGen]\n" + 
-			"  in jar:"  + Path.of(_extJar.getCanonicalPath()).toUri().toURL().toString() + "!/\n" + 
+			"  in jar:"  + Path.of(_extJar.toPath().normalize().toAbsolutePath().toString()).toUri().toURL().toString() + "!/\n" + 
 			"Processor org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGenProcessor matches [org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGen] and returns true\n" + 
 			"Processor org.eclipse.jdt.apt.tests.external.annotations.batch.BatchGenProcessor matches [] and returns false\n",
 			"" /* expectedErrOutputString */,

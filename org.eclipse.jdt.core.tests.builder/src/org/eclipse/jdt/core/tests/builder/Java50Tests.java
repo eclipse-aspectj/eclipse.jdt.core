@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -19,6 +19,7 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class Java50Tests extends BuilderTests {
 
@@ -31,7 +32,7 @@ public class Java50Tests extends BuilderTests {
 	}
 
 	public void testAnnotation() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -66,7 +67,7 @@ public class Java50Tests extends BuilderTests {
 	}
 
 	public void testHierarchyCycle() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -86,7 +87,7 @@ public class Java50Tests extends BuilderTests {
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=214237, dupe of
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=205235
 	public void testHierarchyCycleInstanceof() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -114,7 +115,7 @@ public class Java50Tests extends BuilderTests {
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=231293
 	public void testMissingRequiredBinaries() throws JavaModelException {
 
-		IPath p1 = env.addProject("P1", "1.5"); //$NON-NLS-1$
+		IPath p1 = env.addProject("P1", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$
 		IPath p2 = env.addProject("P2"); //$NON-NLS-1$
 
 		env.addExternalJars(p1, Util.getJavaClassLibs());
@@ -163,13 +164,12 @@ public class Java50Tests extends BuilderTests {
 
 		incrementalBuild(p1);
 		expectingOnlySpecificProblemsFor(p1,new Problem[]{
-				new Problem("p1", "The project was not built since its build path is incomplete. Cannot find the class file for p2.Z. Fix the build path then try building this project", p1, -1, -1, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR),//$NON-NLS-1$ //$NON-NLS-2$
-				new Problem("p1", "The type p2.Z cannot be resolved. It is indirectly referenced from required type p2.Y", xx, 51, 67, CategorizedProblem.CAT_BUILDPATH, IMarker.SEVERITY_ERROR)//$NON-NLS-1$ //$NON-NLS-2$
+				new Problem("p1", "The method foo(int, Z) from the type Y refers to the missing type Z", xx, 53, 56, CategorizedProblem.CAT_MEMBER, IMarker.SEVERITY_ERROR)//$NON-NLS-1$ //$NON-NLS-2$
 			});
 	}
 
 	public void testParameterizedMemberType() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -234,7 +234,7 @@ public class Java50Tests extends BuilderTests {
 	}
 
 	public void testParameterizedType1() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -275,7 +275,7 @@ public class Java50Tests extends BuilderTests {
 	}
 
 	public void testParameterizedType2() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -316,7 +316,7 @@ public class Java50Tests extends BuilderTests {
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=294057
 	public void testHierarchyNonCycle() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 
@@ -350,7 +350,7 @@ public class Java50Tests extends BuilderTests {
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=294057 (variation)
 	public void testHierarchyNonCycle2() throws JavaModelException {
-		IPath projectPath = env.addProject("Project", "1.5");
+		IPath projectPath = env.addProject("Project", CompilerOptions.getFirstSupportedJavaVersion());
 		env.addExternalJars(projectPath, Util.getJavaClassLibs());
 		env.setOutputFolder(projectPath, "");
 

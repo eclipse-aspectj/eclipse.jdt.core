@@ -21,7 +21,7 @@
 package org.eclipse.jdt.core.tests.formatter;
 
 import java.util.Map;
-
+import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.formatter.CodeFormatter;
@@ -31,8 +31,6 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatter;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatterOptions;
 import org.eclipse.jdt.internal.formatter.DefaultCodeFormatterOptions.Alignment;
-
-import junit.framework.Test;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class FormatterBugsTests extends FormatterRegressionTests {
@@ -75,7 +73,7 @@ private void setUpBracesPreferences(String braces) {
 @Override
 public void setUpSuite() throws Exception {
 	if (JAVA_PROJECT == null) {
-		JAVA_PROJECT = setUpJavaProject("FormatterBugs", "1.5"); //$NON-NLS-1$
+		JAVA_PROJECT = setUpJavaProject("FormatterBugs", CompilerOptions.getFirstSupportedJavaVersion()); //$NON-NLS-1$
 	}
 	super.setUpSuite();
 }
@@ -6112,9 +6110,9 @@ public void testBug311578a() throws JavaModelException {
 		"\n" +
 		"char                       x;\n" +
 		"\n" +
-		"////J-\n" +
+		"//J-\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////J+\n" +
+		"//J+\n" +
 		"\n" +
 		"char                       y;\n" +
 		"\n" +
@@ -6143,9 +6141,9 @@ public void testBug311578a() throws JavaModelException {
 		"\n" +
 		"	char x;\n" +
 		"\n" +
-		"////J-\n" +
+		"//J-\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////J+\n" +
+		"//J+\n" +
 		"\n" +
 		"	char y;\n" +
 		"\n" +
@@ -6180,9 +6178,9 @@ public void testBug311578b() throws JavaModelException {
 		"\n" +
 		"char                       x;\n" +
 		"\n" +
-		"////J-\n" +
+		"//J-\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////J+\n" +
+		"//J+\n" +
 		"\n" +
 		"char                       y;\n" +
 		"\n" +
@@ -6211,9 +6209,9 @@ public void testBug311578b() throws JavaModelException {
 		"\n" +
 		"	char x;\n" +
 		"\n" +
-		"	//// J-\n" +
+		"	// J-\n" +
 		"	int c = -1 + 42;\n" +
-		"	//// J+\n" +
+		"	// J+\n" +
 		"\n" +
 		"	char y;\n" +
 		"\n" +
@@ -6248,9 +6246,9 @@ public void testBug311578c() throws JavaModelException {
 		"\n" +
 		"char                       x;\n" +
 		"\n" +
-		"////F--\n" +
+		"//F--\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////F++\n" +
+		"//F++\n" +
 		"\n" +
 		"char                       y;\n" +
 		"\n" +
@@ -6279,9 +6277,9 @@ public void testBug311578c() throws JavaModelException {
 		"\n" +
 		"	char x;\n" +
 		"\n" +
-		"////F--\n" +
+		"//F--\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////F++\n" +
+		"//F++\n" +
 		"\n" +
 		"	char y;\n" +
 		"\n" +
@@ -6318,9 +6316,9 @@ public void testBug311578d() throws JavaModelException {
 		"\n" +
 		"char                       x;\n" +
 		"\n" +
-		"////F--\n" +
+		"//F--\n" +
 		"int c      =  -     1  +    42;\n" +
-		"////F++\n" +
+		"//F++\n" +
 		"\n" +
 		"char                       y;\n" +
 		"\n" +
@@ -6355,9 +6353,9 @@ public void testBug311578d() throws JavaModelException {
 		"\n" +
 		"	char x;\n" +
 		"\n" +
-		"	//// F--\n" +
+		"	// F--\n" +
 		"	int c = -1 + 42;\n" +
-		"	//// F++\n" +
+		"	// F++\n" +
 		"\n" +
 		"	char y;\n" +
 		"\n" +

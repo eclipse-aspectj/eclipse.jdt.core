@@ -15,7 +15,7 @@ package org.eclipse.jdt.core.tests.performance;
 
 import java.io.PrintStream;
 import java.text.NumberFormat;
-
+import junit.framework.Test;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.IField;
@@ -29,8 +29,6 @@ import org.eclipse.jdt.core.search.SearchParticipant;
 import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.SearchRequestor;
 import org.eclipse.jdt.internal.core.search.processing.IJob;
-
-import junit.framework.Test;
 
 /**
  * Performance test suite which covers all main search requests.
@@ -203,13 +201,15 @@ protected void search(IJavaElement element, int limitTo, JavaSearchResultCollect
  * @param resultCollector result collector to count the matches found
  */
 protected void cleanCategoryTableCache(boolean type, JavaSearchResultCollector resultCollector) throws CoreException {
-	long time = System.currentTimeMillis();
+	long startNanos = System.nanoTime();
 	if (type) {
 		search("foo", FIELD, DECLARATIONS, resultCollector);
 	} else {
 		search("Foo", TYPE, DECLARATIONS, resultCollector);
 	}
-	if (DEBUG) System.out.println("Time to clean category table cache: "+(System.currentTimeMillis()-time));
+	if (DEBUG) {
+		System.out.println("Time to clean category table cache [ms]: " + (System.nanoTime() - startNanos) / 1_000_000L);
+	}
 }
 
 /**

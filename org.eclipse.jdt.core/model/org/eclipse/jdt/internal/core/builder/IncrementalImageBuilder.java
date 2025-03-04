@@ -13,31 +13,49 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.builder;
 
-import org.eclipse.core.resources.*;
-import org.eclipse.core.runtime.*;
-
-import org.eclipse.jdt.core.*;
-import org.eclipse.jdt.core.compiler.*;
-import org.eclipse.jdt.internal.compiler.*;
-import org.eclipse.jdt.internal.compiler.classfmt.*;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IResourceStatus;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.IJavaModelMarker;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.ClassFile;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
-import org.eclipse.jdt.internal.compiler.problem.*;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
+import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.CompilationGroup;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
 
-import java.io.*;
-import java.net.URI;
-import java.util.*;
-import java.util.Map.Entry;
-
 /**
  * The incremental image builder
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class IncrementalImageBuilder extends AbstractImageBuilder {
 
 protected LinkedHashSet<SourceFile> sourceFiles;
@@ -45,7 +63,7 @@ protected LinkedHashSet<SourceFile> previousSourceFiles;
 protected Set<String> qualifiedStrings;
 protected Set<String> simpleStrings;
 protected Set<String> rootStrings;
-protected SimpleLookupTable secondaryTypesToRemove;
+protected Map<IContainer, List<IPath>> secondaryTypesToRemove;
 protected boolean hasStructuralChanges;
 protected boolean makeOutputFolderConsistent;
 
@@ -78,7 +96,7 @@ protected IncrementalImageBuilder(BatchImageBuilder batchBuilder, CompilationGro
 	resetCollections();
 }
 
-public boolean build(SimpleLookupTable deltas) {
+public boolean build(Map<IProject, IResourceDelta> deltas) {
 	if(this.sourceLocations.length == 0) {
 		if (this.testImageBuilder != null) {
 			return this.testImageBuilder.build(deltas);
@@ -114,7 +132,7 @@ public boolean build(SimpleLookupTable deltas) {
 			addAllSourceFiles(this.sourceFiles);
 			this.notifier.updateProgressDelta(0.25f);
 		} else {
-			IResourceDelta sourceDelta = (IResourceDelta) deltas.get(this.javaBuilder.currentProject);
+			IResourceDelta sourceDelta = deltas.get(this.javaBuilder.currentProject);
 			if (sourceDelta != null) {
 				if (!findSourceFiles(sourceDelta)) return this.testImageBuilder != null ? this.testImageBuilder.build(deltas) : false;
 				if(this.testImageBuilder != null) {
@@ -123,15 +141,14 @@ public boolean build(SimpleLookupTable deltas) {
 			}
 			this.notifier.updateProgressDelta(0.10f);
 
-			Object[] keyTable = deltas.keyTable;
-			Object[] valueTable = deltas.valueTable;
-			for (int i = 0, l = valueTable.length; i < l; i++) {
-				IResourceDelta delta = (IResourceDelta) valueTable[i];
+			for (Entry<IProject, IResourceDelta> entry : deltas.entrySet()) {
+				IResourceDelta delta = entry.getValue();
 				if (delta != null) {
-					IProject p = (IProject) keyTable[i];
-					ClasspathLocation[] classFoldersAndJars = (ClasspathLocation[]) this.javaBuilder.binaryLocationsPerProject.get(p);
+					IProject p = entry.getKey();
+					ClasspathLocation[] classFoldersAndJars = this.javaBuilder.binaryLocationsPerProject.get(p);
 					if (classFoldersAndJars != null)
-						if (!findAffectedSourceFiles(delta, classFoldersAndJars, p)) return false;
+						if (!findAffectedSourceFiles(delta, classFoldersAndJars, p))
+							return false;
 				}
 			}
 			this.notifier.updateProgressDelta(0.10f);
@@ -349,13 +366,13 @@ protected void compile(SourceFile[] units, SourceFile[] additionalUnits, boolean
 		// add any source file from additionalUnits to units if it defines secondary types
 		// otherwise its possible during testing with MAX_AT_ONCE == 1 that a secondary type
 		// can cause an infinite loop as it alternates between not found and defined, see bug 146324
-		ArrayList extras = null;
+		List<SourceFile> extras = null;
 		for (SourceFile unit : additionalUnits) {
 			if (unit != null && this.newState.getDefinedTypeNamesFor(unit.typeLocator()) != null) {
 				if (JavaBuilder.DEBUG)
 					System.out.println("About to compile file with secondary types "+ unit.typeLocator()); //$NON-NLS-1$
 				if (extras == null)
-					extras = new ArrayList(3);
+					extras = new ArrayList<>(3);
 				extras.add(unit);
 			}
 		}
@@ -364,7 +381,7 @@ protected void compile(SourceFile[] units, SourceFile[] additionalUnits, boolean
 			int toAdd = extras.size();
 			System.arraycopy(units, 0, units = new SourceFile[oldLength + toAdd], 0, oldLength);
 			for (int i = 0; i < toAdd; i++)
-				units[oldLength++] = (SourceFile) extras.get(i);
+				units[oldLength++] = extras.get(i);
 		}
 	}
 	super.compile(units, additionalUnits, compilingFirstGroup);
@@ -499,7 +516,7 @@ protected void findAffectedSourceFiles(IResourceDelta binaryDelta, int segmentCo
 }
 
 protected boolean findSourceFiles(IResourceDelta delta) throws CoreException {
-	ArrayList visited = this.makeOutputFolderConsistent ? new ArrayList(this.sourceLocations.length) : null;
+	ArrayList<IContainer> visited = this.makeOutputFolderConsistent ? new ArrayList<>(this.sourceLocations.length) : null;
 	for (ClasspathMultiDirectory md : this.sourceLocations) {
 		if (this.makeOutputFolderConsistent && md.hasIndependentOutputFolder && !visited.contains(md.binaryFolder)) {
 			// even a project which acts as its own source folder can have an independent/nested output folder
@@ -751,10 +768,10 @@ protected void finishedWith(String sourceLocator, CompilationResult result, char
 			packagePath = sourceFile.resource.getFullPath().removeFirstSegments(count).removeLastSegments(1);
 		}
 		if (this.secondaryTypesToRemove == null)
-			this.secondaryTypesToRemove = new SimpleLookupTable();
-		ArrayList types = (ArrayList) this.secondaryTypesToRemove.get(sourceFile.sourceLocation.binaryFolder);
+			this.secondaryTypesToRemove = new HashMap<>();
+		List<IPath> types = this.secondaryTypesToRemove.get(sourceFile.sourceLocation.binaryFolder);
 		if (types == null)
-			types = new ArrayList(definedTypeNames.size());
+			types = new ArrayList<>(definedTypeNames.size());
 		types.add(packagePath.append(new String(previous)));
 		this.secondaryTypesToRemove.put(sourceFile.sourceLocation.binaryFolder, types);
 	}
@@ -802,14 +819,12 @@ protected void removeClassFile(IPath typePath, IContainer outputFolder) throws C
 
 protected void removeSecondaryTypes() throws CoreException {
 	if (this.secondaryTypesToRemove != null) { // delayed deleting secondary types until the end of the compile loop
-		Object[] keyTable = this.secondaryTypesToRemove.keyTable;
-		Object[] valueTable = this.secondaryTypesToRemove.valueTable;
-		for (int i = 0, l = keyTable.length; i < l; i++) {
-			IContainer outputFolder = (IContainer) keyTable[i];
+		for (Entry<IContainer, List<IPath>> entry:  this.secondaryTypesToRemove.entrySet()) {
+			IContainer outputFolder = entry.getKey();
 			if (outputFolder != null) {
-				ArrayList paths = (ArrayList) valueTable[i];
-				for (Object path : paths)
-					removeClassFile((IPath) path, outputFolder);
+				List<IPath> paths = entry.getValue();
+				for (IPath path : paths)
+					removeClassFile(path, outputFolder);
 			}
 		}
 		this.secondaryTypesToRemove = null;
@@ -827,8 +842,7 @@ protected void resetCollections() {
 		this.rootStrings = new HashSet<>(3);
 		this.hasStructuralChanges = false;
 	} else {
-		this.previousSourceFiles = this.sourceFiles.isEmpty() ? null : (LinkedHashSet) this.sourceFiles.clone();
-
+		this.previousSourceFiles = this.sourceFiles.isEmpty() ? null : new LinkedHashSet<>(this.sourceFiles);
 		this.sourceFiles.clear();
 		this.qualifiedStrings.clear();
 		this.simpleStrings.clear();
@@ -877,12 +891,12 @@ protected void writeClassFileContents(ClassFile classfile, IFile file, String qu
 	// If structural changes occurred then add dependent source files
 	byte[] bytes = classfile.getBytes();
 	if (file.exists()) {
-		if (writeClassFileCheck(file, qualifiedFileName, bytes) || compilationUnit.updateClassFile) { // see 46093
+		if (classFileChanged(file, qualifiedFileName, bytes) || compilationUnit.updateClassFile) { // see 46093
 			if (JavaBuilder.DEBUG)
 				System.out.println("Writing changed class file " + file.getName());//$NON-NLS-1$
 			if (!file.isDerived())
 				file.setDerived(true, null);
-			file.setContents(new ByteArrayInputStream(bytes), true, false, null);
+			file.setContents(bytes, true, false, null);
 		} else if (JavaBuilder.DEBUG) {
 			System.out.println("Skipped over unchanged class file " + file.getName());//$NON-NLS-1$
 		}
@@ -892,7 +906,7 @@ protected void writeClassFileContents(ClassFile classfile, IFile file, String qu
 		if (JavaBuilder.DEBUG)
 			System.out.println("Writing new class file " + file.getName());//$NON-NLS-1$
 		try {
-			file.create(new ByteArrayInputStream(bytes), IResource.FORCE | IResource.DERIVED, null);
+			file.create(bytes, IResource.FORCE | IResource.DERIVED, null);
 		} catch (CoreException e) {
 			if (e.getStatus().getCode() == IResourceStatus.CASE_VARIANT_EXISTS) {
 				IStatus status = e.getStatus();
@@ -917,7 +931,7 @@ protected void writeClassFileContents(ClassFile classfile, IFile file, String qu
 						collision.delete(true, false, null);
 						boolean success = false;
 						try {
-							file.create(new ByteArrayInputStream(bytes), IResource.FORCE | IResource.DERIVED, null);
+							file.create(bytes, IResource.FORCE | IResource.DERIVED, null);
 							success = true;
 						} catch (CoreException ignored) {
 							// ignore the second exception
@@ -933,13 +947,11 @@ protected void writeClassFileContents(ClassFile classfile, IFile file, String qu
 	}
 }
 
-protected boolean writeClassFileCheck(IFile file, String fileName, byte[] newBytes) throws CoreException {
+protected boolean classFileChanged(IFile file, String fileName, byte[] newBytes) throws CoreException {
 	try {
 		byte[] oldBytes = Util.getResourceContentsAsByteArray(file);
-		notEqual : if (newBytes.length == oldBytes.length) {
-			for (int i = newBytes.length; --i >= 0;)
-				if (newBytes[i] != oldBytes[i]) break notEqual;
-			return false; // bytes are identical so skip them
+		if (Arrays.equals(oldBytes, newBytes))  {
+			return false;
 		}
 		URI location = file.getLocationURI();
 		if (location == null) return false; // unable to determine location of this class file

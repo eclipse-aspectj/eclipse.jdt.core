@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2021 IBM Corporation and others.
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15,11 +15,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
+import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.JavacHasABug;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-
-import junit.framework.Test;
 @SuppressWarnings({ "rawtypes" })
 public class LambdaRegressionTest extends AbstractRegressionTest {
 
@@ -1256,6 +1255,33 @@ public void testIssue1507() {
 			"	                              ^^^^^^^^^^^\n" +
 			"The local variable buggyLambda may not have been initialized\n" +
 			"----------\n");
+}
+public void testGH3207() {
+	runNegativeTest(new String[] {
+			"EnclosedInstance.java",
+			"""
+			import java.util.List;
+
+			public final class EnclosedInstance {
+
+				static Runnable c = () -> {
+					List.of("a", "a").forEach(Indicator::new);
+				};
+
+				private class Indicator  {
+					Indicator(String s) {}
+				}
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in EnclosedInstance.java (at line 6)
+			List.of("a", "a").forEach(Indicator::new);
+			                          ^^^^^^^^^^^^^^
+		No enclosing instance of type EnclosedInstance is accessible. Must qualify the allocation with an enclosing instance of type EnclosedInstance (e.g. x.new A() where x is an instance of EnclosedInstance).
+		----------
+		""");
 }
 public static Class testClass() {
 	return LambdaRegressionTest.class;

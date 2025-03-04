@@ -21,6 +21,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public class EitherOrMultiPattern extends Pattern {
@@ -54,12 +55,25 @@ public class EitherOrMultiPattern extends Pattern {
 	}
 
 	@Override
+	public void setOuterExpressionType(TypeBinding expressionType) {
+		super.setOuterExpressionType(expressionType);
+		for (int i = 0; i < this.patternsCount; i++)
+			this.patterns[i].setOuterExpressionType(expressionType);
+	}
+
+	@Override
 	public TypeBinding resolveType(BlockScope scope) {
 		boolean hasError = false;
 		for (int i = 0; i < this.patternsCount; i++) {
 			TypeBinding t = this.patterns[i].resolveType(scope);
 			if (t == null || !t.isValidBinding())
 				hasError = true;
+			for (int j = 0; j < i; j++) {
+				if (this.patterns[j].dominates(this.patterns[i])) {
+					scope.problemReporter().patternDominatedByAnother(this.patterns[i]);
+					break;
+				}
+			}
 		}
 		return this.resolvedType = hasError ? null : this.patterns[0].resolvedType; // for now, we don't have a union type abstraction
 	}
@@ -109,11 +123,11 @@ public class EitherOrMultiPattern extends Pattern {
 	}
 
 	@Override
-	public boolean coversType(TypeBinding type) {
+	public boolean coversType(TypeBinding type, Scope scope) {
 		if (!isUnguarded())
 			return false;
 		for (Pattern p : this.patterns) {
-			if (p.coversType(type))
+			if (p.coversType(type, scope))
 				return true;
 		}
 		return false;

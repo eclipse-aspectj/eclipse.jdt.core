@@ -15,11 +15,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.util;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -38,7 +34,6 @@ import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -235,7 +230,6 @@ public class Util implements SuffixConstants {
 		String displayString(Object o);
 	}
 
-	private static final int DEFAULT_WRITING_SIZE = 1024;
 	public final static String UTF_8 = "UTF-8";	//$NON-NLS-1$
 	public static final String LINE_SEPARATOR = System.getProperty("line.separator"); //$NON-NLS-1$
 
@@ -362,15 +356,6 @@ public class Util implements SuffixConstants {
 	}
 
 	/**
-	 * Returns the given bytes as a char array using a given encoding (null means platform default).
-	 */
-	public static char[] bytesToChar(byte[] bytes, String encoding) throws IOException {
-
-		return getInputStreamAsCharArray(new ByteArrayInputStream(bytes), encoding);
-
-	}
-
-	/**
 	 * Returns the outer most enclosing type's visibility for the given TypeDeclaration
 	 * and visibility based on compiler options.
 	 */
@@ -408,13 +393,11 @@ public class Util implements SuffixConstants {
 	 * @throws IOException if a problem occured reading the file.
 	 */
 	public static char[] getFileCharContent(File file, String encoding) throws IOException {
-		try (InputStream stream = new FileInputStream(file)) {
-			return getInputStreamAsCharArray(stream, encoding);
-		}
+		return org.eclipse.jdt.internal.compiler.util.Util.getBytesAsCharArray(Files.readAllBytes(file.toPath()), encoding);
 	}
-	private static FileOutputStream getFileOutputStream(boolean generatePackagesStructure, String outputPath, String relativeFileName) throws IOException {
+	private static File getFile(boolean generatePackagesStructure, String outputPath, String relativeFileName) throws IOException {
 		if (generatePackagesStructure) {
-			return new FileOutputStream(new File(buildAllDirectoriesInto(outputPath, relativeFileName)));
+			return new File(buildAllDirectoriesInto(outputPath, relativeFileName));
 		} else {
 			String fileName = null;
 			char fileSeparatorChar = File.separatorChar;
@@ -437,7 +420,7 @@ public class Util implements SuffixConstants {
 					fileName = outputPath + fileSeparator + relativeFileName.substring(indexOfPackageSeparator + 1, length);
 				}
 			}
-			return new FileOutputStream(new File(fileName));
+			return new File(fileName);
 		}
 	}
 
@@ -450,7 +433,6 @@ public class Util implements SuffixConstants {
 	public static byte[] getInputStreamAsByteArray(InputStream input) throws IOException {
 		return input.readAllBytes(); // will have even slighly better performance as of JDK17+ see JDK-8264777
 	}
-
 
 	/**
 	 * Returns the given input stream's first bytes as array.
@@ -478,6 +460,10 @@ public class Util implements SuffixConstants {
 			throws IOException {
 		byte[] byteContents =  getInputStreamAsByteArray(stream);
 
+		return getBytesAsCharArray(byteContents, encoding);
+	}
+
+	public static char[] getBytesAsCharArray(byte[] byteContents, String encoding) {
 		Charset charset;
 		try {
 			charset = Charset.forName(encoding);
@@ -812,11 +798,10 @@ public class Util implements SuffixConstants {
 	// End AspectJ Extension
 
 	/**
-	 * Returns true iff str.toLowerCase().endsWith("jrt-fs.jar")
-	 * implementation is not creating extra strings.
+	 * @return true if name.endsWith("jrt-fs.jar")
 	 */
 	public final static boolean isJrt(String name) {
-		return name.endsWith(JRTUtil.JRT_FS_JAR);
+		return name != null && name.endsWith(JRTUtil.JRT_FS_JAR);
 	}
 
 	public static void reverseQuickSort(char[][] list, int left, int right) {
@@ -943,34 +928,14 @@ public class Util implements SuffixConstants {
 	 * @param relativeFileName the given relative file name
 	 * @param classFile the given classFile to write
 	 */
-	public static void writeToDisk(boolean generatePackagesStructure, String outputPath, String relativeFileName, ClassFile classFile) throws IOException {
-		FileOutputStream file = getFileOutputStream(generatePackagesStructure, outputPath, relativeFileName);
-		/* use java.nio to write
-		if (true) {
-			FileChannel ch = file.getChannel();
-			try {
-				ByteBuffer buffer = ByteBuffer.allocate(classFile.headerOffset + classFile.contentsOffset);
-				buffer.put(classFile.header, 0, classFile.headerOffset);
-				buffer.put(classFile.contents, 0, classFile.contentsOffset);
-				buffer.flip();
-				while (true) {
-					if (ch.write(buffer) == 0) break;
-				}
-			} finally {
-				ch.close();
-			}
-			return;
-		}
-		*/
-		try (BufferedOutputStream output = new BufferedOutputStream(file, DEFAULT_WRITING_SIZE)) {
-			// if no IOException occured, output cannot be null
-			output.write(classFile.header, 0, classFile.headerOffset);
-			output.write(classFile.contents, 0, classFile.contentsOffset);
-			output.flush();
-		} catch(IOException e) {
-			throw e;
-		}
+	public static void writeToDisk(boolean generatePackagesStructure, String outputPath, String relativeFileName,
+			ClassFile classFile) throws IOException {
+		File file = getFile(generatePackagesStructure, outputPath, relativeFileName);
+		byte[] bytes = Arrays.copyOf(classFile.header, classFile.headerOffset + classFile.contentsOffset);
+		System.arraycopy(classFile.contents, 0, bytes, classFile.headerOffset, classFile.contentsOffset);
+		Files.write(file.toPath(), bytes);
 	}
+
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void recordNestedType(ClassFile classFile, TypeBinding typeBinding) {
 		if (classFile.visitedTypes == null) {

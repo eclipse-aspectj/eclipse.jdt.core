@@ -29,7 +29,6 @@ package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.List;
 import java.util.Set;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
@@ -41,7 +40,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
  * abstract parameterized types, e.g. List<String> is not compatible with List<Object>,
  * but compatible with List<?>.
  */
-public class WildcardBinding extends ReferenceBinding {
+public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 
 	public ReferenceBinding genericType;
 	public int rank;

@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.eclipse.core.runtime.Assert;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.ToolFactory;
@@ -211,6 +210,10 @@ public final class ASTRewriteFormatter {
 
 	public int computeIndentUnits(String line) {
 		return IndentManipulation.measureIndentUnits(line, this.tabWidth, this.indentWidth);
+	}
+
+	public int computeIndentInSpaces(String line) {
+		return IndentManipulation.measureIndentInSpaces(line, this.tabWidth);
 	}
 
 	/**

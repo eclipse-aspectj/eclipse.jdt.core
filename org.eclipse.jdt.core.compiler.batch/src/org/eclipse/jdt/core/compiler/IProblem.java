@@ -810,6 +810,11 @@ void setSourceStart(int sourceStart);
 	/** @since 3.1 */
 	int DiscouragedReference = TypeRelated + 280;
 
+	/**
+	 * @since 3.40
+	 */
+	int LambdaParameterIsNeverUsed = Internal + 281;
+
 	int InterfaceCannotHaveInitializers = TypeRelated + 300;
 	int DuplicateModifierForType = TypeRelated + 301;
 	int IllegalModifierForClass = TypeRelated + 302;
@@ -851,27 +856,39 @@ void setSourceStart(int sourceStart);
 	int ShouldImplementHashcode = TypeRelated + 332;
 	/** @since 3.5 */
 	int AbstractMethodsInConcreteClass = TypeRelated + 333;
+	/** @since 3.40 */
+	int IllegalModifierCombinationForType = TypeRelated + 334;
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
+	@Deprecated
 	int SuperclassNotFound =  TypeRelated + 329 + ProblemReasons.NotFound; // TypeRelated + 330
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int SuperclassNotVisible =  TypeRelated + 329 + ProblemReasons.NotVisible; // TypeRelated + 331
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int SuperclassAmbiguous =  TypeRelated + 329 + ProblemReasons.Ambiguous; // TypeRelated + 332
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int SuperclassInternalNameProvided =  TypeRelated + 329 + ProblemReasons.InternalNameProvided; // TypeRelated + 333
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int SuperclassInheritedNameHidesEnclosingName =  TypeRelated + 329 + ProblemReasons.InheritedNameHidesEnclosingName; // TypeRelated + 334
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
+	@Deprecated
 	int InterfaceNotFound =  TypeRelated + 334 + ProblemReasons.NotFound; // TypeRelated + 335
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int InterfaceNotVisible =  TypeRelated + 334 + ProblemReasons.NotVisible; // TypeRelated + 336
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int InterfaceAmbiguous =  TypeRelated + 334 + ProblemReasons.Ambiguous; // TypeRelated + 337
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int InterfaceInternalNameProvided =  TypeRelated + 334 + ProblemReasons.InternalNameProvided; // TypeRelated + 338
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int InterfaceInheritedNameHidesEnclosingName =  TypeRelated + 334 + ProblemReasons.InheritedNameHidesEnclosingName; // TypeRelated + 339
 
 	// field related problems
@@ -908,8 +925,10 @@ void setSourceStart(int sourceStart);
 	int AbstractMethodInAbstractClass = MethodRelated + 363;
 	int ArgumentTypeCannotBeVoid = MethodRelated + 364;
 	/** @deprecated - problem is no longer generated, use {@link #CannotAllocateVoidArray} instead */
+	@Deprecated
 	int ArgumentTypeCannotBeVoidArray = MethodRelated + 365;
 	/** @deprecated - problem is no longer generated, use {@link #CannotAllocateVoidArray} instead */
+	@Deprecated
 	int ReturnTypeCannotBeVoidArray = MethodRelated + 366;
 	int NativeMethodsCannotBeStrictfp = MethodRelated + 367;
 	int DuplicateModifierForArgument = MethodRelated + 368;
@@ -917,36 +936,51 @@ void setSourceStart(int sourceStart);
 	int IllegalModifierForConstructor = MethodRelated + 369;
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
+	@Deprecated
 	int ArgumentTypeNotFound =  MethodRelated + 369 + ProblemReasons.NotFound; // MethodRelated + 370
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int ArgumentTypeNotVisible =  MethodRelated + 369 + ProblemReasons.NotVisible; // MethodRelated + 371
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int ArgumentTypeAmbiguous =  MethodRelated + 369 + ProblemReasons.Ambiguous; // MethodRelated + 372
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int ArgumentTypeInternalNameProvided =  MethodRelated + 369 + ProblemReasons.InternalNameProvided; // MethodRelated + 373
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int ArgumentTypeInheritedNameHidesEnclosingName =  MethodRelated + 369 + ProblemReasons.InheritedNameHidesEnclosingName; // MethodRelated + 374
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
+	@Deprecated
 	int ExceptionTypeNotFound =  MethodRelated + 374 + ProblemReasons.NotFound; // MethodRelated + 375
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int ExceptionTypeNotVisible =  MethodRelated + 374 + ProblemReasons.NotVisible; // MethodRelated + 376
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int ExceptionTypeAmbiguous =  MethodRelated + 374 + ProblemReasons.Ambiguous; // MethodRelated + 377
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int ExceptionTypeInternalNameProvided =  MethodRelated + 374 + ProblemReasons.InternalNameProvided; // MethodRelated + 378
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int ExceptionTypeInheritedNameHidesEnclosingName =  MethodRelated + 374 + ProblemReasons.InheritedNameHidesEnclosingName; // MethodRelated + 379
 
 	/** @deprecated - problem is no longer generated, use {@link #UndefinedType} instead */
+	@Deprecated
 	int ReturnTypeNotFound =  MethodRelated + 379 + ProblemReasons.NotFound; // MethodRelated + 380
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int ReturnTypeNotVisible =  MethodRelated + 379 + ProblemReasons.NotVisible; // MethodRelated + 381
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int ReturnTypeAmbiguous =  MethodRelated + 379 + ProblemReasons.Ambiguous; // MethodRelated + 382
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int ReturnTypeInternalNameProvided =  MethodRelated + 379 + ProblemReasons.InternalNameProvided; // MethodRelated + 383
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int ReturnTypeInheritedNameHidesEnclosingName =  MethodRelated + 379 + ProblemReasons.InheritedNameHidesEnclosingName; // MethodRelated + 384
 
 	// import related problems
@@ -957,12 +991,16 @@ void setSourceStart(int sourceStart);
 
 	int ImportNotFound =  ImportRelated + 389 + ProblemReasons.NotFound; // ImportRelated + 390
 	/** @deprecated - problem is no longer generated, use {@link #NotVisibleType} instead */
+	@Deprecated
 	int ImportNotVisible =  ImportRelated + 389 + ProblemReasons.NotVisible; // ImportRelated + 391
 	/** @deprecated - problem is no longer generated, use {@link #AmbiguousType} instead */
+	@Deprecated
 	int ImportAmbiguous =  ImportRelated + 389 + ProblemReasons.Ambiguous; // ImportRelated + 392
 	/** @deprecated - problem is no longer generated, use {@link #InternalTypeNameProvided} instead */
+	@Deprecated
 	int ImportInternalNameProvided =  ImportRelated + 389 + ProblemReasons.InternalNameProvided; // ImportRelated + 393
 	/** @deprecated - problem is no longer generated, use {@link #InheritedTypeHidesEnclosingName} instead */
+	@Deprecated
 	int ImportInheritedNameHidesEnclosingName =  ImportRelated + 389 + ProblemReasons.InheritedNameHidesEnclosingName; // ImportRelated + 394
 
 	/** @since 3.1 */
@@ -972,10 +1010,13 @@ void setSourceStart(int sourceStart);
 	int DuplicateModifierForVariable = MethodRelated + 395;
 	int IllegalModifierForVariable = MethodRelated + 396;
 	/** @deprecated - problem is no longer generated, use {@link #RedundantNullCheckOnNonNullLocalVariable} instead */
+	@Deprecated
 	int LocalVariableCannotBeNull = Internal + 397; // since 3.3: semantics are LocalVariableRedundantCheckOnNonNull
 	/** @deprecated - problem is no longer generated, use {@link #NullLocalVariableReference}, {@link #RedundantNullCheckOnNullLocalVariable} or {@link #RedundantLocalVariableNullAssignment} instead */
+	@Deprecated
 	int LocalVariableCanOnlyBeNull = Internal + 398; // since 3.3: split with LocalVariableRedundantCheckOnNull depending on context
 	/** @deprecated - problem is no longer generated, use {@link #PotentialNullLocalVariableReference} instead */
+	@Deprecated
 	int LocalVariableMayBeNull = Internal + 399;
 
 	// method verifier problems
@@ -1780,6 +1821,7 @@ void setSourceStart(int sourceStart);
 	int DuplicateBoundInIntersectionCast = TypeRelated + 894;
 	/** @deprecated This problem is no longer reported; number Of functional interface is not an issue, number of abstract methods is.
 	 * @since 3.10 */
+	@Deprecated
 	int MultipleFunctionalInterfaces = TypeRelated + 895;
 	/** @since 3.10 */
 	int StaticInterfaceMethodNotBelow18 = Internal + Syntax + 896;
@@ -1980,6 +2022,12 @@ void setSourceStart(int sourceStart);
 	 * @since 3.36
 	 */
 	int NullityUncheckedTypeAnnotation = Internal + 986;
+	/** @since 3.41 */
+	int MessageSendWithUnresolvedOwningAnnotation = Internal + 987;
+	/** @since 3.41 */
+	int ParameterWithUnresolvedOwningAnnotation = Internal + 988;
+	/** @since 3.41 */
+	int FieldWithUnresolvedOwningAnnotation = Internal + 989;
 
 
 	// Java 8 work
@@ -2095,6 +2143,10 @@ void setSourceStart(int sourceStart);
 	int OverrideReducingParamterOwning = Internal + 1266;
 	/** @since 3.37 */
 	int OverrideAddingReturnOwning = Internal + 1267;
+	/** @since 3.38 */
+	int StaticResourceField = Internal + 1268;
+	/** @since 3.38 */
+	int ResourceIsNotAValue = Internal + 1269;
 
 	// terminally
 	/** @since 3.14 */
@@ -2176,6 +2228,10 @@ void setSourceStart(int sourceStart);
 	/** @since  3.24 */
 	int ConflictingPackageInModules = ModuleRelated + 1462;
 
+	// module imports
+	/** @since 3.40 @noreference This field is not intended to be referenced by clients.*/
+	int ModuleNotRead = ModuleRelated + 1463;
+
 	// doc variant of an above constant:
 	/** @since 3.22 */
 	int JavadocNotAccessibleType = Javadoc + NotAccessibleType;
@@ -2206,6 +2262,10 @@ void setSourceStart(int sourceStart);
 	int FeatureNotSupported = Compliance + 1107;
 	/** @since 3.26*/
 	int PreviewAPIUsed = Compliance + 1108;
+	/** @since 3.39*/
+	int JavaVersionNotSupported = Compliance + 1109;
+	/** @since 3.40*/
+	int JavaVersionTooRecent = Compliance + 1110;
 
 	/** @since 3.13 */
 	int UnlikelyCollectionMethodArgumentType = 1200;
@@ -2290,41 +2350,63 @@ void setSourceStart(int sourceStart);
 	/* Java14 errors - begin */
 	/** @since 3.21  */
 	int SwitchExpressionsYieldIncompatibleResultExpressionTypes = TypeRelated + 1700;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldEmptySwitchBlock = Syntax + 1701;
 	/** @since 3.21  */
 	int SwitchExpressionsYieldNoResultExpression = Internal + 1702;
 	/** @since 3.21  */
 	int SwitchExpressionaYieldSwitchLabeledBlockCompletesNormally = Internal + 1703;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldLastStatementCompletesNormally = Internal + 1704;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldTrailingSwitchLabels = Internal + 1705;
 	/** @since 3.21  */
 	int SwitchPreviewMixedCase = Syntax + 1706;
 	/** @since 3.21  */
 	int SwitchExpressionsYieldMissingDefaultCase = Syntax + 1707;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldMissingValue = Syntax + 1708;
 	/** @since 3.21  */
 	int SwitchExpressionsYieldMissingEnumConstantCase = Syntax + 1709;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldIllegalLastStatement = Internal + 1710;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldBreakNotAllowed = Syntax + 1711;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldUnqualifiedMethodWarning = Syntax + 1712;
 	/** @since 3.21  */
 	int SwitchExpressionsYieldUnqualifiedMethodError = Syntax + 1713;
 	/** @since 3.21  */
 	int SwitchExpressionsYieldOutsideSwitchExpression = Syntax + 1714;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldRestrictedGeneralWarning = Internal + 1715;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldIllegalStatement = Internal + 1716;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldTypeDeclarationWarning = Internal + 1717;
-	/** @since 3.21  */
+	/** @since 3.21
+	 * @deprecated no longer issued - will be removed
+	 */
 	int SwitchExpressionsYieldTypeDeclarationError = Internal + 1718;
 	/** @since 3.22 */
 	int MultiConstantCaseLabelsNotSupported = Syntax + 1719;
@@ -2471,9 +2553,8 @@ void setSourceStart(int sourceStart);
 	 */
 	int PatternVariableRedefined = Internal + 1781;
 	/** @since 3.26
-	 * @deprecated
 	 */
-	int PatternSubtypeOfExpression = Internal + 1782;
+	int PatternSubtypeOfExpression = Internal + 1782;  // ass backwards naming of API constant :-( It should read ExpressionSubtypeOfPattern
 	/** @since 3.26
 	 */
 	int IllegalModifierForPatternVariable = Internal + 1783;
@@ -2511,7 +2592,9 @@ void setSourceStart(int sourceStart);
 	int SealedPermittedTypeOutsideOfPackage = TypeRelated + 1859;
 	/** @since 3.28 */
 	int SealedSealedTypeMissingPermits = TypeRelated + 1860;
-	/** @since 3.28 */
+	/** @since 3.28
+	 * @deprecated problem no longer generated
+	 */
 	int SealedInterfaceIsSealedAndNonSealed = TypeRelated + 1861;
 	/** @since 3.28 */
 	int SealedDisAllowedNonSealedModifierInInterface = TypeRelated + 1862;
@@ -2521,11 +2604,19 @@ void setSourceStart(int sourceStart);
 	int SealedLocalDirectSuperTypeSealed = TypeRelated + 1864;
 	/** @since 3.28 */
 	int SealedAnonymousClassCannotExtendSealedType = TypeRelated + 1865;
-	/** @since 3.28 */
+	/** @since 3.28
+	 * @deprecated problem no longer generated
+	 */
 	int SealedSuperTypeInDifferentPackage = TypeRelated + 1866;
-	/** @since 3.28 */
+	/** @since 3.28
+	 * @deprecated problem no longer generated
+	 */
 	int SealedSuperTypeDisallowed = TypeRelated + 1867;
-	/* Java15 errors - end */
+	/**
+	 * @since 3.40
+	 */
+	int FunctionalInterfaceMayNotbeSealed = TypeRelated + 1868;
+	/* Java17 Sealed types errors - end */
 
 	/**
 	 * @since 3.28
@@ -2550,9 +2641,6 @@ void setSourceStart(int sourceStart);
 	/** @since 3.28
 	 * @noreference preview feature error */
 	int EnhancedSwitchMissingDefault = PreviewRelated + 1908;
-	/** @since 3.28
-	 * @noreference preview feature error */
-	int DuplicateTotalPattern = PreviewRelated + 1909;
 
 	 /** @since 3.34
 	 * @noreference preview feature error */
@@ -2638,15 +2726,80 @@ void setSourceStart(int sourceStart);
 	int UnnamedVariableMustHaveInitializer = PreviewRelated + 2001;
 
 	/**
-	 * @since 3.38
+	 * @since 3.40
 	 * @noreference preview feature
 	 */
-	int ExpressionInPreConstructorContext = PreviewRelated + 2022;
+	int ExpressionInEarlyConstructionContext = PreviewRelated + 2022;
 
 	/**
-	 * @since 3.38
+	 * @since 3.40
 	 * @noreference preview feature
 	 */
-	int DisallowedStatementInPrologue = PreviewRelated + 2023;
+	int DisallowedStatementInEarlyConstructionContext = PreviewRelated + 2023;
 
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int FieldReadInEarlyConstructionContext = PreviewRelated + 2024;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int ThisInEarlyConstructionContext = PreviewRelated + 2025;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int AllocationInEarlyConstructionContext = PreviewRelated + 2026;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int MessageSendInEarlyConstructionContext = PreviewRelated + 2027;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int DuplicateExplicitConstructorCall = PreviewRelated + 2028;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int SuperFieldAssignInEarlyConstructionContext = PreviewRelated + 2029;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int AssignFieldWithInitializerInEarlyConstructionContext = PreviewRelated + 2030;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int ConstructorCallNotAllowedHere = PreviewRelated + 2031;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int WrongCaseType =  PreviewRelated + 2100;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int IncompatibleCaseType =  PreviewRelated + 2101;
+
+	/**
+	 * @since 3.40
+	 * @noreference preview feature
+	 */
+	int DefaultTrueAndFalseCases = PreviewRelated + 2102;
 }

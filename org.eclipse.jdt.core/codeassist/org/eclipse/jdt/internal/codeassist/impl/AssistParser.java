@@ -22,53 +22,15 @@ import java.util.Arrays;
 
 import java.util.HashSet;
 import java.util.List;
-
 import org.eclipse.jdt.core.compiler.InvalidInputException;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
-import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.Annotation;
-import org.eclipse.jdt.internal.compiler.ast.Block;
-import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
-import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.EmptyStatement;
-import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
-import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ForeachStatement;
-import org.eclipse.jdt.internal.compiler.ast.ImportReference;
-import org.eclipse.jdt.internal.compiler.ast.Initializer;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
-import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
-import org.eclipse.jdt.internal.compiler.ast.NameReference;
-import org.eclipse.jdt.internal.compiler.ast.RequiresStatement;
-import org.eclipse.jdt.internal.compiler.ast.Statement;
-import org.eclipse.jdt.internal.compiler.ast.SuperReference;
-import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.TypePattern;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
-import org.eclipse.jdt.internal.compiler.parser.Parser;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredBlock;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredElement;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredExportsStatement;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredField;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredInitializer;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredLocalVariable;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredMethod;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredStatement;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredType;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredUnit;
+import org.eclipse.jdt.internal.compiler.parser.*;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 public abstract class AssistParser extends Parser {
@@ -113,6 +75,7 @@ public abstract class AssistParser extends Parser {
 	protected static final int K_LAMBDA_EXPRESSION_DELIMITER = ASSIST_PARSER + 7; // whether we are inside a lambda expression
 	protected static final int K_MODULE_INFO_DELIMITER = ASSIST_PARSER + 8; // whether we are inside a module info declaration
 	protected static final int K_SWITCH_EXPRESSION_DELIMITTER = ASSIST_PARSER + 9; // whether we are inside a switch expression
+	protected static final int K_RECORD_PATTERN = ASSIST_PARSER + 10; // whether we are inside record pattern
 
 	// selector constants
 	protected static final int THIS_CONSTRUCTOR = -1;
@@ -565,7 +528,12 @@ protected boolean triggerRecoveryUponLambdaClosure(Statement statement, boolean 
 	} else {
 		statementEnd = statement.sourceEnd;
 	}
+	boolean insideType = false;
 	for (int i = this.elementPtr; i >= 0; --i) {
+		if (this.elementKindStack[i] == K_TYPE_DELIMITER) {
+			insideType = true;
+			break;
+		}
 		if (this.elementKindStack[i] != K_LAMBDA_EXPRESSION_DELIMITER)
 			continue;
 		LambdaExpression expression = (LambdaExpression) this.elementObjectInfoStack[i];
@@ -656,7 +624,7 @@ protected boolean triggerRecoveryUponLambdaClosure(Statement statement, boolean 
 			}
 		}
 	}
-	if (this.snapShotPtr > -1)
+	if (this.snapShotPtr > -1 && !insideType)
 		popSnapShot();
 	return lambdaClosed;
 }
@@ -1069,8 +1037,9 @@ protected void consumeRestoreDiet() {
 	}
 }
 @Override
-protected void consumeSingleStaticImportDeclarationName() {
-	// SingleTypeImportDeclarationName ::= 'import' 'static' Name
+protected void consumeSingleModifierImportDeclarationName(int modifier) {
+	// SingleStaticImportDeclarationName ::= 'import' 'static' Name RejectTypeAnnotations
+	// SingleModuleImportDeclarationName ::= 'import' 'module' Name RejectTypeAnnotations
 	/* push an ImportRef build from the last name
 	stored in the identifier stack. */
 
@@ -1078,13 +1047,16 @@ protected void consumeSingleStaticImportDeclarationName() {
 
 	/* no need to take action if not inside assist identifiers */
 	if ((index = indexOfAssistIdentifier()) < 0) {
-		super.consumeSingleStaticImportDeclarationName();
+		super.consumeSingleModifierImportDeclarationName(modifier);
 		return;
 	}
 	/* retrieve identifiers subset and whole positions, the assist node positions
 		should include the entire replaced source. */
 	int length = this.identifierLengthStack[this.identifierLengthPtr];
-	char[][] subset = identifierSubSet(index+1); // include the assistIdentifier
+	int subsetLength = modifier == ClassFileConstants.AccStatic
+							? index + 1 // include the assistIdentifier
+							: length; // segments of a module name have no semantic relevance, use the entire name
+	char[][] subset = identifierSubSet(subsetLength);
 	this.identifierLengthPtr--;
 	this.identifierPtr -= length;
 	long[] positions = new long[length];
@@ -1096,7 +1068,7 @@ protected void consumeSingleStaticImportDeclarationName() {
 		length);
 
 	/* build specific assist node on import statement */
-	ImportReference reference = createAssistImportReference(subset, positions, ClassFileConstants.AccStatic);
+	ImportReference reference = createAssistImportReference(subset, positions, modifier);
 	this.assistNode = reference;
 	this.lastCheckPoint = reference.sourceEnd + 1;
 
@@ -1366,6 +1338,8 @@ protected void consumeToken(int token) {
 		adjustBracket(token);
 		switch (token) {
 			case TokenNameLPAREN :
+				if (topKnownElementKind(ASSIST_PARSER) == K_RECORD_PATTERN)
+					break; // after 'case' 'ID(' is *not* the start of an invocation
 				switch (this.previousToken) {
 					case TokenNameIdentifier:
 						this.pushOnElementStack(K_SELECTOR, this.identifierPtr);

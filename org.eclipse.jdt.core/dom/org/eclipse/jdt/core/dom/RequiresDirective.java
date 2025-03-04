@@ -39,7 +39,7 @@ public class RequiresDirective extends ModuleDirective {
 	 * The module structural property of this node type (child type: {@link Name}).
 	 */
 	public static final ChildPropertyDescriptor NAME_PROPERTY =
-		new ChildPropertyDescriptor(RequiresDirective.class, "name", Name.class, OPTIONAL, NO_CYCLE_RISK); //$NON-NLS-1$
+		new ChildPropertyDescriptor(RequiresDirective.class, "name", Name.class, MANDATORY, NO_CYCLE_RISK); //$NON-NLS-1$
 
 	/**
 	 * A list of property descriptors (element type:
@@ -80,7 +80,7 @@ public class RequiresDirective extends ModuleDirective {
 	 * The referenced module name; lazily initialized; defaults to a unspecified,
 	 * legal Java identifier.
 	 */
-	private Name name = null;
+	private volatile Name name;
 
 	/**
 	 * Creates a new AST node for an requires directive owned by the
@@ -204,9 +204,8 @@ public class RequiresDirective extends ModuleDirective {
 			synchronized (this) {
 				if (this.name == null) {
 					preLazyInit();
-					this.name =this.ast.newQualifiedName(
-							new SimpleName(this.ast), new SimpleName(this.ast));
-					postLazyInit(this.name, NAME_PROPERTY);
+					this.name = postLazyInit(new SimpleName(this.ast),
+							NAME_PROPERTY);
 				}
 			}
 		}
@@ -221,6 +220,7 @@ public class RequiresDirective extends ModuleDirective {
 	 * <ul>
 	 * <li>the node belongs to a different AST</li>
 	 * <li>the node already has a parent</li>
+	 * <li>the node is null</li>
 	 * </ul>
 	 */
 	public void setName(Name name) {

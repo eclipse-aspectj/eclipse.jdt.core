@@ -13,15 +13,13 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.model;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.StringTokenizer;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -33,18 +31,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IAccessRule;
-import org.eclipse.jdt.core.IClassFile;
-import org.eclipse.jdt.core.IClasspathAttribute;
-import org.eclipse.jdt.core.IClasspathContainer;
-import org.eclipse.jdt.core.IClasspathEntry;
-import org.eclipse.jdt.core.IJavaElement;
-import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IOrdinaryClassFile;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.IParent;
-import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.batch.BatchCompiler;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
@@ -178,14 +165,8 @@ protected void createExternalFile(String relativePath, String contents) {
 }
 
 @Override
-protected IFile createFile(String path, InputStream content) throws CoreException {
-	IFile file = getFile(path);
-	file.create(content, true, null);
-	try {
-		content.close();
-	} catch (IOException e) {
-		e.printStackTrace();
-	}
+protected IFile createFile(String path, byte[] content) throws CoreException {
+	IFile file = super.createFile(path, content);
 	if(!isIndexDisabledForTest()) {
 		JavaModelManager.getIndexManager().waitForIndex(false, null);
 	}
@@ -193,13 +174,11 @@ protected IFile createFile(String path, InputStream content) throws CoreExceptio
 }
 
 @Override
-protected IFile createFile(String path, byte[] content) throws CoreException {
-	return createFile(path, new ByteArrayInputStream(content));
-}
-
-@Override
 protected IFile createFile(String path, String content) throws CoreException {
 	return createFile(path, content.getBytes());
+}
+protected IFile createFile(String path, String content, Charset charsetName) throws CoreException {
+	return createFile(path, content.getBytes(charsetName));
 }
 protected IFile createFile(String path, String content, String charsetName) throws CoreException, UnsupportedEncodingException {
 	return createFile(path, content.getBytes(charsetName));
@@ -224,8 +203,7 @@ protected void deleteFolder(String folderPath) throws CoreException {
 }
 protected IFile editFile(String path, String content) throws CoreException {
 	IFile file = getFile(path);
-	InputStream input = new ByteArrayInputStream(content.getBytes());
-	file.setContents(input, IResource.FORCE, null);
+	file.setContents(content.getBytes(), IResource.FORCE, null);
 	return file;
 }
 /*

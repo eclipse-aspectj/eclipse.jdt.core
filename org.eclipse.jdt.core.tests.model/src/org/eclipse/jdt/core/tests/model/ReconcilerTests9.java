@@ -18,7 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Hashtable;
-
+import junit.framework.Test;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IncrementalProjectBuilder;
@@ -34,8 +34,6 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.tests.util.Util;
-
-import junit.framework.Test;
 
 public class ReconcilerTests9 extends ModifyingResourceTests {
 
@@ -318,7 +316,7 @@ public void testTerminalDeprecation1() throws CoreException {
 			"----------\n" +
 			"2. WARNING in /P1/src/Y.java (at line 3)\n" +
 			"	x2.m();\n" +
-			"	   ^^^\n" +
+			"	   ^\n" +
 			"The method m() from the type X2 has been deprecated and marked for removal\n" +
 			"----------\n" +
 			"3. WARNING in /P1/src/Y.java (at line 4)\n" +
@@ -387,12 +385,12 @@ public void testTerminalDeprecation2() throws CoreException, IOException {
 			"----------\n" +
 			"2. WARNING in /P1/src/Y.java (at line 3)\n" +
 			"	x2.m();\n" +
-			"	   ^^^\n" +
+			"	   ^\n" +
 			deprecatedForRemoval("The method m() from the type X2") +
 			"----------\n" +
 			"3. WARNING in /P1/src/Y.java (at line 4)\n" +
 			"	x2.m2();\n" +
-			"	   ^^^^\n" +
+			"	   ^^\n" +
 			"The method m2() from the type X2 is deprecated\n" +
 			"----------\n" +
 			"4. WARNING in /P1/src/Y.java (at line 5)\n" +
