@@ -164,6 +164,7 @@ of the AspectJ extension code.
 
 git checkout aspectj
 git merge java-24
+git tag V1_9_24
 ```
 
 ## License
