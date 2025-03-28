@@ -490,6 +490,11 @@ public abstract class AbstractMethodDeclaration
 
 		return false;
 	}
+
+	public boolean isCompactConstructor() {
+		return false;
+	}
+
 	public boolean isDefaultConstructor() {
 
 		return false;
@@ -609,6 +614,11 @@ public abstract class AbstractMethodDeclaration
 
 		if (this.binding == null) {
 			this.ignoreFurtherInvestigation = true;
+		}
+
+		if (this.isCompactConstructor() && !upperScope.referenceContext.isRecord()) {
+			upperScope.problemReporter().compactConstructorsOnlyInRecords(this);
+			return;
 		}
 
 		try {

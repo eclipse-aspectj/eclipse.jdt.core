@@ -26,7 +26,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
  */
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class RecoveredType extends RecoveredStatement implements TerminalTokens {
+public class RecoveredType extends RecoveredStatement {
 	public static final int MAX_TYPE_DEPTH = 256;
 
 	public TypeDeclaration typeDeclaration;
@@ -790,7 +790,7 @@ public RecoveredElement updateOnOpeningBrace(int braceStart, int braceEnd){
 		 */
 		Parser parser = parser();
 		switch(parser.lastIgnoredToken){
-			case -1 :
+			case TokenNameInvalid :
 			case TokenNameextends :
 			case TokenNameimplements :
 			case TokenNameRestrictedIdentifierpermits:

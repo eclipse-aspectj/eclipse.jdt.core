@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -114,6 +114,7 @@ public class BinaryTypeBinding extends SourceTypeBinding {
 //	protected LookupEnvironment environment;
 
 	protected Map<Binding, AnnotationHolder> storedAnnotations = null; // keys are this ReferenceBinding & its fields and methods, value is an AnnotationHolder
+	public IBinaryAnnotation binaryPreviewAnnotation; // captures the exact preview feature of a preview API
 
 	private ReferenceBinding containerAnnotationType;
 	int defaultNullness = 0;
@@ -449,8 +450,9 @@ final void cachePartsFrom(IBinaryType binaryType, boolean needFieldsAndMethods) 
 		cachePartsFrom2(binaryType, needFieldsAndMethods);
 	} catch (AbortCompilation e) {
 		throw e;
-	} catch (RuntimeException e) {
-		throw new RuntimeException("RuntimeException loading " + new String(binaryType.getFileName()), e); //$NON-NLS-1$
+	} catch (RuntimeException e) { // may be a org.eclipse.core.runtime.OperationCanceledException
+		e.addSuppressed(new RuntimeException("RuntimeException loading " + new String(binaryType.getFileName()))); //$NON-NLS-1$
+		throw e;
 	}
 }
 
@@ -669,8 +671,8 @@ private void cachePartsFrom2(IBinaryType binaryType, boolean needFieldsAndMethod
 			}
 			for (IBinaryAnnotation annotation : declAnnotations) {
 				char[] typeName = annotation.getTypeName();
-				if (isPreviewFeature(typeName)) {
-					this.tagBits |= TagBits.AnnotationPreviewFeature;
+				if (CharOperation.equals(typeName, ConstantPool.PREVIEW_FEATURE)) {
+					this.binaryPreviewAnnotation = annotation;
 					break;
 				}
 			}
@@ -710,6 +712,7 @@ private void cachePartsFrom2(IBinaryType binaryType, boolean needFieldsAndMethod
 		this.environment.requestingType = previousRequester;
 	}
 }
+
 void markImplicitTerminalDeprecation(ReferenceBinding type) {
 	for (ReferenceBinding member : type.memberTypes()) {
 		member.tagBits |= TagBits.AnnotationTerminallyDeprecated;
@@ -868,16 +871,20 @@ private void createFields(IBinaryField[] iFields, IBinaryType binaryType, long s
 						? this.environment.getTypeFromSignature(binaryField.getTypeName(), 0, -1, false, this, missingTypeNames, walker)
 						: this.environment.getTypeFromTypeSignature(new SignatureWrapper(fieldSignature), Binding.NO_TYPE_VARIABLES, this, missingTypeNames, walker);
 					VariableBinding field = initialization.createBinding(this, binaryField, type);
+					boolean forceStoreAnnotations = false;
 					if (declAnnotations != null) {
 						for (IBinaryAnnotation annotation : declAnnotations) {
 							char[] typeName = annotation.getTypeName();
-							if (isPreviewFeature(typeName)) {
-								field.tagBits |= TagBits.AnnotationPreviewFeature;
+							if (CharOperation.equals(typeName, ConstantPool.PREVIEW_FEATURE) && field instanceof FieldBinding realField) {
+								realField.binaryPreviewAnnotation = annotation;
+								break;
+							} else if (CharOperation.equals(typeName, ConstantPool.PREVIEW_FEATURE_JEP)) {
+								forceStoreAnnotations = true;
 								break;
 							}
 						}
 					}
-					boolean forceStoreAnnotations = !this.environment.globalOptions.storeAnnotations
+					forceStoreAnnotations |= !this.environment.globalOptions.storeAnnotations
 							&& (this.environment.globalOptions.sourceLevel >= ClassFileConstants.JDK9
 							&& binaryField.getAnnotations() != null
 							&& (binaryField.getTagBits() & TagBits.AnnotationDeprecated) != 0);
@@ -946,7 +953,7 @@ public boolean isNestmateOf(SourceTypeBinding other) {
     return index == 0;
   }
 
-  private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType, long sourceLevel, char[][][] missingTypeNames) {
+private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType, long sourceLevel, char[][][] missingTypeNames) {
 	if (!isPrototype()) throw new IllegalStateException();
 	int methodModifiers = method.getModifiers() | ExtraCompilerModifiers.AccUnresolved;
 	if (sourceLevel < ClassFileConstants.JDK1_5)
@@ -1055,11 +1062,13 @@ public boolean isNestmateOf(SourceTypeBinding other) {
 		}
 
 	} else {
-		if (sourceLevel >= ClassFileConstants.JDK1_8) { // below 1.8, external annotations will be attached later
-			walker = binaryType.enrichWithExternalAnnotationsFor(walker, method, this.environment);
-		}
-		if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
-			walker = provideSyntheticEEA(method, walker);
+		if (this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
+			if (sourceLevel >= ClassFileConstants.JDK1_8) { // below 1.8, external annotations will be attached later
+				walker = binaryType.enrichWithExternalAnnotationsFor(walker, method, this.environment);
+			}
+			if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER) {
+				walker = provideSyntheticEEA(method, walker);
+			}
 		}
 		methodModifiers |= ExtraCompilerModifiers.AccGenericSignature;
 		// MethodTypeSignature = ParameterPart(optional) '(' TypeSignatures ')' return_typeSignature ['^' TypeSignature (optional)]
@@ -1176,8 +1185,8 @@ public boolean isNestmateOf(SourceTypeBinding other) {
 	if (declAnnotations != null) {
 		for (IBinaryAnnotation annotation : declAnnotations) {
 			char[] typeName = annotation.getTypeName();
-			if (isPreviewFeature(typeName)) {
-				result.tagBits |= TagBits.AnnotationPreviewFeature;
+			if (CharOperation.equals(typeName, ConstantPool.PREVIEW_FEATURE)) {
+				result.binaryPreviewAnnotation = annotation;
 				break;
 			}
 		}

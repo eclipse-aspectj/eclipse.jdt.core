@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -94,6 +94,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE21 = false;
 	protected static boolean isJRE22 = false;
 	protected static boolean isJRE23 = false;
+	protected static boolean isJRE24 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -106,6 +107,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK24) {
+			isJRE24 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK23) {
 			isJRE23 = true;
 		}
@@ -234,9 +238,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	 */
 	protected static final int AST_INTERNAL_JLS22 = AST.JLS22;
 	/**
-	 * Internal synonym for constant AST.JSL22
+	 * Internal synonym for constant AST.JSL23
 	 */
 	protected static final int AST_INTERNAL_JLS23 = AST.JLS23;
+	/**
+	 * Internal synonym for constant AST.JSL24
+	 */
+	protected static final int AST_INTERNAL_JLS24 = AST.JLS24;
 	/**
 	 * Internal synonym for the latest AST level.
 	 */
@@ -1692,6 +1700,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected IJavaProject createJava21Project(String name) throws CoreException {
 		return createJava9ProjectWithJREAttributes(name, new String[]{"src"}, null, "21");
 	}
+	protected IJavaProject createJava23Project(String name) throws CoreException {
+		return createJava9ProjectWithJREAttributes(name, new String[]{"src"}, null, "23");
+	}
 	protected IJavaProject createJava9ProjectWithJREAttributes(String name, String[] srcFolders, IClasspathAttribute[] attributes) throws CoreException {
 		return createJava9ProjectWithJREAttributes(name, srcFolders, attributes, "9");
 	}
@@ -2305,6 +2316,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_22);
 					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_22);
 					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_22);
+					javaProject.setOptions(options);
+				} else if ("23".equals(compliance)) {
+					Map options = new HashMap();
+					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_23);
+					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_23);
+					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_23);
 					javaProject.setOptions(options);
 				} else {
 					// Do NOT set default project options if compliance is not given,
@@ -3453,7 +3470,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				newJclSrcString = "JCL18_FULL_SRC";
 			}
 		} else {
-			if (compliance.equals("23")) {
+			if (compliance.equals("24")) {
+				newJclLibString = "JCL_24_LIB";
+				newJclSrcString = "JCL_24_SRC";
+			} else if (compliance.equals("23")) {
 				newJclLibString = "JCL_23_LIB";
 				newJclSrcString = "JCL_23_SRC";
 			} else if (compliance.equals("22")) {
@@ -3655,6 +3675,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				JavaCore.setClasspathVariables(
 					new String[] {"JCL_23_LIB", "JCL_23_SRC", "JCL_SRCROOT"},
 					new IPath[] {getExternalJCLPath("23"), getExternalJCLSourcePath("23"), getExternalJCLRootSourcePath()},
+					null);
+			}
+		} else if ("24".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("JCL_24_LIB") == null) {
+				setupExternalJCL("jclMin24");
+				JavaCore.setClasspathVariables(
+					new String[] {"JCL_24_LIB", "JCL_24_SRC", "JCL_SRCROOT"},
+					new IPath[] {getExternalJCLPath("24"), getExternalJCLSourcePath("24"), getExternalJCLRootSourcePath()},
 					null);
 			}
 		} else {

@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -448,6 +448,7 @@ void setSourceStart(int sourceStart);
 	int IncorrectEnclosingInstanceReference = TypeRelated + 22;
 	int IllegalEnclosingInstanceSpecification = TypeRelated + 23;
 	int CannotDefineStaticInitializerInLocalType = Internal + 24;
+	/** @deprecated - problem is no longer generated, use {@link #OuterLocalMustBeEffectivelyFinal} instead */
 	int OuterLocalMustBeFinal = Internal + 25;
 	int CannotDefineInterfaceInLocalType = Internal + 26;
 	int IllegalPrimitiveOrArrayTypeForEnclosingInstance = TypeRelated + 27;
@@ -1641,6 +1642,10 @@ void setSourceStart(int sourceStart);
 	int NullExpressionReference = Internal + 672;
 	/** @since 3.9 */
 	int PotentialNullExpressionReference = Internal + 673;
+	/** @since 3.42*/
+	int LocalMustBeEffectivelyFinal = Internal + 674;
+	/** @since 3.42*/
+	int ResourceLocalMustBeEffectivelyFinal = Internal + 675;
 
 	/**
 	 * Corrupted binaries
@@ -2122,6 +2127,13 @@ void setSourceStart(int sourceStart);
 	int UndefinedModuleAddReads = ModuleRelated + 1319;
 	/** @since 3.20 */
 	int ExportingForeignPackage = ModuleRelated + 1320;
+	/** @since 3.42*/
+	int ModifierOnRequiresJavaBase = ModuleRelated + 1321;
+	/**
+	 * @since 3.42
+	 * @noreference related to preview feature module imports
+	 */
+	int ModifierOnRequiresJavaBasePreview = ModuleRelated + 1322;
 
 
 	/** @since 3.14 */
@@ -2266,6 +2278,8 @@ void setSourceStart(int sourceStart);
 	int JavaVersionNotSupported = Compliance + 1109;
 	/** @since 3.40*/
 	int JavaVersionTooRecent = Compliance + 1110;
+	/** @since 3.42*/
+	int PreviewAPIDisabled = Compliance + 1111;
 
 	/** @since 3.13 */
 	int UnlikelyCollectionMethodArgumentType = 1200;
@@ -2542,6 +2556,8 @@ void setSourceStart(int sourceStart);
 	int ClassExtendFinalRecord = TypeRelated + 1767;
 	/** @since 3.29 */
 	int RecordErasureIncompatibilityInCanonicalConstructor = TypeRelated + 1768;
+	/** @since 3.41 */
+	int CompactConstructorOnlyInRecords = TypeRelated + 1769;
 	/* records - end */
 
 
@@ -2786,6 +2802,17 @@ void setSourceStart(int sourceStart);
 	int ConstructorCallNotAllowedHere = PreviewRelated + 2031;
 
 	/**
+	 * @since 3.42
+	 */
+	int AllocatingLocalInStaticContext = TypeRelated + 2032;
+
+	/**
+	 * @since 3.42
+	 * @noreference preview feature
+	 */
+	int SuperFieldAssignInEarlyConstructionContextLambda = PreviewRelated + 2033;
+
+	/**
 	 * @since 3.40
 	 * @noreference preview feature
 	 */
@@ -2802,4 +2829,7 @@ void setSourceStart(int sourceStart);
 	 * @noreference preview feature
 	 */
 	int DefaultTrueAndFalseCases = PreviewRelated + 2102;
+
+	/** @since 3.41 */
+	int MissingTypeForInference = Internal + 2103;
 }

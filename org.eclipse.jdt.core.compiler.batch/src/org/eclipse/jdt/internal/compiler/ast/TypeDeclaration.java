@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2020 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -39,6 +39,7 @@ import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration.AnalysisMode;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -60,7 +61,7 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.SimpleSetOfCharArray;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-public class TypeDeclaration extends Statement implements ProblemSeverities, ReferenceContext {
+public class TypeDeclaration extends Statement implements ProblemSeverities, ReferenceContext, TypeOrLambda {
 	// Type decl kinds
 	public static final int CLASS_DECL = 1;
 	public static final int INTERFACE_DECL = 2;
@@ -118,7 +119,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
 	public static boolean TESTING_GH_2158 = false;
 
 	static {
-		disallowedComponentNames = new HashSet<>(6);
+		disallowedComponentNames = new HashSet<>(9);
 		disallowedComponentNames.add("clone"); //$NON-NLS-1$
 		disallowedComponentNames.add("finalize"); //$NON-NLS-1$
 		disallowedComponentNames.add("getClass"); //$NON-NLS-1$
@@ -127,6 +128,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
 		disallowedComponentNames.add("notifyAll");//$NON-NLS-1$
 		disallowedComponentNames.add("toString"); //$NON-NLS-1$
 		disallowedComponentNames.add("wait"); //$NON-NLS-1$
+		disallowedComponentNames.add("this"); //$NON-NLS-1$
 	}
 
 public TypeDeclaration(CompilationResult compilationResult){
@@ -698,9 +700,7 @@ public ConstructorDeclaration getConstructor(Parser parser) {
 						this.methods[i] = m;
 					}
 				} else {
-					if (am instanceof CompactConstructorDeclaration) {
-						CompactConstructorDeclaration ccd = (CompactConstructorDeclaration) am;
-						ccd.recordDeclaration = this;
+					if (am instanceof ConstructorDeclaration ccd && ccd.isCompactConstructor()) {
 						if (ccd.arguments == null)
 							ccd.arguments = getArgumentsFromComponents(this.recordComponents);
 						return ccd;
@@ -739,6 +739,8 @@ public void generateCode(ClassFile enclosingClassFile) {
 	try {
 		// create the result for a compiled type
 		ClassFile classFile = ClassFile.getNewInstance(this.binding);
+		if (this.compilationResult.usesPreview)
+			classFile.targetJDK |= ClassFileConstants.MINOR_VERSION_PREVIEW;
 		classFile.initialize(this.binding, enclosingClassFile, false);
 		if (this.binding.isMemberType()) {
 			classFile.recordInnerClasses(this.binding);
@@ -912,8 +914,42 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 	InitializationFlowContext initializerContext = new InitializationFlowContext(parentContext, this, flowInfo, flowContext, this.initializerScope);
 	// no static initializer in local classes, thus no need to set parent:
 	InitializationFlowContext staticInitializerContext = new InitializationFlowContext(null, this, flowInfo, flowContext, this.staticInitializerScope);
-	FlowInfo nonStaticFieldInfo = flowInfo.unconditionalFieldLessCopy();
+	FlowInfo nonStaticFieldInfo = flowInfo.unconditionalFieldLessCopy();	// discards info about fields of inclosing classes
 	FlowInfo staticFieldInfo = flowInfo.unconditionalFieldLessCopy();
+
+	if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(this.scope.compilerOptions())) {
+		if (this.methods != null) {
+			// collect field initializations happening in constructor prologues
+			FlowInfo prologueInfo = null;
+			for (int i=0; i<this.methods.length; i++) {
+				AbstractMethodDeclaration method = this.methods[i];
+				if (method.isConstructor()) {
+					FlowInfo ctorInfo = flowInfo.copy();
+					ConstructorDeclaration constructor = (ConstructorDeclaration) method;
+					constructor.analyseCode(this.scope, initializerContext, ctorInfo, ctorInfo.reachMode(), AnalysisMode.PROLOGUE);
+					ctorInfo = constructor.getPrologueInfo();
+					if (prologueInfo == null)
+						prologueInfo = ctorInfo.copy();
+					else
+						prologueInfo = prologueInfo.mergeDefiniteInitsWith(ctorInfo.unconditionalInits()); // will only evaluate field inits below
+				}
+			}
+			if (prologueInfo != null) {
+				// field initializers should see inits from ctor prologues:
+				for (FieldBinding field : this.binding.fields()) {
+					if (prologueInfo.isDefinitelyAssigned(field)) {
+						nonStaticFieldInfo.markAsDefinitelyAssigned(field);
+					} else if (prologueInfo.isPotentiallyAssigned(field)) {
+						// mimic missing method markAsPotentiallyAssigned(field):
+						UnconditionalFlowInfo assigned = FlowInfo.initial(this.maxFieldCount);
+						assigned.markAsDefinitelyAssigned(field);
+						nonStaticFieldInfo.addPotentialInitializationsFrom(assigned);
+					}
+				}
+			}
+		}
+	}
+
 	if (this.fields != null) {
 		for (FieldDeclaration field : this.fields) {
 			if (field.isStatic()) {
@@ -1102,25 +1138,7 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
 			outerScope = outerScope.enclosingInstanceScope();
 			earlySeen = methodScope.isInsideEarlyConstructionContext(nestedType.enclosingType(), false);
 		}
-		if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(currentScope.compilerOptions())) {
-			// JEP 482: this is the central location for organizing synthetic arguments and fields
-			// to serve far outer instances even in inner early construction context.
-			// Locations MethodBinding.computeSignature() and BlockScope.getEmulationPath() will faithfully
-			// use the information generated here, to decide about signature and call sequence.
-			while (outerScope != null) {
-				if (outerScope instanceof ClassScope cs) {
-					if (earlySeen && !cs.insideEarlyConstructionContext) {
-						// a direct outer beyond an early construction context disrupts
-						// the chain of fields, supply a local copy instead (arg & field):
-						nestedType.addSyntheticArgumentAndField(cs.referenceContext.binding);
-					}
-					earlySeen = cs.insideEarlyConstructionContext;
-				}
-				outerScope = outerScope.parent;
-				if (outerScope instanceof MethodScope ms && ms.isStatic)
-					break;
-			}
-		}
+		addSyntheticArgumentsBeyondEarlyConstructionContext(earlySeen, outerScope);
 	}
 	// add superclass enclosing instance arg for anonymous types (if necessary)
 	if (nestedType.isAnonymousType()) {
@@ -1168,9 +1186,16 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
  */
 public void manageEnclosingInstanceAccessIfNecessary(ClassScope currentScope, FlowInfo flowInfo) {
 	if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0) {
-	NestedTypeBinding nestedType = (NestedTypeBinding) this.binding;
-	nestedType.addSyntheticArgumentAndField(this.binding.enclosingType());
+		NestedTypeBinding nestedType = (NestedTypeBinding) this.binding;
+		nestedType.addSyntheticArgumentAndField(this.binding.enclosingType());
+		boolean earlySeen = this.scope.insideEarlyConstructionContext;
+		addSyntheticArgumentsBeyondEarlyConstructionContext(earlySeen, currentScope);
 	}
+}
+
+@Override
+public void ensureSyntheticOuterAccess(SourceTypeBinding targetEnclosing) {
+	((NestedTypeBinding) this.binding).addSyntheticArgumentAndField(targetEnclosing);
 }
 
 /**

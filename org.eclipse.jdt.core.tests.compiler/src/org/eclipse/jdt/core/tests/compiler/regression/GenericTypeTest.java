@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15327,52 +15327,6 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"Zork cannot be resolved to a type\n" +
 			"----------\n");
 	}
-
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=84743 - variation in -source 1.4 mode but 1.5 compliance (ignore covariance)
-public void _2551_test0498(){
-	Map customOptions = getCompilerOptions();
-	customOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.getFirstSupportedJavaVersion());
-	runNegativeTest(
-		// test directory preparation
-		true /* flush output directory */,
-		new String[] { /* test files */
-			"X.java",
-			"interface I {\n" +
-			"   String foo();\n" +
-			"}\n" +
-			"interface J {\n" +
-			"   Object foo();\n" +
-			"}\n" +
-			" \n" +
-			"public class X implements I {\n" +
-			"   public String foo() {\n" +
-			" 	return \"\";\n" +
-			"   }\n" +
-			"   public static void main(String[] args) {\n" +
-			"         I i = new X();\n" +
-			"         try {\n" +
-			"	        J j = (J) i;\n" +
-			"         } catch(ClassCastException e) {\n" +
-			"	        System.out.println(\"SUCCESS\");\n" +
-			"         }\n" +
-			"  }\n" +
-			"}\n"
-		},
-		// compiler options
-		null /* no class libraries */,
-		customOptions /* custom options */,
-		// compiler results
-		"----------\n" + /* expected compiler log */
-		"1. ERROR in X.java (at line 15)\n" +
-		"	J j = (J) i;\n" +
-		"	      ^^^^^\n" +
-		"Cannot cast from I to J\n" +
-		"----------\n",
-		// javac options
-		RUN_JAVAC ? /* javac test options */
-			new JavacTestOptions("-source " + CompilerOptions.getFirstSupportedJavaVersion()) :
-			JavacTestOptions.DEFAULT );
-}
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=85157
 public void test0499(){
 	this.runNegativeTest(
@@ -29210,32 +29164,6 @@ public void test0885() {
 		"Cannot specify any additional bound Comparable<C> when first bound is a type parameter\n" +
 		"----------\n");
 }
-//https://bugs.eclipse.org/bugs/show_bug.cgi?id=124943
-public void _2551_test0886() {
-	Map customOptions= getCompilerOptions();
-	customOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.getFirstSupportedJavaVersion());
-	runConformTest(
-		// test directory preparation
-		true /* flush output directory */,
-		new String[] { /* test files */
-			"X.java", // =================
-			"public class X {\n" +
-			"	void test() {\n" +
-			"		\"Hello\".compareTo((Object) \"Hello\");\n" +
-			"	}\n" +
-			"}\n" ,
-		},
-		// compiler options
-		null /* no class libraries */,
-		customOptions /* custom options */,
-		// compiler results
-		"" /* expected compiler log */,
-		// runtime results
-		"" /* expected output string */,
-		null /* do not check error string */,
-		// javac options
-		new JavacTestOptions("-source " + CompilerOptions.getFirstSupportedJavaVersion() + " -Xlint:-options") /* javac test options */);
-}
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=122775
 public void test0887() {
 	this.runNegativeTest(
@@ -39063,7 +38991,7 @@ public void test1119() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=166963
 public void test1120() {
-	String msg = (this.complianceLevel < ClassFileConstants.JDK23) ?
+	String msg = (this.complianceLevel < ClassFileConstants.JDK24) ?
 						"Constructor call must be the first statement in a constructor\n" :
 							"Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable\n";
 	this.runNegativeTest(

@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -81,6 +81,7 @@ public class CompilationResult {
 	private List<Runnable> scheduledProblems;
 	private volatile boolean cacheSource;
 	private volatile SoftReference<char[]> contentRef;
+	public boolean usesPreview;
 
 	private static final int[] EMPTY_LINE_ENDS = Util.EMPTY_INT_ARRAY;
 	private static final Comparator PROBLEM_COMPARATOR = new Comparator() {

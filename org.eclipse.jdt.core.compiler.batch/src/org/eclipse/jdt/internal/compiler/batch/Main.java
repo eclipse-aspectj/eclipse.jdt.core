@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -3113,6 +3113,9 @@ private String optionStringToVersion(String currentArg) {
 		case "23": //$NON-NLS-1$
 		case "23.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_23;
+		case "24": //$NON-NLS-1$
+		case "24.0": //$NON-NLS-1$
+			return CompilerOptions.VERSION_24;
 		default:
 			return null;
 	}

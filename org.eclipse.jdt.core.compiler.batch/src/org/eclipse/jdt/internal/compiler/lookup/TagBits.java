@@ -66,6 +66,7 @@ public interface TagBits {
 	long MultiCatchParameter = ASTNode.Bit13; // local
 	long IsResource = ASTNode.Bit14; // local
 	long IsPatternBinding = ASTNode.Bit15; // local
+	long HasToBeEffectivelyFinal = ASTNode.Bit16; // local
 
 	// have implicit null annotations been collected (inherited(?) & default)?
 	long IsNullnessKnown = ASTNode.Bit13; // method
@@ -196,9 +197,6 @@ public interface TagBits {
 	long HasTypeAnnotations = ASTNode.Bit22;
 
 	long DefaultValueResolved = ASTNode.Bit60L;
-
-	long AnnotationPreviewFeature = ASTNode.Bit32L | ASTNode.Bit33L;
-	long EssentialAPI = ASTNode.Bit11;
 
 	// set when type contains non-private constructor(s)
 	long HasNonPrivateConstructor = ASTNode.Bit61L;

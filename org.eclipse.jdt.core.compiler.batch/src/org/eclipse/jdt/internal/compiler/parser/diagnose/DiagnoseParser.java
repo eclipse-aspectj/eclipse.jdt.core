@@ -14,6 +14,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.parser.diagnose;
 
+import static org.eclipse.jdt.internal.compiler.parser.TerminalToken.TokenNameLBRACE;
+import static org.eclipse.jdt.internal.compiler.parser.TerminalToken.TokenNameNotAToken;
+
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -23,11 +26,11 @@ import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.parser.ParserBasicInformation;
 import org.eclipse.jdt.internal.compiler.parser.RecoveryScanner;
 import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
-import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
+import org.eclipse.jdt.internal.compiler.parser.TerminalToken;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, ConflictedParser {
+public class DiagnoseParser implements ParserBasicInformation, ConflictedParser {
 	private static final boolean DEBUG = false;
 	private final boolean DEBUG_PARSECHECK = false;
 
@@ -152,11 +155,11 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	    }
 	}
 
-	public DiagnoseParser(Parser parser, int firstToken, int start, int end, CompilerOptions options) {
+	public DiagnoseParser(Parser parser, TerminalToken firstToken, int start, int end, CompilerOptions options) {
 		this(parser, firstToken, start, end, Util.EMPTY_INT_ARRAY, Util.EMPTY_INT_ARRAY, Util.EMPTY_INT_ARRAY, options);
 	}
 
-	public DiagnoseParser(Parser parser, int firstToken, int start, int end, int[] intervalStartToSkip, int[] intervalEndToSkip, int[] intervalFlagsToSkip, CompilerOptions options) {
+	public DiagnoseParser(Parser parser, TerminalToken firstToken, int start, int end, int[] intervalStartToSkip, int[] intervalEndToSkip, int[] intervalFlagsToSkip, CompilerOptions options) {
 		this.parser = parser;
 		this.options = options;
 		this.lexStream = new LexStream(BUFF_SIZE, parser.scanner, intervalStartToSkip, intervalEndToSkip, intervalFlagsToSkip, firstToken, start, end);
@@ -239,7 +242,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			this.stateStackTop = 0;
 			this.stack[this.stateStackTop] = act;
 
-			int tok = this.lexStream.kind(this.currentToken);
+			TerminalToken tok = this.lexStream.kind(this.currentToken);
 			this.locationStack[this.stateStackTop] = this.currentToken;
 			this.locationStartStack[this.stateStackTop] = this.lexStream.start(this.currentToken);
 
@@ -264,7 +267,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				for (int i = 0; i <= this.stateStackTop; i++)
 					this.tempStack[i] = this.stack[i];
 
-				act = Parser.tAction(act, tok);
+				act = Parser.tAction(act, tok.tokenNumber());
 				//
 				// When a reduce action is encountered, we compute all REDUCE
 				// and associated goto actions induced by the current token.
@@ -285,7 +288,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 						reallocateStacks();
 					pos = pos < this.tempStackTop ? pos : this.tempStackTop;
 					this.tempStack[this.tempStackTop + 1] = act;
-					act = Parser.tAction(act, tok);
+					act = Parser.tAction(act, tok.tokenNumber());
 				}
 
 				//
@@ -333,7 +336,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					//
 					this.currentToken = this.lexStream.getToken();
 					tok = this.lexStream.kind(this.currentToken);
-					act = Parser.tAction(act, tok);
+					act = Parser.tAction(act, tok.tokenNumber());
 					while(act <= NUM_RULES) {
 						//
 						// ... Process all goto-reduce actions following
@@ -361,7 +364,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 						next_pos = next_pos < this.tempStackTop ? next_pos : this.tempStackTop;
 						this.tempStack[this.tempStackTop + 1] = act;
-						act = Parser.tAction(act, tok);
+						act = Parser.tAction(act, tok.tokenNumber());
 					}
 
 	//				if((tok != TokenNameRBRACE || (forceRecoveryToken != currentToken && (lexStream.flags(currentToken) & LexStream.LBRACE_MISSING) != 0))
@@ -443,7 +446,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 						this.locationStack[this.stateStackTop] = this.currentToken;
 						this.locationStartStack[this.stateStackTop] = this.lexStream.start(this.currentToken);
 					} else {
-						tok = candidate.symbol;
+						tok = TerminalToken.of(candidate.symbol);
 						this.locationStack[this.stateStackTop] = candidate.location;
 						this.locationStartStack[this.stateStackTop] = this.lexStream.start(candidate.location);
 					}
@@ -495,15 +498,15 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		this.errorTokenStart = this.lexStream.start(error_token);
 
 		int prevtok = this.lexStream.previous(error_token);
-		int prevtokKind = this.lexStream.kind(prevtok);
+		TerminalToken prevtokKind = this.lexStream.kind(prevtok);
 
 		if(forcedError) {
-			int name_index = Parser.terminal_index[TokenNameLBRACE];
+			int name_index = Parser.terminal_index[TokenNameLBRACE.tokenNumber()];
 
 			reportError(INSERTION_CODE, name_index, prevtok, prevtok);
 
 			RepairCandidate candidate = new RepairCandidate();
-			candidate.symbol = TokenNameLBRACE;
+			candidate.symbol = TokenNameLBRACE.tokenNumber();
 			candidate.location = error_token;
 			this.lexStream.reset(error_token);
 
@@ -532,7 +535,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			return candidate;
 		}
 
-		if (this.lexStream.kind(error_token) == EOFT_SYMBOL) {
+		if (this.lexStream.kind(error_token).tokenNumber() == EOFT_SYMBOL) {
 			reportError(EOF_CODE,
 						Parser.terminal_index[EOFT_SYMBOL],
 						prevtok,
@@ -549,7 +552,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		// a successful recovery or have consumed the remaining input
 		// tokens.
 		//
-		while(this.lexStream.kind(this.buffer[BUFF_UBOUND]) != EOFT_SYMBOL) {
+		while(this.lexStream.kind(this.buffer[BUFF_UBOUND]).tokenNumber() != EOFT_SYMBOL) {
 			candidate = secondaryPhase(this.buffer[MAX_DISTANCE - MIN_DISTANCE + 2]);
 			if (candidate.symbol != 0) {
 				return candidate;
@@ -561,10 +564,10 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		// remaining tokens in the input.
 		//
 		int i;
-		for (i = BUFF_UBOUND; this.lexStream.kind(this.buffer[i]) == EOFT_SYMBOL; i--){/*empty*/}
+		for (i = BUFF_UBOUND; this.lexStream.kind(this.buffer[i]).tokenNumber() == EOFT_SYMBOL; i--){/*empty*/}
 
 		reportError(DELETION_CODE,
-					Parser.terminal_index[prevtokKind],//Parser.terminal_index[lexStream.kind(prevtok)],
+					Parser.terminal_index[prevtokKind.tokenNumber()],//Parser.terminal_index[lexStream.kind(prevtok)],
 					error_token,
 					this.buffer[i]);
 
@@ -760,7 +763,8 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 //	   repair_code are assumed to be initialized.
 //
 	private PrimaryRepairInfo checkPrimaryDistance(int stck[], int stack_top, PrimaryRepairInfo repair) {
-		int i, j, k, next_state, max_pos, act, root, symbol, tok;
+		int i, j, k, next_state, max_pos, act, root, symbol;
+		TerminalToken tok;
 
 		//
 	    //  First, try scope and manual recovery.
@@ -791,9 +795,9 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		j = parseCheck(
 				stck,
 				stack_top,
-				this.lexStream.kind(this.buffer[repair.bufferPosition + 1]),
+				this.lexStream.kind(this.buffer[repair.bufferPosition + 1]).tokenNumber(),
 				repair.bufferPosition + 2);
-		if (this.lexStream.kind(this.buffer[repair.bufferPosition]) == EOLT_SYMBOL &&
+		if (this.lexStream.kind(this.buffer[repair.bufferPosition]).tokenNumber() == EOLT_SYMBOL &&
 			this.lexStream.afterEol(this.buffer[repair.bufferPosition+1])) {
 			 k = 10;
 		} else {
@@ -816,7 +820,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 		tok = this.lexStream.kind(this.buffer[repair.bufferPosition]);
 		this.lexStream.reset(this.buffer[repair.bufferPosition + 1]);
-		act = Parser.tAction(next_state, tok);
+		act = Parser.tAction(next_state, tok.tokenNumber());
 		while(act <= NUM_RULES) {
 			do {
 				this.tempStackTop -= (Parser.rhs[act]-1);
@@ -829,7 +833,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			max_pos = max_pos < this.tempStackTop ? max_pos : this.tempStackTop;
 			this.tempStack[this.tempStackTop + 1] = act;
 			next_state = act;
-			act = Parser.tAction(next_state, tok);
+			act = Parser.tAction(next_state, tok.tokenNumber());
 		}
 
 		//
@@ -1070,7 +1074,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			default: {// deletion
 				candidate.location = this.buffer[repair.bufferPosition + 1];
 				candidate.symbol =
-						  this.lexStream.kind(this.buffer[repair.bufferPosition + 1]);
+						  this.lexStream.kind(this.buffer[repair.bufferPosition + 1]).tokenNumber();
 				this.lexStream.reset(this.buffer[repair.bufferPosition + 2]);
 				break;
 			}
@@ -1150,7 +1154,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 						  // next move is shift or shift-reduce.
 		int threshold = this.tempStackTop;
 
-		tok = this.lexStream.kind(this.buffer[buffer_position]);
+		tok = this.lexStream.kind(this.buffer[buffer_position]).tokenNumber();
 		this.lexStream.reset(this.buffer[buffer_position + 1]);
 
 		if (act > ERROR_ACTION) {  // shift-reduce on candidate?
@@ -1204,7 +1208,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 //
 	private int getNtermIndex(int start, int sym, int buffer_position) {
 		int highest_symbol = sym - NT_OFFSET,
-			tok = this.lexStream.kind(this.buffer[buffer_position]);
+			tok = this.lexStream.kind(this.buffer[buffer_position]).tokenNumber();
 		this.lexStream.reset(this.buffer[buffer_position + 1]);
 
 		//
@@ -1509,7 +1513,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	                        repair.distance = distance;
 	                    }
 
-	                    if (this.lexStream.kind(this.buffer[repair.bufferPosition]) == EOFT_SYMBOL &&
+	                    if (this.lexStream.kind(this.buffer[repair.bufferPosition]).tokenNumber() == EOFT_SYMBOL &&
 	                        repair.distance == previous_distance) {
 	                        this.scopeStackTop = indx;
 	                        repair.distance = MAX_DISTANCE;
@@ -1548,7 +1552,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 		for (top = stack_top - 1; top >= 0; top--) {
 			j = parseCheck(stck, top,
-						   this.lexStream.kind(this.buffer[buffer_position]),
+						   this.lexStream.kind(this.buffer[buffer_position]).tokenNumber(),
 						   buffer_position + 1);
 			if (((j - buffer_position + 1) > MIN_DISTANCE) && (j > distance))
 				return true;
@@ -1616,7 +1620,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			//
 			for (next_last_index = MAX_DISTANCE - 1;
 				 next_last_index >= 1 &&
-				 this.lexStream.kind(this.buffer[next_last_index]) == EOFT_SYMBOL;
+				 this.lexStream.kind(this.buffer[next_last_index]).tokenNumber() == EOFT_SYMBOL;
 				 next_last_index--){/*empty*/}
 			next_last_index = next_last_index + 1;
 
@@ -1658,7 +1662,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			this.buffer[k] = this.lexStream.next(this.buffer[k - 1]);
 
 		for (last_index = MAX_DISTANCE - 1;
-			 last_index >= 1 && this.lexStream.kind(this.buffer[last_index]) == EOFT_SYMBOL;
+			 last_index >= 1 && this.lexStream.kind(this.buffer[last_index]).tokenNumber() == EOFT_SYMBOL;
 			 last_index--){/*empty*/}
 		last_index++;
 
@@ -1743,7 +1747,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	    // applicable at the end of the file after discarding some
 	    // states.
 	    //
-	    if (repair.code == 0 && this.lexStream.kind(this.buffer[last_index]) == EOFT_SYMBOL) {
+	    if (repair.code == 0 && this.lexStream.kind(this.buffer[last_index]).tokenNumber() == EOFT_SYMBOL) {
 	        PrimaryRepairInfo scope_repair = new PrimaryRepairInfo();
 
 	        scope_repair.bufferPosition = last_index;
@@ -1778,7 +1782,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 		switch(repair.code) {
 			case MISPLACED_CODE:
 				 candidate.location = this.buffer[2];
-				 candidate.symbol = this.lexStream.kind(this.buffer[2]);
+				 candidate.symbol = this.lexStream.kind(this.buffer[2]).tokenNumber();
 				 this.lexStream.reset(this.lexStream.next(this.buffer[2]));
 
 				 break;
@@ -1786,7 +1790,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			case DELETION_CODE:
 				 candidate.location = this.buffer[repair.bufferPosition];
 				 candidate.symbol =
-						   this.lexStream.kind(this.buffer[repair.bufferPosition]);
+						   this.lexStream.kind(this.buffer[repair.bufferPosition]).tokenNumber();
 				 this.lexStream.reset(this.lexStream.next(this.buffer[repair.bufferPosition]));
 
 				 break;
@@ -1818,7 +1822,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			}
 			previous_loc = this.locationStack[top];
 
-			int j = parseCheck(stck, top, this.lexStream.kind(this.buffer[2]), 3);
+			int j = parseCheck(stck, top, this.lexStream.kind(this.buffer[2]).tokenNumber(), 3);
 			if (j == MAX_DISTANCE) {
 				 j = last_index;
 			}
@@ -1853,7 +1857,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			for (int i = 2;
 				 i <= (last_index - MIN_DISTANCE + 1) &&
 				 (repair.numDeletions >= (stack_deletions + i - 1)); i++) {
-				int j = parseCheck(stck, top, this.lexStream.kind(this.buffer[i]), i + 1);
+				int j = parseCheck(stck, top, this.lexStream.kind(this.buffer[i]).tokenNumber(), i + 1);
 
 				if (j == MAX_DISTANCE) {
 					 j = last_index;
@@ -1958,7 +1962,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	private int parseCheck(int stck[], int stack_top, int first_token, int buffer_position) {
 		int max_pos;
 		int indx;
-		int ct;
+		TerminalToken ct;
 		int act;
 
 		//
@@ -2016,7 +2020,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 			max_pos = this.tempStackTop;
 			indx = buffer_position - 1;
-			ct = first_token;
+			ct = TerminalToken.of(first_token);
 			this.lexStream.reset(this.buffer[buffer_position]);
 		}
 
@@ -2028,7 +2032,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				System.out.print("]\tprocess_terminal    \t"); //$NON-NLS-1$
 				System.out.print(ct);
 				System.out.print("\t"); //$NON-NLS-1$
-				System.out.print(Parser.name[Parser.terminal_index[ct]]);
+				System.out.print(Parser.name[Parser.terminal_index[ct.tokenNumber()]]);
 				System.out.println();
 			}
 
@@ -2036,7 +2040,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				return indx;
 			this.tempStack[this.tempStackTop] = act;
 
-			act = Parser.tAction(act, ct);
+			act = Parser.tAction(act, ct.tokenNumber());
 
 			if (act <= NUM_RULES) {               // reduce action
 				this.tempStackTop--;
@@ -2132,10 +2136,10 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 
 		int errorStart = this.lexStream.start(token);
 		int errorEnd = this.lexStream.end(token);
-		int currentKind = this.lexStream.kind(token);
-		String errorTokenName = Parser.name[Parser.terminal_index[this.lexStream.kind(token)]];
+		int currentKind = this.lexStream.kind(token).tokenNumber();
+		String errorTokenName = Parser.name[Parser.terminal_index[this.lexStream.kind(token).tokenNumber()]];
 		char[] errorTokenSource = this.lexStream.name(token);
-		if (currentKind == TerminalTokens.TokenNameStringLiteral) {
+		if (currentKind == TerminalToken.TokenNameStringLiteral.tokenNumber()) {
 			errorTokenSource = displayEscapeCharacters(errorTokenSource, 1, errorTokenSource.length - 1);
 		}
 
@@ -2149,7 +2153,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			case BEFORE_CODE:
 				if(this.recoveryScanner != null) {
 					if(addedToken > -1) {
-						this.recoveryScanner.insertToken(addedToken, -1, errorStart);
+						this.recoveryScanner.insertToken(TerminalToken.of(addedToken), -1, errorStart);
 					} else {
 						int[] template = getNTermTemplate(-addedToken);
 						if(template != null) {
@@ -2160,7 +2164,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				if(this.reportProblem) problemReporter().parseErrorInsertBeforeToken(
 					errorStart,
 					errorEnd,
-					currentKind,
+					TerminalToken.of(currentKind),
 					errorTokenSource,
 					errorTokenName,
 					name);
@@ -2168,7 +2172,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			case INSERTION_CODE:
 				if(this.recoveryScanner != null) {
 					if(addedToken > -1) {
-						this.recoveryScanner.insertToken(addedToken, -1, errorEnd);
+						this.recoveryScanner.insertToken(TerminalToken.of(addedToken), -1, errorEnd);
 					} else {
 						int[] template = getNTermTemplate(-addedToken);
 						if(template != null) {
@@ -2179,7 +2183,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				if(this.reportProblem) problemReporter().parseErrorInsertAfterToken(
 					errorStart,
 					errorEnd,
-					currentKind,
+					TerminalToken.of(currentKind),
 					errorTokenSource,
 					errorTokenName,
 					name);
@@ -2191,7 +2195,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				if(this.reportProblem) problemReporter().parseErrorDeleteToken(
 					errorStart,
 					errorEnd,
-					currentKind,
+					TerminalToken.of(currentKind),
 					errorTokenSource,
 					errorTokenName);
 				break;
@@ -2203,14 +2207,14 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					if(this.reportProblem) problemReporter().parseErrorReplaceToken(
 						errorStart,
 						errorEnd,
-						currentKind,
+						TerminalToken.of(currentKind),
 						errorTokenSource,
 						errorTokenName,
 						name);
 				} else {
 					if(this.recoveryScanner != null) {
 						if(addedToken > -1) {
-							this.recoveryScanner.replaceTokens(addedToken, errorStart, errorEnd);
+							this.recoveryScanner.replaceTokens(TerminalToken.of(addedToken), errorStart, errorEnd);
 						} else {
 							int[] template = getNTermTemplate(-addedToken);
 							if(template != null) {
@@ -2221,7 +2225,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					if(this.reportProblem) problemReporter().parseErrorInvalidToken(
 						errorStart,
 						errorEnd,
-						currentKind,
+						TerminalToken.of(currentKind),
 						errorTokenSource,
 						errorTokenName,
 						name);
@@ -2241,7 +2245,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 				if(this.reportProblem) problemReporter().parseErrorReplaceToken(
 					errorStart,
 					errorEnd,
-					currentKind,
+					TerminalToken.of(currentKind),
 					errorTokenSource,
 					errorTokenName,
 					name);
@@ -2255,7 +2259,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	            	addedTokens = new int[Parser.scope_rhs.length - Parser.scope_suffix[- nameIndex]];
 	            }
 
-	            int insertedToken = TokenNameNotAToken;
+	            int insertedToken = TokenNameNotAToken.tokenNumber();
 				for (int i = Parser.scope_suffix[- nameIndex]; Parser.scope_rhs[i] != 0; i++) {
 					buf.append(Parser.readableName[Parser.scope_rhs[i]]);
 					if (Parser.scope_rhs[i + 1] != 0) // any more symbols to print?
@@ -2300,7 +2304,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	            }
 
 				if (scopeNameIndex != 0) {
-					if (insertedToken == TokenNameElidedSemicolonAndRightBrace) {
+					if (insertedToken == TerminalToken.TokenNameElidedSemicolonAndRightBrace.tokenNumber()) {
 						reportMisplacedConstruct(errorStart, errorEnd, false);
 						break;
 					}
@@ -2325,7 +2329,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			case MERGE_CODE:
 				if(this.recoveryScanner != null) {
 					if(addedToken > -1) {
-						this.recoveryScanner.replaceTokens(addedToken, errorStart, errorEnd);
+						this.recoveryScanner.replaceTokens(TerminalToken.of(addedToken), errorStart, errorEnd);
 					} else {
 						int[] template = getNTermTemplate(-addedToken);
 						if(template != null) {
@@ -2354,13 +2358,13 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					if(this.reportProblem) problemReporter().parseErrorNoSuggestion(
 						errorStart,
 						errorEnd,
-						currentKind,
+						TerminalToken.of(currentKind),
 						errorTokenSource,
 						errorTokenName);
 				} else {
 					if(this.recoveryScanner != null) {
 						if(addedToken > -1) {
-							this.recoveryScanner.replaceTokens(addedToken, errorStart, errorEnd);
+							this.recoveryScanner.replaceTokens(TerminalToken.of(addedToken), errorStart, errorEnd);
 						} else {
 							int[] template = getNTermTemplate(-addedToken);
 							if(template != null) {
@@ -2371,7 +2375,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 					if(this.reportProblem) problemReporter().parseErrorReplaceToken(
 						errorStart,
 						errorEnd,
-						currentKind,
+						TerminalToken.of(currentKind),
 						errorTokenSource,
 						errorTokenName,
 						name);
@@ -2475,7 +2479,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	            if(this.recoveryScanner != null) {
 	            	addedTokens = new int[Parser.scope_rhs.length - Parser.scope_suffix[- nameIndex]];
 	            }
-	            int insertedToken = TokenNameNotAToken;
+	            int insertedToken = TokenNameNotAToken.tokenNumber();
 	            for (int i = Parser.scope_suffix[- nameIndex]; Parser.scope_rhs[i] != 0; i++) {
 
 	                buf.append(Parser.readableName[Parser.scope_rhs[i]]);
@@ -2518,7 +2522,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	            	this.recoveryScanner.insertTokens(addedTokens, completedToken, errorEnd);
 	            }
 	            if (scopeNameIndex != 0) {
-	            	if (insertedToken == TokenNameElidedSemicolonAndRightBrace) {
+	            	if (insertedToken == TerminalToken.TokenNameElidedSemicolonAndRightBrace.tokenNumber()) {
 	            		reportMisplacedConstruct(errorStart, errorEnd, false);
 	            		break;
 					}
@@ -2537,7 +2541,7 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 			case MERGE_CODE:
 				if(this.recoveryScanner != null) {
 					if(addedToken > -1) {
-						this.recoveryScanner.replaceTokens(addedToken, errorStart, errorEnd);
+						this.recoveryScanner.replaceTokens(TerminalToken.of(addedToken), errorStart, errorEnd);
 					} else {
 						int[] template = getNTermTemplate(-addedToken);
 						if(template != null) {
@@ -2568,8 +2572,8 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 						errorEnd);
 				} else {
 					if(this.recoveryScanner != null) {
-						if(addedToken > -1) {
-							this.recoveryScanner.replaceTokens(addedToken, errorStart, errorEnd);
+						if(addedToken >= -1) {
+							this.recoveryScanner.replaceTokens(TerminalToken.of(addedToken), errorStart, errorEnd);
 						} else {
 							int[] template = getNTermTemplate(-addedToken);
 							if(template != null) {
@@ -2616,18 +2620,18 @@ public class DiagnoseParser implements ParserBasicInformation, TerminalTokens, C
 	}
 
 	@Override
-	public boolean atConflictScenario(int token) {
+	public boolean atConflictScenario(TerminalToken token) {
 		/* There is too much voodoo that goes on here in DiagnoseParser (multiple machines, lexer stream reset etc.)
 		   So we take a simple minded view that we will always ask for disambiguation, except there is one scenario
 		   that needs special handling, we let the lexer stream deal with that: In X<String>.Y<Integer>:: the second
 		   '<' should not be tagged for disambiguation. If a synthetic token gets injected there, there will be syntax
 		   error. See that this is not a problem for the regular/normal parser.
 		*/
-		return (token == TokenNameLPAREN || token == TokenNameAT || (token == TokenNameLESS && !this.lexStream.awaitingColonColon()));
+		return (token == TerminalToken.TokenNameLPAREN || token == TerminalToken.TokenNameAT || (token == TerminalToken.TokenNameLESS && !this.lexStream.awaitingColonColon()));
 	}
 
 	@Override
-	public boolean automatonWillShift(int token) {
+	public boolean automatonWillShift(TerminalToken token) {
 		return false; // Some day we will understand the world well enough, for now say no and deal with it (sigh)
 	}
 

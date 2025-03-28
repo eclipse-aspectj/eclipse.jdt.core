@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -46,6 +46,7 @@ import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -126,6 +127,20 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			((MethodScope) currentScope).isConstructorCall = false;
 			currentScope.leaveEarlyConstructionContext();
 		}
+	}
+
+	public boolean hasArgumentNeedingAnalysis() {
+		if (this.arguments != null) {
+			for (Expression arg : this.arguments) {
+				if (arg.constant != Constant.NotAConstant)
+					continue;
+				if (arg instanceof SingleNameReference ref
+						&& ref.binding != null && ref.binding.isParameter())
+					continue;
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -331,7 +346,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				//XXX Horrible AspectJ-specific hack
 				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension
 
-				if (!(methodDeclaration instanceof CompactConstructorDeclaration)) {// already flagged for CCD
+				if (!methodDeclaration.isCompactConstructor()) {// already flagged for CCD
 					if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(scope.compilerOptions())) {
 						boolean isTopLevel = Arrays.stream(methodDeclaration.statements).anyMatch(this::equals);
 						if (isTopLevel)
@@ -377,6 +392,14 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
  						(mBinding != null && (mBinding.tagBits & TagBits.HasMissingType) == 0)
 						&& receiverType.erasure().id == TypeIds.T_JavaLangEnum) {
 					scope.problemReporter().cannotInvokeSuperConstructorInEnum(this, methodScope.referenceMethod().binding);
+				}
+				if (!receiverType.isEnum() &&
+						this.accessMode <= ExplicitConstructorCall.Super &&
+						receiverType instanceof LocalTypeBinding local) {
+					MethodScope allocationStaticEnclosing = scope.parent.nearestEnclosingStaticScope(); // Constructor scope already has static, start from parent scope
+					MethodScope typesEnclosingStaticScope = local.scope.nearestEnclosingStaticScope();
+					if (allocationStaticEnclosing != null && typesEnclosingStaticScope != null && allocationStaticEnclosing != typesEnclosingStaticScope)
+						scope.problemReporter().allocationInStaticContext(this, local);
 				}
 				// qualification should be from the type of the enclosingType
 				if (this.qualification != null) {
@@ -514,7 +537,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		if (methodDecl.binding == null || methodDecl.binding.declaringClass == null
 				|| !methodDecl.binding.declaringClass.isRecord())
 			return true;
-		boolean isInsideCCD = methodDecl instanceof CompactConstructorDeclaration;
+		boolean isInsideCCD = methodDecl.isCompactConstructor();
 		if (this.accessMode != ExplicitConstructorCall.ImplicitSuper) {
 			if (isInsideCCD)
 				scope.problemReporter().recordCompactConstructorHasExplicitConstructorCall(this);
