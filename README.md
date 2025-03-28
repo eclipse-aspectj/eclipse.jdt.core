@@ -162,7 +162,7 @@ Body: Anything unusual about the commit, for example for Java24 it included
 the switch from ints to enums for the terminal tokens, which impacted a lot
 of the AspectJ extension code.
 
-git checkout master
+git checkout aspectj
 git merge java-24
 ```
 
