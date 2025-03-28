@@ -737,7 +737,8 @@
                     <!-- These seem to be unnecessary for AspectJ, because it is ignorant of OSGi  -->
                     <exclude>*</exclude>
                     <exclude>OSGI-INF/**</exclude>
-                    <exclude>about_files/**</exclude>
+		    <!-- if we exclude about_files we can miss licenses that need to be included -->
+                    <!--exclude>about_files/**</exclude-->
                     <exclude>natives/**</exclude>
                     <exclude>schema/**</exclude>
                     <exclude>ant_tasks/**</exclude>
