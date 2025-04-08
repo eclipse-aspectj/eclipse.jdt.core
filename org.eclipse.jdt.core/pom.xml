@@ -720,10 +720,16 @@
                   <exclude>org.aspectj:aspectjrt</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.expressions</exclude>
                   <exclude>org.eclipse.platform:org.eclipse.core.commands</exclude>
+		  <!-- don't *think* we need these? At least all tests pass without them on mac/windows -->
+		  <!-- And they bloat the jar -->
+		  <exclude>net.java.dev.jna:jna-platform</exclude>
+	  	  <exclude>net.java.dev.jna:jna</exclude>
                 </excludes>
               </artifactSet>
               <filters>
                 <filter>
+
+
                   <artifact>*</artifact>
                   <excludes>
                     <!-- These are from org.eclipse.jdt.core/build.xml -->
@@ -738,7 +744,7 @@
                     <exclude>*</exclude>
                     <exclude>OSGI-INF/**</exclude>
 		    <!-- if we exclude about_files we can miss licenses that need to be included -->
-                    <!--exclude>about_files/**</exclude-->
+                    <exclude>about_files/**</exclude>
                     <exclude>natives/**</exclude>
                     <exclude>schema/**</exclude>
                     <exclude>ant_tasks/**</exclude>
@@ -765,7 +771,10 @@
 		might be required on Windows and I'm just not sure about that - so leaving them
 		until we can test on windows or dive deeper to understand.
 
-                    <exclude>com/sun/jna/**</exclude>
+		Update 3-Apr-2025:
+		Having tested on mac and windows with excluding the jna dependencies, I'm
+		going to exclude them for now. They add 2Meg to the jdt core jar. Wish I had
+		more time to dig into what requires them and why it works without.
 		-->
                   </excludes>
                 </filter>
