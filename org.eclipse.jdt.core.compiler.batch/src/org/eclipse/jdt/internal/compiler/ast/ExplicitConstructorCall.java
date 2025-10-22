@@ -41,7 +41,6 @@ import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION
 import java.util.Arrays;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -273,7 +272,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					this.accessMode != ExplicitConstructorCall.This) {
 				ReferenceBinding declaringClass = codegenBinding.declaringClass;
 				// from 1.4 on, local type constructor can lose their private flag to ease emulation
-				if ((declaringClass.tagBits & TagBits.IsLocalType) != 0 && currentScope.compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4) {
+				if ((declaringClass.tagBits & TagBits.IsLocalType) != 0) {
 					// constructor will not be dumped as private, no emulation required thus
 					codegenBinding.tagBits |= TagBits.ClearPrivateModifier;
 				} else {
@@ -317,15 +316,20 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		// the return type should be void for a constructor.
 		// the test is made into getConstructor
 
-		// mark the fact that we are in a constructor call.....
-		// unmark at all returns
 		MethodScope methodScope = scope.methodScope();
 		try {
 			AbstractMethodDeclaration methodDeclaration = methodScope.referenceMethod();
-			if (methodDeclaration != null && methodDeclaration.binding != null
-					&& methodDeclaration.binding.isCanonicalConstructor()) {
-				if (!checkAndFlagExplicitConstructorCallInCanonicalConstructor(methodDeclaration, scope))
+			if ((scope.enclosingSourceType().isRecord()
+					&& methodDeclaration != null && methodDeclaration.binding != null)) {
+				if (methodDeclaration.binding.isCanonicalConstructor()) {
+					if (!checkAndFlagExplicitConstructorCallInCanonicalConstructor(methodDeclaration, scope))
+						return;
+				} else if (this.accessMode != This) {
+					// trying to invoke super() in a non-canonical record constructor
+					ASTNode location = isImplicitSuper() ? methodScope.referenceMethod() : this;
+					scope.problemReporter().missingThisCallInNonCanonicalConstructor(location);
 					return;
+				}
 			}
 			boolean hasError = false;
 			if (methodDeclaration == null || !methodDeclaration.isConstructor()) {
@@ -335,26 +339,23 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				ConstructorDeclaration constructorDeclaration = (ConstructorDeclaration) methodDeclaration;
 				ExplicitConstructorCall constructorCall = constructorDeclaration.constructorCall;
 				if (constructorCall == null) {
-					constructorCall = constructorDeclaration.getLateConstructorCall(); // JEP 482
+					constructorCall = constructorDeclaration.getLateConstructorCall(); // JEP 513
 				}
 				if (constructorCall != null && constructorCall != this) {
 					hasError = true;
 				}
 			}
 			if (hasError) {
-
 				//XXX Horrible AspectJ-specific hack
 				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension
-
-				if (!methodDeclaration.isCompactConstructor()) {// already flagged for CCD
-					if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(scope.compilerOptions())) {
+					scope.problemReporter().invalidExplicitConstructorCall(this);
+				} else if (!methodDeclaration.isCompactConstructor()) {// already flagged for CCD
+					if (!scope.problemReporter().validateJavaFeatureSupport(JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES, this.sourceStart, this.sourceEnd)) {
 						boolean isTopLevel = Arrays.stream(methodDeclaration.statements).anyMatch(this::equals);
 						if (isTopLevel)
 							scope.problemReporter().duplicateExplicitConstructorCall(this);
 						else // otherwise it's illegally nested in some control structure:
 							scope.problemReporter().misplacedConstructorCall(this);
-					} else {
-						scope.problemReporter().invalidExplicitConstructorCall(this);
 					}
 				}
 				// fault-tolerance
@@ -375,6 +376,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				} // AspectJ Extension - end of new if()
 
 			}
+			// mark the fact that we are in a constructor call.....
+			// unmark at all returns
 			methodScope.isConstructorCall = true;
 			ReferenceBinding receiverType = scope.enclosingReceiverType();
 			boolean rcvHasError = false;
@@ -395,7 +398,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				}
 				if (!receiverType.isEnum() &&
 						this.accessMode <= ExplicitConstructorCall.Super &&
-						receiverType instanceof LocalTypeBinding local) {
+						receiverType instanceof LocalTypeBinding local) { // local cannot be a record class
 					MethodScope allocationStaticEnclosing = scope.parent.nearestEnclosingStaticScope(); // Constructor scope already has static, start from parent scope
 					MethodScope typesEnclosingStaticScope = local.scope.nearestEnclosingStaticScope();
 					if (allocationStaticEnclosing != null && typesEnclosingStaticScope != null && allocationStaticEnclosing != typesEnclosingStaticScope)
@@ -421,9 +424,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				}
 			}
 			// resolve type arguments (for generic constructor call)
-			long sourceLevel = scope.compilerOptions().sourceLevel;
 			if (this.typeArguments != null) {
-				boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5;
+				boolean argHasError = false;
 				int length = this.typeArguments.length;
 				this.genericTypeArguments = new TypeBinding[length];
 				for (int i = 0; i < length; i++) {
@@ -524,6 +526,13 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				}
 				if (rcvHasError)
 					return;
+				if (this.accessMode == ExplicitConstructorCall.ImplicitSuper && methodDeclaration.statements != null) {
+					for (Statement statement : methodDeclaration.statements) {
+						if (statement instanceof ExplicitConstructorCall
+								&& !JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(scope.compilerOptions()))
+							return; // don't blame the implicit call, we have an explicit call that is illegal
+					}
+				}
 				scope.problemReporter().invalidConstructor(this, this.binding);
 			}
 		} finally {
@@ -540,9 +549,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		boolean isInsideCCD = methodDecl.isCompactConstructor();
 		if (this.accessMode != ExplicitConstructorCall.ImplicitSuper) {
 			if (isInsideCCD)
-				scope.problemReporter().recordCompactConstructorHasExplicitConstructorCall(this);
+				scope.problemReporter().compactConstructorHasExplicitConstructorCall(this);
 			else
-				scope.problemReporter().recordCanonicalConstructorHasExplicitConstructorCall(this);
+				scope.problemReporter().canonicalConstructorHasExplicitConstructorCall(this);
 			return false;
 		}
 		return true;
@@ -615,5 +624,14 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 	@Override
 	public InferenceContext18 freshInferenceContext(Scope scope) {
 		return new InferenceContext18(scope, this.arguments, this, null);
+	}
+	@Override
+	public int nameSourceEnd() {
+		if (this.accessMode == Super) {
+			return nameSourceStart() + "super".length() - 1; //$NON-NLS-1$
+		} else if (this.accessMode == This) {
+			return nameSourceStart() + "this".length() - 1; //$NON-NLS-1$
+		}
+		return Invocation.super.nameSourceEnd();
 	}
 }

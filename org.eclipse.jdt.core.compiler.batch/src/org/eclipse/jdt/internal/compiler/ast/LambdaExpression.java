@@ -89,7 +89,6 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	boolean voidCompatible = true;
 	boolean valueCompatible = false;
 	boolean returnsValue;
-	private final boolean requiresGenericSignature;
 	boolean returnsVoid;
 	public LambdaExpression original = this;
 	private boolean committed = false;
@@ -106,25 +105,28 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	protected Expression [] resultExpressions = NO_EXPRESSIONS;
 	public InferenceContext18 inferenceContext; // when performing tentative resolve keep a back reference to the driving context
 	private Map<Integer/*sourceStart*/, LocalTypeBinding> localTypes; // support look-up of a local type from this lambda copy
-	public boolean argumentsTypeVar = false;
+	public boolean hasVarTypedArguments = false;
 	int firstLocalLocal; // analysis index of first local variable (if any) post parameter(s) in the lambda; ("local local" as opposed to "outer local")
 
 	private List<ClassScope> scopesInEarlyConstruction;
 
-	public LambdaExpression(CompilationResult compilationResult, boolean assistNode, boolean requiresGenericSignature) {
+	public LambdaExpression(CompilationResult compilationResult, boolean assistNode) {
 		super(compilationResult);
 		this.assistNode = assistNode;
-		this.requiresGenericSignature = requiresGenericSignature;
 		setArguments(NO_ARGUMENTS);
 		setBody(NO_BODY);
 	}
 
-	public LambdaExpression(CompilationResult compilationResult, boolean assistNode) {
-		this(compilationResult, assistNode, false);
-	}
-
 	public void setArguments(Argument [] arguments) {
 		this.arguments = arguments != null ? arguments : ASTNode.NO_ARGUMENTS;
+		for (Argument argument : this.arguments) {
+			if (argument.hasElidedType())
+				this.bits |= ArgumentsTypeElided;
+			else if (argument.type instanceof SingleTypeReference str &&  CharOperation.equals(str.token, TypeConstants.VAR)) {
+				this.bits |= ArgumentsTypeElided;
+				this.hasVarTypedArguments = true;
+			}
+		}
 		this.argumentTypes = new TypeBinding[arguments != null ? arguments.length : 0];
 	}
 
@@ -249,9 +251,20 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 			if (this.original == this)
 				this.ordinal = recordFunctionalType(blockScope);
 
-			if (!argumentsTypeElided) {
-				for (int i = 0; i < argumentsLength; i++)
-					this.argumentTypes[i] = this.arguments[i].type.resolveType(blockScope, true /* check bounds*/);
+			boolean lvtiAllowed = blockScope.compilerOptions().sourceLevel >= ClassFileConstants.JDK11;
+			boolean argumentIsVarTyped = false, priorArgumentIsVarTyped = false;
+			for (int i = 0; i < argumentsLength; i++, priorArgumentIsVarTyped = argumentIsVarTyped) {
+				final Argument argument = this.arguments[i];
+				if (argument.hasElidedType())
+					continue;
+				argumentIsVarTyped = argument.type instanceof SingleTypeReference singleTypeRef && CharOperation.equals(singleTypeRef.token, TypeConstants.VAR);
+				if (i > 0 && argumentIsVarTyped != priorArgumentIsVarTyped) {
+					blockScope.problemReporter().varCannotBeMixedWithNonVarParams(argumentIsVarTyped ? argument : this.arguments[i - 1]);
+					return this.resolvedType = null; // structurally FUBAR, bail out ...
+				}
+				if (lvtiAllowed && argumentIsVarTyped)
+					continue;
+				this.argumentTypes[i] = argument.type.resolveType(blockScope, true /* check bounds*/);
 			}
 			if (this.expectedType == null && this.expressionContext == INVOCATION_CONTEXT) {
 				return new PolyTypeBinding(this);
@@ -370,7 +383,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 			}
 		}
 		boolean parametersHaveErrors = false;
-		boolean genericSignatureNeeded = this.requiresGenericSignature || blockScope.compilerOptions().generateGenericSignatureForLambdaExpressions;
+		boolean genericSignatureNeeded = blockScope.compilerOptions().generateGenericSignatureForLambdaExpressions;
 		TypeBinding[] expectedParameterTypes = new TypeBinding[argumentsLength];
 		for (int i = 0; i < argumentsLength; i++) {
 			Argument argument = this.arguments[i];
@@ -407,7 +420,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 				}
 			}
 		}
-		if (this.argumentsTypeVar) {
+		if (this.hasVarTypedArguments) {
 			for (int i = 0; i < argumentsLength; ++i) {
 				this.arguments[i].type.resolvedType = expectedParameterTypes[i];
 			}
@@ -541,7 +554,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 	@Override
 	public boolean argumentsTypeElided() {
-		return (this.arguments.length > 0 && this.arguments[0].hasElidedType()) || this.argumentsTypeVar;
+		return (this.bits & ArgumentsTypeElided) != 0;
 	}
 
 	private void analyzeExceptions() {
@@ -898,7 +911,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 		// copy here is potentially compatible with the target type and has its shape fully computed: i.e value/void compatibility is determined and result expressions have been gathered.
 		targetType = findGroundTargetType(this.enclosingScope, targetType, targetType, argumentsTypeElided());
-		MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope, true);
+		MethodBinding sam = targetType == null ? null : targetType.getSingleAbstractMethod(this.enclosingScope, true);
 		if (sam == null || sam.problemId() == ProblemReasons.NoSuchSingleAbstractMethod) {
 			return CompatibilityResult.INCOMPATIBLE;
 		}
@@ -1270,7 +1283,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		}
 		codeStream.pushPatternAccessTrapScope(this.scope);
 		if (this.scopesInEarlyConstruction != null) {
-			// JEP 482: restore early construction context info into scopes:
+			// JEP 513: restore early construction context info into scopes:
 			for (ClassScope classScope : this.scopesInEarlyConstruction)
 				classScope.insideEarlyConstructionContext = true;
 		}
@@ -1516,7 +1529,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 		@Override
 		public TypeBinding substitute(Substitution substitution, TypeBinding originalType) {
-			if (originalType.isLocalType()) {
+			if (originalType != null && originalType.isLocalType()) {
 				LocalTypeBinding orgLocal = (LocalTypeBinding) originalType.original();
 				MethodScope lambdaScope2 = orgLocal.scope.enclosingLambdaScope();
 				if (lambdaScope2 != null) {

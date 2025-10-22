@@ -15,6 +15,7 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.io.IOException;
 import java.util.Map;
 import junit.framework.Test;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.core.util.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
@@ -23,8 +24,6 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 
-	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 24");
-	private static final String[] VMARGS = new String[] {"--enable-preview"};
 	static {
 //		TESTS_NUMBERS = new int [] { 1 };
 //		TESTS_RANGE = new int[] { 1, -1 };
@@ -36,7 +35,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		return SuperAfterStatementsTest.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_24);
+		return buildMinimalComplianceTestSuite(testClass(), F_25);
 	}
 	public SuperAfterStatementsTest(String testName) {
 		super(testName);
@@ -58,11 +57,9 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean preview) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_24);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_24);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_24);
-		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, preview ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
-		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_25);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_25);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_25);
 		return defaultOptions;
 	}
 
@@ -90,35 +87,27 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 	@Override
 	protected void runConformTest(String[] testFiles, String expectedOutput) {
-		runConformTest(testFiles, expectedOutput, getCompilerOptions(true), VMARGS, JAVAC_OPTIONS);
+		runConformTest(testFiles, expectedOutput, getCompilerOptions(true));
 	}
 	@Override
 	protected void runConformTest(String[] testFiles, String expectedOutput, Map<String, String> customOptions) {
 		if(!isJRE22Plus)
 			return;
-		runConformTest(testFiles, expectedOutput, customOptions, VMARGS, JAVAC_OPTIONS);
+		runConformTest(testFiles, expectedOutput, customOptions, new String[0], JavacTestOptions.DEFAULT);
 	}
 	protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 		Map<String, String> customOptions = getCompilerOptions(true);
 		Runner runner = new Runner();
 		runner.testFiles = testFiles;
 		runner.expectedCompilerLog = expectedCompilerLog;
-		runner.javacTestOptions = JAVAC_OPTIONS;
 		runner.customOptions = customOptions;
 		runner.expectedJavacOutputString = null;
 		runner.runNegativeTest();
 	}
 	class Runner extends AbstractRegressionTest.Runner {
-		public Runner(boolean reportPreview) {
-			this();
-			this.customOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, reportPreview ? CompilerOptions.WARNING : CompilerOptions.IGNORE);
-		}
 		public Runner() {
 			super();
-			this.vmArguments = VMARGS;
-			this.javacTestOptions = JAVAC_OPTIONS;
 			this.customOptions = getCompilerOptions();
-			this.customOptions.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		}
 	}
 	public void test001() {
@@ -146,12 +135,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
       			"""
 			},
 			"----------\n" +
-			"1. WARNING in X.java (at line 12)\n" +
-			"	super(value);\n" +
-			"	^^^^^^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 16)\n" +
+			"1. ERROR in X.java (at line 16)\n" +
 			"	Zork();\n" +
 			"	^^^^\n" +
 			"The method Zork() is undefined for the type X\n" +
@@ -314,11 +298,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 				"	System.out.print(this);     // Error\n" +
 				"	                 ^^^^\n" +
 				"Cannot use 'this' in an early construction context\n" +
-				"----------\n" +
-				"4. WARNING in X.java (at line 7)\n" +
-				"	super();\n" +
-				"	^^^^^^^^\n" +
-				"You are using a preview language feature that may or may not be supported in a future release\n" +
 				"----------\n");
 	}
 	// any field access, method invocation, or method reference
@@ -343,11 +322,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	super.i++;                  // Error\n" +
 			"	^^^^^\n" +
 			"Cannot use 'super' in an early construction context (except in a simple field assignment)\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 7)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n"
 		);
 	}
@@ -360,7 +334,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 					class D {
 						int i;
 					}
-					class X {
+					public class X {
 						X() {
 							class E extends D {
 								E() {
@@ -381,7 +355,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 	public void test007c() {
 		// but no access to outer this from local class
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
@@ -410,11 +384,11 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 	public void test007d() {
 		// early construction context of far outer, while inners happily use 'this'
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
-					class X {
+					public class X {
 						X() {
 							class E {
 								E() {
@@ -466,11 +440,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	hashCode();                 // Error\n" +
 			"	^^^^^^^^^^\n" +
 			"Cannot invoke method hashCode() in an early construction context\n" +
-			"----------\n" +
-			"3. WARNING in X.java (at line 6)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test008_OK() {
@@ -521,11 +490,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	C.this.c++;             // Error - same instance\n" +
 			"	^^^^^^^^\n" +
 			"Cannot read field c in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in B.java (at line 6)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test009_OK() {
@@ -599,11 +563,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	new Inner(); // Error - \'this\' is enclosing instance\n" +
 			"	^^^^^^^^^^^\n" +
 			"Cannot instantiate class Outer.Inner in an early construction context of class Outer\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 5)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test011_inherited() {
@@ -627,11 +586,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 				new Inner(); // Error - 'this' is enclosing instance
 				^^^^^^^^^^^
 			Cannot instantiate class Super.Inner in an early construction context of class Outer
-			----------
-			2. WARNING in X.java (at line 7)
-				super();
-				^^^^^^^^
-			You are using a preview language feature that may or may not be supported in a future release
 			----------
 			""");
 	}
@@ -682,11 +636,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	var tmp = new S() { };      // Error\n" +
 			"	          ^^^^^^^^^^^\n" +
 			"Cannot instantiate class new X.S(){} in an early construction context of class X\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 5)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	/* in a pre-construction context, class instance creation expressions that declare
@@ -870,11 +819,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	return; // Error - return not allowed here\n" +
 			"	^^^^^^^\n" +
 			"return; statement not allowed in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 10)\n" +
-			"	super(i);\n" +
-			"	^^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	/* It is a compile-time error if a return statement appears in the prologue of a constructor body.
@@ -904,11 +848,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	return; // Error - return not allowed here\n" +
 			"	^^^^^^^\n" +
 			"return; statement not allowed in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 5)\n" +
-			"	this(i, 0);\n" +
-			"	^^^^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	/* Throwing an exception in a prologue of a constructor body is permitted.
@@ -1025,16 +964,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	int j = a.i;\n" +
 			"	        ^\n" +
 			"Cannot read field a in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 13)\n" +
-			"	this.b = j == 0;\n" +
-			"	^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
-			"----------\n" +
-			"3. WARNING in X.java (at line 14)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	/* Its an error of this is used in super(this) - no change for this error
@@ -1097,11 +1026,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	I tos = super::toString;\n" +
 			"	        ^^^^^\n" +
 			"Cannot use 'super' in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 9)\n" +
-			"	this(i, 0);\n" +
-			"	^^^^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test027() {
@@ -1135,16 +1059,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	int j = a.getI();\n" +
 			"	        ^\n" +
 			"Cannot read field a in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 14)\n" +
-			"	this.b = j == 0;\n" +
-			"	^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
-			"----------\n" +
-			"3. WARNING in X.java (at line 15)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test028() {
@@ -1175,11 +1089,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	int j = J.super.getI();\n" +
 			"	        ^^^^^^^\n" +
 			"Cannot use 'J.super' in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 9)\n" +
-			"	super();\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test029() {
@@ -1210,11 +1119,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			"	int j = J.super.getI();\n" +
 			"	        ^^^^^^^\n" +
 			"Cannot use 'J.super' in an early construction context\n" +
-			"----------\n" +
-			"2. WARNING in X.java (at line 9)\n" +
-			"	this(j);\n" +
-			"	^^^^^^^^\n" +
-			"You are using a preview language feature that may or may not be supported in a future release\n" +
 			"----------\n");
 	}
 	public void test030() {
@@ -1524,9 +1428,12 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		);
 	}
 	public void test040() {
-		Map<String, String> options = getCompilerOptions();
-		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.DISABLED);
-		runNegativeTest(new String[] {
+		Runner runner = new Runner();
+		runner.customOptions.put(CompilerOptions.OPTION_Source, "24");
+		runner.customOptions.put(CompilerOptions.OPTION_Compliance, "24");
+		runner.customOptions.put(CompilerOptions.OPTION_TargetPlatform, "24");
+		runner.javacTestOptions = JavacTestOptions.forRelease(JavaCore.VERSION_24);
+		runner.testFiles = new String[] {
 				"X.java",
 					"""
 						class Y {
@@ -1544,19 +1451,20 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 						    }
 						}
 					"""
-			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 12)\n" +
-			"	super(value);\n" +
-			"	^^^^^^^^^^^^^\n" +
-			"Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable\n" +
-			"----------\n",
-			null,
-			true,
-			options);
+			};
+		runner.expectedCompilerLog =
+			"""
+			----------
+			1. ERROR in X.java (at line 12)
+				super(value);
+				^^^^^^^^^^^^^
+			The Java feature 'Flexible Constructor Bodies' is only available with source level 25 and above
+			----------
+			""";
+		runner.runNegativeTest();
 	}
 	public void testGH2467() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test3.java",
 				"""
@@ -1582,7 +1490,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runNegativeTest();
 	}
 	public void testOuterConstruction_1() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1615,7 +1523,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testOuterConstruction_2() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1640,7 +1548,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runConformTest();
 	}
 	public void testFieldAssignedInSuperArgument_OK() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1676,7 +1584,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runConformTest();
 	}
 	public void testFieldAssignedInSuperArgument_NOK_superclass() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1734,7 +1642,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runNegativeTest();
 	}
 	public void testFieldAssignedInSuperArgument_NOK_hasInitializer() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1793,9 +1701,10 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 	public void testFieldAssignedInSuperArgument_notEnabled() {
 		Runner runner = new Runner();
-		runner.customOptions = getCompilerOptions();
-		runner.customOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
-		runner.javacTestOptions = JavacTestOptions.DEFAULT;
+		runner.customOptions.put(CompilerOptions.OPTION_Source, "24");
+		runner.customOptions.put(CompilerOptions.OPTION_Compliance, "24");
+		runner.customOptions.put(CompilerOptions.OPTION_TargetPlatform, "24");
+		runner.javacTestOptions = JavacTestOptions.forRelease(JavaCore.VERSION_24);
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1822,42 +1731,32 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 				"""
 			};
 		runner.expectedCompilerLog = """
-				----------
-				1. ERROR in Test.java (at line 7)
-					super(i=n);				// old syntax, single name reference
-					      ^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				2. ERROR in Test.java (at line 10)
-					super(this.i=n);		// old syntax, this-qualified field reference
-					      ^^^^^^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				3. ERROR in Test.java (at line 14)
-					super(i=s);				// new syntax, single name reference
-					^^^^^^^^^^^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				4. ERROR in Test.java (at line 14)
-					super(i=s);				// new syntax, single name reference
-					      ^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				5. ERROR in Test.java (at line 18)
-					super(this.i=s);		// new syntax, this-qualified field reference
-					^^^^^^^^^^^^^^^^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				6. ERROR in Test.java (at line 18)
-					super(this.i=s);		// new syntax, this-qualified field reference
-					      ^^^^^^
-				Flexible Constructor Bodies is a preview feature and disabled by default. Use --enable-preview to enable
-				----------
-				""";
+			----------
+			1. ERROR in Test.java (at line 7)
+				super(i=n);				// old syntax, single name reference
+				      ^
+			Cannot refer to an instance field i while explicitly invoking a constructor
+			----------
+			2. ERROR in Test.java (at line 10)
+				super(this.i=n);		// old syntax, this-qualified field reference
+				      ^^^^^^
+			The Java feature 'Flexible Constructor Bodies' is only available with source level 25 and above
+			----------
+			3. ERROR in Test.java (at line 14)
+				super(i=s);				// new syntax, single name reference
+				^^^^^^^^^^^
+			The Java feature 'Flexible Constructor Bodies' is only available with source level 25 and above
+			----------
+			4. ERROR in Test.java (at line 18)
+				super(this.i=s);		// new syntax, this-qualified field reference
+				^^^^^^^^^^^^^^^^
+			The Java feature 'Flexible Constructor Bodies' is only available with source level 25 and above
+			----------
+			""";
 		runner.runNegativeTest();
 	}
 	public void testFieldCompoundAssignedInSuperArgument() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1909,7 +1808,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runNegativeTest();
 	}
 	public void testFieldReadInSuperArgument() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -1998,7 +1897,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.testFiles = new String[] {
 			"C1.java",
 			"""
-			class C1 {
+			public class C1 {
 				String f1 = "f1";
 			    C1() {
 			        super();
@@ -2028,8 +1927,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		        }
 			}
 			"""};
-		runner.vmArguments = VMARGS;
-		runner.javacTestOptions = JAVAC_OPTIONS;
 		runner.expectedOutputString = "f3f1";
 		runner.runConformTest();
 	}
@@ -2070,18 +1967,13 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 					                 ^^
 				Cannot read field f2 in an early construction context
 				----------
-				2. WARNING in C1.java (at line 18)
-					super();
-					^^^^^^^^
-				You are using a preview language feature that may or may not be supported in a future release
-				----------
 				""";
 		runner.runNegativeTest();
 	}
 
 	public void testDuplicateCalls() {
 		// but no access to outer this from local class
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
@@ -2104,7 +1996,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testGH2464() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"Test.java",
 				"""
@@ -2144,7 +2036,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testGH2468() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"TestFlow.java",
 				"""
@@ -2175,8 +2067,8 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.runNegativeTest();
 	}
 
-	public void testGH2466() {
-		Runner runner = new Runner(false);
+	public void testGH666() {
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"TestFlow.java",
 				"""
@@ -2202,7 +2094,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testGH3094() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
@@ -2231,7 +2123,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testGH3094_2() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
@@ -2260,7 +2152,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 	}
 
 	public void testGH3094_3() {
-		Runner runner = new Runner(false);
+		Runner runner = new Runner();
 		runner.testFiles = new String[] {
 				"X.java",
 				"""
@@ -2433,17 +2325,12 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			},
 			"""
 			----------
-			1. WARNING in Outer.java (at line 10)
-				super();
-				^^^^^^^^
-			You are using a preview language feature that may or may not be supported in a future release
-			----------
-			2. ERROR in Outer.java (at line 13)
+			1. ERROR in Outer.java (at line 13)
 				new Foo().g();
 				^^^^^^^^^
 			Cannot instantiate local class 'Foo' in a static context
 			----------
-			3. ERROR in Outer.java (at line 16)
+			2. ERROR in Outer.java (at line 16)
 				Supplier<Foo> sfoo = Foo::new;
 				                     ^^^^^^^^
 			Cannot instantiate local class 'Foo' in a static context
@@ -2537,7 +2424,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		runner.testFiles = new String[] {
 			"X.java",
 			"""
-			class X {
+			public class X {
 				final int final_field;
 				int x;
 				{ x = final_field; } // Error: The blank final field final_field may not have been initialized
@@ -2699,7 +2586,7 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 					"""
 				},
 				"");
-		verifyClassFile("version 24 : 68.65535", "X.class", ClassFileBytesDisassembler.SYSTEM);
+		verifyClassFile("version 25 : 69.0", "X.class", ClassFileBytesDisassembler.SYSTEM);
 	}
 
 	public void testFieldAssignment_OK() throws Exception {
@@ -2745,16 +2632,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		},
 		"""
 		----------
-		1. WARNING in X.java (at line 4)
-			s = s0;
-			^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
-		2. WARNING in X.java (at line 5)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
 		3. ERROR in X.java (at line 7)
 			X() {
 			^^^
@@ -2785,25 +2662,10 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		},
 		"""
 		----------
-		1. WARNING in X.java (at line 4)
-			s = s0;
-			^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
-		2. WARNING in X.java (at line 5)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
-		3. ERROR in X.java (at line 8)
+		1. ERROR in X.java (at line 8)
 			Runnable r = () -> s = "";
 			                   ^
 		Cannot assign field 's' inside a lambda expression within an early construction context of class X
-		----------
-		4. WARNING in X.java (at line 9)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
 		----------
 		""");
 	}
@@ -2837,16 +2699,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		},
 		"""
 		----------
-		1. WARNING in X.java (at line 4)
-			s = s0;
-			^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
-		2. WARNING in X.java (at line 5)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
 		3. ERROR in X.java (at line 9)
 			public void run() { s = "Anonymous"; };
 			                    ^
@@ -2856,11 +2708,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			s = "Local";
 			^
 		Cannot assign field 's' from class 'X' in an early construction context
-		----------
-		5. WARNING in X.java (at line 16)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
 		----------
 		""");
 	}
@@ -3160,16 +3007,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 				^^^^
 			The final field fin1 may already have been assigned
 			----------
-			2. WARNING in X.java (at line 9)
-				this(fin1 = 10);
-				^^^^^^^^^^^^^^^^
-			You are using a preview language feature that may or may not be supported in a future release
-			----------
-			3. WARNING in X.java (at line 9)
-				this(fin1 = 10);
-				     ^^^^
-			You are using a preview language feature that may or may not be supported in a future release
-			----------
 			4. ERROR in X.java (at line 10)
 				fin2 = 11;
 				^^^^
@@ -3203,11 +3040,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 				fin1 = 0;
 				^^^^
 			The final field fin1 may already have been assigned
-			----------
-			2. WARNING in X.java (at line 9)
-				this(fin1 = 10);
-				     ^^^^
-			You are using a preview language feature that may or may not be supported in a future release
 			----------
 			3. ERROR in X.java (at line 10)
 				fin2 = 11;
@@ -3353,11 +3185,6 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			          ^^^^^^^^^^^
 		No enclosing instance of type Local is accessible. Must qualify the allocation with an enclosing instance of type Local (e.g. x.new A() where x is an instance of Local).
 		----------
-		3. WARNING in X.java (at line 12)
-			super();
-			^^^^^^^^
-		You are using a preview language feature that may or may not be supported in a future release
-		----------
 		""");
 	}
 
@@ -3383,5 +3210,282 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 			}
 			"""},
 			"init");
+	}
+
+	public void testJDK8346380() {
+		runNegativeTest(new String[] {
+			"O.java",
+			"""
+			@SuppressWarnings("unused")
+			class O {
+				static void foo(int x) { // static context, so no enclosing instance
+					class X { /* capture x */ } // inner local class in a static context
+					class U {
+						static void test() { new X(){  }; } // just as bad as saying `new X()`
+					}
+				}
+			}
+			"""
+			},
+			"""
+			----------
+			1. ERROR in O.java (at line 6)
+				static void test() { new X(){  }; } // just as bad as saying `new X()`
+				                         ^^^
+			Cannot instantiate local class 'X' in a static context
+			----------
+			""");
+	}
+
+	public void testGH4193() {
+		runConformTest(new String[] {
+				"C.java",
+				"""
+				import java.util.Arrays;
+				import java.util.List;
+				import java.util.Objects;
+				import java.util.function.Consumer;
+				import java.util.function.Supplier;
+
+				public final class C {
+				  private C() { }
+
+				  public static record CN<T>(List<Class<?>> types,
+				    Supplier<List<Object>> values, Consumer<T> consumer) {
+				    public CN {
+				      Objects.requireNonNull(types, "types == null");
+				      Objects.requireNonNull(values, "values == null");
+				    }
+				    public CN(final List<Class<?>> types, final Supplier<List<Object>> values) {
+				      System.out.println("before this");
+				      this(types, values, null);
+				    }
+				    public CN(final List<Class<?>> xtypes, final Object... xvalues) {
+				      this(xtypes, () -> Arrays.asList(xvalues), null);
+				    }
+				    public CN(final Consumer<T> c) {
+				      this(List.of(), () -> List.of(), c);
+				    }
+				    public CN() {
+				      this(List.of(), () -> List.of(), null);
+				    }
+				  }
+				}
+				"""
+		});
+	}
+	public void testGH4193_neg() {
+		runNegativeTest(new String[] {
+				"C.java",
+				"""
+				import java.util.Arrays;
+				import java.util.List;
+				import java.util.Objects;
+				import java.util.function.Consumer;
+				import java.util.function.Supplier;
+
+				public final class C {
+				  private C() { }
+
+				  public static record CN<T>(List<Class<?>> types,
+				    Supplier<List<Object>> values, Consumer<T> consumer) {
+				    public CN {
+				      Objects.requireNonNull(types, "types == null");
+				      Objects.requireNonNull(values, "values == null");
+				      super();
+				    }
+				    public CN(final List<Class<?>> types, final Supplier<List<Object>> values) {
+				      System.out.println("before this");
+				      super();
+				    }
+				    public CN(final List<Class<?>> xtypes, final Object... xvalues) {
+				      super();
+				    }
+				    public CN(final List<Class<?>> xtypes) {
+				    }
+				  }
+				}
+				"""
+		},
+		"""
+		----------
+		1. ERROR in C.java (at line 15)
+			super();
+			^^^^^^^^
+		The body of a compact constructor must not contain an explicit constructor call
+		----------
+		2. ERROR in C.java (at line 19)
+			super();
+			^^^^^^^^
+		A non-canonical constructor must invoke another constructor of the same class
+		----------
+		3. ERROR in C.java (at line 22)
+			super();
+			^^^^^^^^
+		A non-canonical constructor must invoke another constructor of the same class
+		----------
+		4. ERROR in C.java (at line 24)
+			public CN(final List<Class<?>> xtypes) {
+			       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+		A non-canonical constructor must invoke another constructor of the same class
+		----------
+		""");
+	}
+	public void testGH4449a() {
+		runNegativeTest(new String[] {
+			"X.java",
+			"""
+			public class X {
+
+			  final int i;
+
+			  public X() {
+			    this.i = 1;
+			    this(2);
+			    System.out.print(this.i);
+			  }
+
+			  public X(int i) {
+			    this.i = i;
+			  }
+
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in X.java (at line 7)
+			this(2);
+			^^^^^^^^
+		The final field i may already have been assigned
+		----------
+		""");
+	}
+	public void testGH4449b() {
+		runNegativeTest(new String[] {
+			"X.java",
+			"""
+			public class X {
+
+			  final int i;
+			  public X(Integer o) { this(o.intValue()); }
+			  public X() {
+			    this.i = 1;
+			    this(2);
+			    System.out.print(this.i);
+			  }
+
+			  public X(int i) {
+			    this.i = i;
+			  }
+
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in X.java (at line 7)
+			this(2);
+			^^^^^^^^
+		The final field i may already have been assigned
+		----------
+		""");
+	}
+	public void testGH4449c() {
+		runNegativeTest(new String[] {
+			"X.java",
+			"""
+			public class X {
+
+			  final int i;
+			  public X(Integer o) { this.i = o.intValue(); }
+			  public X() {
+			    this.i = 1;
+			    this(2);
+			    System.out.print(this.i);
+			  }
+
+			  public X(int i) {
+			    this.i = i;
+			  }
+
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in X.java (at line 7)
+			this(2);
+			^^^^^^^^
+		The final field i may already have been assigned
+		----------
+		""");
+	}
+	public void testGH4449d() {
+		runNegativeTest(new String[] {
+			"X.java",
+			"""
+			class X {
+				final Integer f1 = 1;
+				final Integer f2;
+				final Integer f3;
+				final Integer f4;
+				{
+					// f1 DA
+					// f2 DU
+					// f3 PUA
+					// f4 PUA
+					Integer l1;
+					f2 = 2 * f1;
+					if (cond())
+						l1 = f3;
+					else
+						f3 = 3;
+					// f1 DA
+					// f2 DA
+					// f3 PUA
+					// f4 PUA
+				}
+
+				X() {
+					f3 = 31;
+					f4 = 4;
+					// after prologue:
+					// f1 DU
+					// f2 DU
+					// f3 DA
+					// f4 DA
+					super();
+				}
+				X(Double d) {
+					// f1 DA
+					// f2 DA
+					// f3 PUA
+					// f4 DU
+					f3 = 33;
+					f4 = 44;
+				}
+				static boolean cond() { return false; }
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in X.java (at line 14)
+			l1 = f3;
+			     ^^
+		The blank final field f3 may not have been initialized
+		----------
+		2. ERROR in X.java (at line 16)
+			f3 = 3;
+			^^
+		The final field f3 may already have been assigned
+		----------
+		3. ERROR in X.java (at line 38)
+			f3 = 33;
+			^^
+		The final field f3 may already have been assigned
+		----------
+		""");
 	}
 }

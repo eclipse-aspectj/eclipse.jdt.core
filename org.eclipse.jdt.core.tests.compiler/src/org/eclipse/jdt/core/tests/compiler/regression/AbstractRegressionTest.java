@@ -89,6 +89,9 @@ public abstract class AbstractRegressionTest extends AbstractCompilerTest implem
 		.map(e -> e.getKey() + "=" + e.getValue())
 		.toArray(String[]::new);
 
+	protected static long PREVIEW_FEATURE_CLASS_FILE_CONST = ClassFileConstants.JDK25;
+	protected static int PREVIEW_FEATURE_LEVEL = 25;
+
 	protected class Runner {
 		boolean shouldFlushOutputDirectory = true;
 		// input:
@@ -337,6 +340,8 @@ static class JavacCompiler {
 			return JavaCore.VERSION_23;
 		} else if(rawVersion.startsWith("24")) {
 			return JavaCore.VERSION_24;
+		} else if(rawVersion.startsWith("25")) {
+			return JavaCore.VERSION_25;
 		} else {
 			throw new RuntimeException("unknown javac version: " + rawVersion);
 		}
@@ -574,6 +579,16 @@ static class JavacCompiler {
 		if (version == JavaCore.VERSION_24) {
 			switch(rawVersion) {
 				case "24-ea", "24-beta", "24":
+					return 0000;
+				case "24.0.1":
+					return 0100;
+				case "24.0.2":
+					return 0200;
+			}
+		}
+		if (version == JavaCore.VERSION_25) {
+			switch(rawVersion) {
+				case "25-ea", "25-beta", "25":
 					return 0000;
 			}
 		}
@@ -846,6 +861,8 @@ protected static class JavacTestOptions {
 		JavacErrorsEclipseNone =
 				new DubiousOutcome(MismatchType.JavacErrorsEclipseNone),
 		JDK8319461 = // https://bugs.openjdk.org/browse/JDK-8319461
+				new DubiousOutcome(MismatchType.JavacErrorsEclipseNone),
+		JDK8364144 = // https://bugs.openjdk.org/browse/JDK-8364144
 				new DubiousOutcome(MismatchType.JavacErrorsEclipseNone);
 	}
 	public static class EclipseHasABug extends Excuse {
@@ -886,7 +903,7 @@ protected static class JavacTestOptions {
 				new EclipseHasABug(MismatchType.EclipseErrorsJavacNone) {
 					@Override
 					Excuse excuseFor(JavacCompiler compiler) {
-						return compiler.compliance > ClassFileConstants.JDK1_5 ? this : null;
+						return this;
 					}
 				},
 			EclipseBug236242 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=236242
@@ -907,7 +924,7 @@ protected static class JavacTestOptions {
 				new EclipseHasABug(MismatchType.EclipseWarningsJavacNone) {
 					@Override
 					Excuse excuseFor(JavacCompiler compiler) {
-						return compiler.compliance > ClassFileConstants.JDK1_5 ? null : this;
+						return null;
 					}
 				},
 			EclipseBug424410 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=424410
@@ -1060,21 +1077,6 @@ protected static class JavacTestOptions {
 				if (compiler.compliance == ClassFileConstants.JDK1_8) {
 					return this.minorsFixed[5] > compiler.minor || this.minorsFixed[5] < 0 ?
 							this : null;
-				} else if (compiler.compliance == ClassFileConstants.JDK1_7) {
-					return this.minorsFixed[4] > compiler.minor || this.minorsFixed[4] < 0 ?
-							this : null;
-				} else if (compiler.compliance == ClassFileConstants.JDK1_6) {
-					return this.minorsFixed[3] > compiler.minor || this.minorsFixed[3] < 0 ?
-							this : null;
-				} else if (compiler.compliance == ClassFileConstants.JDK1_5) {
-					return this.minorsFixed[2] > compiler.minor || this.minorsFixed[2] < 0 ?
-							this : null;
-				} else if (compiler.compliance == ClassFileConstants.JDK1_4) {
-					return this.minorsFixed[1] > compiler.minor || this.minorsFixed[1] < 0 ?
-							this : null;
-				} else if (compiler.compliance == ClassFileConstants.JDK1_3) {
-					return this.minorsFixed[0] > compiler.minor || this.minorsFixed[0] < 0 ?
-							this : null;
 				}
 				throw new RuntimeException(); // should not get there
 			} else if (this.pivotCompliance > 0) {
@@ -1178,7 +1180,7 @@ protected static class JavacTestOptions {
 			JavacBug8348928 = // https://bugs.openjdk.org/browse/JDK-8348928
 					new JavacHasABug(MismatchType.EclipseErrorsJavacWarnings),
 			JavacBug8348410 = // https://bugs.openjdk.org/browse/JDK-8348410
-					new JavacHasABug(MismatchType.EclipseErrorsJavacNone);
+					new JavacHasABug(MismatchType.EclipseErrorsJavacNone, ClassFileConstants.JDK25, 0000);
 
 
 		// bugs that have been fixed but that we've not identified
@@ -1573,15 +1575,7 @@ protected static class JavacTestOptions {
 			.append("\" -d \"")
 			.append(EVAL_DIRECTORY);
 		String processAnnot = this.enableAPT ? "" : "-proc:none";
-		if (this.complianceLevel < ClassFileConstants.JDK1_5) {
-			buffer.append("\" -1.4 -source 1.3 -target 1.2");
-		} else if (this.complianceLevel == ClassFileConstants.JDK1_5) {
-			buffer.append("\" -1.5");
-		} else if (this.complianceLevel == ClassFileConstants.JDK1_6) {
-			buffer.append("\" -1.6 " + processAnnot);
-		} else if (this.complianceLevel == ClassFileConstants.JDK1_7) {
-			buffer.append("\" -1.7 " + processAnnot);
-		} else if (this.complianceLevel == ClassFileConstants.JDK1_8) {
+		if (this.complianceLevel == ClassFileConstants.JDK1_8) {
 			buffer.append("\" -1.8 " + processAnnot);
 		} else if (this.complianceLevel == ClassFileConstants.JDK9) {
 			buffer.append("\" -9 " + processAnnot);
@@ -2740,7 +2734,7 @@ protected void runJavac(
 					//      it should have had contents, stderr is leveraged as
 					//      potentially holding indications regarding the failure
 					if (expectedErrorString != null /* null skips error test */ && mismatch == 0) {
-						err = adjustErrorOutput(stderr.toString().trim());
+						err = adjustErrorOutput(stderr.toString().trim(), className);
 						if (!errorStringMatch(expectedErrorString, err)) {
 							mismatch = JavacTestOptions.MismatchType.ErrorOutputMismatch;
 						}
@@ -2865,10 +2859,13 @@ void handleMismatch(JavacCompiler compiler, String testName, String[] testFiles,
 	}
 }
 
-private String adjustErrorOutput(String error) {
+private String adjustErrorOutput(String error, String className) {
 	// VerifyTests performs an explicit e.printStackTrace() which has slightly different format
 	// from a stack trace written directly by a dying JVM (during javac testing), adjust if needed:
-	final String excPrefix = "Exception in thread \"main\" ";
+	String excPrefix = "Exception in thread \"main\" ";
+	if (error.startsWith(excPrefix))
+		return error.substring(excPrefix.length())+'\n';
+	excPrefix = "Error: LinkageError occurred while loading main class "+className+"\n\t";
 	if (error.startsWith(excPrefix))
 		return error.substring(excPrefix.length())+'\n';
 	return error;

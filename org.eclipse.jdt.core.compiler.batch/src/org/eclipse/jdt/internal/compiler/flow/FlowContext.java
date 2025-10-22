@@ -31,7 +31,6 @@ package org.eclipse.jdt.internal.compiler.flow;
 import java.util.ArrayList;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
@@ -240,7 +239,7 @@ public void checkExceptionHandlers(TypeBinding raisedException, ASTNode location
 	// until the point where it is safely handled (Smarter - see comment at the end)
 	FlowContext traversedContext = this;
 	ArrayList abruptlyExitedLoops = null;
-	if (scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_7 && location instanceof ThrowStatement) {
+	if (location instanceof ThrowStatement) {
 		Expression throwExpression = ((ThrowStatement)location).exception;
 		LocalVariableBinding throwArgBinding = throwExpression.localVariableBinding();
 		if (throwExpression instanceof SingleNameReference // https://bugs.eclipse.org/bugs/show_bug.cgi?id=350361

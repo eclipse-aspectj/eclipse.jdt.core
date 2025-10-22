@@ -9177,7 +9177,7 @@ public void testCompletionKeywordImport7() throws JavaModelException {
 		cu.codeComplete(cursorLocation, requestor);
 
 		assertEquals(
-			"element:import    completion:import    relevance:"+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE+ R_NON_RESTRICTED),
+			"",
 			requestor.getResults());
 }
 public void testCompletionKeywordImport8() throws JavaModelException {
@@ -24982,11 +24982,12 @@ public void testBug385858d() throws JavaModelException {
 }
 // Bug 402574 - Autocomplete does not recognize all enum constants when constants override methods
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=402574
-public void _2551_testBug402574() throws JavaModelException {
+public void testBug402574() throws JavaModelException {
 	try {
 		this.workingCopies = new ICompilationUnit[2];
 		this.workingCopies[1] = getWorkingCopy(
 			"/Completion/src/test/ExampleEnumNoAutocomplete.java",
+		    "package test;\n" +
 		    "public enum ExampleEnumNoAutocomplete {\n" +
 			"    STUFF(\"a\", \"b\") {\n" +
 			"    @Override\n" +
@@ -25064,6 +25065,7 @@ public void _2551_testBug402574() throws JavaModelException {
 			"	}\n");
 		this.workingCopies[0] = getWorkingCopy(
 			"/Completion/src/test/Tester.java",
+			"package test;\n" +
 			"import java.util.EnumMap;\n" +
 			"import java.util.Map;\n" +
 			"public class Tester {\n" +
@@ -26145,11 +26147,11 @@ public void testBug574982() throws JavaModelException {
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults(
-			"ABC[TYPE_REF]{p1.ABC, p1, Lp1.ABC;, null, null, 69}\n" +
-			"ABC[TYPE_REF]{p2.ABC, p2, Lp2.ABC;, null, null, 69}\n" +
-			"A3[TYPE_REF]{A3, , LA3;, null, null, 72}\n" +
-			"ArrayTest[TYPE_REF]{ArrayTest, , LArrayTest;, null, null, 72}\n" +
-			"A[TYPE_REF]{A, , LA;, null, null, 76}",
+			"ABC[TYPE_REF]{p1.ABC, p1, Lp1.ABC;, null, null, 49}\n" +
+			"ABC[TYPE_REF]{p2.ABC, p2, Lp2.ABC;, null, null, 49}\n" +
+			"A3[TYPE_REF]{A3, , LA3;, null, null, 52}\n" +
+			"ArrayTest[TYPE_REF]{ArrayTest, , LArrayTest;, null, null, 52}\n" +
+			"A[TYPE_REF]{A, , LA;, null, null, 56}",
 			requestor.getResults());
 }
 /**

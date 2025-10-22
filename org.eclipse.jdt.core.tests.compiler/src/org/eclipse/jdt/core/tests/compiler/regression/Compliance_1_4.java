@@ -1462,9 +1462,7 @@ public void test044() throws Exception {
 			"\n",
 			ClassFileBytesDisassembler.DETAILED);
 
-	String expectedOutput = new CompilerOptions(getCompilerOptions()).sourceLevel <= ClassFileConstants.JDK1_4
-		?	"     1  invokevirtual java.lang.Object.clone() : java.lang.Object [16]\n"
-		:	"     1  invokevirtual java.lang.String[].clone() : java.lang.Object [16]\n";
+	String expectedOutput = "     1  invokevirtual java.lang.String[].clone() : java.lang.Object [16]\n";
 
 	int index = actualOutput.indexOf(expectedOutput);
 	if (index == -1 || expectedOutput.length() == 0) {
@@ -2554,13 +2552,13 @@ public void test078() {
  * https://bugs.eclipse.org/bugs/show_bug.cgi?id=47227
  */
 public void test079() {
-	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK24) ?
+	String problemLog = (this.complianceLevel >= ClassFileConstants.JDK25) ?
 			"""
 			----------
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			Implicitly Declared Classes and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
+			Compact Source Files and Instance Main Methods is a preview feature and disabled by default. Use --enable-preview to enable
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {
@@ -2578,7 +2576,7 @@ public void test079() {
 			1. ERROR in X.java (at line 1)
 				void ___eval() {
 				^
-			The preview feature Implicitly Declared Classes and Instance Main Methods is only available with source level 24 and above
+			The Java feature 'Compact Source Files and Instance Main Methods' is only available with source level 25 and above
 			----------
 			2. ERROR in X.java (at line 1)
 				void ___eval() {

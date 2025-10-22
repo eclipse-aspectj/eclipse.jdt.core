@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -94,6 +94,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 
 		  suite.addTest(ASTRewritingTrackingTest.suite());
 		  suite.addTest(ASTRewritingJavadocTest.suite());
+		  suite.addTest(ASTRewritingJavadocMarkdownTest.suite());
 		  suite.addTest(ASTRewritingTypeAnnotationsTest.suite());
 		  suite.addTest(ASTRewritingTypeDeclTest.suite());
 		  suite.addTest(ASTRewritingGroupNodeTest.suite());
@@ -110,6 +111,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		  suite.addTest(SourceModifierTest.suite());
 		  suite.addTest(ImportRewriteTest.suite());
 		  suite.addTest(ImportRewrite18Test.suite());
+		  suite.addTest(ImportRewrite25Test.suite());
 		  suite.addTest(ImportRewrite_RecordTest.suite());
 		  suite.addTest(ASTRewritingSuperAfterStatementsTest.suite());
 		  suite.addTest(ASTRewritingEitherOrMultiPatternNodeTest.suite());
@@ -281,6 +283,14 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_24);
 			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_24);
 		}
+		setUpProjectAbove25();
+	}
+	protected void setUpProjectAbove25() throws Exception {
+		if (this.apiLevel == AST_INTERNAL_JLS25) {
+			this.project1.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_25);
+			this.project1.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_25);
+			this.project1.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_25);
+		}
 	}
 
 	protected IJavaProject createProject(String projectName, String complianceVersion) throws CoreException {
@@ -351,6 +361,10 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 
 	public static TypeDeclaration findTypeDeclaration(CompilationUnit astRoot, String simpleTypeName) {
 		return (TypeDeclaration) findAbstractTypeDeclaration(astRoot, simpleTypeName);
+	}
+
+	public static EnumDeclaration findEnumDeclaration(CompilationUnit astRoot, String simpleTypeName) {
+		return (EnumDeclaration) findAbstractTypeDeclaration(astRoot, simpleTypeName);
 	}
 
 	public static AbstractTypeDeclaration findAbstractTypeDeclaration(CompilationUnit astRoot, String simpleTypeName) {

@@ -187,9 +187,9 @@ void reportOnlyUselesslyReadPrivateField(BlockScope currentScope, FieldBinding f
 }
 
 protected void checkFieldAccessInEarlyConstructionContext(BlockScope scope, char[] token, FieldBinding fieldBinding, TypeBinding actualReceiverType) {
-	if (actualReceiverType != null && JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.matchesCompliance(scope.compilerOptions())) {
+	if (actualReceiverType != null) {
 		if (scope.isInsideEarlyConstructionContext(actualReceiverType, false)) {
-			// §6.5.6.1 (JEP 482):
+			// §6.5.6.1 (JEP 513):
 			// If the declaration denotes an instance variable of a class C ... then .. or a compile time occurs:
 			// - [...]
 			// - If the expression name appears in an early construction context of C (8.8.7.1),
@@ -218,7 +218,7 @@ protected void checkFieldAccessInEarlyConstructionContext(BlockScope scope, char
 					return;
 				}
 			}
-			// otherwise legal if JEP 482 is enabled
+			// otherwise legal if JEP 513 is enabled
 			scope.problemReporter().validateJavaFeatureSupport(JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES, this.sourceStart, this.sourceEnd);
 		}
 	}
@@ -259,12 +259,12 @@ static void reportOnlyUselesslyReadLocal(BlockScope currentScope, LocalVariableB
 
 			if (shouldReport) {
 				// report the case of an argument that is unread except through a special operator
-				currentScope.problemReporter().unusedArgument(localBinding.declaration);
+				currentScope.problemReporter().unusedArgument((LocalDeclaration) localBinding.declaration);
 			}
 		}
 	} else {
 		// report the case of a local variable that is unread except for a special operator
-		currentScope.problemReporter().unusedLocalVariable(localBinding.declaration);
+		currentScope.problemReporter().unusedLocalVariable((LocalDeclaration) localBinding.declaration);
 	}
 }
 }

@@ -175,11 +175,6 @@ public class RecordPattern extends Pattern {
 	}
 
 	@Override
-	public boolean matchFailurePossible() {
-		return this.patterns.length != 0; // if no deconstruction is involved, no failure is possible.
-	}
-
-	@Override
 	public boolean dominates(Pattern p) {
 		/* 14.30.3: A record pattern with type R and pattern list L dominates another record pattern
 		   with type S and pattern list M if (i) R and S name the same record class, and (ii)
@@ -265,7 +260,7 @@ public class RecordPattern extends Pattern {
 					if (current.index != outer.patterns.length - 1)
 						pops++;
 					current = outer;
-					outer = outer.getEnclosingPattern() instanceof RecordPattern rp ? rp : null;
+					outer = outer.getEnclosingPattern();
 				}
 				while (pops > 1) {
 					codeStream.pop2();
@@ -296,7 +291,7 @@ public class RecordPattern extends Pattern {
 		if (p.isTotalTypeNode && !componentType.isPrimitiveType() &&  p instanceof TypePattern tp) {
 			TypeBinding providedType = tp.resolvedType;
 			if (providedType != null && providedType.isPrimitiveType()) {
-				PrimitiveConversionRoute route = Pattern.findPrimitiveConversionRoute(componentType, providedType, currentScope);
+				PrimitiveConversionRoute route = findPrimitiveConversionRoute(componentType, providedType, currentScope);
 				if (route != PrimitiveConversionRoute.NO_CONVERSION_ROUTE
 						|| !componentType.isPrimitiveType()) {
 					p.isTotalTypeNode = false;

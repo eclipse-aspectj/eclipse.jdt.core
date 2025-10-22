@@ -20,7 +20,6 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -115,8 +114,7 @@ public class ForStatement extends Statement {
 		// process the action
 		LoopingFlowContext loopingContext;
 		UnconditionalFlowInfo actionInfo;
-		if (this.action == null
-			|| (this.action.isEmptyBlock() && currentScope.compilerOptions().complianceLevel <= ClassFileConstants.JDK1_3)) {
+		if (this.action == null) {
 			if (condLoopContext != null)
 				condLoopContext.complainOnDeferredFinalChecks(this.scope, condInfo);
 			if (isConditionTrue) {
@@ -244,7 +242,8 @@ public class ForStatement extends Statement {
 			}
 		}
 		this.mergedInitStateIndex = currentScope.methodScope().recordInitializationStates(mergedInfo);
-		this.scope.checkUnclosedCloseables(mergedInfo, loopingContext, null, null);
+		if ((this.bits & ASTNode.NeededScope) != 0)
+			this.scope.checkUnclosedCloseables(mergedInfo, loopingContext, null, null);
 		if (this.condition != null)
 			this.condition.updateFlowOnBooleanResult(mergedInfo, false);
 		return mergedInfo;

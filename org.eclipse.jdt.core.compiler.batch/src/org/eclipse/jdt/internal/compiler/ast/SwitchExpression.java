@@ -73,7 +73,7 @@ public class SwitchExpression extends SwitchStatement implements IPolyExpression
 				TypeBinding uniformType = null;
 				for (Expression rExpression : this.rExpressions)
 					uniformType = uniformType == null ? rExpression.resolvedType : NullAnnotationMatching.moreDangerousType(uniformType, rExpression.resolvedType);
-				return uniformType;
+				return resolveAsType(uniformType);
 			}
 
 			if (this.allBoolean)
@@ -124,7 +124,7 @@ public class SwitchExpression extends SwitchStatement implements IPolyExpression
 
 			this.rExpressions.add(rxpression);
 			if (rxpressionType == null) { // tolerate poly-expression resolving to null in the absence of target type.
-				if (!rxpression.isPolyExpression() || ((IPolyExpression) rxpression).expectedType() != null)
+				if (!rxpression.isPolyExpression() || ((IPolyExpression) rxpression).expectedType() != null || SwitchExpression.this.expressionContext == VANILLA_CONTEXT)
 					this.allWellFormed = false;
 			} else if (!rxpressionType.isValidBinding()) {
 				this.allWellFormed = false;

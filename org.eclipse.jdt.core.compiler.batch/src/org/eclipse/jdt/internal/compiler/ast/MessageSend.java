@@ -525,7 +525,7 @@ public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flow
 			scope.problemReporter().messageSendPotentialNullReference(this.binding, this);
 		}
 	} else if ((this.resolvedType.tagBits & TagBits.AnnotationNonNull) != 0) {
-		NullAnnotationMatching nonNullStatus = NullAnnotationMatching.okNonNullStatus(this);
+		NullAnnotationMatching nonNullStatus = NullAnnotationMatching.okNonNullStatus(this, true);
 		if (nonNullStatus.wantToReport())
 			nonNullStatus.report(scope);
 	}
@@ -544,8 +544,7 @@ public void computeConversion(Scope scope, TypeBinding runtimeTimeType, TypeBind
 		TypeBinding originalType = originalBinding.returnType;
 	    // extra cast needed if method return type is type variable
 		if (ArrayBinding.isArrayClone(this.actualReceiverType, this.binding)
-				&& runtimeTimeType.id != TypeIds.T_JavaLangObject
-				&& scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) {
+				&& runtimeTimeType.id != TypeIds.T_JavaLangObject) {
 			// from 1.5 source level on, array#clone() resolves to array type, but codegen to #clone()Object - thus require extra inserted cast
 			this.valueCast = runtimeTimeType;
 		} else if (originalType.leafComponentType().isTypeVariable()) {
@@ -813,7 +812,6 @@ public TypeBinding resolveType(BlockScope scope) {
 	// Base type promotion
 	if (this.constant != Constant.NotAConstant) {
 		this.constant = Constant.NotAConstant;
-		long sourceLevel = scope.compilerOptions().sourceLevel;
 		if (this.receiver instanceof CastExpression) {
 			this.receiver.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 		}
@@ -830,7 +828,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		// resolve type arguments (for generic constructor call)
 		if (this.typeArguments != null) {
 			int length = this.typeArguments.length;
-			this.argumentsHaveErrors = sourceLevel < ClassFileConstants.JDK1_5; // typeChecks all arguments
+			this.argumentsHaveErrors = false; // typeChecks all arguments
 			this.genericTypeArguments = new TypeBinding[length];
 			for (int i = 0; i < length; i++) {
 				TypeReference typeReference = this.typeArguments[i];
@@ -979,11 +977,6 @@ public TypeBinding resolveType(BlockScope scope) {
 						: null;
 	}
 	final CompilerOptions compilerOptions = scope.compilerOptions();
-	if (compilerOptions.complianceLevel <= ClassFileConstants.JDK1_6
-			&& this.binding.isPolymorphic()) {
-		scope.problemReporter().polymorphicMethodNotBelow17(this);
-		return null;
-	}
 
 	if (this.receiver instanceof CastExpression castedRecevier) {
 		// this check was suppressed while resolving receiver, check now based on the resolved method
@@ -993,12 +986,10 @@ public TypeBinding resolveType(BlockScope scope) {
 
 	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
 		ImplicitNullAnnotationVerifier.ensureNullnessIsKnown(this.binding, scope);
-		if (compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
-			if (this.binding instanceof ParameterizedGenericMethodBinding && this.typeArguments != null) {
-				TypeVariableBinding[] typeVariables = this.binding.original().typeVariables();
-				for (int i = 0; i < this.typeArguments.length; i++)
-					this.typeArguments[i].checkNullConstraints(scope, (ParameterizedGenericMethodBinding) this.binding, typeVariables, i);
-			}
+		if (this.binding instanceof ParameterizedGenericMethodBinding && this.typeArguments != null) {
+			TypeVariableBinding[] typeVariables = this.binding.original().typeVariables();
+			for (int i = 0; i < this.typeArguments.length; i++)
+				this.typeArguments[i].checkNullConstraints(scope, (ParameterizedGenericMethodBinding) this.binding, typeVariables, i);
 		}
 	}
 
@@ -1294,12 +1285,11 @@ public boolean isPolyExpression(MethodBinding resolutionCandidate) {
 		throw new UnsupportedOperationException("Unresolved MessageSend can't be queried if it is a polyexpression"); //$NON-NLS-1$
 
 	if (resolutionCandidate != null) {
-		if (resolutionCandidate instanceof ParameterizedGenericMethodBinding) {
-			ParameterizedGenericMethodBinding pgmb = (ParameterizedGenericMethodBinding) resolutionCandidate;
-			if (pgmb.inferredReturnType)
-				return true; // if already determined
-		}
-		if (resolutionCandidate.returnType != null) {
+		if (resolutionCandidate.returnType != null && resolutionCandidate.returnType.id != TypeIds.T_void) {
+			if (resolutionCandidate instanceof ParameterizedGenericMethodBinding pgmb) {
+				if (pgmb.wasInferred)
+					return true; // if already determined
+			}
 			// resolution may have prematurely instantiated the generic method, we need the original, though:
 			MethodBinding candidateOriginal = resolutionCandidate.original();
 			return candidateOriginal.returnType.mentionsAny(candidateOriginal.typeVariables(), -1);

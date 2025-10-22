@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2024 IBM and others.
+ * Copyright (c) 2020, 2025 IBM and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -14,18 +14,19 @@
 package org.eclipse.jdt.core.tests.model;
 
 import junit.framework.Test;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 
-public class CompletionTests14 extends AbstractJavaModelCompletionTests {
+public class CompletionTests16 extends AbstractJavaModelCompletionTests {
 
 	static {
 		//		TESTS_NAMES = new String[]{"test034"};
 	}
 
-	public CompletionTests14(String name) {
+	public CompletionTests16(String name) {
 		super(name);
 	}
 
@@ -40,7 +41,7 @@ public class CompletionTests14 extends AbstractJavaModelCompletionTests {
 	}
 
 	public static Test suite() {
-		return buildModelTestSuite(CompletionTests14.class);
+		return buildModelTestSuite(CompletionTests16.class);
 	}
 
 	public void test001() throws JavaModelException {
@@ -923,11 +924,11 @@ public class CompletionTests14 extends AbstractJavaModelCompletionTests {
 				"R[TYPE_REF]{R, , LR;, null, null, " + +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"X[TYPE_REF]{X, , LX;, null, null, " + +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"clone[METHOD_DECLARATION]{protected Object clone() throws CloneNotSupportedException, Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"equals[METHOD_DECLARATION]{public boolean equals(Object obj), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"finalize[METHOD_DECLARATION]{protected void finalize() throws Throwable, Ljava.lang.Object;, ()V, finalize, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"hashCode[METHOD_DECLARATION]{public int hashCode(), Ljava.lang.Object;, ()I, hashCode, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"toString[METHOD_DECLARATION]{public String toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"implementMe[METHOD_DECLARATION]{public void implementMe(), LBaseInterface;, ()V, implementMe, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_ABSTRACT_METHOD + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
+				"equals[METHOD_DECLARATION]{public boolean equals(Object obj), Ljava.lang.Record;, (Ljava.lang.Object;)Z, equals, (obj), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_ABSTRACT_METHOD) + "}\n" +
+				"hashCode[METHOD_DECLARATION]{public int hashCode(), Ljava.lang.Record;, ()I, hashCode, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_ABSTRACT_METHOD) + "}\n" +
+				"implementMe[METHOD_DECLARATION]{public void implementMe(), LBaseInterface;, ()V, implementMe, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_ABSTRACT_METHOD + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"toString[METHOD_DECLARATION]{public String toString(), Ljava.lang.Record;, ()Ljava.lang.String;, toString, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_ABSTRACT_METHOD) + "}",
 				requestor.getResults());
 	}
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1095
@@ -976,10 +977,10 @@ public class CompletionTests14 extends AbstractJavaModelCompletionTests {
 				"R[TYPE_REF]{R, , LR;, null, null, " + +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"X[TYPE_REF]{X, , LX;, null, null, " + +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"clone[METHOD_DECLARATION]{protected Object clone() throws CloneNotSupportedException, Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"equals[METHOD_DECLARATION]{public boolean equals(Object obj), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
 				"finalize[METHOD_DECLARATION]{protected void finalize() throws Throwable, Ljava.lang.Object;, ()V, finalize, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"toString[METHOD_DECLARATION]{public String toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
-				"implementMe[METHOD_DECLARATION]{public void implementMe(), LBaseInterface;, ()V, implementMe, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_ABSTRACT_METHOD + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
+				"equals[METHOD_DECLARATION]{public boolean equals(Object obj), Ljava.lang.Record;, (Ljava.lang.Object;)Z, equals, (obj), " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_ABSTRACT_METHOD) + "}\n" +
+				"implementMe[METHOD_DECLARATION]{public void implementMe(), LBaseInterface;, ()V, implementMe, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_ABSTRACT_METHOD + R_UNQUALIFIED + R_NON_RESTRICTED) + "}\n" +
+				"toString[METHOD_DECLARATION]{public String toString(), Ljava.lang.Record;, ()Ljava.lang.String;, toString, null, " +(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED + R_ABSTRACT_METHOD) + "}",
 				requestor.getResults());
 	}
 
@@ -1125,4 +1126,274 @@ public class CompletionTests14 extends AbstractJavaModelCompletionTests {
 						+ R_EXACT_EXPECTED_TYPE)
 				+ "}", requestor.getResults());
 	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3898
+	// CodeCompletionTest16.testBug560674 fails in I20250404-0410
+	public void testIssue3898() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"public record X(int abcdef) {\n" +
+				"    abcd\n" +
+				"	}\n" +
+				"}\n");
+
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, true, true, false);
+		requestor.allowAllRequiredProposals();
+		requestor.setRequireExtendedContext(true);
+		requestor.setComputeEnclosingElement(true);
+		requestor.setComputeVisibleElements(true);
+		requestor.setAssignableType("LX;");
+
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "abcd";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		requestor.getContext(); // triggers the CCE
+		assertEquals("abcd[POTENTIAL_METHOD_DECLARATION]{abcd, LX;, ()V, null, null, abcd, null, [34, 38], 39}" , requestor.getResults());
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4131
+	// Completing record component in compact constructor throws NPE
+	public void testIssue4131() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/Point.java",
+				"""
+				public record R(String name, int age) {
+
+					public R {
+						na
+					}
+				}
+				"""
+				);
+		this.workingCopies[0].getJavaProject(); //assuming single project for all working copies
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "na";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		assertResults(
+				"name[FIELD_REF]{this.name, LR;, Ljava.lang.String;, name, null, 49}\n" +
+				"name[LOCAL_VARIABLE_REF]{name, null, Ljava.lang.String;, name, null, 52}\n" +
+				"name[METHOD_REF]{name(), LR;, ()Ljava.lang.String;, name, null, 52}",
+				requestor.getResults());
+
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4215
+	// Content Assist doesn't work for record type names in some contexts
+	public void testIssue4215() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[2];
+
+		this.workingCopies[1] = getWorkingCopy(
+				"/Completion/src/p/Point.java",
+				"""
+				package p;
+				public record Point(int x, int y) {
+					void foo() {
+						System.out.println(this.x);
+						System.out.println(x());
+					}
+				}
+
+				class X {
+					X x = new X();
+				}
+				"""
+				);
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						new Poi
+					}
+				}
+				"""
+				);
+		this.workingCopies[0].getJavaProject(); //assuming single project for all working copies
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "new Poi";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+		assertResults(
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, (II)V, Point, (x, y), 52}",
+				requestor.getResults());
+
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4215
+	// Content Assist doesn't work for record type names in some contexts
+	public void testIssue4215_2() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[2];
+
+		this.workingCopies[1] = getWorkingCopy(
+				"/Completion/src/p/Point.java",
+				"""
+				package p;
+				public record Point(int x, int y) {
+					public Point {
+						x = 0;
+						y = 0;
+					}
+
+					void foo() {
+						System.out.println(this.x);
+						System.out.println(x());
+					}
+				}
+
+				class X {
+					X x = new X();
+				}
+				"""
+				);
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						new Poi
+					}
+				}
+				"""
+				);
+		this.workingCopies[0].getJavaProject(); //assuming single project for all working copies
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "new Poi";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+		assertResults(
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, (II)V, Point, (x, y), 52}",
+				requestor.getResults());
+
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4215
+	// Content Assist doesn't work for record type names in some contexts
+	public void testIssue4215_3() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[2];
+
+		this.workingCopies[1] = getWorkingCopy(
+				"/Completion/src/p/Point.java",
+				"""
+				package p;
+				public record Point(int x, int y) {
+					public Point() {
+						this(0, 0);
+					}
+
+					void foo() {
+						System.out.println(this.x);
+						System.out.println(x());
+					}
+				}
+
+				class X {
+					X x = new X();
+				}
+				"""
+				);
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						new Poi
+					}
+				}
+				"""
+				);
+		this.workingCopies[0].getJavaProject(); //assuming single project for all working copies
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "new Poi";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+		assertResults(
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, ()V, Point, null, 52}\n" +
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, (II)V, Point, (x, y), 52}",
+				requestor.getResults());
+
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4215
+	// Content Assist doesn't work for record type names in some contexts
+	public void testIssue4215_4() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[2];
+
+		this.workingCopies[1] = getWorkingCopy(
+				"/Completion/src/p/Point.java",
+				"""
+				package p;
+				public record Point(int x, int y) {
+					public Point() {
+						this(0, 0);
+					}
+					public Point (int x, int y) {
+						this.x = x;
+						this.y = y;
+					}
+					void foo() {
+						System.out.println(this.x);
+						System.out.println(x());
+					}
+				}
+
+				class X {
+					X x = new X();
+				}
+				"""
+				);
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						new Poi
+					}
+				}
+				"""
+				);
+		this.workingCopies[0].getJavaProject(); //assuming single project for all working copies
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "new Poi";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, new NullProgressMonitor());
+		assertResults(
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, ()V, Point, null, 52}\n" +
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, (II)V, Point, (x, y), 52}\n" +
+				"Point[CONSTRUCTOR_INVOCATION]{(), Lp.Point;, (II)V, Point, (x, y), 52}", // duplicated: see https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4222
+				requestor.getResults());
+
+	}
+
+	public void test_CompletionOnRecordConstructor_issue4419() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/Person.java",
+				"public record Person(pack2.P) {\n"
+						+ "    public Per\n"
+						+ "}\n");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, true, true, false);
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "public Per";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		assertResults(
+				"Person[TYPE_REF]{Person, , LPerson;, null, null, null, null, [43, 46], "
+						+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED) + "}",
+				requestor.getResults());
+	}
+
 }

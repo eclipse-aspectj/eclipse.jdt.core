@@ -5,7 +5,7 @@
             <message_arguments>
                 <message_argument value="org.eclipse.jdt.core.dom.AST"/>
                 <message_argument value="JLS_Latest"/>
-                <message_argument value="23"/>
+                <message_argument value="24"/>
             </message_arguments>
         </filter>
     </resource>

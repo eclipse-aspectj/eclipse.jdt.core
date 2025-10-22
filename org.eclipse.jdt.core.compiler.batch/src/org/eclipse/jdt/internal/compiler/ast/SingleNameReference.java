@@ -169,9 +169,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo, boolean valueRequired) {
 	switch (this.bits & ASTNode.RestrictiveFlagMASK) {
 		case Binding.FIELD : // reading a field
-			if (valueRequired || currentScope.compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4) {
-				manageSyntheticAccessIfNecessary(currentScope, flowInfo, true /*read-access*/);
-			}
+			manageSyntheticAccessIfNecessary(currentScope, flowInfo, true /*read-access*/);
 			// check if reading a final blank field
 			FieldBinding fieldBinding = (FieldBinding) this.binding;
 			if (fieldBinding.isBlankFinal() && currentScope.needBlankFinalFieldInitializationCheck(fieldBinding)) {
@@ -1030,13 +1028,16 @@ public TypeBinding resolveType(BlockScope scope) {
 		switch (this.bits & ASTNode.RestrictiveFlagMASK) {
 			case Binding.VARIABLE : // =========only variable============
 			case Binding.VARIABLE | Binding.TYPE : //====both variable and type============
-				if (this.binding instanceof VariableBinding) {
-					VariableBinding variable = (VariableBinding) this.binding;
+				if (this.binding instanceof VariableBinding variable) {
 					TypeBinding variableType;
-					if (this.binding instanceof LocalVariableBinding) {
+					if (this.binding instanceof LocalVariableBinding localVariable) {
 						this.bits &= ~ASTNode.RestrictiveFlagMASK;  // clear bits
 						this.bits |= Binding.LOCAL;
-						((LocalVariableBinding) this.binding).markReferenced();
+						if (localVariable.useFlag == LocalVariableBinding.ILLEGAL_SELF_REFERENCE_IF_USED) {
+							scope.problemReporter().varLocalReferencesItself(this);
+							localVariable.type = null;
+							localVariable.useFlag = LocalVariableBinding.UNUSED; // quell further errors.
+						}
 						checkLocalStaticClassVariables(scope, variable);
 						variableType = variable.type;
 						this.constant = (this.bits & ASTNode.IsStrictlyAssigned) == 0 ? variable.constant(scope) : Constant.NotAConstant;

@@ -123,13 +123,13 @@ public int resolveLevel(ASTNode possiblelMatchingNode) {
 public int resolveLevel(Binding binding) {
 	if (binding == null) return INACCURATE_MATCH;
 	// for record's component local variable matching component name
-	if(binding instanceof FieldBinding && ((FieldBinding) binding).isRecordComponent()) {
+	if (binding instanceof FieldBinding && ((FieldBinding) binding).isRecordComponent()) {
 		return matchField(binding, true);
 	}
-	if(binding instanceof LocalVariableBinding) {
-		if ( ((LocalVariableBinding)binding).declaringScope.referenceContext() instanceof ConstructorDeclaration cd && cd.isCompactConstructor()) {
+	if (binding instanceof LocalVariableBinding) {
+		if (((LocalVariableBinding)binding).declaringScope.referenceContext() instanceof ConstructorDeclaration cd && cd.isCompactConstructor()) {
 			//update with binding
-			if( this.pattern instanceof FieldPattern) {
+			if (this.pattern instanceof FieldPattern) {
 				return matchField(binding, true);
 			}
 		}

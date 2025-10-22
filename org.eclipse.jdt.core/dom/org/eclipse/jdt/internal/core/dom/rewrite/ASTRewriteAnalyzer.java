@@ -3521,7 +3521,8 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			return doVisitUnchangedChildren(node);
 		}
 		int startPos= node.getStartPosition() + 3;
-		String separator= getLineDelimiter() + getIndentAtOffset(node.getStartPosition())  + " * "; //$NON-NLS-1$
+		String separator= getLineDelimiter() + getIndentAtOffset(node.getStartPosition())  +
+				((node.getAST().apiLevel() >= AST.JLS23 && node.isMarkdown()) ? "/// " : " * "); //$NON-NLS-1$ //$NON-NLS-2$
 
 		rewriteNodeList(node, Javadoc.TAGS_PROPERTY, startPos, separator, separator);
 		return false;
@@ -4675,20 +4676,18 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			pos= doVisit(node, EnumConstantDeclaration.ARGUMENTS_PROPERTY, pos);
 		}
 
-		if (isChanged(node, EnumConstantDeclaration.ANONYMOUS_CLASS_DECLARATION_PROPERTY)) {
-			int kind= getChangeKind(node, EnumConstantDeclaration.ANONYMOUS_CLASS_DECLARATION_PROPERTY);
-			if (kind == RewriteEvent.REMOVED) {
-				try {
-					// 'pos' can be before brace
-					pos= getScanner().getPreviousTokenEndOffset(TerminalToken.TokenNameLBRACE, pos);
-				} catch (CoreException e) {
-					handleException(e);
-				}
-			} else {
-				pos= node.getStartPosition() + node.getLength(); // insert pos
+		int kind= getChangeKind(node, EnumConstantDeclaration.ANONYMOUS_CLASS_DECLARATION_PROPERTY);
+		if (kind == RewriteEvent.REMOVED) {
+			try {
+				// 'pos' can be before brace
+				pos= getScanner().getPreviousTokenEndOffset(TerminalToken.TokenNameLBRACE, pos);
+			} catch (CoreException e) {
+				handleException(e);
 			}
-			rewriteNode(node, EnumConstantDeclaration.ANONYMOUS_CLASS_DECLARATION_PROPERTY, pos, ASTRewriteFormatter.SPACE);
+		} else {
+			pos= node.getStartPosition() + node.getLength(); // insert pos
 		}
+		rewriteNode(node, EnumConstantDeclaration.ANONYMOUS_CLASS_DECLARATION_PROPERTY, pos, ASTRewriteFormatter.SPACE);
 		return false;
 	}
 

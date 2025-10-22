@@ -49,6 +49,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.CompilationParticipant;
+import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.ClasspathValidation;
 import org.eclipse.jdt.internal.core.CompilationGroup;
@@ -395,7 +396,7 @@ protected void clean(IProgressMonitor monitor) throws CoreException {
 	}
 }
 
-private void createInconsistentBuildMarker(CoreException coreException) throws CoreException {
+void createInconsistentBuildMarker(CoreException coreException) throws CoreException {
 	String message = null;
 	IStatus status = coreException.getStatus();
  	if (status.isMultiStatus()) {
@@ -429,6 +430,10 @@ private void cleanup() {
 	this.notifier = null;
 	this.extraResourceFileFilters = null;
 	this.extraResourceFolderFilters = null;
+	if (this.releaseSpecificEnvironments != null) {
+		this.releaseSpecificEnvironments.values().forEach(INameEnvironment::cleanup);
+		this.releaseSpecificEnvironments = null;
+	}
 }
 
 private void clearLastState() {
@@ -708,8 +713,8 @@ private int initializeBuilder(int kind, boolean forBuild) throws CoreException {
 	}
 
 	this.binaryLocationsPerProject = new HashMap<>(3);
-	this.nameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.MAIN);
-	this.testNameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.TEST);
+	this.nameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.MAIN, JavaProject.NO_RELEASE);
+	this.testNameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.TEST, JavaProject.NO_RELEASE);
 
 	if (forBuild) {
 		String filterSequence = this.javaProject.getOption(JavaCore.CORE_JAVA_BUILD_RESOURCE_COPY_FILTER, true);
@@ -737,6 +742,21 @@ private int initializeBuilder(int kind, boolean forBuild) throws CoreException {
 		}
 	}
 	return kind;
+}
+
+private Map<Integer, INameEnvironment> releaseSpecificEnvironments;
+
+INameEnvironment getNameEnvironment(int release) throws CoreException {
+	if (this.releaseSpecificEnvironments == null) {
+		this.releaseSpecificEnvironments = new HashMap<>();
+	}
+	INameEnvironment environment = this.releaseSpecificEnvironments.get(release);
+	if (environment == null) {
+		environment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject,
+				this.notifier, CompilationGroup.MAIN, release);
+		this.releaseSpecificEnvironments.put(release, environment);
+	}
+	return environment;
 }
 
 private boolean isClasspathBroken(JavaProject jProj, boolean tryRepair) throws CoreException {

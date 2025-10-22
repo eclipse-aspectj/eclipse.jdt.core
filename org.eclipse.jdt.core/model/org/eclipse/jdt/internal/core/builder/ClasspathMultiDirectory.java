@@ -18,12 +18,7 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.CompilationResult;
-import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
-import org.eclipse.jdt.internal.compiler.batch.BasicModule;
-import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
-import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.parser.Parser;
+import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.util.Util;
 
 public class ClasspathMultiDirectory extends ClasspathDirectory {
@@ -33,14 +28,16 @@ char[][] inclusionPatterns; // used by builders when walking source folders
 char[][] exclusionPatterns; // used by builders when walking source folders
 boolean hasIndependentOutputFolder; // if output folder is not equal to any of the source folders
 public boolean ignoreOptionalProblems;
+int release; // if given this sets an explicit release level for this directory overriding project settings
 
 ClasspathMultiDirectory(IContainer sourceFolder, IContainer binaryFolder, char[][] inclusionPatterns, char[][] exclusionPatterns,
-		boolean ignoreOptionalProblems, IPath externalAnnotationPath) {
+		boolean ignoreOptionalProblems, IPath externalAnnotationPath, int release) {
 	super(binaryFolder, true, null, externalAnnotationPath, false /* source never an automatic module*/);
 
 	this.sourceFolder = sourceFolder;
 	this.inclusionPatterns = inclusionPatterns;
 	this.exclusionPatterns = exclusionPatterns;
+	this.release = release>=JavaProject.FIRST_MULTI_RELEASE?release:JavaProject.NO_RELEASE;
 	this.hasIndependentOutputFolder = false;
 	this.ignoreOptionalProblems = ignoreOptionalProblems;
 
@@ -132,23 +129,6 @@ String[] directoryList(String qualifiedPackageName) {
 public String toString() {
 	return "Source classpath directory " + this.sourceFolder.getFullPath().toString() + //$NON-NLS-1$
 		" with " + super.toString(); //$NON-NLS-1$
-}
-
-public void acceptModuleInfo(ICompilationUnit cu, Parser parser) {
-	CompilationResult compilationResult = new CompilationResult(cu, 0, 1, 10);
-	CompilationUnitDeclaration unit = parser.parse(cu, compilationResult);
-	// Request could also come in when module-info has changed or removed.
-	if (unit.isModuleInfo() && unit.moduleDeclaration != null) {
-		this.module = new BasicModule(unit.moduleDeclaration, null);
-	}
-}
-@Override
-public void setModule(IModule mod) {
-	this.module = mod;
-}
-
-public IModule module() {
-	return this.module;
 }
 
 }

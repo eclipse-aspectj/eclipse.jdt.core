@@ -187,7 +187,7 @@ private Constant resolvePatternLabel(BlockScope scope, TypeBinding caseType, Typ
 		if (!pattern.isApplicable(selectorType, scope, pattern))
 			return Constant.NotAConstant;
 	} else if (caseType.isValidBinding()) { // already complained if invalid
-		if (Pattern.findPrimitiveConversionRoute(caseType, selectorType, scope) == PrimitiveConversionRoute.NO_CONVERSION_ROUTE) {
+		if (pattern.findPrimitiveConversionRoute(caseType, selectorType, scope) == PrimitiveConversionRoute.NO_CONVERSION_ROUTE) {
 			if (caseType.isPrimitiveType() && !JavaFeature.PRIMITIVES_IN_PATTERNS.isSupported(scope.compilerOptions())) {
 				scope.problemReporter().unexpectedTypeinSwitchPattern(caseType, pattern);
 				return Constant.NotAConstant;
@@ -245,8 +245,6 @@ public void resolve(BlockScope scope) {
 			if (this.swich.nullCase == null)
 				this.swich.nullCase = this;
 			nullCaseCount++;
-			if (count > 1 && nullCaseCount < 2)
-				scope.problemReporter().patternSwitchNullOnlyOrFirstWithDefault(e);
 		}
 
 		// tag constant name with enum type for privileged access to its members
@@ -257,6 +255,10 @@ public void resolve(BlockScope scope) {
 		if (e instanceof Pattern p) {
 			this.swich.containsPatterns = this.swich.isNonTraditional =  true;
 			p.setOuterExpressionType(selectorType);
+		} else if (count > 1 && nullCaseCount == 1) {
+			// Under if (!pattern) because we anyway issue ConstantWithPatternIncompatible for mixing patterns & null
+			// Also multiple nulls get reported as duplicates and we don't want to complain again.
+			scope.problemReporter().patternSwitchNullOnlyOrFirstWithDefault(e);
 		}
 
 		TypeBinding	caseType = e.resolveType(scope);
@@ -284,7 +286,8 @@ public void resolve(BlockScope scope) {
 								scope.problemReporter().caseExpressionWrongType(e, selectorType, expectedCaseType);
 								continue;
 							}
-							selectorType = expectedCaseType;
+							if (Pattern.findPrimitiveConversionRoute(caseType, selectorType, scope, this) != Pattern.PrimitiveConversionRoute.NO_CONVERSION_ROUTE)
+								selectorType = expectedCaseType;
 						}
 					}
 				}
@@ -333,20 +336,19 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 		codeStream.load(this.swich.selector);
 		pattern.generateCode(currentScope, codeStream, patternMatchLabel, matchFailLabel);
 		codeStream.goto_(patternMatchLabel);
-		matchFailLabel.place();
-
-		if (pattern.matchFailurePossible()) {
+		if (matchFailLabel.forwardReferenceCount() > 0) { // bother with generation of restart trampoline IFF match fail is possible
+			matchFailLabel.place();
 			/* We are generating a "thunk"/"trampoline" of sorts now, that flow analysis has no clue about.
 			   We need to manage the live variables manually. Pattern bindings are not definitely
 			   assigned here as we are in the else region.
 		    */
 			final LocalVariableBinding[] bindingsWhenTrue = pattern.bindingsWhenTrue();
-			Stream.of(bindingsWhenTrue).forEach(v->v.recordInitializationEndPC(codeStream.position));
+			Stream.of(bindingsWhenTrue).forEach(v -> v.recordInitializationEndPC(codeStream.position));
 			codeStream.load(this.swich.selector);
 			int caseIndex = this.labelExpressionOrdinal + pattern.getAlternatives().length;
 			codeStream.loadInt(this.swich.nullProcessed ? caseIndex - 1 : caseIndex);
 			codeStream.goto_(this.swich.switchPatternRestartTarget);
-			Stream.of(bindingsWhenTrue).forEach(v->v.recordInitializationStartPC(codeStream.position));
+			Stream.of(bindingsWhenTrue).forEach(v -> v.recordInitializationStartPC(codeStream.position));
 		}
 		patternMatchLabel.place();
 	} else {

@@ -115,6 +115,14 @@ public abstract class AbstractMethodDeclaration
 		}
 	}
 
+	public Argument [] arguments () {
+		return this.arguments;
+	}
+
+	public AbstractVariableDeclaration [] arguments (boolean includedElided) {
+		return this.arguments; // overridden in compact constructor.
+	}
+
 	/**
 	 * When a method is accessed via SourceTypeBinding.resolveTypesFor(MethodBinding)
 	 * we create the argument binding and resolve annotations in order to compute null annotation tagbits.
@@ -126,33 +134,40 @@ public abstract class AbstractMethodDeclaration
 	static void createArgumentBindings(Argument[] arguments, MethodBinding binding, MethodScope scope) {
 		boolean useTypeAnnotations = scope.environment().usesNullTypeAnnotations();
 		if (arguments != null && binding != null) {
-			for (int i = 0, length = arguments.length; i < length; i++) {
+			int argLen = arguments.length;
+			for (int i = 0, length = argLen; i < length; i++) {
 				Argument argument = arguments[i];
 				binding.parameters[i] = argument.createBinding(scope, binding.parameters[i]);
 				long argumentTagBits = argument.binding.tagBits;
-				if ((argumentTagBits & TagBits.AnnotationOwning) != 0) {
-					if (binding.parameterFlowBits == null) {
-						binding.parameterFlowBits = new byte[arguments.length];
-					}
-					binding.parameterFlowBits[i] |= PARAM_OWNING;
-				} else if ((argumentTagBits & TagBits.AnnotationNotOwning) != 0) {
-					if (binding.parameterFlowBits == null) {
-						binding.parameterFlowBits = new byte[arguments.length];
-					}
-					binding.parameterFlowBits[i] |= PARAM_NOTOWNING;
-				}
-				if (useTypeAnnotations)
-					continue; // no business with SE7 null annotations in the 1.8 case.
-				// createBinding() has resolved annotations, now transfer nullness info from the argument to the method:
-				long argTypeTagBits = (argumentTagBits & TagBits.AnnotationNullMASK);
-				if (argTypeTagBits != 0) {
-					if (binding.parameterFlowBits == null) {
-						binding.parameterFlowBits = new byte[arguments.length];
-						binding.tagBits |= TagBits.IsNullnessKnown;
-					}
-					binding.parameterFlowBits[i] = MethodBinding.flowBitFromAnnotationTagBit(argTypeTagBits);
-				}
+				computeParamFlowBits(binding, argLen, argumentTagBits, i, useTypeAnnotations);
 			}
+		}
+	}
+
+	public static void computeParamFlowBits(MethodBinding binding, int argLen, long paramTagBits, int paramRank,
+			boolean useTypeAnnotations)
+	{
+		if ((paramTagBits & TagBits.AnnotationOwning) != 0) {
+			if (binding.parameterFlowBits == null) {
+				binding.parameterFlowBits = new byte[argLen];
+			}
+			binding.parameterFlowBits[paramRank] |= PARAM_OWNING;
+		} else if ((paramTagBits & TagBits.AnnotationNotOwning) != 0) {
+			if (binding.parameterFlowBits == null) {
+				binding.parameterFlowBits = new byte[argLen];
+			}
+			binding.parameterFlowBits[paramRank] |= PARAM_NOTOWNING;
+		}
+		if (useTypeAnnotations)
+			return; // no business with SE7 null annotations in the 1.8 case.
+		// createBinding() has resolved annotations, now transfer nullness info from the argument to the method:
+		long argTypeTagBits = (paramTagBits & TagBits.AnnotationNullMASK);
+		if (argTypeTagBits != 0) {
+			if (binding.parameterFlowBits == null) {
+				binding.parameterFlowBits = new byte[argLen];
+				binding.tagBits |= TagBits.IsNullnessKnown;
+			}
+			binding.parameterFlowBits[paramRank] = MethodBinding.flowBitFromAnnotationTagBit(argTypeTagBits);
 		}
 	}
 
@@ -186,17 +201,9 @@ public abstract class AbstractMethodDeclaration
 					paramAnnotations[i] = Binding.NO_ANNOTATIONS;
 				}
 			}
-			if (paramAnnotations == null) {
-				paramAnnotations = getPropagatedRecordComponentAnnotations();
-			}
-
 			if (paramAnnotations != null)
 				this.binding.setParameterAnnotations(paramAnnotations);
 		}
-	}
-
-	protected AnnotationBinding[][] getPropagatedRecordComponentAnnotations() {
-		return null;
 	}
 
 	/**
@@ -487,7 +494,6 @@ public abstract class AbstractMethodDeclaration
 	}
 
 	public boolean isCanonicalConstructor() {
-
 		return false;
 	}
 
@@ -519,10 +525,6 @@ public abstract class AbstractMethodDeclaration
 		if (this.binding != null)
 			return this.binding.isNative();
 		return (this.modifiers & ClassFileConstants.AccNative) != 0;
-	}
-
-	public RecordComponent getRecordComponent() {
-		return null;
 	}
 
 	public boolean isStatic() {
@@ -566,7 +568,9 @@ public abstract class AbstractMethodDeclaration
 			output.append('>');
 		}
 
-		printReturnType(0, output).append(this.selector).append('(');
+		printReturnType(0, output).append(this.selector);
+		if (!this.isCompactConstructor())
+			output.append('(');
 		if (this.receiver != null) {
 			this.receiver.print(0, output);
 		}
@@ -576,7 +580,8 @@ public abstract class AbstractMethodDeclaration
 				this.arguments[i].print(0, output);
 			}
 		}
-		output.append(')');
+		if (!this.isCompactConstructor())
+			output.append(')');
 		if (this.thrownExceptions != null) {
 			output.append(" throws "); //$NON-NLS-1$
 			for (int i = 0; i < this.thrownExceptions.length; i++) {
@@ -616,27 +621,16 @@ public abstract class AbstractMethodDeclaration
 			this.ignoreFurtherInvestigation = true;
 		}
 
-		if (this.isCompactConstructor() && !upperScope.referenceContext.isRecord()) {
-			upperScope.problemReporter().compactConstructorsOnlyInRecords(this);
-			return;
-		}
-
 		try {
 			bindArguments();
 			resolveReceiver();
 			bindThrownExceptions();
 			resolveAnnotations(this.scope, this.annotations, this.binding, this.isConstructor());
-
-			long sourceLevel = this.scope.compilerOptions().sourceLevel;
-			if (sourceLevel < ClassFileConstants.JDK1_8) // otherwise already checked via Argument.createBinding
-				validateNullAnnotations(this.scope.environment().usesNullTypeAnnotations());
-
 			resolveStatements();
 			// check @Deprecated annotation presence
 			if (this.binding != null
 					&& (this.binding.getAnnotationTagBits() & TagBits.AnnotationDeprecated) == 0
-					&& (this.binding.modifiers & ClassFileConstants.AccDeprecated) != 0
-					&& sourceLevel >= ClassFileConstants.JDK1_5) {
+					&& (this.binding.modifiers & ClassFileConstants.AccDeprecated) != 0) {
 				this.scope.problemReporter().missingDeprecatedAnnotationForMethod(this);
 			}
 		} catch (AbortMethod e) {

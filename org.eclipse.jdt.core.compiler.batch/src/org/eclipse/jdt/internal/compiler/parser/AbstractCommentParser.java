@@ -30,6 +30,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.InvalidInputException;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
 /**
@@ -94,6 +95,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 	protected boolean lineStarted = false;
 	protected boolean inlineTagStarted = false;
 	protected boolean inlineReturn= false;
+	protected int inlineReturnOpenBraces= 0;
 	protected boolean abort = false;
 	protected int kind;
 	protected int tagValue = NO_TAG_VALUE;
@@ -135,7 +137,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 
 	protected AbstractCommentParser(Parser sourceParser) {
 		this.sourceParser = sourceParser;
-		this.scanner = new Scanner(false, false, false, ClassFileConstants.JDK1_3, null, null, true/*taskCaseSensitive*/,
+		this.scanner = new Scanner(false, false, false, CompilerOptions.getFirstSupportedJdkLevel(), null, null, true/*taskCaseSensitive*/,
 				sourceParser != null ? this.sourceParser.options.enablePreviewFeatures : false);
 		this.identifierStack = new char[20][];
 		this.identifierPositionStack = new long[20];
@@ -345,8 +347,38 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						this.lineStarted = false;
 						lineHasStar = false;
 						// Fix bug 51650
-						this.textStart = -1;
+						// Only reset textStart if not in an unclosed markdown inline tag
+						if (!(this.markdown && this.inlineTagStarted)) {
+							this.textStart = -1;
+						}
 						this.markdownHelper.resetAtLineEnd();
+						if (this.markdown && this.inlineTagStarted && this.index < this.javadocEnd - 2) {
+							// Special handling for markdown comments with unclosed inline tags
+							if (this.source[this.index] == '\r') this.index++;
+							if (this.source[this.index] == '\n') this.index++;
+
+							// Skip any whitespace before the /// sequence
+							while (this.index < this.javadocEnd && ScannerHelper.isWhitespace(this.source[this.index])) {
+						        this.index++;
+						    }
+
+							// Skip exact '///' sequence if present
+							if (this.index + 2 < this.javadocEnd &&
+									this.source[this.index] == '/' &&
+									this.source[this.index + 1] == '/' &&
+									this.source[this.index + 2] == '/') {
+								this.index += 3;
+							}
+
+							// Skip additional whitespace after ///
+							while (this.index < this.javadocEnd && ScannerHelper.isWhitespace(this.source[this.index])) {
+								this.index++;
+							}
+							// Preserve textStart position for continued tag content
+							if (this.textStart == -1) {
+								this.textStart = this.index;
+							}
+						}
 						break;
 					case '}' :
 						if (verifText && this.tagValue == TAG_RETURN_VALUE && this.returnStatement != null) {
@@ -361,18 +393,31 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						}
 						if (this.inlineTagStarted) {
 							textEndPosition = this.index - 1;
+							boolean treatAsText= considerTagAsPlainText || (this.inlineReturn && this.inlineReturnOpenBraces > 0);
 							// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: do not push text yet if ignoring tags
-							if (!considerTagAsPlainText) {
+							if (!treatAsText) {
 								if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
 									pushText(this.textStart, textEndPosition);
 								}
 								refreshInlineTagPosition(previousPosition);
 							}
-							if (!isFormatterParser && !considerTagAsPlainText)
-								this.textStart = this.index;
+							if (!isFormatterParser && !treatAsText && (!this.inlineReturn || this.inlineReturnOpenBraces <= 0)) {
+								// Reset textStart only if there's content after the tag
+								if (this.index < this.javadocEnd) {
+									char next = this.source[this.index];
+									if (!(this.markdown && (next == '\r' || next == '\n'))) {
+										this.textStart = this.index;
+									}
+								}
+							}
 							setInlineTagStarted(false);
 							if (this.inlineReturn) {
-								addFragmentToInlineReturn();
+								if (this.inlineReturnOpenBraces > 0) {
+									--this.inlineReturnOpenBraces;
+									setInlineTagStarted(true);
+								} else {
+									addFragmentToInlineReturn();
+								}
 							}
 						} else {
 							if (!this.lineStarted) {
@@ -386,35 +431,50 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						if (verifText && this.tagValue == TAG_RETURN_VALUE && this.returnStatement != null) {
 							refreshReturnStatement();
 						}
-												// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: count opening braces when ignoring tags
+						boolean doNotResetInlineTagStart= considerTagAsPlainText;
+						// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: count opening braces when ignoring tags
 						if (considerTagAsPlainText) {
 							openingBraces++;
-						} else if (this.inlineTagStarted) {
-							if (this.tagValue == TAG_RETURN_VALUE) {
-								this.inlineReturn= true;
+						} else {
+							if (this.markdown) {
+								if (this.inlineTagStarted && this.tagValue == TAG_RETURN_VALUE) {
+									this.inlineReturn= true;
+									this.inlineReturnOpenBraces++;
+								}
+							} else {
+								if (this.inlineTagStarted) {
+									if (this.tagValue == TAG_RETURN_VALUE) {
+										this.inlineReturn= true;
+									}
+									if (this.inlineReturn && peekChar() != '@') {
+										++this.inlineReturnOpenBraces;
+										doNotResetInlineTagStart= true;
+									} else {
+										if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
+											pushText(this.textStart, textEndPosition);
+										}
+										setInlineTagStarted(false);
+										// bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=53279
+										// Cannot have opening brace in inline comment
+										if (this.reportProblems && !this.inlineReturn) {
+											int end = previousPosition<invalidInlineTagLineEnd ? previousPosition : invalidInlineTagLineEnd;
+											this.sourceParser.problemReporter().javadocUnterminatedInlineTag(this.inlineTagStart, end);
+										}
+										refreshInlineTagPosition(textEndPosition);
+										textEndPosition = this.index;
+									}
+								} else if (peekChar() != '@') {
+									if (this.textStart == -1) this.textStart = previousPosition;
+									textEndPosition = this.index;
+								}
 							}
-							if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
-								pushText(this.textStart, textEndPosition);
-							}
-							setInlineTagStarted(false);
-							// bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=53279
-							// Cannot have opening brace in inline comment
-							if (this.reportProblems && !this.inlineReturn || peekChar() != '@') {
-								int end = previousPosition<invalidInlineTagLineEnd ? previousPosition : invalidInlineTagLineEnd;
-								this.sourceParser.problemReporter().javadocUnterminatedInlineTag(this.inlineTagStart, end);
-							}
-							refreshInlineTagPosition(textEndPosition);
-							textEndPosition = this.index;
-						} else if (peekChar() != '@') {
-							if (this.textStart == -1) this.textStart = previousPosition;
-							textEndPosition = this.index;
 						}
 						if (!this.lineStarted && !this.inlineReturn) {
 							this.textStart = previousPosition;
 						}
 						this.lineStarted = true;
 						// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: do not update tag start position when ignoring tags
-						if (!considerTagAsPlainText) this.inlineTagStart = previousPosition;
+						if (!doNotResetInlineTagStart) this.inlineTagStart = previousPosition;
 						break;
 					case '\u000c' :	/* FORM FEED               */
 					case ' ' :			/* SPACE                   */
@@ -994,7 +1054,6 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 			boolean hasMultiLines = this.scanner.currentPosition > (this.lineEnd+1);
 			boolean isTypeParam = false;
 			boolean valid = true, empty = true;
-			boolean mayBeGeneric = this.sourceLevel >= ClassFileConstants.JDK1_5;
 			TerminalToken token = TokenNameInvalid;
 			nextToken: while (true) {
 				this.currentTokenType = TokenNameInvalid;
@@ -1015,7 +1074,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						}
 						// $FALL-THROUGH$ - fall through next case to report error
 					case TokenNameLESS:
-						if (valid && mayBeGeneric) {
+						if (valid) {
 							// store '<' in identifiers stack as we need to add it to tag element (bug 79809)
 							pushIdentifier(true, true);
 							start = this.scanner.getCurrentTokenStartPosition();
@@ -1043,7 +1102,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						if (this.reportProblems)
 							if (empty)
 								this.sourceParser.problemReporter().javadocMissingParamName(start, end, this.sourceParser.modifiers);
-							else if (mayBeGeneric && isTypeParam)
+							else if (isTypeParam)
 								this.sourceParser.problemReporter().javadocInvalidParamTypeParameter(start, end);
 							else
 								this.sourceParser.problemReporter().javadocInvalidParamTagName(start, end);
@@ -1057,7 +1116,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 			}
 
 			// Scan more tokens for type parameter declaration
-			if (isTypeParam && mayBeGeneric) {
+			if (isTypeParam) {
 				// Get type parameter name
 				nextToken: while (true) {
 					this.currentTokenType = TokenNameInvalid;
@@ -1168,7 +1227,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 				} catch (InvalidInputException e) {
 					end = this.lineEnd;
 				}
-				if (mayBeGeneric && isTypeParam)
+				if (isTypeParam)
 					this.sourceParser.problemReporter().javadocInvalidParamTypeParameter(start, end);
 				else
 					this.sourceParser.problemReporter().javadocInvalidParamTagName(start, end);

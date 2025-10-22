@@ -104,7 +104,7 @@ public class ASTConverter {
 		long sourceLevel = CompilerOptions.versionToJdkLevel(sourceModeSetting);
 		if (sourceLevel == 0) {
 			// unknown sourceModeSetting
-			sourceLevel = ClassFileConstants.JDK1_3;
+			sourceLevel = CompilerOptions.getFirstSupportedJdkLevel();
 		}
 		this.scanner = new Scanner(
 			true /*comment*/,
@@ -328,29 +328,17 @@ public class ASTConverter {
 			int nextDeclarationType = -1;
 			if (fieldsIndex < fieldsLength) {
 				nextFieldDeclaration = fields[fieldsIndex];
-				if (!nextFieldDeclaration.isARecordComponent) {
-					if (nextFieldDeclaration.declarationSourceStart < position) {
-							position = nextFieldDeclaration.declarationSourceStart;
-							nextDeclarationType = 0; // FIELD
-					}
-				} else {
-					fieldsIndex++;
+				if (nextFieldDeclaration.declarationSourceStart < position) {
+					position = nextFieldDeclaration.declarationSourceStart;
+					nextDeclarationType = 0; // FIELD
 				}
-
 			}
 			if (methodsIndex < methodsLength) {
 				nextMethodDeclaration = methods[methodsIndex];
-				if ((nextMethodDeclaration.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.IsImplicit) == 0) {
-					if (nextMethodDeclaration.declarationSourceStart < position) {
-						position = nextMethodDeclaration.declarationSourceStart;
-						nextDeclarationType = 1; // METHOD
-					}
-
-			  } else {
-				  methodsIndex++;
-				  continue;
-			  }
-
+				if (nextMethodDeclaration.declarationSourceStart < position) {
+					position = nextMethodDeclaration.declarationSourceStart;
+					nextDeclarationType = 1; // METHOD
+				}
 			}
 			if (membersIndex < membersLength) {
 				nextMemberDeclaration = members[membersIndex];
@@ -724,16 +712,14 @@ public class ASTConverter {
 		org.eclipse.jdt.internal.compiler.ast.Argument[] parameters = methodDeclaration.arguments;
 		int parametersLength = parameters == null ? 0 : parameters.length;
 		if (parametersLength > 0) {
-			if (!(DOMASTUtil.isRecordDeclarationSupported(this.ast) && methodDecl.isCompactConstructor())) {
-				SingleVariableDeclaration parameter;
-				int i = 0;
-				do {
-					parameter = convert(parameters[i++]);
-					methodDecl.parameters().add(parameter);
-				} while (i < parametersLength);
-				if (thrownExceptionsLength == 0) {
-					methodHeaderEnd = parameter.getStartPosition() + parameter.getLength();
-				}
+			SingleVariableDeclaration parameter;
+			int i = 0;
+			do {
+				parameter = convert(parameters[i++]);
+				methodDecl.parameters().add(parameter);
+			} while (i < parametersLength);
+			if (thrownExceptionsLength == 0) {
+				methodHeaderEnd = parameter.getStartPosition() + parameter.getLength();
 			}
 		}
 		org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall explicitConstructorCall = null;
@@ -814,7 +800,7 @@ public class ASTConverter {
 					org.eclipse.jdt.internal.compiler.ast.Statement astStatement = statements[i];
 					if (astStatement instanceof org.eclipse.jdt.internal.compiler.ast.LocalDeclaration) {
 						checkAndAddMultipleLocalDeclaration(statements, i, block.statements());
-					} else if ((astStatement.bits & org.eclipse.jdt.internal.compiler.ast.ASTNode.IsImplicit) == 0 ){ // Don't convert Implicit statements
+					} else {
 						final Statement statement = convert(astStatement);
 						if (statement != null) {
 							block.statements().add(statement);
@@ -996,7 +982,6 @@ public class ASTConverter {
 	// AspectJ Extension - promoted to public from private
 	public AnnotationTypeDeclaration convertToAnnotationDeclaration(org.eclipse.jdt.internal.compiler.ast.TypeDeclaration typeDeclaration) {
 		checkCanceled();
-		if (this.scanner.sourceLevel < ClassFileConstants.JDK1_5) return null;
 		AnnotationTypeDeclaration typeDecl = this.ast.newAnnotationTypeDeclaration();
 		setModifiers(typeDecl, typeDeclaration);
 		final SimpleName typeName = new SimpleName(this.ast);
@@ -2110,8 +2095,8 @@ public class ASTConverter {
 		if (expression instanceof org.eclipse.jdt.internal.compiler.ast.ExtendedStringLiteral) {
 			return convert((org.eclipse.jdt.internal.compiler.ast.ExtendedStringLiteral) expression);
 		}
-		if (expression instanceof org.eclipse.jdt.internal.compiler.ast.TextBlock) {
-			return convert((org.eclipse.jdt.internal.compiler.ast.TextBlock) expression);
+		if (expression instanceof org.eclipse.jdt.internal.compiler.ast.TextBlock textBlock) {
+			return convert(textBlock);
 		}
 		if (expression instanceof org.eclipse.jdt.internal.compiler.ast.StringLiteral) {
 			return convert((org.eclipse.jdt.internal.compiler.ast.StringLiteral) expression);
@@ -2472,6 +2457,22 @@ public class ASTConverter {
 			Comment comment = this.commentMapper.getComment(javadoc.sourceStart);
 			if (comment != null && comment.isDocComment() && comment.getParent() == null) {
 				docComment = (Javadoc) comment;
+				List<ASTNode> docTags = docComment.tags();
+				if (!docTags.isEmpty()) {
+					ASTNode firstNode = docTags.get(0);
+					if (firstNode instanceof TagElement) {
+						TagElement tag = (TagElement) docTags.get(0);
+						List<ASTNode> fragments = tag.fragments();
+						if (!fragments.isEmpty()) {
+							ASTNode prev = fragments.get(0);
+							for (int i = 1; i < fragments.size(); i++) {
+								ASTNode cur = fragments.get(i);
+								if (cur.getStartPosition() <= prev.getStartPosition()) cur.setFlags(ASTNode.MALFORMED);
+								prev = cur;
+							}
+						}
+					}
+				}
 				if (this.resolveBindings) {
 					recordNodes(docComment, javadoc);
 					// resolve member and method references binding
@@ -3854,7 +3855,7 @@ public class ASTConverter {
 
 	private RecordDeclaration convertToRecordDeclaration(org.eclipse.jdt.internal.compiler.ast.TypeDeclaration typeDeclaration) {
 		checkCanceled();
-		// record declaration cannot be built if the source is not >= 14, since record is then seen as an identifier
+		// record declaration cannot be built if the source is not >= 16, since record is then seen as an identifier
 		final RecordDeclaration recordDeclaration = new RecordDeclaration(this.ast);
 		setModifiers(recordDeclaration, typeDeclaration);
 		final SimpleName typeName = new SimpleName(this.ast);
@@ -3876,12 +3877,10 @@ public class ASTConverter {
 				recordDeclaration.typeParameters().add(convert(typeParameter));
 			}
 		}
-		RecordComponent[] recComps = typeDeclaration.recordComponents;
-		if (recComps != null) {
-			for (RecordComponent recComp : recComps) {
-				recordDeclaration.recordComponents().add(convert(recComp));
-			}
+		for (RecordComponent component : typeDeclaration.recordComponents) {
+			recordDeclaration.recordComponents().add(convert(component));
 		}
+
 		buildBodyDeclarations(typeDeclaration, recordDeclaration, false);
 		if (this.resolveBindings) {
 			recordNodes(recordDeclaration, typeDeclaration);

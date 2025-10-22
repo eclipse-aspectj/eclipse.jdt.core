@@ -9144,7 +9144,7 @@ public class ASTConverterTestAST8_2 extends ConverterTestSetup {
 			ASTNode node = runConversion(workingCopy, true, true, true);
 			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
 			CompilationUnit unit = (CompilationUnit) node;
-			String expectedError = "Constructor call must be the first statement in a constructor";
+			String expectedError = "The Java feature 'Flexible Constructor Bodies' is only available with source level 25 and above";
 			assertProblemsSize(unit, 1, expectedError);
 			node = getASTNode(unit, 0, 1, 2);
 			assertEquals("Not a constructor invocation", ASTNode.CONSTRUCTOR_INVOCATION, node.getNodeType());
@@ -9732,56 +9732,7 @@ public class ASTConverterTestAST8_2 extends ConverterTestSetup {
 			assertFalse("Should not get there", true);
 		}
 	}
-	/**
-	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=245348
-	 */
-	public void test0695() throws JavaModelException {
-		ICompilationUnit unit = getCompilationUnit("Converter" , "src", "test0695", "X.java"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
-		ASTParser parser = ASTParser.newParser(getJLSFirst());
-		parser.setKind(ASTParser.K_COMPILATION_UNIT);
-		parser.setSource(unit.getSource().toCharArray());
-		Map options = JavaCore.getOptions();
-		options.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_3);
-		options.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_4);
-		options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_1_2);
-		parser.setCompilerOptions(options);
-
-		CompilationUnit astRoot = (CompilationUnit) parser.createAST(null);
-		ASTVisitor visitor = new ASTVisitor() {
-			public boolean visit(EnumDeclaration node) {
-				assertFalse("Should not be there", true);
-				return false;
-			}
-		};
-		astRoot.accept(visitor);
-		assertEquals("No problem found", 1, astRoot.getProblems().length);
-	}
-	/**
-	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=245348
-	 */
-	public void test0696() throws JavaModelException {
-		ICompilationUnit unit = getCompilationUnit("Converter" , "src", "test0696", "X.java"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-
-		ASTParser parser = ASTParser.newParser(getJLSFirst());
-		parser.setKind(ASTParser.K_COMPILATION_UNIT);
-		parser.setSource(unit.getSource().toCharArray());
-		Map options = JavaCore.getOptions();
-		options.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_3);
-		options.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_4);
-		options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_1_2);
-		parser.setCompilerOptions(options);
-
-		CompilationUnit astRoot = (CompilationUnit) parser.createAST(null);
-		ASTVisitor visitor = new ASTVisitor() {
-			public boolean visit(AnnotationTypeDeclaration node) {
-				assertFalse("Should not be there", true);
-				return false;
-			}
-		};
-		astRoot.accept(visitor);
-		assertEquals("No problem found", 1, astRoot.getProblems().length);
-	}
 	/*
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=248246
 	 */

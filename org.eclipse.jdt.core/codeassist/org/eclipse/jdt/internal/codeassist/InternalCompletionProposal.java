@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2018 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -55,6 +55,7 @@ public class InternalCompletionProposal extends CompletionProposal {
 	protected int accessibility = IAccessRule.K_ACCESSIBLE;
 
 	protected boolean isConstructor = false;
+	protected boolean isComponentAccessor = false;
 
 	/**
 	 * Kind of completion request.
@@ -86,6 +87,10 @@ public class InternalCompletionProposal extends CompletionProposal {
 	 */
 	private char[] completion = CharOperation.NO_CHAR;
 
+	/**
+	 * Completion display string; defaults to empty string.
+	 */
+	public char[] displayString = null;
 	/**
 	 * Start position (inclusive) of source range in original buffer
 	 * to be replaced by completion string;
@@ -460,6 +465,9 @@ public class InternalCompletionProposal extends CompletionProposal {
 	protected void setIsContructor(boolean isConstructor) {
 		this.isConstructor = isConstructor;
 	}
+	protected void flagRecordComponentAccessor() {
+		this.isComponentAccessor = true;
+	}
 	public void setOriginalSignature(char[] originalSignature) {
 		this.originalSignature = originalSignature;
 	}
@@ -531,6 +539,13 @@ public class InternalCompletionProposal extends CompletionProposal {
 		}
 		this.tokenStart = startIndex;
 		this.tokenEnd = endIndex;
+	}
+
+	@Override
+	public char[] getDisplayString() {
+		if  (this.displayString != null)
+			return this.displayString;
+		return getCompletion();
 	}
 
 	@Override
@@ -1032,6 +1047,10 @@ public class InternalCompletionProposal extends CompletionProposal {
 	@Override
 	public boolean isConstructor() {
 		return this.isConstructor;
+	}
+	@Override
+	public boolean isRecordComponentAccessor() {
+		return this.isComponentAccessor;
 	}
 
 	private int receiverStart;

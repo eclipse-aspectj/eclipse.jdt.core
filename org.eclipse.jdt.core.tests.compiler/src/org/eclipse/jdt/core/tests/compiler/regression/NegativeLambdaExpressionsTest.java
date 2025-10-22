@@ -32,12 +32,13 @@ import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.Jav
 import org.eclipse.jdt.core.tests.junit.extension.TestCase;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class NegativeLambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test404657_loop"};
+//	TESTS_NAMES = new String[] { "testIssue3956"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -1600,57 +1601,62 @@ public void test043() {
 			"}\n"
 			},
 			"----------\n" +
-			"1. ERROR in X.java (at line 17)\n" +
+			"1. ERROR in X.java (at line 14)\n" +
+			"	interface M extends I, L {}\n" +
+			"	          ^\n" +
+			"Name clash: The method foo(List<Integer>) of type L has the same erasure as foo(List<String>) of type I but does not override it\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 17)\n" +
 			"	interface P extends N, O {}\n" +
 			"	          ^\n" +
 			"Name clash: The method foo(List, Class<?>) of type O has the same erasure as foo(List<String>, Class) of type N but does not override it\n" +
 			"----------\n" +
-			"2. ERROR in X.java (at line 20)\n" +
+			"3. ERROR in X.java (at line 20)\n" +
 			"	interface S extends Q, R {}\n" +
 			"	          ^\n" +
 			"The return types are incompatible for the inherited methods Q.foo(), R.foo()\n" +
 			"----------\n" +
-			"3. ERROR in X.java (at line 23)\n" +
+			"4. ERROR in X.java (at line 23)\n" +
 			"	interface V<P, Q> extends T<P>, U<Q> {}\n" +
 			"	          ^\n" +
 			"Name clash: The method foo(P) of type U<P> has the same erasure as foo(P) of type T<P> but does not override it\n" +
 			"----------\n" +
-			"4. ERROR in X.java (at line 29)\n" +
+			"5. ERROR in X.java (at line 29)\n" +
 			"	B b              =    () -> {};\n" +
 			"	                      ^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"5. ERROR in X.java (at line 32)\n" +
+			"6. ERROR in X.java (at line 32)\n" +
 			"	E e              =    () -> {};\n" +
 			"	                      ^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"6. ERROR in X.java (at line 40)\n" +
+			"7. ERROR in X.java (at line 40)\n" +
 			"	M m              =    (p0) -> {};\n" +
 			"	                      ^^^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"7. ERROR in X.java (at line 43)\n" +
+			"8. ERROR in X.java (at line 43)\n" +
 			"	P p              =    (p0, q0) -> {};\n" +
 			"	                      ^^^^^^^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"8. ERROR in X.java (at line 46)\n" +
+			"9. ERROR in X.java (at line 46)\n" +
 			"	S s              =    () -> {};\n" +
 			"	                      ^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"9. ERROR in X.java (at line 49)\n" +
+			"10. ERROR in X.java (at line 49)\n" +
 			"	V<?,?> v         =    (p0) -> {};\n" +
 			"	                      ^^^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"10. ERROR in X.java (at line 50)\n" +
+			"11. ERROR in X.java (at line 50)\n" +
 			"	W<?,?> w         =    (p0) -> {};\n" +
 			"	                      ^^^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
 			"----------\n" +
-			"11. ERROR in X.java (at line 51)\n" +
+			"12. ERROR in X.java (at line 51)\n" +
 			"	X x              =    (p0) -> {};\n" +
 			"	                      ^^^^^^^\n" +
 			"The target type of this expression must be a functional interface\n" +
@@ -6574,42 +6580,74 @@ public void test406614() {
 				"	}\n" +
 				"}\n"
 			},
-			"----------\n" +
-			"1. ERROR in X.java (at line 9)\n" +
-			"	this(() -> this.f);\n" +
-			"	^^^^^^^^^^^^^^^^^^^\n" +
-			"The constructor X(() -> {}) is undefined\n" +
-			"----------\n" +
-			"2. ERROR in X.java (at line 9)\n" +
-			"	this(() -> this.f);\n" +
-			"	           ^^^^\n" +
-			"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
-			"----------\n" +
-			"3. ERROR in X.java (at line 12)\n" +
-			"	this(() -> this.g());\n" +
-			"	^^^^^^^^^^^^^^^^^^^^^\n" +
-			"The constructor X(() -> {}) is undefined\n" +
-			"----------\n" +
-			"4. ERROR in X.java (at line 12)\n" +
-			"	this(() -> this.g());\n" +
-			"	           ^^^^\n" +
-			"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
-			"----------\n" +
-			"5. ERROR in X.java (at line 15)\n" +
-			"	this(() -> f);\n" +
-			"	^^^^^^^^^^^^^^\n" +
-			"The constructor X(() -> {}) is undefined\n" +
-			"----------\n" +
-			"6. ERROR in X.java (at line 15)\n" +
-			"	this(() -> f);\n" +
-			"	           ^\n" +
-			"Cannot refer to an instance field f while explicitly invoking a constructor\n" +
-			"----------\n" +
-			"7. ERROR in X.java (at line 18)\n" +
-			"	this(() -> g());\n" +
-			"	           ^\n" +
-			"Cannot refer to an instance method while explicitly invoking a constructor\n" +
-			"----------\n");
+			(!JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(this.complianceLevel, false)
+			?
+				"----------\n" +
+				"1. ERROR in X.java (at line 9)\n" +
+				"	this(() -> this.f);\n" +
+				"	^^^^^^^^^^^^^^^^^^^\n" +
+				"The constructor X(() -> {}) is undefined\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 9)\n" +
+				"	this(() -> this.f);\n" +
+				"	           ^^^^\n" +
+				"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
+				"----------\n" +
+				"3. ERROR in X.java (at line 12)\n" +
+				"	this(() -> this.g());\n" +
+				"	^^^^^^^^^^^^^^^^^^^^^\n" +
+				"The constructor X(() -> {}) is undefined\n" +
+				"----------\n" +
+				"4. ERROR in X.java (at line 12)\n" +
+				"	this(() -> this.g());\n" +
+				"	           ^^^^\n" +
+				"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
+				"----------\n" +
+				"5. ERROR in X.java (at line 15)\n" +
+				"	this(() -> f);\n" +
+				"	^^^^^^^^^^^^^^\n" +
+				"The constructor X(() -> {}) is undefined\n" +
+				"----------\n" +
+				"6. ERROR in X.java (at line 15)\n" +
+				"	this(() -> f);\n" +
+				"	           ^\n" +
+				"Cannot refer to an instance field f while explicitly invoking a constructor\n" +
+				"----------\n" +
+				"7. ERROR in X.java (at line 18)\n" +
+				"	this(() -> g());\n" +
+				"	           ^\n" +
+				"Cannot refer to an instance method while explicitly invoking a constructor\n" +
+				"----------\n"
+			:
+				"""
+				----------
+				1. ERROR in X.java (at line 9)
+					this(() -> this.f);
+					           ^^^^^^
+				Cannot read field f in an early construction context
+				----------
+				2. ERROR in X.java (at line 12)
+					this(() -> this.g());
+					^^^^^^^^^^^^^^^^^^^^^
+				The constructor X(() -> {}) is undefined
+				----------
+				3. ERROR in X.java (at line 12)
+					this(() -> this.g());
+					           ^^^^
+				Cannot use 'this' in an early construction context
+				----------
+				4. ERROR in X.java (at line 15)
+					this(() -> f);
+					           ^
+				Cannot read field f in an early construction context
+				----------
+				5. ERROR in X.java (at line 18)
+					this(() -> g());
+					           ^
+				Cannot refer to an instance method while explicitly invoking a constructor
+				----------
+				"""
+			));
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=406588, [1.8][compiler][codegen] java.lang.invoke.LambdaConversionException: Incorrect number of parameters for static method newinvokespecial
 public void test406588() {
@@ -9717,7 +9755,8 @@ public void test433588a() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=433735, [1.8] Discrepancy with javac when dealing with local classes in lambda expressions
 public void test433735() {
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"import java.util.function.Supplier;\n" +
@@ -9744,17 +9783,24 @@ public void test433735() {
 			"		new X();\n" +
 			"	}\n" +
 			"}\n"
-		},
-		"----------\n" +
-		"1. ERROR in X.java (at line 7)\n" +
-		"	super( () -> {\n" +
-		"	       ^^^^^\n" +
-		"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
-		"----------\n");
+			};
+	if (JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(this.complianceLevel, false)) {
+		runner.runConformTest();
+	} else {
+		runner.expectedCompilerLog =
+			"----------\n" +
+			"1. ERROR in X.java (at line 7)\n" +
+			"	super( () -> {\n" +
+			"	       ^^^^^\n" +
+			"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
+			"----------\n";
+		runner.runNegativeTest();
+	}
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432531 [1.8] VerifyError with anonymous subclass inside of lambda expression in the superclass constructor call
 public void test432531a() {
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.testFiles =
 		new String[] {
 			"Y.java",
 			"import java.util.function.Supplier;\n" +
@@ -9776,13 +9822,19 @@ public void test432531a() {
 			"		new Y();\n" +
 			"	}\n" +
 			"}"
-	},
-	"----------\n" +
-	"1. ERROR in Y.java (at line 7)\n" +
-	"	super( () -> {\n" +
-	"	       ^^^^^\n" +
-	"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
-	"----------\n");
+		};
+	if (!JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(this.complianceLevel, false)) {
+		runner.expectedCompilerLog =
+			"----------\n" +
+			"1. ERROR in Y.java (at line 7)\n" +
+			"	super( () -> {\n" +
+			"	       ^^^^^\n" +
+			"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" +
+			"----------\n";
+		runner.runNegativeTest();
+	} else {
+		runner.runConformTest();
+	}
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432605, [1.8] Incorrect error "The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here"
 public void _test432605() {
@@ -10471,6 +10523,232 @@ public void testIssue3792_full() {
 			"	                            ^\n" +
 			"Local variable o defined in an enclosing scope must be final or effectively final\n" +
 			"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3956
+// NPE in TypeBinding.getSingleAbstractMethod()
+public void testIssue3956() {
+	this.runNegativeTest(
+			new String[] {
+				"TestMe.java",
+				"""
+				import java.util.concurrent.CompletableFuture;
+
+				public class TestMe {
+					public  String id;
+					private CompletableFuture<Action> active;
+
+					public void test() {
+						CompletableFuture<Void> future;
+						if (id == null) {
+							future = active.thenAcceptAsync(recording -> {
+								recording.stop().run();
+								recording.process();
+							});
+						} else {
+							future = active.thenComposeAsync(recording -> {
+								recording.stop().run();
+				// This code (should) have compile errors but instead triggers ClassCastException
+
+								return update().handleAsync(() -> recording.process());
+
+				// Deleting the line and using this code would work
+				//				return update().handleAsync((a, b) -> {
+				//					recording.process();
+				//					return null;
+				//				});
+							});
+						}
+					}
+
+					public synchronized CompletableFuture<?> update() {
+						return null;
+					}
+
+					private static final class Action {
+
+						public Runnable stop() {
+							return () -> {
+							};
+						}
+
+						public void process() {
+
+						}
+
+					}
+				}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in TestMe.java (at line 15)\n" +
+			"	future = active.thenComposeAsync(recording -> {\n" +
+			"				recording.stop().run();\n" +
+			"// This code (should) have compile errors but instead triggers ClassCastException\n" +
+			"\n" +
+			"				return update().handleAsync(() -> recording.process());\n" +
+			"\n" +
+			"// Deleting the line and using this code would work\n" +
+			"//				return update().handleAsync((a, b) -> {\n" +
+			"//					recording.process();\n" +
+			"//					return null;\n" +
+			"//				});\n" +
+			"			});\n" +
+			"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Type mismatch: cannot convert from CompletableFuture<Object> to CompletableFuture<Void>\n" +
+			"----------\n" +
+			"2. ERROR in TestMe.java (at line 19)\n" +
+			"	return update().handleAsync(() -> recording.process());\n" +
+			"	                ^^^^^^^^^^^\n" +
+			"The method handleAsync(BiFunction<? super capture#1-of ?,Throwable,? extends U>) in the type CompletableFuture<capture#1-of ?> is not applicable for the arguments (() -> {})\n" +
+			"----------\n" +
+			"3. ERROR in TestMe.java (at line 19)\n" +
+			"	return update().handleAsync(() -> recording.process());\n" +
+			"	                            ^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Lambda expression's signature does not match the signature of the functional interface method apply(? super capture#1-of ?, Throwable)\n" +
+			"----------\n" +
+			"4. ERROR in TestMe.java (at line 19)\n" +
+			"	return update().handleAsync(() -> recording.process());\n" +
+			"	                                  ^^^^^^^^^^^^^^^^^^^\n" +
+			"Cannot return a void result\n" +
+			"----------\n");
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=568332
+//  Internal compiler error: NPE in QualifiedNameReference.optimizedBooleanConstant(QualifiedNameReference.java:931) because "this.binding" is null
+public void testBug568332() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"""
+				public class X {
+				    int x;
+				    interface II {
+				        void f(int i);
+				    }
+
+				    void g(final II ii) {}
+
+				    void h(X c) {
+				         g(v -> {
+				               for(int u = 0; c.x; u++) {}
+				         });
+				    }
+				}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 11)\n" +
+			"	for(int u = 0; c.x; u++) {}\n" +
+			"	               ^^^\n" +
+			"Type mismatch: cannot convert from int to boolean\n" +
+			"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4202
+// java.lang.NullPointerException: Cannot invoke "org.eclipse.jdt.internal.compiler.lookup.TypeBinding.isLocalType()" because "originalType" is null
+public void testIssue4202() {
+this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+			import java.util.function.Function;
+
+			public class X  {
+				void foo(Function<String, String> f) {}
+				private void doChooseImports() {
+					foo(() -> {
+
+						MultiElementListSelectionDialog dialog= new Object() {
+							@Override
+							protected void handleSelectionChanged() {
+								super.handleSelectionChanged();
+								// show choices in editor
+								doListSelectionChanged(getCurrentPage(), ranges, editor);
+							}
+						};
+						fIsQueryShowing= false;
+						return result;
+					});
+				}
+
+				private void doListSelectionChanged() {
+					// blah
+				}
+			}
+			"""
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 6)\n" +
+		"	foo(() -> {\n" +
+		"	^^^\n" +
+		"The method foo(Function<String,String>) in the type X is not applicable for the arguments (() -> {})\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 6)\n" +
+		"	foo(() -> {\n" +
+		"	    ^^^^^\n" +
+		"Lambda expression's signature does not match the signature of the functional interface method apply(String)\n" +
+		"----------\n" +
+		"3. ERROR in X.java (at line 8)\n" +
+		"	MultiElementListSelectionDialog dialog= new Object() {\n" +
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"MultiElementListSelectionDialog cannot be resolved to a type\n" +
+		"----------\n" +
+		"4. ERROR in X.java (at line 10)\n" +
+		"	protected void handleSelectionChanged() {\n" +
+		"	               ^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"The method handleSelectionChanged() of type new Object(){} must override or implement a supertype method\n" +
+		"----------\n" +
+		"5. ERROR in X.java (at line 11)\n" +
+		"	super.handleSelectionChanged();\n" +
+		"	      ^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"The method handleSelectionChanged() is undefined for the type Object\n" +
+		"----------\n" +
+		"6. ERROR in X.java (at line 13)\n" +
+		"	doListSelectionChanged(getCurrentPage(), ranges, editor);\n" +
+		"	                       ^^^^^^^^^^^^^^\n" +
+		"The method getCurrentPage() is undefined for the type new Object(){}\n" +
+		"----------\n" +
+		"7. ERROR in X.java (at line 13)\n" +
+		"	doListSelectionChanged(getCurrentPage(), ranges, editor);\n" +
+		"	                                         ^^^^^^\n" +
+		"ranges cannot be resolved to a variable\n" +
+		"----------\n" +
+		"8. ERROR in X.java (at line 13)\n" +
+		"	doListSelectionChanged(getCurrentPage(), ranges, editor);\n" +
+		"	                                                 ^^^^^^\n" +
+		"editor cannot be resolved to a variable\n" +
+		"----------\n" +
+		"9. ERROR in X.java (at line 16)\n" +
+		"	fIsQueryShowing= false;\n" +
+		"	^^^^^^^^^^^^^^^\n" +
+		"fIsQueryShowing cannot be resolved to a variable\n" +
+		"----------\n" +
+		"10. ERROR in X.java (at line 17)\n" +
+		"	return result;\n" +
+		"	       ^^^^^^\n" +
+		"result cannot be resolved to a variable\n" +
+		"----------\n");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4227
+// ECJ fails to complain about misapplication of @FunctionalInterface annotation on annotation types
+public void testIssue4227() {
+this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+			@FunctionalInterface
+			@interface X {
+			}
+			"""
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 2)\n" +
+		"	@interface X {\n" +
+		"	           ^\n" +
+		"Invalid '@FunctionalInterface' annotation; X is not a functional interface\n" +
+		"----------\n");
 }
 
 public static Class testClass() {
