@@ -7219,13 +7219,8 @@ protected void consumeRule(int act) {
     case 444 : if (DEBUG) { System.out.println("ExitVariableWithoutInitialization ::="); }  //$NON-NLS-1$
 		    consumeExitVariableWithoutInitialization(); 			break;
 
-<<<<<<< HEAD
     case 445 : if (DEBUG) { System.out.println("ForceNoDiet ::="); }  //$NON-NLS-1$
 		    consumeForceNoDiet(); 			break;
-=======
-    case 331 : if (DEBUG) { System.out.println("RecordDeclaration ::= RecordHeaderPart ClassBody"); }  //$NON-NLS-1$
-		    consumeClassDeclaration(); 			break;
->>>>>>> remotes/upstream/master
 
     case 446 : if (DEBUG) { System.out.println("RestoreDiet ::="); }  //$NON-NLS-1$
 		    consumeRestoreDiet(); 			break;
@@ -7245,16 +7240,11 @@ protected void consumeRule(int act) {
 		    // set to false to consume a method without body
  consumeMethodDeclaration(false, false); 			break;
 
-<<<<<<< HEAD
     case 455 : if (DEBUG) { System.out.println("MethodHeader ::= MethodHeaderName FormalParameterListopt MethodHeaderRightParen MethodHeaderExtendedDims..."); }  //$NON-NLS-1$
 		    consumeMethodHeader(); 			break;
 
     case 456 : if (DEBUG) { System.out.println("DefaultMethodHeader ::= DefaultMethodHeaderName FormalParameterListopt MethodHeaderRightParen MethodHeaderExtendedDims..."); }  //$NON-NLS-1$
 		    consumeMethodHeader(); 			break;
-=======
-    case 338 : if (DEBUG) { System.out.println("RecordComponentListOpt ::="); }  //$NON-NLS-1$
-		    consumeRecordComponentsopt(); 			break;
->>>>>>> remotes/upstream/master
 
     case 457 : if (DEBUG) { System.out.println("MethodHeaderName ::= Modifiersopt TypeParameters Type JavaIdentifier LPAREN"); }  //$NON-NLS-1$
 		    consumeMethodHeaderNameWithTypeParameters(false); 			break;
@@ -7422,7 +7412,7 @@ protected void consumeRule(int act) {
 		    consumeInvalidConstructorDeclaration(false); 			break;
 
     case 528 : if (DEBUG) { System.out.println("RecordDeclaration ::= RecordHeaderPart ClassBody"); }  //$NON-NLS-1$
-		    consumeRecordDeclaration(); 			break;
+		    consumeClassDeclaration(); 			break;
 
     case 529 : if (DEBUG) { System.out.println("RecordHeaderPart ::= RecordHeaderName RecordHeader ClassHeaderImplementsopt"); }  //$NON-NLS-1$
 		    consumeRecordHeaderPart(); 			break;
@@ -7438,9 +7428,6 @@ protected void consumeRule(int act) {
 
     case 533 : if (DEBUG) { System.out.println("RecordComponentHeaderRightParen ::= RPAREN"); }  //$NON-NLS-1$
 		    consumeRecordComponentHeaderRightParen(); 			break;
-
-    case 534 : if (DEBUG) { System.out.println("RecordHeader ::= LPAREN RecordComponentListOpt RecordComponentHeaderRightParen"); }  //$NON-NLS-1$
-		    consumeRecordHeader(); 			break;
 
     case 535 : if (DEBUG) { System.out.println("RecordComponentListOpt ::="); }  //$NON-NLS-1$
 		    consumeRecordComponentsopt(); 			break;
