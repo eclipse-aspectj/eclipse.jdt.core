@@ -376,6 +376,7 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 			}
 		} else if (localType.isAnonymousType()){
 			// AspectJ Extension start
+			ReferenceBinding outerMostEnclosingType = localType.scope.outerMostClassScope().enclosingSourceType();
 			char[] extraInsert = null;
 			if (outerMostEnclosingType instanceof SourceTypeBinding) {
 				SourceTypeBinding sourceTypeBinding = (SourceTypeBinding)outerMostEnclosingType;
@@ -427,7 +428,7 @@ void sealTypeHierarchy() {
 	}
 }
 
-void collateRecordComponents() {
+public void collateRecordComponents() { // AspectJ Extension - raised to public
 	for (SourceTypeBinding sourceType : this.topLevelTypes) {
 		sourceType.scope.collateRecordComponents();
 	}

@@ -3001,8 +3001,13 @@ protected void consumeConstructorHeaderName(boolean isCompact) {
 					continue; // skip preceding member types
 				if (declaringClass.isRecord())
 					cd.protoArguments = declaringClass.recordComponents;
-				else
-					problemReporter().compactConstructorsOnlyInRecords(cd);
+				else {
+					// AspectJ change: if these don't match it probably isn't a constructor at all so don't
+					// error and let other routes be tried to parsing
+					if (CharOperation.equals(cd.selector, declaringClass.name)) {
+						problemReporter().compactConstructorsOnlyInRecords(cd);
+					}
+				}
 				break;
 			}
 		}

@@ -396,7 +396,7 @@ public FieldBinding addSyntheticField(SyntheticFieldBinding sfb) {
 		this.synthetics[SourceTypeBinding.FIELD_EMUL] = new LinkedHashMap(5);
 	String key = new String(sfb.name);
 	if (this.synthetics[SourceTypeBinding.FIELD_EMUL].get(key)!=null) throw new RuntimeException("You are trying to add this twice?? "+key);//$NON-NLS-1$
-	sfb.index=this.synthetics[SourceTypeBinding.FIELD_EMUL].size();
+//	sfb.index=this.synthetics[SourceTypeBinding.FIELD_EMUL].size(); // No longer necessary with Java25 changes?
 	this.synthetics[SourceTypeBinding.FIELD_EMUL].put(key,sfb);
 	// Skip the check for a clash... naughty!
 	return sfb;

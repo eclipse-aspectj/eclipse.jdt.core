@@ -348,31 +348,32 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			if (hasError) {
 				//XXX Horrible AspectJ-specific hack
 				if (methodDeclaration== null || !CharOperation.prefixEquals("ajc$postInterConstructor".toCharArray(), methodDeclaration.selector)) {// AspectJ Extension
-					scope.problemReporter().invalidExplicitConstructorCall(this);
-				} else if (!methodDeclaration.isCompactConstructor()) {// already flagged for CCD
-					if (!scope.problemReporter().validateJavaFeatureSupport(JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES, this.sourceStart, this.sourceEnd)) {
-						boolean isTopLevel = Arrays.stream(methodDeclaration.statements).anyMatch(this::equals);
-						if (isTopLevel)
-							scope.problemReporter().duplicateExplicitConstructorCall(this);
-						else // otherwise it's illegally nested in some control structure:
-							scope.problemReporter().misplacedConstructorCall(this);
+					if (methodDeclaration == null) {
+						scope.problemReporter().invalidExplicitConstructorCall(this);
+					} else if (!methodDeclaration.isCompactConstructor()) {// already flagged for CCD
+						if (!scope.problemReporter().validateJavaFeatureSupport(JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES, this.sourceStart, this.sourceEnd)) {
+							boolean isTopLevel = Arrays.stream(methodDeclaration.statements).anyMatch(this::equals);
+							if (isTopLevel)
+								scope.problemReporter().duplicateExplicitConstructorCall(this);
+							else // otherwise it's illegally nested in some control structure:
+								scope.problemReporter().misplacedConstructorCall(this);
+						}
 					}
-				}
-				// fault-tolerance
-				if (this.qualification != null) {
-					this.qualification.resolveType(scope);
-				}
-				if (this.typeArguments != null) {
-					for (TypeReference typeArgument : this.typeArguments) {
-						typeArgument.resolveType(scope, true /* check bounds*/);
+					// fault-tolerance
+					if (this.qualification != null) {
+						this.qualification.resolveType(scope);
 					}
-				}
-				if (this.arguments != null) {
-					for (Expression argument : this.arguments) {
-						argument.resolveType(scope);
+					if (this.typeArguments != null) {
+						for (TypeReference typeArgument : this.typeArguments) {
+							typeArgument.resolveType(scope, true /* check bounds*/);
+						}
 					}
-				}
-				return;
+					if (this.arguments != null) {
+						for (Expression argument : this.arguments) {
+							argument.resolveType(scope);
+						}
+					}
+					return;
 				} // AspectJ Extension - end of new if()
 
 			}

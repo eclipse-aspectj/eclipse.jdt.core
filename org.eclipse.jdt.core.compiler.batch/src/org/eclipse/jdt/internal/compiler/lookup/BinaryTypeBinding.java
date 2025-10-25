@@ -300,8 +300,8 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 	this.compoundName = CharOperation.splitOn('/', binaryType.getName());
 	computeId();
 
-	this.tagBits |= TagBits.IsBinaryBinding
-					 |  TagBits.AnnotationResolved; // AspectJ extension - ensure we think we are resolved for getAnnotationTagBits() calls
+	this.tagBits |= TagBits.IsBinaryBinding;
+	this.extendedTagBits |= ExtendedTagBits.AnnotationResolved; // AspectJ extension - ensure we think we are resolved for getAnnotationTagBits() calls
 	this.environment = environment;
 	this.fPackage = packageBinding;
 	this.fileName = binaryType.getFileName();
