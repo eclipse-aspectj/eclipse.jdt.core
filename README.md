@@ -51,7 +51,7 @@ in progress description of the steps:
 
 Now look at the latest commit in the real JDT
 
-`git log --oneline remotes/upstream/master  | head`\
+`git log --oneline remotes/upstream/master  | head`
 
 For example, for Java24 on a day at the end of March-2025:
 ```
@@ -75,8 +75,11 @@ f3590a3a0c Merge remote-tracking branch 'origin/BETA_JAVA24'
 - create a branch to work in\
 `git checkout -b java-24`
 
-- merge the real JDT into this branch\
-`git merge remotes/upstream/master`
+- merge the real JDT into this branch
+  ```
+  git fetch upstream
+  git merge remotes/upstream/master
+  ```
 
 - this will not go perfectly smoothly and how painful it is can vary :) 
   Your branch will now be in a half merged state with conflicts to sort out.
@@ -84,8 +87,8 @@ f3590a3a0c Merge remote-tracking branch 'origin/BETA_JAVA24'
 
 ### Updating JDT dependencies
 
-- ((TBD needs more detail)) see the `<dependencyManagement>` section in `org.eclipse.jdt.core/pom.xml` 
-
+- Checkout the `<dependencyManagement>` section in `org.eclipse.jdt.core/pom.xml`. 
+Basically, find the latest version in https://repo1.maven.org/maven2/org/eclipse/jdt/org.eclipse.jdt.core/ - grab that pom and place it in an empty folder (name it `pom.xml`) then run `mvn dependency:tree` per the instructions in the `org.eclipse.jdt.core/pom.xml` file
 
 ### Repeat this loop:
 
@@ -95,9 +98,9 @@ There will be many entries in the `Changes to be committed:` - these are
 where files have been merged successfully.\
 Your work will be in the `Unmerged paths:` section, where changes in upstream have clashed with changes AspectJ makes to the same files.
 
-- pick one of the files in `Unmerged paths` (don't pick `java.g`, `parser*.rsc`, `Parser` at this point, we will cover those later), open it and look for the problems usually with
+- pick one of the files in `Unmerged paths` (don't pick `java.g`, `parser*.rsc` at this point, we will cover those later), open it and look for the problems usually with
 traditional git 'clash' headers around it (so search for `<<<<` if you can't just see the syntax
-errors in your IDE)
+errors in your IDE). NOTE: if looking at `Parser` only pay attention to the changes outside of the `consumeRule()` method because that will be generated later.
 
 - fix it ((TBD - add some examples here))
 
@@ -142,7 +145,7 @@ Congratulations!  I do not usually do the actual commit at this point because I 
 - Update the version you want this to be. Open `org.eclipse.jdt.core/pom.xml` and find the version around line 136, as I update right now to Java 24, I change that to:
 `<version>1.9.24</version>`
 
-- Build it into the local maven repo with:\
+- Build it into the local maven repo with (run this in the `org.eclipse.jdt.core` directory), be on at least Java23 or you will see errors about `DocElementKind` type missing:\
 `mvn clean install`
 
 - Go to your clone of AspectJ and in the AspectJ parent `pom.xml` find the reference:\
