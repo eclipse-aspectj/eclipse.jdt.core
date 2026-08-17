@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -65,13 +65,11 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
 import org.eclipse.jdt.internal.compiler.ast.RecordComponent;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 
 /*
 Not all fields defined by this type (& its subclasses) are initialized when it is created.
@@ -94,7 +92,7 @@ abstract public class ReferenceBinding extends TypeBinding {
 	char[] constantPoolName;
 	char[] signature;
 
-	private Map<TypeBinding, Boolean> compatibleCache;
+	protected Map<TypeBinding, Boolean> compatibleCache;
 
 	int typeBits; // additional bits characterizing this type
 	protected MethodBinding [] singleAbstractMethod;
@@ -347,6 +345,16 @@ public boolean canBeSeenBy(ReferenceBinding receiverType, ReferenceBinding invoc
 public final boolean innerCanBeSeenBy(ReferenceBinding receiverType, ReferenceBinding invocationType) {
     // End AspectJ Extension - this is the original implementation
 	if (isPublic()) return true;
+
+	if (isPrivate()) {
+		// JLS 6.6-5: A private class member or constructor is accessible only within the body of the top level
+		// class (§7.6) that encloses the declaration of the member or constructor => we should forbid access from top level class `header`.
+		ReferenceBinding topLevelType = invocationType.outermostEnclosingType();
+		if (topLevelType instanceof SourceTypeBinding sourceType
+				&& sourceType.scope != null
+				&& sourceType.scope.referenceContext.staticInitializerScope.insideTypeDeclarationAnnotations)
+			return false;
+	}
 
 	if (isStatic())
 		receiverType = receiverType.actualType(); // outer generics are irrelevant
@@ -1572,18 +1580,6 @@ private boolean isCompatibleWith0(TypeBinding otherType, /*@Nullable*/ Scope cap
 					return isCompatibleWith(otherLowerBound);
 				}
 			}
-			if (otherType instanceof InferenceVariable) {
-				// may interpret InferenceVariable as a joker, but only when within an outer lambda inference:
-				if (captureScope != null) {
-					MethodScope methodScope = captureScope.methodScope();
-					if (methodScope != null) {
-						ReferenceContext referenceContext = methodScope.referenceContext;
-						if (referenceContext instanceof LambdaExpression
-								&& ((LambdaExpression)referenceContext).inferenceContext != null)
-							return true;
-					}
-				}
-			}
 			//$FALL-THROUGH$
 		case Binding.GENERIC_TYPE :
 		case Binding.TYPE :
@@ -1884,28 +1880,29 @@ public final boolean isUsed() {
 	return (this.modifiers & ExtraCompilerModifiers.AccLocallyUsed) != 0;
 }
 
-/**
- * Answer true if the receiver is deprecated (or any of its enclosing types)
- */
-public final boolean isViewedAsDeprecated() {
-	// AspectJ Extension - was
-	//if ((this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0)
-	//	return true;
-	// replaced with this because the package has occasionally been null for some reason (pr249295)
-	boolean deprecated = (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0;
-	if (deprecated)
-		return deprecated;
-	if (this.getPackage() == null) {
-		System.err.println("Unexpectedly null package found for type " + debugName());
-		return deprecated;
-	}
-	// End AspectJ Extension
-	if (getPackage().isViewedAsDeprecated()) {
-		this.tagBits |= (getPackage().tagBits & TagBits.AnnotationTerminallyDeprecated);
-		return true;
-	}
-	return false;
-}
+// AspectJ was this method removed in the Java 26 support?
+///**
+// * Answer true if the receiver is deprecated (or any of its enclosing types)
+// */
+//public final boolean isViewedAsDeprecated() {
+//	// AspectJ Extension - was
+//	//if ((this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0)
+//	//	return true;
+//	// replaced with this because the package has occasionally been null for some reason (pr249295)
+//	boolean deprecated = (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0;
+//	if (deprecated)
+//		return deprecated;
+//	if (this.getPackage() == null) {
+//		System.err.println("Unexpectedly null package found for type " + debugName());
+//		return deprecated;
+//	}
+//	// End AspectJ Extension
+//	if (getPackage().isViewedAsDeprecated()) {
+//		this.tagBits |= (getPackage().tagBits & TagBits.AnnotationTerminallyDeprecated);
+//		return true;
+//	}
+//	return false;
+//}
 public boolean isImplicitType() {
 	return false;
 }
@@ -2397,7 +2394,7 @@ public void detectWrapperResource() {
 	}
 }
 
-private MethodBinding[] getFunctionalInterfaceAbstractContracts(Scope scope, boolean replaceWildcards) throws DysfunctionalInterfaceException {
+public MethodBinding[] getFunctionalInterfaceAbstractContracts(Scope scope, boolean replaceWildcards) throws DysfunctionalInterfaceException {
 
 	LookupEnvironment environment = scope.environment();
 	boolean isAnnotationBasedNullAnalysisEnabled = environment.globalOptions.isAnnotationBasedNullAnalysisEnabled;
@@ -2612,6 +2609,16 @@ public static boolean isConsistentIntersection(TypeBinding[] intersectingTypes, 
 		else
 			return false;
 	}
+	if (mostSpecific.isArrayType()) {
+		// Apart from array supertypes, an array subtype implements only Cloneable and Serializable.
+		for (TypeBinding intersectingType : intersectingTypes) {
+			if (intersectingType.isTypeVariable() || intersectingType.isWildcard()
+					|| !intersectingType.isProperType(true))
+				return false;
+			if (!mostSpecific.isSubtypeOf(intersectingType, simulatingBugJDK8026527))
+				return false;
+		}
+	}
 	return true;
 }
 public ModuleBinding module() {
@@ -2620,6 +2627,7 @@ public ModuleBinding module() {
 	return null;
 }
 
+@Override
 public boolean hasEnclosingInstanceContext() {
 	// This method intentionally disregards early construction contexts (JEP 513).
 	// Details of how each outer level is handled are coordinated in

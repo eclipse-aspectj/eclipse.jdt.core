@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.Map;
 import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.JavacHasABug;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
@@ -28,7 +29,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 	static {
 //		TESTS_NUMBERS = new int [] { 40 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testRecPatExhaust018" };
+//		TESTS_NAMES = new String[] { "testRecordTypeInfer_4643" };
 	}
 	private String extraLibPath;
 	public static Class<?> testClass() {
@@ -1708,12 +1709,7 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"1. ERROR in X.java (at line 4)\n" +
 				"	case Rectangle(int x, int y) r -> 1;\n" +
 				"	                           ^\n" +
-				"Syntax error, insert \":\" to complete SwitchLabel\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 4)\n" +
-				"	case Rectangle(int x, int y) r -> 1;\n" +
-				"	                                  ^\n" +
-				"Syntax error, insert \"AssignmentOperator Expression\" to complete Expression\n" +
+				"Syntax error on token \")\", -> expected after this token\n" +
 				"----------\n");
 	}
 	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2004
@@ -4998,5 +4994,114 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 			"	                   ^^^^^^^^^^\n" +
 			"'var' is not allowed as an element type of an array\n" +
 			"----------\n");
+	}
+
+	public void testGH4002() {
+		runConformTest(new String[] {
+				"Example.java",
+				"""
+				import java.util.List;
+
+				public class Example {
+
+				    private static boolean matches(ComponentType<?> type, ComponentType.RegularComponentType<?> eventType) {
+				        return switch (type) {
+				            case ComponentType.RegularComponentType<?> regular -> switch (regular) {
+				                case ComponentType.ClassType(var clazz) -> switch (eventType) {
+				                    case ComponentType.ClassType(var eventClazz) -> clazz == eventClazz;
+				                };
+				            };
+				            /* Workaround:
+				            case ComponentType.Wildcard<?> wildcard -> switch (eventType) {
+				                case ComponentType.ClassType(var eventClazz) -> wildcard.bound().isAssignableFrom(eventClazz);
+				            };
+				            /**/
+				            case ComponentType.Wildcard(var bound) -> switch (eventType) {
+				                case ComponentType.ClassType(var eventClazz) -> bound.isAssignableFrom(eventClazz);
+				            };
+				            /**/
+				            default -> false;
+				        };
+				    }
+
+				    sealed interface ComponentType<T> {
+
+				        sealed interface RegularComponentType<T> extends ComponentType<T> {
+				        }
+
+				        record ClassType<T>(Class<T> clazz) implements RegularComponentType<T> {
+				        }
+
+				        // "implements ComponentType<T>" works, javac (JDK 21 & JDK 24) accepts both
+				        record Wildcard<T>(Class<T> bound) implements ComponentType<List<? extends T>> {
+				        }
+
+				    }
+
+				}
+				"""
+		});
+	}
+	public void testRecordTypeInfer_4643_001() {
+		runConformTest(new String[] { "X.java", """
+			public class X {
+
+				private static void foo() {
+					record Box<T>(T t) {}
+
+					Box<Box<String>> bo = new Box<>(new Box<>("str"));
+					if (bo instanceof Box(Box(var sString))) {
+						System.out.println(sString.length());
+					}
+				}
+
+				public static void main(String[] args) {
+					foo();
+				}
+			}
+			""" }, "3");
+	}
+	public void testRecordTypeInfer_4643_002() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+					public class X {
+
+						private static void foo() {
+							  record Box<T>(T t) {}
+							  Box<Box<Integer>> bo = new Box<>(new Box<>(1));
+							  if (bo instanceof Box(Box(String sString))) {}
+							}
+						public static void main(String[] args) {
+							foo();
+						}
+					}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 6)\n" +
+			"	if (bo instanceof Box(Box(String sString))) {}\n" +
+			"	                          ^^^^^^^^^^^^^^\n" +
+			"Record component with type Integer is not compatible with type String\n" +
+			"----------\n");
+	}
+	public void testJDK8383563() {
+		Runner runner = new Runner();
+		runner.testFiles = new String[] { "PairBox.java",
+			"""
+			interface PairI<A, B> {}
+			record PairBox<A, B>(A a, B b) implements PairI<A, B> {
+				int selfSuperInference(PairI<A, B> p) {
+					if (p instanceof PairBox(var a, var b)) {
+						A aa = a;
+						B bb = b;
+						return 1;
+					}
+					return -1;
+				}
+			}
+			"""};
+		runner.javacTestOptions = JavacHasABug.JavacBug8383563;
+		runner.runConformTest();
 	}
 }

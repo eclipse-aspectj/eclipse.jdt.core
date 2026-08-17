@@ -32,7 +32,6 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.tests.util.Util;
-import org.eclipse.jdt.internal.codeassist.InternalCompletionContext;
 import org.eclipse.jdt.internal.codeassist.RelevanceConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.SourceType;
@@ -5270,7 +5269,7 @@ public void testBug340945() throws JavaModelException {
 			"public final void notifyAll() throws java.lang.IllegalMonitorStateException\n" +
 			"public final void notify() throws java.lang.IllegalMonitorStateException\n" +
 			"public int hashCode() \n" +
-			"public final Class<? extends java.lang.Object> getClass() \n" +
+			"public final Class<?> getClass() \n" +
 			"protected void finalize() throws java.lang.Throwable\n" +
 			"public boolean equals(java.lang.Object) \n" +
 			"protected java.lang.Object clone() throws java.lang.CloneNotSupportedException\n" +
@@ -5319,7 +5318,7 @@ public void testBug340945a() throws JavaModelException {
 			"public final void notifyAll() throws java.lang.IllegalMonitorStateException\n" +
 			"public final void notify() throws java.lang.IllegalMonitorStateException\n" +
 			"public int hashCode() \n" +
-			"public final Class<? extends java.lang.Object> getClass() \n" +
+			"public final Class<?> getClass() \n" +
 			"protected void finalize() throws java.lang.Throwable\n" +
 			"public boolean equals(java.lang.Object) \n" +
 			"protected java.lang.Object clone() throws java.lang.CloneNotSupportedException\n",
@@ -5371,7 +5370,7 @@ public void testBug340945b() throws JavaModelException {
 			"public final void notifyAll() throws java.lang.IllegalMonitorStateException\n" +
 			"public final void notify() throws java.lang.IllegalMonitorStateException\n" +
 			"public int hashCode() \n" +
-			"public final Class<? extends java.lang.Object> getClass() \n" +
+			"public final Class<?> getClass() \n" +
 			"protected void finalize() throws java.lang.Throwable\n" +
 			"public boolean equals(java.lang.Object) \n" +
 			"protected java.lang.Object clone() throws java.lang.CloneNotSupportedException\n",
@@ -5425,7 +5424,7 @@ public void testBug340945c() throws JavaModelException {
 			"public final void notifyAll() throws java.lang.IllegalMonitorStateException\n" +
 			"public final void notify() throws java.lang.IllegalMonitorStateException\n" +
 			"public int hashCode() \n" +
-			"public final Class<? extends java.lang.Object> getClass() \n" +
+			"public final Class<?> getClass() \n" +
 			"protected void finalize() throws java.lang.Throwable\n" +
 			"public boolean equals(java.lang.Object) \n" +
 			"protected java.lang.Object clone() throws java.lang.CloneNotSupportedException\n",
@@ -5618,12 +5617,9 @@ public void testBug397070() throws JavaModelException {
 		SourceType type = null;
 		public void acceptContext(CompletionContext con) {
 			this.type = null;
-			if (con instanceof InternalCompletionContext) {
-				InternalCompletionContext context = (InternalCompletionContext) con;
-				IJavaElement element = context.getEnclosingElement();
-				if (element instanceof org.eclipse.jdt.internal.core.SourceType) {
-					this.type = (SourceType) element;
-				}
+			IJavaElement element = con.getEnclosingElement();
+			if (element instanceof org.eclipse.jdt.internal.core.SourceType) {
+				this.type = (SourceType) element;
 			}
 		}
 		public boolean isExtendedContextRequired() {
@@ -5702,7 +5698,7 @@ public void testBug392581() throws CoreException {
 	    	"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
 	    	+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
 	    	+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
-	    	+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
 	    	+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
 	    	+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
 	    	+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"

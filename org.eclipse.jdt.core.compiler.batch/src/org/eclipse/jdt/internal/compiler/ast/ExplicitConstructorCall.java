@@ -624,7 +624,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 	// -- interface InvocationSite: --
 	@Override
 	public InferenceContext18 freshInferenceContext(Scope scope) {
-		return new InferenceContext18(scope, this.arguments, this, null);
+		return new InferenceContext18(scope, this.arguments, this);
 	}
 	@Override
 	public int nameSourceEnd() {

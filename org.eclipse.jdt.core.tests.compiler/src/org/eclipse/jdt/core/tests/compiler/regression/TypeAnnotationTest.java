@@ -6375,7 +6375,12 @@ public class TypeAnnotationTest extends AbstractRegressionTest {
 				"    Class<? extends Annotation> value();\n" +
 				"}\n",
 			},
-			"");
+			"----------\n" +
+			"1. WARNING in T.java (at line 5)\n" +
+			"	@R(TC.class)\n" +
+			"	   ^^\n" +
+			"The type TC is deprecated\n" +
+			"----------\n");
 	}
 	public void testHybridTargets() throws Exception {
 		this.runConformTest(
@@ -7170,5 +7175,130 @@ public class TypeAnnotationTest extends AbstractRegressionTest {
 			+ "      #10 @ClassAnnotation(\n"
 			+ "      )\n";
 		checkDisassembledClassFile(OUTPUT_DIR + File.separator + "B.class", "B", expectedOutput, ClassFileBytesDisassembler.SYSTEM);
+	}
+	public void testGH4396_1() throws Exception {
+		this.runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				import java.lang.reflect.Method;
+				import java.lang.reflect.Parameter;
+
+				import java.lang.annotation.Retention;
+				import java.lang.annotation.RetentionPolicy;
+
+				@Retention(RetentionPolicy.RUNTIME)
+				@interface PathParam {
+					String value();
+				}
+
+				interface ParentInt<A> {
+					A get(String id) throws Exception;
+				}
+
+				interface TestInterface extends ParentInt<String> {
+					@Override
+					public String get(@PathParam("workstationId") String workstationId) throws Exception;
+				}
+
+				public class X {
+
+					void test() {
+						Method[] methods = TestInterface.class.getMethods();
+						for (Method method : methods) {
+							if (!method.isSynthetic()) {
+								continue;
+							}
+							Parameter p = method.getParameters()[0];
+							PathParam pathParam = p.getAnnotation(PathParam.class);
+							if (pathParam == null) {
+								throw new AssertionError();
+							} else {
+								System.out.println(pathParam.toString());
+							}
+						}
+					}
+
+					public static void main(String[] args) {
+						new X().test();
+					}
+				}
+				"""
+		},
+		"@PathParam(\"workstationId\")");
+		String expectedOutput =
+			"  public bridge synthetic java.lang.Object get(java.lang.String arg0) throws java.lang.Exception;\n"
+			+ "    0  aload_0 [this]\n"
+			+ "    1  aload_1 [arg0]\n"
+			+ "    2  invokeinterface TestInterface.get(java.lang.String) : java.lang.String [18] [nargs: 2]\n"
+			+ "    7  areturn\n"
+			+ "      Line numbers:\n"
+			+ "        [pc: 0, line: 1]\n"
+			+ "    RuntimeVisibleParameterAnnotations: \n"
+			+ "      Number of annotations for parameter 0: 1\n"
+			+ "        #13 @PathParam(\n"
+			+ "          #14 value=\"workstationId\" (constant type)\n"
+			+ "        )\n";
+		checkDisassembledClassFile(OUTPUT_DIR + File.separator + "TestInterface.class", "TestInterface", expectedOutput, ClassFileBytesDisassembler.SYSTEM);
+	}
+	public void testGH4396_2() throws Exception {
+		this.runConformTest(
+			new String[] {
+				"X.java",
+				"""
+				import java.lang.reflect.Method;
+				import java.lang.reflect.Parameter;
+
+				import java.lang.annotation.Retention;
+				import java.lang.annotation.RetentionPolicy;
+
+				@Retention(RetentionPolicy.RUNTIME)
+				@interface PathParam {
+					String value();
+				}
+
+				public class X extends ParentClass{
+					void test() {
+						Method[] methods = X.class.getMethods();
+						for (Method method : methods) {
+							if (!method.isSynthetic()) {
+								continue;
+							}
+							Parameter p = method.getParameters()[0];
+							PathParam pathParam = p.getAnnotation(PathParam.class);
+							if (pathParam == null) {
+								throw new AssertionError();
+							} else {
+								System.out.println(pathParam.toString());
+							}
+						}
+					}
+
+					public static void main(String[] args) {
+						new X().test();
+					}
+				}
+				class ParentClass<A> {
+					public A get(@PathParam("workstationId") String id) throws Exception {
+						return null;
+					}
+				}
+				"""
+		},
+		"@PathParam(\"workstationId\")");
+		String expectedOutput =
+			"  public bridge synthetic java.lang.Object get(java.lang.String arg0) throws java.lang.Exception;\n"
+			+ "    0  aload_0 [this]\n"
+			+ "    1  aload_1 [arg0]\n"
+			+ "    2  invokespecial ParentClass.get(java.lang.String) : java.lang.Object [83]\n"
+			+ "    5  areturn\n"
+			+ "      Line numbers:\n"
+			+ "        [pc: 0, line: 1]\n"
+			+ "    RuntimeVisibleParameterAnnotations: \n"
+			+ "      Number of annotations for parameter 0: 1\n"
+			+ "        #65 @PathParam(\n"
+			+ "          #81 value=\"workstationId\" (constant type)\n"
+			+ "        )\n";
+		checkDisassembledClassFile(OUTPUT_DIR + File.separator + "X.class", "X", expectedOutput, ClassFileBytesDisassembler.SYSTEM);
 	}
 }

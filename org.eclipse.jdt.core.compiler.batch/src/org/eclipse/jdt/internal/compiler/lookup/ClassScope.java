@@ -147,7 +147,7 @@ public class ClassScope extends Scope {
 		// End AspectJ Extension
 		anonymousType.tagBits |= TagBits.EndHierarchyCheck;
 		connectMemberTypes();
-		collateRecordComponents();
+		buildComponents();
 		buildFieldsAndMethods();
 		anonymousType.faultInTypesForFieldsAndMethods();
 		anonymousType.verifyMethods(environment().methodVerifier());
@@ -277,6 +277,12 @@ public class ClassScope extends Scope {
 		// build the binding or the local type
 		LocalTypeBinding localType = new LocalTypeBinding(this, enclosingType, enclosingSwitchLabel());
 		this.referenceContext.binding = localType;
+		// A local type declared as a member of another (local/anonymous) type is a member type (JLS 16 8.1.3);
+		// mark it as such up-front so that checkAndSetModifiers() classifies it correctly. From Java 16 such an
+		// inner class may declare and inherit static members even though it is not itself static. Restricted to
+		// 16+ so that the pre-16 diagnostics (which reject static members of inner classes) are preserved.
+		if (this.parent instanceof ClassScope && compilerOptions().sourceLevel >= ClassFileConstants.JDK16)
+			localType.setAsMemberType();
 		checkAndSetModifiers();
 		buildTypeVariables();
 
@@ -332,7 +338,7 @@ public class ClassScope extends Scope {
 		checkParameterizedTypeBounds();
 		checkParameterizedSuperTypeCollisions();
 		this.referenceContext.updateSupertypesWithAnnotations(Collections.emptyMap());
-		collateRecordComponents();
+		buildComponents();
 		buildFieldsAndMethods();
 		localType.faultInTypesForFieldsAndMethods();
 
@@ -649,8 +655,8 @@ public class ClassScope extends Scope {
 						}
 					}
 			    }
-			} else if (this.parent.referenceContext() instanceof TypeDeclaration) {
-				TypeDeclaration typeDecl = (TypeDeclaration) this.parent.referenceContext();
+			} else if (this.parent instanceof ClassScope classScope && classScope.referenceContext != null) {
+				TypeDeclaration typeDecl = classScope.referenceContext;
 				if (TypeDeclaration.kind(typeDecl.modifiers) == TypeDeclaration.INTERFACE_DECL) {
 					// Sec 8.1.3 applies for local types as well
 					modifiers |= ClassFileConstants.AccStatic;
@@ -666,24 +672,13 @@ public class ClassScope extends Scope {
 						if (methodScope.isInsideInitializer()) {
 							SourceTypeBinding type = ((TypeDeclaration) methodScope.referenceContext).binding;
 
-							// inside field declaration ? check field modifier to see if deprecated
-							if (methodScope.initializedField != null) {
-									// currently inside this field initialization
-								if (methodScope.initializedField.isViewedAsDeprecated() && !sourceType.isDeprecated())
-									modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-							} else {
-								if (type.isStrictfp())
-									modifiers |= ClassFileConstants.AccStrictfp;
-								if (type.isViewedAsDeprecated() && !sourceType.isDeprecated())
-									modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-							}
+							if (methodScope.initializedField == null && type.isStrictfp())
+								modifiers |= ClassFileConstants.AccStrictfp;
 						} else {
 							MethodBinding method = ((AbstractMethodDeclaration) methodScope.referenceContext).binding;
 							if (method != null) {
 								if (method.isStrictfp())
 									modifiers |= ClassFileConstants.AccStrictfp;
-								if (method.isViewedAsDeprecated() && !sourceType.isDeprecated())
-									modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
 							}
 						}
 						break;
@@ -691,10 +686,6 @@ public class ClassScope extends Scope {
 						// local member
 						if (enclosingType.isStrictfp())
 							modifiers |= ClassFileConstants.AccStrictfp;
-						if (enclosingType.isViewedAsDeprecated() && !sourceType.isDeprecated()) {
-							modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-							sourceType.tagBits |= enclosingType.tagBits & TagBits.AnnotationTerminallyDeprecated;
-						}
 						break;
 				}
 				scope = scope.parent;
@@ -1409,20 +1400,26 @@ public class ClassScope extends Scope {
 			}
 		} finally {
 			if (sourceType.isNonSealed() && !hasSealedSupertype) {
-				if (!sourceType.isRecord() && !sourceType.isLocalType() && !sourceType.isEnum() && !sourceType.isSealed()) // avoid double jeopardy
+				// A genuine local type (declared in a block) already gets illegalModifierForLocalClass via the
+				// hierarchySealed handling in checkAndSetModifiers, so skip it here to avoid double jeopardy. A member
+				// type of a local/anonymous class (JLS 16 8.1.3) goes through the member-type path instead, so it must
+				// still be validated here just like any other member type.
+				boolean genuineLocalType = sourceType.isLocalType() && !sourceType.isMemberType();
+				if (!sourceType.isRecord() && !genuineLocalType && !sourceType.isEnum() && !sourceType.isSealed())
 					problemReporter().disallowedNonSealedModifier(sourceType, this.referenceContext);
 			}
 		}
 		return noProblems;
 	}
 
-	void collateRecordComponents() {
+	void buildComponents() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
-		if (sourceType.components() == null) {
-			sourceType.setComponents(Binding.NO_COMPONENTS);
+		if (!sourceType.areComponentsInitialized()) {
 			RecordComponent[] components = this.referenceContext.recordComponents;
 			int length = components.length;
 			RecordComponentBinding[] rcbs = length == 0 ? Binding.NO_COMPONENTS : new RecordComponentBinding[length];
+			if (length != 0)
+				sourceType.tagBits |= TagBits.HasUnresolvedComponents;
 			HashMap<String, RecordComponentBinding> knownComponents = new HashMap<>(length);
 			int count = 0;
 			for (RecordComponent component : components) {
@@ -1438,26 +1435,26 @@ public class ClassScope extends Scope {
 					component.binding = null;
 				} else {
 					knownComponents.put(name, rcb);
-					if (sourceType.resolveTypeFor(rcb) != null)
-						rcbs[count++] = rcb;
+					rcbs[count++] = rcb;
 				}
 			}
 			if (count != rcbs.length) // remove duplicate or broken components
 				System.arraycopy(rcbs, 0, rcbs = count == 0 ? Binding.NO_COMPONENTS : new RecordComponentBinding[count], 0, count);
-			sourceType.setComponents(rcbs);
+			sourceType.components = rcbs;
 		}
 		ReferenceBinding[] memberTypes = sourceType.memberTypes;
 		if (memberTypes != null) {
 			for (ReferenceBinding memberType : memberTypes)
-				((SourceTypeBinding) memberType).scope.collateRecordComponents();
+				((SourceTypeBinding) memberType).scope.buildComponents();
 		}
 	}
 
 	void connectTypeHierarchy() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
+		boolean previousFlag = environment().enterSuperTypeLookup(sourceType);
 		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) == 0) {
 			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
-			environment().typesBeingConnected.add(sourceType);
+			preprocessTypeVariables(this.referenceContext.binding.typeVariables, this.referenceContext.typeParameters);
 			boolean noProblems = connectSuperclass();
 			noProblems &= connectSuperInterfaces();
 			if ((sourceType.typeBits & (TypeIds.BitAutoCloseable|TypeIds.BitCloseable)) != 0) {
@@ -1480,6 +1477,7 @@ public class ClassScope extends Scope {
 			throw e;
 		} finally {
 			env.missingClassFileLocation = null;
+			env.root.isResolvingSuperType = previousFlag;
 		}
 	}
 
@@ -1497,40 +1495,43 @@ public class ClassScope extends Scope {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
 		if ((sourceType.tagBits & TagBits.BeginHierarchyCheck) != 0)
 			return;
-
-		sourceType.tagBits |= TagBits.BeginHierarchyCheck;
-		environment().typesBeingConnected.add(sourceType);
-		boolean noProblems = connectSuperclass();
-		noProblems &= connectSuperInterfaces();
-		environment().typesBeingConnected.remove(sourceType);
-		sourceType.tagBits |= TagBits.EndHierarchyCheck;
-		noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
-		sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
-		if (noProblems && sourceType.isHierarchyInconsistent())
-			problemReporter().hierarchyHasProblems(sourceType);
+		boolean previousFlag = environment().enterSuperTypeLookup(sourceType);
+		try {
+			sourceType.tagBits |= TagBits.BeginHierarchyCheck;
+			preprocessTypeVariables(this.referenceContext.binding.typeVariables, this.referenceContext.typeParameters);
+			boolean noProblems = connectSuperclass();
+			noProblems &= connectSuperInterfaces();
+			environment().typesBeingConnected.remove(sourceType);
+			sourceType.tagBits |= TagBits.EndHierarchyCheck;
+			noProblems &= connectTypeVariables(this.referenceContext.typeParameters, false);
+			sourceType.tagBits |= TagBits.TypeVariablesAreConnected;
+			if (noProblems && sourceType.isHierarchyInconsistent())
+				problemReporter().hierarchyHasProblems(sourceType);
+		} finally {
+			environment().root.isResolvingSuperType = previousFlag;
+		}
 	}
 
 	public boolean detectHierarchyCycle(TypeBinding superType, TypeReference reference) {
-		if (!(superType instanceof ReferenceBinding)) return false;
 
-		if (reference == this.superTypeReference) { // see findSuperType()
-			if (superType.isTypeVariable())
-				return false; // error case caught in resolveSuperType()
-			// abstract class X<K,V> implements java.util.Map<K,V>
-			//    static abstract class M<K,V> implements Entry<K,V>
-			if (superType.isParameterizedType())
-				superType = ((ParameterizedTypeBinding) superType).genericType();
-			compilationUnitScope().recordSuperTypeReference(superType); // to record supertypes
-			return detectHierarchyCycle(this.referenceContext.binding, (ReferenceBinding) superType, reference);
+		if (this.referenceContext.binding.isHierarchyBeingActivelyConnected() && superType instanceof ReferenceBinding) {
+			if (reference == this.superTypeReference) { // see findSuperType()
+				if (superType.isTypeVariable())
+					return false; // error case caught in resolveSuperType()
+				// abstract class X<K,V> implements java.util.Map<K,V>
+				// static abstract class M<K,V> implements Entry<K,V>
+				if (superType.isParameterizedType())
+					superType = ((ParameterizedTypeBinding) superType).genericType();
+				compilationUnitScope().recordSuperTypeReference(superType); // to record supertypes
+				return detectHierarchyCycle(this.referenceContext.binding, (ReferenceBinding) superType, reference);
+			}
+			// Reinstate the code deleted by the fix for https://bugs.eclipse.org/bugs/show_bug.cgi?id=205235
+			// For details, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=294057.
+			if ((superType.tagBits & TagBits.BeginHierarchyCheck) == 0 && superType instanceof SourceTypeBinding)
+				// ensure if this is a source superclass that it has already been checked
+				((SourceTypeBinding) superType).scope.connectTypeHierarchyWithoutMembers();
+
 		}
-		// Reinstate the code deleted by the fix for https://bugs.eclipse.org/bugs/show_bug.cgi?id=205235
-		// For details, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=294057.
-		if ((superType.tagBits & TagBits.BeginHierarchyCheck) == 0 && superType instanceof SourceTypeBinding)
-			// AspectJ Extension, we hacked the hierarchy of BinaryTypeBinding and here we pay the price
-			if (! (superType instanceof BinaryTypeBinding))
-			// ensure if this is a source superclass that it has already been checked
-			((SourceTypeBinding) superType).scope.connectTypeHierarchyWithoutMembers();
-
 		return false;
 	}
 

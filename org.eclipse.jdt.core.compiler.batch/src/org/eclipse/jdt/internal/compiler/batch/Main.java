@@ -62,6 +62,7 @@ import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.IProblemFactory;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
+import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath.PathKind;
 import org.eclipse.jdt.internal.compiler.batch.ModuleFinder.AddExport;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
@@ -3119,6 +3120,9 @@ private String optionStringToVersion(String currentArg) {
 		case "25": //$NON-NLS-1$
 		case "25.0": //$NON-NLS-1$
 			return CompilerOptions.VERSION_25;
+		case "26": //$NON-NLS-1$
+		case "26.0": //$NON-NLS-1$
+			return CompilerOptions.VERSION_26;
 		default:
 			return null;
 	}
@@ -3445,7 +3449,7 @@ public File getJavaHome() {
 public FileSystem getLibraryAccess() {
 	FileSystem nameEnvironment = new FileSystem(this.checkedClasspaths, this.filenames,
 					this.annotationsFromClasspath && CompilerOptions.ENABLED.equals(this.options.get(CompilerOptions.OPTION_AnnotationBasedNullAnalysis)),
-					this.limitedModules);
+					this.limitedModules, this.err);
 	nameEnvironment.module = this.module;
 	processAddonModuleOptions(nameEnvironment);
 	return nameEnvironment;
@@ -3477,6 +3481,7 @@ protected ArrayList<Classpath> handleBootclasspath(ArrayList<String> bootclasspa
 			throw new IllegalArgumentException(this.bind("configure.invalidSystem", this.javaHomeCache.toString())); //$NON-NLS-1$
 		}
 	}
+	result.forEach(p -> p.setPathKind(PathKind.BOOT));
 	return result;
 }
 private void processAddonModuleOptions(FileSystem env) {
@@ -3564,6 +3569,7 @@ protected ArrayList<FileSystem.Classpath> handleModulepath(String arg) {
 			}
 		}
 	}
+	result.forEach(p -> p.setPathKind(PathKind.MODULE));
 	// TODO: What about chained jars from MANIFEST.MF? Check with spec
 	return result;
 }
@@ -3583,6 +3589,7 @@ protected ArrayList<FileSystem.Classpath> handleModuleSourcepath(String arg) {
 
 				List<Classpath> modules = ModuleFinder.findModules(dir, this.destinationPath, getNewParser(), this.options, false, this.releaseVersion);
 				for (Classpath classpath : modules) {
+					classpath.setPathKind(PathKind.MODULE_SOURCE);
 					result.add(classpath);
 					Path modLocation = Paths.get(classpath.getPath()).toAbsolutePath();
 					String destPath = classpath.getDestinationPath();
@@ -3615,7 +3622,7 @@ protected ArrayList<FileSystem.Classpath> handleModuleSourcepath(String arg) {
 	}
 	return result;
 }
-private void handleSingleModuleCompilation() {
+protected void handleSingleModuleCompilation() {
 	if (this.filenames == null) {
 		return;
 	}
@@ -3708,6 +3715,7 @@ protected ArrayList<FileSystem.Classpath> handleClasspath(ArrayList<String> clas
 		String currentPath = current.getPath();
 		if (knownNames.get(currentPath) == null) {
 			knownNames.put(currentPath, current);
+			current.setPathKind(PathKind.CP);
 			result.add(current);
 			List<Classpath> linkedJars = current.fetchLinkedJars(problemReporter);
 			if (linkedJars != null) {
@@ -3763,6 +3771,7 @@ protected ArrayList<FileSystem.Classpath> handleEndorseddirs(ArrayList<String> e
 									file.getAbsolutePath(),
 									null, null, this.options, this.releaseVersion);
 						if (classpath != null) {
+							classpath.setPathKind(PathKind.ENDORSED);
 							result.add(classpath);
 						}
 					}
@@ -3824,6 +3833,7 @@ protected ArrayList<FileSystem.Classpath> handleExtdirs(ArrayList<String> extdir
 									file.getAbsolutePath(),
 									null, null, this.options, this.releaseVersion);
 						if (classpath != null) {
+							classpath.setPathKind(PathKind.EXT);
 							result.add(classpath);
 						}
 					}
@@ -5276,8 +5286,9 @@ protected void setPaths(ArrayList<String> bootclasspaths,
 	if (this.releaseVersion != null && this.complianceLevel < jdkLevel) {
 		// TODO: Revisit for access rules
 		allPaths = new ArrayList<>();
-		allPaths.add(
-				FileSystem.getOlderSystemRelease(this.javaHomeCache.getAbsolutePath(), this.releaseVersion, null));
+		Classpath olderSystemRelease = FileSystem.getOlderSystemRelease(this.javaHomeCache.getAbsolutePath(), this.releaseVersion, null);
+		olderSystemRelease.setPathKind(PathKind.RELEASE);
+		allPaths.add(olderSystemRelease);
 	} else {
 		allPaths = handleBootclasspath(bootclasspaths, customEncoding);
 	}

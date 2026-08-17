@@ -24,12 +24,14 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.eclipse.core.resources.ICommand;
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -44,6 +46,7 @@ import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaModelMarker;
 import org.eclipse.jdt.core.IJavaModelStatusConstants;
+import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
@@ -75,8 +78,8 @@ char[][] extraResourceFileFilters;
 String[] extraResourceFolderFilters;
 public static final String SOURCE_ID = "JDT"; //$NON-NLS-1$
 
-public static boolean DEBUG = false;
-public static boolean SHOW_STATS = false;
+public static boolean DEBUG;
+public static boolean SHOW_STATS;
 
 /**
  * Bug 549457: In case auto-building on a JDT core settings change (e.g. compiler compliance) is not desired,
@@ -509,7 +512,7 @@ private Map<IProject, IResourceDelta> findDeltas() {
 				}
 			} else {
 				if (DEBUG) {
-					trace("JavaBuilder: Missing delta for: " + p.getName());	 //$NON-NLS-1$
+					trace("JavaBuilder: Missing delta for: " + p.getName()); //$NON-NLS-1$
 				}
 				this.notifier.subTask(""); //$NON-NLS-1$
 				return null;
@@ -549,13 +552,34 @@ private IProject[] getRequiredProjects(boolean includeBinaryPrerequisites) {
 				case IClasspathEntry.CPE_LIBRARY :
 					if (includeBinaryPrerequisites && path.segmentCount() > 0) {
 						// some binary resources on the class path can come from projects that are not included in the project references
-						IResource resource = this.workspaceRoot.findMember(path.segment(0));
-						if (resource instanceof IProject) {
-							p = (IProject) resource;
+						IResource resource = null;
+
+						// Try to check first if the full binary entry path exactly matches an external folder,
+						// before assuming its first segment matches some project name in the workspace
+						resource = externalFoldersManager.getFolder(path);
+						if (DEBUG && resource != null && !path.lastSegment().contains("jrt-fs.jar")) { //$NON-NLS-1$
+							trace("JavaBuilder: found resource containing binary classpath entry: \nExternal: " + this.currentProject.getName() + " -> " + path); //$NON-NLS-1$ //$NON-NLS-2$
+						}
+
+						// Second try: it could be a full workspace path, where first segment is the project name.
+						// Note, the path may not exist physically yet, it is allowed to reference not (yet) existing resources.
+						// Unfortunately this can also match fully unrelated projects in the workspace on Linux/Mac,
+						// current .classpath format does not provide possibilities to ensure that
+						// "<classpathentry kind="lib" path="/some/folder/name"/>"
+						// specifies an absolute OS path or full workspace path, both may not exist yet.
+						if (resource == null && path.isAbsolute() && path.getDevice() == null) {
+							resource = this.workspaceRoot.findMember(path.segment(0));
+						}
+
+						if (resource != null) {
+							p = resource.getProject();
+							if (DEBUG && !path.lastSegment().contains("jrt-fs.jar")) { //$NON-NLS-1$
+								trace("JavaBuilder: found workspace project containing binary classpath entry: \nExternal: " + this.currentProject.getName() + " -> " + path); //$NON-NLS-1$ //$NON-NLS-2$
+							}
 						} else {
-							resource = externalFoldersManager.getFolder(path);
-							if (resource != null)
-								p = resource.getProject();
+							if (DEBUG && !path.lastSegment().contains("jrt-fs.jar")) { //$NON-NLS-1$
+								trace("JavaBuilder: Could not find resource containing binary classpath entry: \n" + this.currentProject.getName() + " -> " + path); //$NON-NLS-1$ //$NON-NLS-2$
+							}
 						}
 					}
 			}
@@ -586,7 +610,7 @@ private boolean hasJdtCoreSettingsChange(Map<IProject, IResourceDelta> deltas) {
 	return resourceDelta.findMember(JDT_CORE_SETTINGS_PATH) != null;
 }
 
-private boolean hasClasspathChanged() {
+protected boolean hasClasspathChanged() {
 	return hasClasspathChanged(CompilationGroup.MAIN) || hasClasspathChanged(CompilationGroup.TEST);
 }
 
@@ -710,9 +734,14 @@ private int initializeBuilder(int kind, boolean forBuild) throws CoreException {
 			builtProjects = new LinkedHashSet<>();
 		}
 		builtProjects.add(projectName);
+
+		if (kind != CLEAN_BUILD && kind != FULL_BUILD) {
+			// check if we need to switch to full build due to missing output folder(s)
+			kind = checkOutputFolders(this.javaProject, kind);
+		}
 	}
 
-	this.binaryLocationsPerProject = new HashMap<>(3);
+	this.binaryLocationsPerProject = new LinkedHashMap<>(3);
 	this.nameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.MAIN, JavaProject.NO_RELEASE);
 	this.testNameEnvironment = new NameEnvironment(this.workspaceRoot, this.javaProject, this.binaryLocationsPerProject, this.notifier, CompilationGroup.TEST, JavaProject.NO_RELEASE);
 
@@ -900,6 +929,60 @@ private void recordNewState(State state) {
 	}
 	// state.dump();
 	JavaModelManager.getJavaModelManager().setLastBuiltState(this.currentProject, state);
+}
+
+/**
+ * Checks whether all output folders for the given project exist on disk.
+ *
+ * @param project
+ *                    The Java project to check
+ * @return If any output folder is missing, {@link IncrementalProjectBuilder#FULL_BUILD} is returned and original
+ *         <code>buildKind</code> argument otherwise.
+ */
+protected int checkOutputFolders(IJavaProject project, int buildKind) {
+	if (!JavaCore.ENABLED
+			.equals(project.getOption(JavaCore.CORE_JAVA_BUILD_RECREATE_MODIFIED_CLASS_FILES_IN_OUTPUT_FOLDER, true))) {
+		return buildKind;
+	}
+	try {
+		boolean checkDefault = true;
+		IWorkspaceRoot root = project.getProject().getWorkspace().getRoot();
+		for (IClasspathEntry entry : project.getRawClasspath()) {
+			if (entry.getEntryKind() != IClasspathEntry.CPE_SOURCE) {
+				continue;
+			}
+			IPath outputLocation = entry.getOutputLocation();
+			if (outputLocation == null && checkDefault) {
+				outputLocation = project.getOutputLocation();
+				checkDefault = false;
+			}
+			if (outputLocation != null) {
+				IContainer outputContainer;
+				if(outputLocation.segmentCount() == 1) {
+					outputContainer = project.getProject();
+				} else {
+					outputContainer = root.getFolder(outputLocation);
+				}
+				if (!existsOnDisk(outputContainer)) {
+					return FULL_BUILD;
+				}
+			}
+		}
+	} catch (JavaModelException e) {
+		// If we can't read the classpath, just return the original build kind
+	}
+	return buildKind;
+}
+
+private static boolean existsOnDisk(IContainer defaultOutputLocation) {
+	boolean exists = defaultOutputLocation.exists();
+	// Resource is not present in workspace model
+	if (!exists) {
+		return false;
+	}
+	// check that the folder *really* exists on disk and is a folder
+	IPath location = defaultOutputLocation.getLocation();
+	return location != null && location.toFile().isDirectory();
 }
 
 /**

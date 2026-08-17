@@ -99,6 +99,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			this.deleteProject("Converter_23"); //$NON-NLS-1$
 			this.deleteProject("Converter_24"); //$NON-NLS-1$
 			this.deleteProject("Converter_25"); //$NON-NLS-1$
+			this.deleteProject("Converter_26"); //$NON-NLS-1$
 			PROJECT_SETUP = false;
 		} else {
 			TEST_SUITES.remove(getClass());
@@ -123,6 +124,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 				this.deleteProject("Converter_23"); //$NON-NLS-1$
 				this.deleteProject("Converter_24"); //$NON-NLS-1$
 				this.deleteProject("Converter_25"); //$NON-NLS-1$
+				this.deleteProject("Converter_26"); //$NON-NLS-1$
 				PROJECT_SETUP = false;
 			}
 		}
@@ -251,6 +253,14 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 						new IPath[] {getConverterJCLPath("25"), getConverterJCLSourcePath("25"), getConverterJCLRootSourcePath()},
 						null);
 			}
+		}  else if ("26".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("CONVERTER_JCL_26_LIB") == null) {
+				setupExternalJCL("jclMin26");
+				JavaCore.setClasspathVariables(
+						new String[] {"CONVERTER_JCL_26_LIB", "CONVERTER_JCL_26_SRC", "CONVERTER_JCL_26_SRCROOT"},
+						new IPath[] {getConverterJCLPath("26"), getConverterJCLSourcePath("26"), getConverterJCLRootSourcePath()},
+						null);
+			}
 		}
 	}
 
@@ -282,6 +292,7 @@ public abstract class ConverterTestSetup extends AbstractASTTests {
 			setUpJavaProject("Converter_23", "23"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_24", "24"); //$NON-NLS-1$ //$NON-NLS-2$
 			setUpJavaProject("Converter_25", "25"); //$NON-NLS-1$ //$NON-NLS-2$
+			setUpJavaProject("Converter_26", "26"); //$NON-NLS-1$ //$NON-NLS-2$
 			waitUntilIndexesReady(); // needed to find secondary types
 			PROJECT_SETUP = true;
 		}

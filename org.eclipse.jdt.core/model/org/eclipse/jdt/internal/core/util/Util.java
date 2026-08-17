@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -15,6 +15,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.util;
 
+import static org.eclipse.jdt.internal.compiler.util.Util.EMPTY_STRING;
+import static org.eclipse.jdt.internal.compiler.util.Util.LINE_SEPARATOR;
+import static org.eclipse.jdt.internal.compiler.util.Util.getBytesAsCharArray;
+import static org.eclipse.jdt.internal.compiler.util.Util.isClassFileName;
 import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
 import java.io.File;
@@ -26,6 +30,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -76,6 +82,7 @@ import org.eclipse.jdt.internal.compiler.env.ClassSignature;
 import org.eclipse.jdt.internal.compiler.env.EnumConstantSignature;
 import org.eclipse.jdt.internal.compiler.env.IBinaryAnnotation;
 import org.eclipse.jdt.internal.compiler.env.IDependent;
+import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
@@ -129,6 +136,16 @@ public class Util {
 	private static final String EMPTY_ARGUMENT = "   "; //$NON-NLS-1$
 
 	private static char[][] JAVA_LIKE_EXTENSIONS;
+
+	private static char[][] JAVA_DERIVED_EXTENSIONS;
+
+	/**
+	 * The jar entry path under which JDK expects compiler to place class files for multi-release JARs. See
+	 * https://docs.oracle.com/javase/9/docs/specs/jar/jar.html#multi-release-jar-files.
+	 * <p>
+	 * The value is "META-INF/versions/".
+	 */
+	public static String METAINF_VERSIONS = org.eclipse.jdt.internal.compiler.util.Util.METAINF_VERSIONS;
 
 	private static final char[] BOOLEAN = "boolean".toCharArray(); //$NON-NLS-1$
 	private static final char[] BYTE = "byte".toCharArray(); //$NON-NLS-1$
@@ -714,7 +731,7 @@ public class Util {
 			for (IResource member : members) {
 				if (member.getType() == IResource.FOLDER) {
 					return findFirstClassFile((IFolder)member);
-				} else if (org.eclipse.jdt.internal.compiler.util.Util.isClassFileName(member.getName())) {
+				} else if (isClassFileName(member.getName())) {
 					return (IFile) member;
 				}
 			}
@@ -841,37 +858,62 @@ public class Util {
 	 * Returns the registered Java like extensions.
 	 */
 	public static char[][] getJavaLikeExtensions() {
-		if (JAVA_LIKE_EXTENSIONS == null) {
-			IContentType javaContentType = Platform.getContentTypeManager().getContentType(JavaCore.JAVA_SOURCE_CONTENT_TYPE);
-			HashSet fileExtensions = new HashSet();
-			// content types derived from java content type should be included (https://bugs.eclipse.org/bugs/show_bug.cgi?id=121715)
-			IContentType[] contentTypes = Platform.getContentTypeManager().getAllContentTypes();
-			for (IContentType contentType : contentTypes) {
-				if (contentType.isKindOf(javaContentType)) { // note that javaContentType.isKindOf(javaContentType) == true
-					String[] fileExtension = contentType.getFileSpecs(IContentType.FILE_EXTENSION_SPEC);
-					for (String extension : fileExtension) {
-						fileExtensions.add(extension);
-					}
-				}
-			}
-			int length = fileExtensions.size();
-			// note that file extensions contains "java" as it is defined in JDT Core's plugin.xml
-			char[][] extensions = new char[length][];
-			extensions[0] = SuffixConstants.EXTENSION_java.toCharArray(); // ensure that "java" is first
-			int index = 1;
-			Iterator iterator = fileExtensions.iterator();
-			while (iterator.hasNext()) {
-				String fileExtension = (String) iterator.next();
-				if (SuffixConstants.EXTENSION_java.equals(fileExtension))
-					continue;
-				extensions[index++] = fileExtension.toCharArray();
-			}
-			JAVA_LIKE_EXTENSIONS = extensions;
+		if (JAVA_LIKE_EXTENSIONS != null) {
+			return JAVA_LIKE_EXTENSIONS;
 		}
+		JAVA_LIKE_EXTENSIONS = getJavaRelatedExtensions(JavaCore.JAVA_SOURCE_CONTENT_TYPE);
 		return JAVA_LIKE_EXTENSIONS;
 	}
 	/**
-	 * Get the jdk level of this root.
+	 * Returns the registered Java derived extensions.
+	 */
+	public static char[][] getJavaDerivedExtensions() {
+		// Better handle non-java sources: https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4738
+		if (JAVA_DERIVED_EXTENSIONS != null) {
+			return JAVA_DERIVED_EXTENSIONS;
+		}
+		JAVA_DERIVED_EXTENSIONS = getJavaRelatedExtensions(JavaCore.JAVA_DERIVED_SOURCE_CONTENT_TYPE);
+		return JAVA_DERIVED_EXTENSIONS;
+	}
+
+	private static char[][] getJavaRelatedExtensions(String contentTypeId){
+		IContentType javaContentType = Platform.getContentTypeManager().getContentType(contentTypeId);
+		HashSet fileExtensions = new HashSet();
+		IContentType[] contentTypes = Platform.getContentTypeManager().getAllContentTypes();
+		for (IContentType contentType : contentTypes) {
+			if (contentType.isKindOf(javaContentType)) { // note that javaContentType.isKindOf(javaContentType) == true
+				String[] fileExtension = contentType.getFileSpecs(IContentType.FILE_EXTENSION_SPEC);
+				if (fileExtension != null) {
+					for (String extension : fileExtension) {
+						if (!SuffixConstants.EXTENSION_java.equals(extension)) {
+							fileExtensions.add(extension);
+						}
+					}
+				}
+			}
+		}
+		boolean includeJavaType = JavaCore.JAVA_SOURCE_CONTENT_TYPE.equals(contentTypeId);
+		char[][] extensions;
+		int index = 1;
+		if(includeJavaType) {
+			extensions = new char[fileExtensions.size() + 1][];
+			extensions[0] = SuffixConstants.EXTENSION_java.toCharArray(); // ensure that "java" is first
+			index = 1;
+
+		} else {
+			extensions = new char[fileExtensions.size()][];
+			index = 0;
+		}
+		Iterator iterator = fileExtensions.iterator();
+		while (iterator.hasNext()) {
+			String fileExtension = (String) iterator.next();
+			extensions[index++] = fileExtension.toCharArray();
+		}
+		return extensions;
+	}
+
+	/**
+	 * Get the lowest jdk compliance level required by given library.
 	 * The value can be:
 	 * <ul>
 	 * <li>{@code major<<16 + minor} : see predefined constants on ClassFileConstants </li>
@@ -907,7 +949,16 @@ public class Util {
 							for (Enumeration<? extends ZipEntry> e= jar.entries(); e.hasMoreElements();) {
 								ZipEntry member= e.nextElement();
 								String entryName= member.getName();
-								if (org.eclipse.jdt.internal.compiler.util.Util.isClassFileName(entryName)) {
+								// Ignore class files in META-INF/versions as they are provided for higher JLS and not
+								// relevant to determine the lowest jdk level supported by the multi-release jar
+								// Also ignore "module-info.class" as it is not relevant to determine the lowest jdk
+								// level supported,
+								// compare with https://openjdk.org/projects/jigsaw/spec/sotms/#module-artifacts:
+								// "A modular JAR file can be used as a module, in which case its module-info.class file
+								// is taken to contain the module’s declaration. It can, alternatively, be placed on the
+								// ordinary class path, in which case its module-info.class file is ignored."
+								if (isClassFileName(entryName) && !entryName.startsWith(METAINF_VERSIONS)
+										&& !entryName.equals(IModule.MODULE_INFO_CLASS)) {
 									reader = ClassFileReader.read(jar, entryName);
 									break;
 								}
@@ -975,7 +1026,7 @@ public class Util {
 		}
 
 		// system line delimiter
-		return org.eclipse.jdt.internal.compiler.util.Util.LINE_SEPARATOR;
+		return LINE_SEPARATOR;
 	}
 
 	/**
@@ -1153,7 +1204,7 @@ public class Util {
 						// this means the current argument is over
 						String currentArgumentContents = String.valueOf(buffer);
 						if (EMPTY_ARGUMENT.equals(currentArgumentContents)) {
-							currentArgumentContents = org.eclipse.jdt.internal.compiler.util.Util.EMPTY_STRING;
+							currentArgumentContents = EMPTY_STRING;
 						}
 						result[count++] = currentArgumentContents;
 						if (count > length) {
@@ -1170,7 +1221,7 @@ public class Util {
 		// process last argument
 		String currentArgumentContents = String.valueOf(buffer);
 		if (EMPTY_ARGUMENT.equals(currentArgumentContents)) {
-			currentArgumentContents = org.eclipse.jdt.internal.compiler.util.Util.EMPTY_STRING;
+			currentArgumentContents = EMPTY_STRING;
 		}
 		result[count++] = currentArgumentContents;
 		if (count > length) {
@@ -1206,7 +1257,7 @@ public class Util {
 	public static char[] getResourceContentsAsCharArray(IFile file, String encoding) throws JavaModelException {
 		// Get resource contents
 		try {
-			return org.eclipse.jdt.internal.compiler.util.Util.getBytesAsCharArray(file.readAllBytes(), encoding);
+			return getBytesAsCharArray(file.readAllBytes(), encoding);
 		} catch (CoreException e) {
 			throw new JavaModelException(e, IJavaModelStatusConstants.ELEMENT_DOES_NOT_EXIST);
 		}
@@ -1517,7 +1568,7 @@ public class Util {
 		char[] fileName = referenceBinding.getFileName();
 		if (referenceBinding.isLocalType() || referenceBinding.isAnonymousType()) {
 			// local or anonymous type
-			if (org.eclipse.jdt.internal.compiler.util.Util.isClassFileName(fileName)) {
+			if (isClassFileName(fileName)) {
 				int jarSeparator = CharOperation.indexOf(IDependent.JAR_FILE_ENTRY_SEPARATOR, fileName);
 				int pkgEnd = CharOperation.lastIndexOf('/', fileName); // pkgEnd is exclusive
 				if (pkgEnd == -1)
@@ -1566,7 +1617,7 @@ public class Util {
 			TypeBinding declaringTypeBinding = typeBinding.enclosingType();
 			if (declaringTypeBinding == null) {
 				// top level type
-				if (org.eclipse.jdt.internal.compiler.util.Util.isClassFileName(fileName)) {
+				if (isClassFileName(fileName)) {
 					ClassFile classFile = (ClassFile) getClassFile(fileName);
 					if (classFile == null) return null;
 					return (JavaElement) classFile.getType();
@@ -1608,9 +1659,21 @@ public class Util {
 	 * Note this is the index of the '.' even if it is not considered part of the extension.
 	 */
 	public static int indexOfJavaLikeExtension(String fileName) {
+		return indexOfJavaRelatedExtension(fileName, getJavaLikeExtensions());
+	}
+
+	/*
+	 * Returns the index of the Java derived extension of the given file name
+	 * or -1 if it doesn't end with a known Java like extension.
+	 * Note this is the index of the '.' even if it is not considered part of the extension.
+	 */
+	public static int indexOfJavaDerivedExtension(String fileName) {
+		return indexOfJavaRelatedExtension(fileName, getJavaDerivedExtensions());
+	}
+
+	private static int indexOfJavaRelatedExtension(String fileName, char[][] javaRelatedExtensions) {
 		int fileNameLength = fileName.length();
-		char[][] javaLikeExtensions = getJavaLikeExtensions();
-		extensions: for (char[] extension : javaLikeExtensions) {
+		extensions: for (char[] extension : javaRelatedExtensions) {
 			int extensionLength = extension.length;
 			int extensionStart = fileNameLength - extensionLength;
 			int dotIndex = extensionStart - 1;
@@ -2774,14 +2837,34 @@ public class Util {
 	}
 
 	/**
+	 * Returns true if the given name ends with one of the known java-derived extension.
+	 * (implementation is not creating extra strings)
+	 */
+	public final static boolean isJavaDerivedFileName(String name) {
+		if (name == null) return false;
+		return indexOfJavaDerivedExtension(name) != -1;
+	}
+
+	/**
 	 * Returns true if the given name ends with one of the known java like extension.
 	 * (implementation is not creating extra strings)
 	 */
 	public final static boolean isJavaLikeFileName(char[] fileName) {
+		return isJavaRelatedFileName(fileName, getJavaLikeExtensions());
+	}
+
+	/**
+	 * Returns true if the given name ends with one of the known java derived extension.
+	 * (implementation is not creating extra strings)
+	 */
+	public final static boolean isJavaDerivedFileName(char[] fileName) {
+		return isJavaRelatedFileName(fileName, getJavaDerivedExtensions());
+	}
+
+	private final static boolean isJavaRelatedFileName(char[] fileName, char[][] javaRelatedExtensions) {
 		if (fileName == null) return false;
 		int fileNameLength = fileName.length;
-		char[][] javaLikeExtensions = getJavaLikeExtensions();
-		extensions: for (char[] extension : javaLikeExtensions) {
+		extensions: for (char[] extension : javaRelatedExtensions) {
 			int extensionLength = extension.length;
 			int extensionStart = fileNameLength - extensionLength;
 			if (extensionStart-1 < 0) continue;
@@ -3375,5 +3458,24 @@ public class Util {
 			throw new ZipException("Zip Slip Vulnerability: Bad zip entry: " + entryName + " in " + zipfileName); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return entryName; // did not escape
+	}
+
+	public static boolean isMultiRelease(Manifest manifest) {
+		if (manifest != null) {
+			Attributes attributes = manifest.getMainAttributes();
+			if (attributes != null)
+				return "true".equals(attributes.getValue("Multi-Release")); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return false;
+	}
+
+	public static int parseIntOrElse(String version, int fallback) {
+		try {
+			if (version != null)
+				return Integer.parseInt(version);
+		} catch (NumberFormatException ex) {
+			// fall through
+		}
+		return fallback;
 	}
 }

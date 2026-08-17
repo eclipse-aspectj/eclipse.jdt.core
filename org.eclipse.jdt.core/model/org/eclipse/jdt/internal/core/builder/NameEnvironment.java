@@ -212,9 +212,9 @@ private void computeClasspathLocations(
 						finalOutputFolder = outputFolder;
 					} else {
 						mustSortOutput = true;
-						finalOutputFolder = outputFolder.getFolder(new Path(String.format("META-INF/versions/%s", release))); //$NON-NLS-1$
+						finalOutputFolder = outputFolder.getFolder(new Path(String.format(Util.METAINF_VERSIONS + "%s", release))); //$NON-NLS-1$
 					}
-					int sourceFolderRelease = release == null ? JavaProject.NO_RELEASE : Integer.parseInt(release);
+					int sourceFolderRelease = org.eclipse.jdt.internal.core.util.Util.parseIntOrElse(release, JavaProject.NO_RELEASE);
 					ClasspathLocation sourceLocation = ClasspathLocation.forSourceFolder(
 								(IContainer) target,
 								finalOutputFolder,

@@ -61,6 +61,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 	boolean reportSuccessAlready = true;
 	RoundEnvironment roundEnv = null;
 	Messager _messager = null;
+	boolean isJre26;
 	boolean isJre23;
 	boolean isJre20;
 	boolean isJre19;
@@ -99,8 +100,11 @@ public class Java9ElementProcessor extends BaseProcessor {
 								if (current >= ClassFileConstants.MAJOR_VERSION_20) {
 									this.isJre20 = true;
 									if (current >= ClassFileConstants.MAJOR_VERSION_23) {
-	                                    this.isJre23 = true;
-	                                }
+										this.isJre23 = true;
+										if (current >= ClassFileConstants.MAJOR_VERSION_26) {
+											this.isJre26 = true;
+										}
+									}
 								}
 							}
 						}
@@ -507,7 +511,8 @@ public class Java9ElementProcessor extends BaseProcessor {
 		assertNotNull("java.base module null", base);
 		List<? extends Directive> directives = base.getDirectives();
 		List<Directive> filterDirective = filterDirective(directives, DirectiveKind.USES);
-		int modCount =  (this.isJre11 || this.isJre12) ? 33 : (this.isJre18 ? (this.isJre20 ? (this.isJre23 ? 35 : 36) : 35) : 34);
+		int modCount = (this.isJre26 ? 34 : 
+			(this.isJre11 || this.isJre12) ? 33 : (this.isJre18 ? (this.isJre20 ? (this.isJre23 ? 35 : 36) : 35) : 34));
 		assertEquals("incorrect no of uses", modCount, filterDirective.size());
 	}
 	/*
@@ -951,7 +956,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		List<? extends Element> elements = module.getEnclosedElements();
 		assertEquals("incorrect no of elements", 2, elements.size());
 		List<Element> packages = filterElements(elements, ElementKind.PACKAGE);
-//		ECJ fails the following tests. 
+//		ECJ fails the following tests.
 		for (Element element : packages) {
 			Element enclosingElement = element.getEnclosingElement();
 			assertNotNull("module should not be null", enclosingElement);
@@ -1101,7 +1106,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		assertEndsWith("Incorrect path", fo.toUri().toString(), expectedUri);
 		if (!this.binary) {
 			Element anotherCls = null;
-			Element anotherInt = null;		
+			Element anotherInt = null;
 			for (Element e : this.roundEnv.getRootElements()) {
 				if ("AnotherClass".equals(e.getSimpleName().toString())) {
 					anotherCls = e;
@@ -1126,7 +1131,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		JavaFileObject fileObject = _elementUtils.getFileObjectOf(topType);
 		String topTypeName = "TypeWithManyElements";
 		if (!fileObject.getName().contains(topTypeName)) {
-			reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+			reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 					" but was " + fileObject.getName());
 		}
 		List<ExecutableElement> constructors = ElementFilter.constructorsIn(topType.getEnclosedElements());
@@ -1136,7 +1141,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		for (VariableElement field : fields) {
 			fileObject = _elementUtils.getFileObjectOf(field);
 			if (!fileObject.getName().contains(topTypeName)) {
-				reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+				reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 						" but was " + fileObject.getName());
 			}
 		}
@@ -1144,7 +1149,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		for (ExecutableElement constructor : constructors) {
 			fileObject = _elementUtils.getFileObjectOf(constructor);
 			if (!fileObject.getName().contains(topTypeName)) {
-				reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+				reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 					" but was " + fileObject.getName());
 			}
 		}
@@ -1152,14 +1157,14 @@ public class Java9ElementProcessor extends BaseProcessor {
 		for (ExecutableElement method : methods) {
 			fileObject = _elementUtils.getFileObjectOf(method);
 			if (!fileObject.getName().contains(topTypeName)) {
-				reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+				reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 						" but was " + fileObject.getName());
 			}
 			List<? extends VariableElement> methodParams = method.getParameters();
 			for (VariableElement param : methodParams) {
 				JavaFileObject fileObjectForParam = _elementUtils.getFileObjectOf(param);
 				if (!fileObjectForParam.getName().contains(topTypeName)) {
-					reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+					reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 							" but was " + fileObject.getName());
 				}
 			}
@@ -1169,10 +1174,10 @@ public class Java9ElementProcessor extends BaseProcessor {
 	public void testDeeplyNestedTypes() {
 		final String topmost = "xyz.MultiNestedType";
 		TypeElement topTypeElement = _elementUtils.getTypeElement(topmost);
-		TypeElement[] types = { topTypeElement, 
+		TypeElement[] types = { topTypeElement,
 				_elementUtils.getTypeElement("xyz.NestedRecord"),
-				_elementUtils.getTypeElement("xyz.NestedEnum"), 
-				_elementUtils.getTypeElement("xyz.NestedTypes") 
+				_elementUtils.getTypeElement("xyz.NestedEnum"),
+				_elementUtils.getTypeElement("xyz.NestedTypes")
 		};
 		_elementUtils.getFileObjectOf(topTypeElement);
 		for (TypeElement element : types) {
@@ -1185,7 +1190,7 @@ public class Java9ElementProcessor extends BaseProcessor {
 		for (TypeElement t : types) {
 			String topTypeName = _elementUtils.getOutermostTypeElement(t).getSimpleName().toString();
 			if (!_elementUtils.getFileObjectOf(t).getName().contains(topTypeName)) {
-				reportError("Incorrect FileObject name. Expected to contain " + topTypeName + 
+				reportError("Incorrect FileObject name. Expected to contain " + topTypeName +
 						" but was " + _elementUtils.getFileObjectOf(t));
 			}
 			validateInnerElements(t);

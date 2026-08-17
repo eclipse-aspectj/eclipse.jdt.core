@@ -82,6 +82,7 @@
 package org.eclipse.jdt.internal.compiler.problem;
 
 import java.io.CharConversionException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +94,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.compiler.InvalidInputException;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
 import org.eclipse.jdt.internal.compiler.IProblemFactory;
 import org.eclipse.jdt.internal.compiler.ast.*;
@@ -203,6 +205,9 @@ public static int getIrritant(int problemID) {
 		case IProblem.UsingTerminallyDeprecatedSinceVersionField :
 		case IProblem.UsingTerminallyDeprecatedSinceVersionModule :
 			return CompilerOptions.UsingTerminallyDeprecatedAPI;
+
+		case IProblem.MemberOfDeprecatedTypeNotDeprecated :
+			return CompilerOptions.MemberOfDeprecatedType;
 
 		case IProblem.LocalVariableIsNeverUsed :
 			return CompilerOptions.UnusedLocalVariable;
@@ -404,6 +409,11 @@ public static int getIrritant(int problemID) {
 		case IProblem.IllegalParameterNullityRedefinition:
 		case IProblem.RecordComponentIncompatibleNullnessVsInheritedAccessor:
 			return CompilerOptions.NullSpecViolation;
+
+		case IProblem.NullAnnotationUnsupportedLocation:
+		case IProblem.NullAnnotationAtQualifyingType:
+		case IProblem.NullAnnotationUnsupportedLocationAtType:
+			return CompilerOptions.NullAnnotationUnsupportedLocation;
 
 		case IProblem.NullNotCompatibleToFreeTypeVariable:
 		case IProblem.NullityMismatchAgainstFreeTypeVariable:
@@ -711,6 +721,7 @@ public static int getProblemCategory(int severity, int problemID) {
 			case CompilerOptions.UnlikelyEqualsArgumentType:
 			case CompilerOptions.APILeak:
 			case CompilerOptions.UnstableAutoModuleName:
+			case CompilerOptions.MemberOfDeprecatedType:
 				return CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM;
 
 			case CompilerOptions.OverriddenPackageDefaultMethod :
@@ -1990,6 +2001,13 @@ String deprecatedSinceValue(Supplier<AnnotationBinding[]> annotations) {
 	}
 	return null;
 }
+public void memberOfDeprecatedTypeNotDeprecated(ASTNode member, ReferenceBinding enclosingType) {
+	handle(IProblem.MemberOfDeprecatedTypeNotDeprecated,
+			new String[] { String.valueOf(enclosingType.readableName()) },
+			new String[] { String.valueOf(enclosingType.shortReadableName()) },
+			member.sourceStart,
+			member.sourceEnd);
+}
 public void disallowedTargetForAnnotation(Annotation annotation) {
 	this.handle(
 		IProblem.DisallowedTargetForAnnotation,
@@ -2536,7 +2554,7 @@ public void forbiddenReference(FieldBinding field, ASTNode location,
 	this.handle(
 		problemId,
 		new String[] { new String(field.readableName()) }, // distinct from msg arg for quickfix purpose
-		getElaborationId(IProblem.ForbiddenReference, (byte) (FIELD_ACCESS | classpathEntryType)),
+		getElaborationId(problemId, (byte) (FIELD_ACCESS | classpathEntryType)),
 		new String[] {
 			classpathEntryName,
 			new String(field.shortReadableName()),
@@ -2555,7 +2573,7 @@ public void forbiddenReference(MethodBinding method, InvocationSite location,
 		this.handle(
 			problemId,
 			new String[] { new String(method.readableName()) }, // distinct from msg arg for quickfix purpose
-			getElaborationId(IProblem.ForbiddenReference, (byte) (CONSTRUCTOR_ACCESS | classpathEntryType)),
+			getElaborationId(problemId, (byte) (CONSTRUCTOR_ACCESS | classpathEntryType)),
 			new String[] {
 				classpathEntryName,
 				new String(method.shortReadableName())},
@@ -2566,7 +2584,7 @@ public void forbiddenReference(MethodBinding method, InvocationSite location,
 		this.handle(
 			problemId,
 			new String[] { new String(method.readableName()) }, // distinct from msg arg for quickfix purpose
-			getElaborationId(IProblem.ForbiddenReference, (byte) (METHOD_ACCESS | classpathEntryType)),
+			getElaborationId(problemId, (byte) (METHOD_ACCESS | classpathEntryType)),
 			new String[] {
 				classpathEntryName,
 				new String(method.shortReadableName()),
@@ -2585,7 +2603,7 @@ public void forbiddenReference(TypeBinding type, ASTNode location,
 	this.handle(
 		problemId,
 		new String[] { new String(type.readableName()) }, // distinct from msg arg for quickfix purpose
-		getElaborationId(IProblem.ForbiddenReference, /* TYPE_ACCESS | */ classpathEntryType), // TYPE_ACCESS values to 0
+		getElaborationId(problemId, /* TYPE_ACCESS | */ classpathEntryType), // TYPE_ACCESS values to 0
 		new String[] {
 			classpathEntryName,
 			new String(type.shortReadableName())},
@@ -3352,8 +3370,27 @@ public void importProblem(ImportReference importRef, Binding expectedImport) {
 			case ProblemReasons.NotVisible :
 			case ProblemReasons.NotAccessible :
 				id = (expectedImport.problemId() == ProblemReasons.NotVisible) ? IProblem.NotVisibleField : IProblem.NotAccessibleField;
-				readableArguments = new String[] {CharOperation.toString(importRef.tokens), new String(field.declaringClass.readableName())};
-				shortArguments = new String[] {CharOperation.toString(importRef.tokens), new String(field.declaringClass.shortReadableName())};
+				if (importRef.isStatic() && field.declaringClass != null) {
+					// messages.properties uses:
+					// 71 = The field {1}.{0} is not visible
+					readableArguments = new String[] {
+							new String(field.name), // {0}
+							new String(field.declaringClass.readableName()) // {1}
+					};
+					shortArguments = new String[] {
+							new String(field.name), // {0}
+							new String(field.declaringClass.shortReadableName()) // {1}
+					};
+				} else {
+					readableArguments = new String[] {
+							CharOperation.toString(importRef.tokens),
+							new String(field.declaringClass.readableName())
+					};
+					shortArguments = new String[] {
+							CharOperation.toString(importRef.tokens),
+							new String(field.declaringClass.shortReadableName())
+					};
+				}
 				break;
 			case ProblemReasons.Ambiguous :
 				id = IProblem.AmbiguousField;
@@ -3659,7 +3696,7 @@ private void inheritedMethodReducesVisibility(int sourceStart, int sourceEnd, Me
 		.append('.')
 		.append(concreteMethod.shortReadableName());
 	this.handle(
-		// The inherited method %1 cannot hide the public abstract method in %2
+		// The inherited method %1 cannot reduce the visibility of the public abstract method in %2
 		IProblem.InheritedMethodReducesVisibility,
 		new String[] {
 			concreteSignature.toString(),
@@ -4979,7 +5016,7 @@ public void discouragedValueBasedTypeToSynchronize(Expression expression, TypeBi
 		expression.sourceEnd);
 }
 public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclaration compUnitDecl,
-					Object location, boolean implicitAnnotationUse, ReferenceBinding referencingType)
+					Location location, boolean implicitAnnotationUse, ReferenceBinding referencingType)
 {
 	// ProblemReporter is not designed to be reentrant. Just in case, we discovered a build path problem while we are already
 	// in the midst of reporting some other problem, save and restore reference context thereby mimicking a stack.
@@ -4989,15 +5026,8 @@ public void isClassPathCorrect(char[][] wellKnownTypeName, CompilationUnitDeclar
 	String[] arguments = new String[] {CharOperation.toString(wellKnownTypeName)};
 	int start = 0, end = 0;
 	if (location != null) {
-		if (location instanceof InvocationSite) {
-			InvocationSite site = (InvocationSite) location;
-			start = site.sourceStart();
-			end = site.sourceEnd();
-		} else if (location instanceof ASTNode) {
-			ASTNode node = (ASTNode) location;
-			start = node.sourceStart();
-			end = node.sourceEnd();
-		}
+		start = location.sourceStart();
+		end = location.sourceEnd();
 	}
 	try {
 		int pId = IProblem.IsClassPathCorrect;
@@ -5040,6 +5070,7 @@ private boolean isRecoveredName(char[][] qualifiedName) {
 	}
 	return false;
 }
+
 
 public void javadocAmbiguousMethodReference(int sourceStart, int sourceEnd, Binding fieldBinding, int modifiers) {
 	int severity = computeSeverity(IProblem.JavadocAmbiguousMethodReference);
@@ -6186,7 +6217,7 @@ public void nullAnnotationUnsupportedLocation(Annotation annotation) {
 	String[] shortArguments = new String[] {
 		String.valueOf(annotation.resolvedType.shortReadableName())
 	};
-	int severity = ProblemSeverities.Error | ProblemSeverities.Fatal;
+	int severity = ProblemSeverities.Error;
 	if (annotation.recipient instanceof ReferenceBinding) {
 		if (((ReferenceBinding) annotation.recipient).isAnnotationType())
 			severity = ProblemSeverities.Warning; // special case for https://bugs.eclipse.org/461878
@@ -6203,7 +6234,7 @@ public void nullAnnotationAtQualifyingType(Annotation annotation) {
 	String[] shortArguments = new String[] {
 		String.valueOf(annotation.resolvedType.shortReadableName())
 	};
-	int severity = ProblemSeverities.Error | ProblemSeverities.Fatal;
+	int severity = ProblemSeverities.Error;
 	handle(IProblem.NullAnnotationAtQualifyingType,
 			arguments, shortArguments,
 			severity,
@@ -6227,7 +6258,7 @@ public void nullAnnotationUnsupportedLocation(TypeReference type) {
 	}
 
 	handle(IProblem.NullAnnotationUnsupportedLocationAtType,
-		NoArgument, NoArgument, type.sourceStart, sourceEnd);
+		NoArgument, NoArgument, ProblemSeverities.Error, type.sourceStart, sourceEnd);
 }
 private char[][] missingAnalysisAnnotationName(AnnotationBinding[] annotations, LookupEnvironment environment) {
 	for (AnnotationBinding annotationBinding : annotations) {
@@ -9556,31 +9587,38 @@ public void previewFeatureUsed(int sourceStart, int sourceEnd) {
 public void previewAPIUsed(Scope scope, int sourceStart, int sourceEnd, IBinaryAnnotation previewAnnotation) {
 	String featureName = null; // FIXME: do we need a default string to use if the name is not found below?
 	boolean isReflective = false;
-	for (IBinaryElementValuePair valuePair : previewAnnotation.getElementValuePairs()) {
-		if (valuePair.getValue() instanceof EnumConstantSignature enumSig) {
-			// extract the feature title from the enum constant:
-			char[] typeName = enumSig.getTypeName();
-			ReferenceBinding enumType = scope.environment().getTypeFromConstantPoolName(typeName, 1, typeName.length-1, false, null);
-			if (enumType.isUnresolvedType())
-				enumType = (ReferenceBinding) BinaryTypeBinding.resolveType(enumType, scope.environment(), false);
-			FieldBinding field = enumType.getField(enumSig.getEnumConstantName(), true);
-			for (AnnotationBinding annotationBinding : field.getAnnotations()) {
-				if (CharOperation.equals(annotationBinding.getAnnotationType().constantPoolName(),
-						ConstantPool.PREVIEW_FEATURE_JEP, 1, ConstantPool.PREVIEW_FEATURE_JEP.length-1)) { // skip 'L' and ';'
-					for (ElementValuePair elementValuePair : annotationBinding.getElementValuePairs()) {
-						if (CharOperation.equals(ConstantPool.TITLE, elementValuePair.getName())
-								&& elementValuePair.value instanceof StringConstant constant) {
-							featureName = constant.stringValue();
-							break;
+	IErrorHandlingPolicy oldPolicy = scope.problemReporter().switchErrorHandlingPolicy(DefaultErrorHandlingPolicies.ignoreAllProblems());
+	try {
+		for (IBinaryElementValuePair valuePair : previewAnnotation.getElementValuePairs()) {
+			if (valuePair.getValue() instanceof EnumConstantSignature enumSig) {
+				// extract the feature title from the enum constant:
+				char[] typeName = enumSig.getTypeName();
+				ReferenceBinding enumType = scope.environment().getTypeFromConstantPoolName(typeName, 1, typeName.length-1, false, null);
+				if (enumType.isUnresolvedType())
+					enumType = (ReferenceBinding) BinaryTypeBinding.resolveType(enumType, scope.environment(), false);
+				FieldBinding field = enumType.getField(enumSig.getEnumConstantName(), true);
+				if (field == null)
+					continue;
+				for (AnnotationBinding annotationBinding : field.getAnnotations()) {
+					if (CharOperation.equals(annotationBinding.getAnnotationType().constantPoolName(),
+							ConstantPool.PREVIEW_FEATURE_JEP, 1, ConstantPool.PREVIEW_FEATURE_JEP.length-1)) { // skip 'L' and ';'
+						for (ElementValuePair elementValuePair : annotationBinding.getElementValuePairs()) {
+							if (CharOperation.equals(ConstantPool.TITLE, elementValuePair.getName())
+									&& elementValuePair.value instanceof StringConstant constant) {
+								featureName = constant.stringValue();
+								break;
+							}
 						}
 					}
 				}
+			} else
+				if (CharOperation.equals(valuePair.getName(), ConstantPool.REFLECTIVE)) {
+					if (valuePair.getValue() instanceof BooleanConstant bool)
+						isReflective = bool.booleanValue();
 			}
-		} else
-			if (CharOperation.equals(valuePair.getName(), ConstantPool.REFLECTIVE)) {
-				if (valuePair.getValue() instanceof BooleanConstant bool)
-					isReflective = bool.booleanValue();
 		}
+	} finally {
+		scope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
 	}
 
 	int problemId = -1;
@@ -9588,7 +9626,6 @@ public void previewAPIUsed(Scope scope, int sourceStart, int sourceEnd, IBinaryA
 	if (!this.options.enablePreviewFeatures) {
 		if (this.options.complianceLevel < ClassFileConstants.getLatestJDKLevel()) {
 			problemId = IProblem.PreviewAPIUsed;
-			severity = ProblemSeverities.Warning;
 		} else {
 			problemId = IProblem.PreviewAPIDisabled;
 			severity = isReflective ? ProblemSeverities.Warning : ProblemSeverities.Error;
@@ -9596,11 +9633,12 @@ public void previewAPIUsed(Scope scope, int sourceStart, int sourceEnd, IBinaryA
 	} else {
 		this.referenceContext.compilationResult().usesPreview = true;
 		if (this.options.isAnyEnabled(IrritantSet.PREVIEW)) {
-			severity = ProblemSeverities.Warning;
 			problemId = IProblem.PreviewAPIUsed;
 		}
 	}
-	if (problemId == -1 || severity == -1) return;
+	if (problemId == -1) return;
+	if (severity == -1)
+		severity = computeSeverity(IProblem.PreviewAPIUsed);
 	String[] arguments = { featureName };
 	this.handle(problemId, arguments, arguments, severity, sourceStart, sourceEnd);
 }
@@ -10088,7 +10126,7 @@ public void anonymousDiamondWithNonDenotableTypeArguments(TypeReference type, Ty
 			type.sourceStart,
 			type.sourceEnd);
 }
-public void redundantSpecificationOfTypeArguments(ASTNode location, TypeBinding[] argumentTypes) {
+public void redundantSpecificationOfTypeArguments(TypeReference location, TypeBinding[] argumentTypes) {
 	int severity = computeSeverity(IProblem.RedundantSpecificationOfTypeArguments);
 	if (severity != ProblemSeverities.Ignore) {
 		int sourceStart = -1;
@@ -10098,10 +10136,36 @@ public void redundantSpecificationOfTypeArguments(ASTNode location, TypeBinding[
 		} else {
 			sourceStart = location.sourceStart;
 		}
+		String problemArguments;
+		String messageArguments;
+		class FindWildcard extends TypeBindingVisitor {
+			boolean found;
+			@Override
+			public boolean visit(WildcardBinding wildcardBinding) {
+				this.found = true;
+				return false;
+			}
+		}
+		FindWildcard find = new FindWildcard();
+		TypeBindingVisitor.visit(find, argumentTypes);
+		TypeReference[] typeArguments = null;
+		if (find.found) {
+			// when wildcards are in the mix then prefer showing type references, rather than processed bindings:
+			if (location instanceof ParameterizedSingleTypeReference pstr)
+				typeArguments = pstr.typeArguments;
+			else if (location instanceof ParameterizedQualifiedTypeReference pqtr)
+				typeArguments = pqtr.typeArguments[pqtr.typeArguments.length-1];
+		}
+		if (typeArguments != null) {
+			problemArguments = messageArguments = Arrays.stream(typeArguments).map(TypeReference::toString).collect(Collectors.joining(", ")); //$NON-NLS-1$
+		} else {
+			problemArguments = typesAsString(argumentTypes, false);
+			messageArguments = typesAsString(argumentTypes, true);
+		}
 		this.handle(
 			IProblem.RedundantSpecificationOfTypeArguments,
-			new String[] {typesAsString(argumentTypes, false)},
-			new String[] {typesAsString(argumentTypes, true)},
+			new String[] {problemArguments},
+			new String[] {messageArguments},
 			severity,
 			sourceStart,
 			location.sourceEnd);
@@ -12372,6 +12436,14 @@ public void dimensionsIllegalOnRecordPattern(int sourceStart, int sourceEnd) {
 			NoArgument,
 			sourceStart,
 			sourceEnd);
+}
+public void cyclicNonNullByDefault(ReferenceBinding annotation) {
+	String[] arguments = { String.valueOf(annotation.readableName()) };
+	this.handle(IProblem.CyclicStructureNonNullByDefault,
+			arguments,
+			arguments,
+			ProblemSeverities.Warning | ProblemSeverities.InternalError,
+			0, 0);
 }
 public boolean scheduleProblemForContext(Runnable problemComputation) {
 	if (this.referenceContext != null) {

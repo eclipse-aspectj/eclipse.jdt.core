@@ -107,11 +107,13 @@ public class AnnotationTest extends AbstractComparableTest {
 		return super.getNameEnvironment(testFiles, classPaths, options);
 	}
 
+	// ========= OPT-IN to run.javac mode: ===========
 	/* (non-Javadoc)
 	 * @see junit.framework.TestCase#setUp()
 	 */
 	@Override
 	protected void setUp() throws Exception {
+		this.runJavacOptIn = true;
 		super.setUp();
 		this.reportMissingJavadocComments = null;
 		this.repeatableIntroText =
@@ -120,6 +122,12 @@ public class AnnotationTest extends AbstractComparableTest {
 		". Only annotation types marked @Repeatable can be used multiple times at one target.\n";
 		this.javaClassLib = null; // use only in selected tests
 	}
+	@Override
+	protected void tearDown() throws Exception {
+		super.tearDown();
+		this.runJavacOptIn = false; // do it last, so super can still clean up
+	}
+	// =================================================
 
 	public void test001() {
 		this.runConformTest(
@@ -2788,6 +2796,11 @@ public class AnnotationTest extends AbstractComparableTest {
 		"	@Inherited\n" +
 		"	^^^^^^^^^^\n" +
 		"The annotation @Inherited is disallowed for this location\n" +
+		"----------\n" +
+		"2. WARNING in X.java (at line 8)\n" +
+		"	class B extends A {\n" +
+		"	                ^\n" +
+		"The type A is deprecated\n" +
 		"----------\n");
 	}
 	// check handling of empty array initializer (binary check)
@@ -3651,6 +3664,12 @@ public class AnnotationTest extends AbstractComparableTest {
 				"	Zork z;\n" +
 				"}\n",
             },
+    		"----------\n" +
+			"1. INFO in X.java (at line 3)\n" +
+			"	void foo(){}\n" +
+			"	     ^^^^^\n" +
+			"The enclosing type X is deprecated, perhaps this member should be marked as deprecated, too?\n" +
+			"----------\n" +
 			"----------\n" +
 			"1. WARNING in Y.java (at line 1)\n" +
 			"	public class Y extends X {\n" +
@@ -3662,12 +3681,7 @@ public class AnnotationTest extends AbstractComparableTest {
 			"	     ^^^^^\n" +
 			"The method foo() of type Y should be tagged with @Override since it actually overrides a superclass method\n" +
 			"----------\n" +
-			"3. WARNING in Y.java (at line 2)\n" +
-			"	void foo(){ super.foo(); }\n" +
-			"	                  ^^^\n" +
-			"The method foo() from the type X is deprecated\n" +
-			"----------\n" +
-			"4. ERROR in Y.java (at line 3)\n" +
+			"3. ERROR in Y.java (at line 3)\n" +
 			"	Zork z;\n" +
 			"	^^^^\n" +
 			"Zork cannot be resolved to a type\n" +
@@ -3688,6 +3702,12 @@ public class AnnotationTest extends AbstractComparableTest {
 				"	Zork z;\n" +
 				"}\n",
             },
+    		"----------\n" +
+			"1. INFO in X.java (at line 3)\n" +
+			"	void foo(){}\n" +
+			"	     ^^^^^\n" +
+			"The enclosing type X is deprecated, perhaps this member should be marked as deprecated, too?\n" +
+			"----------\n" +
 			"----------\n" +
 			"1. WARNING in Y.java (at line 1)\n" +
 			"	public class Y extends X {\n" +
@@ -3698,11 +3718,6 @@ public class AnnotationTest extends AbstractComparableTest {
 			"	void foo(){ super.foo(); }\n" +
 			"	     ^^^^^\n" +
 			"The method foo() of type Y should be tagged with @Override since it actually overrides a superclass method\n" +
-			"----------\n" +
-			"3. WARNING in Y.java (at line 2)\n" +
-			"	void foo(){ super.foo(); }\n" +
-			"	                  ^^^\n" +
-			"The method foo() from the type X is deprecated\n" +
 			"----------\n" +
 			"4. ERROR in Y.java (at line 3)\n" +
 			"	Zork z;\n" +
@@ -3893,7 +3908,7 @@ public class AnnotationTest extends AbstractComparableTest {
                 "X.java",
                 "@Deprecated\n" +
                 "public class X {\n" +
-                "   void foo(){}\n" +
+                "   @Deprecated void foo(){}\n" +
                 "}\n",
                 "Y.java",
                 "public class Y extends X {\n" +
@@ -4471,7 +4486,7 @@ public class AnnotationTest extends AbstractComparableTest {
                 "package p;\n" +
                 "@Deprecated\n" +
 				"public class OldStuff {\n" +
-				"	public void foo() {\n" +
+				"	@Deprecated public void foo() {\n" +
 				"	}	\n" +
 				"  Zork z;\n" +
 				"}\n",
@@ -4510,7 +4525,7 @@ public class AnnotationTest extends AbstractComparableTest {
 	            "package p;\n" +
 	            "@Deprecated\n" +
 				"public class OldStuff {\n" +
-				"	public void foo() {\n" +
+				"	@Deprecated public void foo() {\n" +
 				"	}	\n" +
 				"  Zork z;\n" +
 				"}\n",
@@ -4568,10 +4583,11 @@ public void test142c() {
 		"	                         ^^^^^^^^\n" +
 		"The type OldStuff is deprecated\n" +
 		"----------\n" +
-		"3. ERROR in X.java (at line 8)\n" +
-		"	super.foo();\n" +
-		"	      ^^^\n" +
-		"The method foo() from the type OldStuff is deprecated\n" +
+		"----------\n" +
+		"1. INFO in p\\OldStuff.java (at line 4)\n" +
+		"	public void foo() {\n" +
+		"	            ^^^^^\n" +
+		"The enclosing type OldStuff is deprecated, perhaps this member should be marked as deprecated, too?\n" +
 		"----------\n",
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError);
 }
@@ -4589,7 +4605,7 @@ public void test143() {
             "package p;\n" +
             "@Deprecated\n" +
 			"public class OldStuff {\n" +
-			"	public void foo() {\n" +
+			"	@Deprecated public void foo() {\n" +
 			"	}	\n" +
 			"  Zork z;\n" +
 			"}\n",
@@ -9636,7 +9652,7 @@ public void test292() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=316456
 public void test293() {
-	this.runConformTest(
+	this.runNegativeTest(
 		new String[] {
 				"X.java",
 				"@A(name = X.QUERY_NAME, query = X.QUERY)\n" +
@@ -9649,7 +9665,12 @@ public void test293() {
 				"    String query();\n" +
 				"}\n"
 		},
-		"");
+		"----------\n" +
+		"1. ERROR in X.java (at line 1)\r\n" +
+		"	@A(name = X.QUERY_NAME, query = X.QUERY)\r\n" +
+		"	                                  ^^^^^\n" +
+		"The field X.QUERY is not visible\n" +
+		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=179566
 public void test294() {
@@ -12114,5 +12135,130 @@ public void testGH4243() throws Exception {
 		System.out.println(org.eclipse.jdt.core.tests.util.Util.displayString(actualOutput, 2));
 	}
 	assertTrue("unexpected bytecode sequence", actualOutput.indexOf(expectedOutput) != -1);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1216
+// Class compiles in Eclipse but not in javac (1.8) (access to a private field from the annotation)
+public void testIssue1216() {
+	runNegativeTest(
+			new String[] {
+					"testjavac/AnnotationPrivateMember.java",
+					"""
+					package testjavac;
+
+					@SomeAnnotation(value = AnnotationPrivateMember.SOME_CONST)
+					public class AnnotationPrivateMember {
+						private static final String SOME_CONST = "some value";
+					}
+
+					@interface SomeAnnotation {
+						String value();
+					}
+
+					""",
+			},
+			"----------\n" +
+			"1. ERROR in testjavac\\AnnotationPrivateMember.java (at line 3)\n" +
+			"	@SomeAnnotation(value = AnnotationPrivateMember.SOME_CONST)\n" +
+			"	                                                ^^^^^^^^^^\n" +
+			"The field AnnotationPrivateMember.SOME_CONST is not visible\n" +
+			"----------\n",
+			null,
+			true);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/3046
+// [Records] private static class in record used in an annotation is allowed by ECJ but not javac
+public void testIssue3046() {
+	if (this.complianceLevel < ClassFileConstants.JDK16) {
+		return;
+	}
+	runNegativeTest(
+			new String[] {
+					"Rec.java",
+					"""
+					import java.lang.annotation.ElementType;
+					import java.lang.annotation.Retention;
+					import java.lang.annotation.RetentionPolicy;
+					import java.lang.annotation.Target;
+
+					@Annot(using = Rec.Inner.class)
+					public record Rec() {
+
+						private static class Inner {}
+					}
+
+					@Target(ElementType.TYPE)
+					@Retention(RetentionPolicy.RUNTIME)
+					@interface Annot {
+
+					    public Class<?> using();
+					}
+					""",
+			},
+			"----------\n" +
+			"1. ERROR in Rec.java (at line 6)\n" +
+			"	@Annot(using = Rec.Inner.class)\n" +
+			"	               ^^^^^^^^^\n" +
+			"The type Rec.Inner is not visible\n" +
+			"----------\n",
+			null,
+			true);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5085
+// Regression related to member visibility constraints
+public void testIssue5085a() {
+	runConformTest(
+			new String[] {
+					"com/actico/reproducer/MyAbstract.java",
+					"""
+					package com.actico.reproducer;
+
+					import com.actico.reproducer.MyAbstract.MyAnnotation;
+					import com.actico.reproducer.MyAbstract.MySpecial;
+
+					@MyAnnotation(MySpecial.SPECIAL_CONSTANT)
+					public abstract class MyAbstract {
+					  public @interface MyAnnotation {
+					    String value();
+					  }
+
+					  private static final String PRIVATE_CONSTANT = ".";
+
+					  public static class MySpecial extends MyAbstract {
+					    public static final String SPECIAL_CONSTANT = PRIVATE_CONSTANT;
+					  }
+					}
+					""",
+			});
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5085
+// Regression related to member visibility constraints
+public void testIssue5085b() {
+	runConformTest(
+			new String[] {
+					"com/actico/reproducer/MyAnnotation.java",
+					"""
+					package com.actico.reproducer;
+
+					@interface MyAnnotation {
+					   String value();
+					}
+					""",
+					"com/actico/reproducer/MyAbstract.java",
+					"""
+					package com.actico.reproducer;
+
+					@MyAnnotation(MyAbstract.MySpecial.SPECIAL_CONSTANT)
+					public abstract class MyAbstract {
+
+					  private static final String PRIVATE_CONSTANT = ".";
+
+					  public static class MySpecial extends MyAbstract {
+					    public static final String SPECIAL_CONSTANT = PRIVATE_CONSTANT;
+					  }
+					}
+					""",
+			});
 }
 }

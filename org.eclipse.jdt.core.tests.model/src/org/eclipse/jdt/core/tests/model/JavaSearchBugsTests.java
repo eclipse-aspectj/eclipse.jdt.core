@@ -68,6 +68,7 @@ import org.eclipse.jdt.internal.core.search.matching.MethodPattern;
 import org.eclipse.jdt.internal.core.search.matching.PatternLocator;
 import org.eclipse.jdt.internal.core.search.matching.TypeDeclarationPattern;
 import org.eclipse.jdt.internal.core.search.matching.TypeReferencePattern;
+import org.eclipse.jdt.internal.core.search.processing.JobManager;
 
 /**
  * Non-regression tests for bugs fixed in Java Search engine.
@@ -81,6 +82,8 @@ static {
 //	 org.eclipse.jdt.internal.core.search.BasicSearchEngine.VERBOSE = true;
 //	TESTS_NAMES = new String[] {"testBug324189d"};
 }
+
+private boolean wasVerbose;
 
 public JavaSearchBugsTests(String name) {
 	super(name);
@@ -186,9 +189,16 @@ public void tearDownSuite() throws Exception {
 }
 @Override
 protected void setUp () throws Exception {
+	this.wasVerbose = JobManager.VERBOSE;
+	JobManager.VERBOSE = true;
 	super.setUp();
 	this.resultCollector = new TestCollector();
 	this.resultCollector.showAccuracy(true);
+}
+@Override
+protected void tearDown() throws Exception {
+	super.tearDown();
+	JobManager.VERBOSE = this.wasVerbose;
 }
 
 /**
@@ -15677,6 +15687,32 @@ public void testIssue3308b() throws CoreException {
 	assertSearchResults(
 		"src/issue3308b/Test.java void issue3308b.Test$OriginalClass$NestedOriginalClass.setup():<anonymous>#1.j [j] EXACT_MATCH"
 	);
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5262
+// [Search] Search for references to local declared inside static initializer block brings up nothing
+public void testIssue5262() throws CoreException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy("/JavaSearchBugs/src/X.java",
+			"public class X {\n" +
+			"    static {\n" +
+			"        int /*here*/x = 0;\n" +
+			"        x++;\n" +
+			"        System.out.println(x);\n" +
+			"    }\n" +
+			"}\n");
+
+	String str = this.workingCopies[0].getSource();
+	String selection = "/*here*/x";
+	int start = str.indexOf(selection);
+	int length = selection.length();
+
+	IJavaElement[] elements = this.workingCopies[0].codeSelect(start, length);
+	ILocalVariable local = (ILocalVariable) elements[0];
+	search(local, REFERENCES, EXACT_RULE);
+	assertSearchResults(
+			"src/X.java X.static {} [x] EXACT_MATCH\n" +
+			"src/X.java X.static {} [x] EXACT_MATCH");
 }
 
 private static String toString(char[][] modules) {

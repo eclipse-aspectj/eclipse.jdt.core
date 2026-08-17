@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -127,6 +127,23 @@ public MethodBinding(MethodBinding initialMethodBinding, ReferenceBinding declar
 	this.declaringClass = declaringClass;
 	// AspectJ
 	if (declaringClass!=null) declaringClass.storeAnnotationHolder(this, initialMethodBinding.declaringClass.retrieveAnnotationHolder(initialMethodBinding, true)); // New AspectJ Extension - check for null
+}
+protected void copyFieldsFrom(MethodBinding other) {
+	this.modifiers = other.modifiers;
+	this.selector = other.selector;
+	this.returnType = other.returnType;
+	this.parameters = other.parameters;
+	this.thrownExceptions = other.thrownExceptions;
+	this.declaringClass = other.declaringClass;
+	this.extendedTagBits = other.extendedTagBits;
+	this.tagBits = other.tagBits;
+	this.typeAnnotations = other.typeAnnotations;
+	this.typeVariables = other.typeVariables;
+}
+public MethodBinding copy() {
+	MethodBinding copy = new MethodBinding();
+	copy.copyFieldsFrom(this);
+	return copy;
 }
 /* Answer true if the argument types & the receiver's parameters have the same erasure
 */
@@ -1030,12 +1047,6 @@ public boolean isParameterizedGeneric() {
 public boolean isPolymorphic() {
 	return false;
 }
-/* Answer true if the receiver's declaring type is deprecated (or any of its enclosing types)
-*/
-public final boolean isViewedAsDeprecated() {
-	return (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0;
-}
-
 @Override
 public final int kind() {
 	return Binding.METHOD;
@@ -1505,17 +1516,6 @@ public boolean doesParameterLengthMatch(int suggestedParameterLength) {
 	int len = this.parameters.length;
 	return len <= suggestedParameterLength || (isVarargs() && len == suggestedParameterLength + 1);
 }
-public void updateTypeVariableBinding(TypeVariableBinding previousBinding, TypeVariableBinding updatedBinding) {
-	TypeVariableBinding[] bindings = this.typeVariables;
-	if (bindings != null) {
-		for (int i = 0; i < bindings.length; i++) {
-			if (bindings[i] == previousBinding) { //$IDENTITY-COMPARISON$
-				bindings[i] = updatedBinding;
-			}
-		}
-	}
-}
-
 /**
  * Identifies whether the method has Polymorphic signature based on <a href=https://docs.oracle.com/javase/specs/jls/se11/html/jls-15.html#jls-15.12.3>jls-15.12.3</a><br/>
  *
@@ -1533,21 +1533,12 @@ public boolean hasPolymorphicSignature(Scope scope) {
 	if ((this.tagBits & TagBits.AnnotationPolymorphicSignature) != 0) {
 		return true;
 	}
-	if (this.isNative()	&& this.isVarargs() && this.parameters.length == 1) {
-		/*
-		 *  here type will be arrayType we will come here only if the method is of type
-		 *  varargs(represented by arraytype) and with only one parameter.
-		 */
-		if (this.parameters[0].leafComponentType().id == TypeIds.T_JavaLangObject) {
-			ReferenceBinding declaringClassLocal = this.declaringClass;
-			if ((declaringClassLocal != null) && (declaringClassLocal.id == scope.getJavaLangInvokeMethodHandle().id
-					|| declaringClassLocal.id == scope.getJavaLangInvokeVarHandle().id)) {
-				return true;
-			}
-		}
-	}
-
-	return false;
+	return this.isNative() && this.isVarargs() && this.parameters.length == 1 &&
+			this.parameters[0].leafComponentType().id == TypeIds.T_JavaLangObject &&
+				this.declaringClass.compoundName.length == 4 &&
+				CharOperation.equals(this.declaringClass.compoundName[0], TypeConstants.JAVA) &&
+				(CharOperation.equals(this.declaringClass.compoundName, TypeConstants.JAVA_LANG_INVOKE_METHODHANDLE)
+						|| CharOperation.equals(this.declaringClass.compoundName, TypeConstants.JAVA_LANG_INVOKE_VARHANDLE));
 }
 public boolean isClosingMethod() {
 	boolean isCloseMethod = CharOperation.equals(this.selector, TypeConstants.CLOSE) && this.parameters == NO_PARAMETERS;  // close()

@@ -52,6 +52,7 @@ public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 	ReferenceBinding[] superInterfaces;
 	TypeVariableBinding typeVariable; // corresponding variable
 	LookupEnvironment environment;
+	long nullTagBitsFromErasedObjectBound = 0; // stores null info from '? extends @NonNull Object'
 
 	/**
 	 * When unbound, the bound denotes the corresponding type variable (so as to retrieve its bound lazily)
@@ -161,46 +162,46 @@ public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 				}
 			}
 		}
-		if (this.bound != null && this.bound.isValidBinding()) {
-			long boundNullTagBits = this.bound.tagBits & TagBits.AnnotationNullMASK;
-			if (boundNullTagBits != 0L) {
-				if (this.boundKind == Wildcard.SUPER) {
-					if ((boundNullTagBits & TagBits.AnnotationNullable) != 0) {
-						if (nullTagBits == 0L) {
-							nullTagBits = TagBits.AnnotationNullable;
-						} else if (wildcard != null && (nullTagBits & TagBits.AnnotationNonNull) != 0) {
-							Annotation annotation = wildcard.bound.findAnnotation(boundNullTagBits);
-							if (annotation == null) { // false alarm, implicit annotation is no conflict, but should be removed:
-								// may not be reachable, how could we have an implicit @Nullable (not via @NonNullByDefault)?
-								TypeBinding newBound = this.bound.withoutToplevelNullAnnotation();
-								this.bound = newBound;
-								wildcard.bound.resolvedType = newBound;
-							} else {
-								scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, nullTagBits);
-							}
+		long boundNullTagBits = this.bound != null && this.bound.isValidBinding()
+				? this.bound.tagBits & TagBits.AnnotationNullMASK
+				: this.nullTagBitsFromErasedObjectBound;
+		if (boundNullTagBits != 0L) {
+			if (this.boundKind == Wildcard.SUPER) {
+				if ((boundNullTagBits & TagBits.AnnotationNullable) != 0) {
+					if (nullTagBits == 0L) {
+						nullTagBits = TagBits.AnnotationNullable;
+					} else if (wildcard != null && (nullTagBits & TagBits.AnnotationNonNull) != 0) {
+						Annotation annotation = wildcard.bound.findAnnotation(boundNullTagBits);
+						if (annotation == null) { // false alarm, implicit annotation is no conflict, but should be removed:
+							// may not be reachable, how could we have an implicit @Nullable (not via @NonNullByDefault)?
+							TypeBinding newBound = this.bound.withoutToplevelNullAnnotation();
+							this.bound = newBound;
+							wildcard.bound.resolvedType = newBound;
+						} else {
+							scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, nullTagBits);
 						}
 					}
-				} else {
-					if ((boundNullTagBits & TagBits.AnnotationNonNull) != 0) {
-						if (nullTagBits == 0L) {
+				}
+			} else {
+				if ((boundNullTagBits & TagBits.AnnotationNonNull) != 0) {
+					if (nullTagBits == 0L) {
+						nullTagBits = TagBits.AnnotationNonNull;
+					} else if (wildcard != null && (nullTagBits & TagBits.AnnotationNullable) != 0) {
+						Annotation annotation = wildcard.bound.findAnnotation(boundNullTagBits);
+						if (annotation == null) { // false alarm, implicit annotation is no conflict, but should be removed:
+							TypeBinding newBound = this.bound.withoutToplevelNullAnnotation();
+							this.bound = newBound;
+							wildcard.bound.resolvedType = newBound;
+						} else {
+							scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, nullTagBits);
+						}
+					}
+				}
+				if (nullTagBits == 0L && this.otherBounds != null) {
+					for (TypeBinding otherBound : this.otherBounds) {
+						if ((otherBound.tagBits & TagBits.AnnotationNonNull) != 0) { // can this happen?
 							nullTagBits = TagBits.AnnotationNonNull;
-						} else if (wildcard != null && (nullTagBits & TagBits.AnnotationNullable) != 0) {
-							Annotation annotation = wildcard.bound.findAnnotation(boundNullTagBits);
-							if (annotation == null) { // false alarm, implicit annotation is no conflict, but should be removed:
-								TypeBinding newBound = this.bound.withoutToplevelNullAnnotation();
-								this.bound = newBound;
-								wildcard.bound.resolvedType = newBound;
-							} else {
-								scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, nullTagBits);
-							}
-						}
-					}
-					if (nullTagBits == 0L && this.otherBounds != null) {
-						for (TypeBinding otherBound : this.otherBounds) {
-							if ((otherBound.tagBits & TagBits.AnnotationNonNull) != 0) { // can this happen?
-								nullTagBits = TagBits.AnnotationNonNull;
-								break;
-							}
+							break;
 						}
 					}
 				}
@@ -264,253 +265,6 @@ public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 		return missingTypes;
 	}
 
-	/**
-	 * Collect the substitutes into a map for certain type variables inside the receiver type
-	 * e.g. {@code Collection<T>.collectSubstitutes(Collection<List<X>>, Map)} will populate Map with: {@code T --> List<X>}
-	 * Constraints:
-	 * <pre>{@code
-	 *   A << F   corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_EXTENDS (1))
-	 *   A = F    corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_EQUAL (0))
-	 *   A >> F   corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_SUPER (2))
-	 * }</pre>
-	 */
-	@Override
-	public void collectSubstitutes(Scope scope, TypeBinding actualType, InferenceContext inferenceContext, int constraint) {
-
-		if ((this.tagBits & TagBits.HasTypeVariable) == 0) return;
-		if (actualType == TypeBinding.NULL || actualType.kind() == POLY_TYPE) return;
-
-		if (actualType.isCapture()) {
-			CaptureBinding capture = (CaptureBinding) actualType;
-			actualType = capture.wildcard;
-			// this method should only be called in 1.7- inference, hence we don't expect to see CaptureBinding18 here.
-		}
-
-		switch (constraint) {
-			case TypeConstants.CONSTRAINT_EXTENDS : // A << F
-				switch (this.boundKind) {
-					case Wildcard.UNBOUND: // F={?}
-//						switch (actualType.kind()) {
-//						case Binding.WILDCARD_TYPE :
-//							WildcardBinding actualWildcard = (WildcardBinding) actualType;
-//							switch(actualWildcard.kind) {
-//								case Wildcard.UNBOUND: // A={?} << F={?}  --> 0
-//									break;
-//								case Wildcard.EXTENDS: // A={? extends V} << F={?} ---> 0
-//									break;
-//								case Wildcard.SUPER: // A={? super V} << F={?} ---> 0
-//									break;
-//							}
-//							break;
-//						case Binding.INTERSECTION_TYPE :// A={? extends V1&...&Vn} << F={?} ---> 0
-//							break;
-//						default :// A=V << F={?} ---> 0
-//							break;
-//						}
-						break;
-					case Wildcard.EXTENDS: // F={? extends U}
-						switch(actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} << F={? extends U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} << F={? extends U} ---> V << U
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_EXTENDS);
-										break;
-									case Wildcard.SUPER: // A={? super V} << F={? extends U} ---> 0
-										break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE : // A={? extends V1&...&Vn} << F={? extends U} ---> V1 << U, ..., Vn << U
-								WildcardBinding actualIntersection = (WildcardBinding) actualType;
-								this.bound.collectSubstitutes(scope, actualIntersection.bound, inferenceContext, TypeConstants.CONSTRAINT_EXTENDS);
-					        	for (TypeBinding otherBound : actualIntersection.otherBounds) {
-									this.bound.collectSubstitutes(scope, otherBound, inferenceContext, TypeConstants.CONSTRAINT_EXTENDS);
-					        	}
-								break;
-							default : // A=V << F={? extends U} ---> V << U
-								this.bound.collectSubstitutes(scope, actualType, inferenceContext, TypeConstants.CONSTRAINT_EXTENDS);
-								break;
-						}
-						break;
-					case Wildcard.SUPER: // F={? super U}
-						switch (actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} << F={? super U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} << F={? super U} ---> 0
-										break;
-									case Wildcard.SUPER: // A={? super V} << F={? super U} ---> 0
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	for (int i = 0, length = actualWildcard.otherBounds == null ? 0 : actualWildcard.otherBounds.length; i < length; i++) {
-											this.bound.collectSubstitutes(scope, actualWildcard.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	}
-										break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE : // A={? extends V1&...&Vn} << F={? super U} ---> 0
-								break;
-							default :// A=V << F={? super U} ---> V >> U
-								this.bound.collectSubstitutes(scope, actualType, inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-								break;
-						}
-						break;
-				}
-				break;
-			case TypeConstants.CONSTRAINT_EQUAL : // A == F
-				switch (this.boundKind) {
-					case Wildcard.UNBOUND: // F={?}
-//						switch (actualType.kind()) {
-//						case Binding.WILDCARD_TYPE :
-//							WildcardBinding actualWildcard = (WildcardBinding) actualType;
-//							switch(actualWildcard.kind) {
-//								case Wildcard.UNBOUND: // A={?} == F={?}  --> 0
-//									break;
-//								case Wildcard.EXTENDS: // A={? extends V} == F={?} ---> 0
-//									break;
-//								case Wildcard.SUPER: // A={? super V} == F={?} ---> 0
-//									break;
-//							}
-//							break;
-//						case Binding.INTERSECTION_TYPE :// A={? extends V1&...&Vn} == F={?} ---> 0
-//							break;
-//						default :// A=V == F={?} ---> 0
-//							break;
-//						}
-						break;
-					case Wildcard.EXTENDS: // F={? extends U}
-						switch (actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} == F={? extends U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} == F={? extends U} ---> V == U
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-							        	for (int i = 0, length = actualWildcard.otherBounds == null ? 0 : actualWildcard.otherBounds.length; i < length; i++) {
-											this.bound.collectSubstitutes(scope, actualWildcard.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-							        	}
-										break;
-									case Wildcard.SUPER: // A={? super V} == F={? extends U} ---> 0
-										break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE : // A={? extends V1&...&Vn} == F={? extends U} ---> V1 == U, ..., Vn == U
-								WildcardBinding actuaIntersection = (WildcardBinding) actualType;
-								this.bound.collectSubstitutes(scope, actuaIntersection.bound, inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-					        	for (int i = 0, length = actuaIntersection.otherBounds == null ? 0 : actuaIntersection.otherBounds.length; i < length; i++) {
-									this.bound.collectSubstitutes(scope, actuaIntersection.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-					        	}
-								break;
-							default : // A=V == F={? extends U} ---> 0
-								break;
-						}
-						break;
-					case Wildcard.SUPER: // F={? super U}
-						switch (actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} == F={? super U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} == F={? super U} ---> 0
-										break;
-									case Wildcard.SUPER: // A={? super V} == F={? super U} ---> 0
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-							        	for (int i = 0, length = actualWildcard.otherBounds == null ? 0 : actualWildcard.otherBounds.length; i < length; i++) {
-											this.bound.collectSubstitutes(scope, actualWildcard.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_EQUAL);
-							        	}
-							        	break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE :  // A={? extends V1&...&Vn} == F={? super U} ---> 0
-								break;
-							default : // A=V == F={? super U} ---> 0
-								break;
-						}
-						break;
-				}
-				break;
-			case TypeConstants.CONSTRAINT_SUPER : // A >> F
-				switch (this.boundKind) {
-					case Wildcard.UNBOUND: // F={?}
-//						switch (actualType.kind()) {
-//						case Binding.WILDCARD_TYPE :
-//							WildcardBinding actualWildcard = (WildcardBinding) actualType;
-//							switch(actualWildcard.kind) {
-//								case Wildcard.UNBOUND: // A={?} >> F={?}  --> 0
-//									break;
-//								case Wildcard.EXTENDS: // A={? extends V} >> F={?} ---> 0
-//									break;
-//								case Wildcard.SUPER: // A={? super V} >> F={?} ---> 0
-//									break;
-//							}
-//							break;
-//						case Binding.INTERSECTION_TYPE :// A={? extends V1&...&Vn} >> F={?} ---> 0
-//							break;
-//						default :// A=V >> F={?} ---> 0
-//							break;
-//						}
-						break;
-					case Wildcard.EXTENDS: // F={? extends U}
-						switch (actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} >> F={? extends U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} >> F={? extends U} ---> V >> U
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	for (int i = 0, length = actualWildcard.otherBounds == null ? 0 : actualWildcard.otherBounds.length; i < length; i++) {
-											this.bound.collectSubstitutes(scope, actualWildcard.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	}
-										break;
-									case Wildcard.SUPER: // A={? super V} >> F={? extends U} ---> 0
-										break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE : // A={? extends V1&...&Vn} >> F={? extends U} ---> V1 >> U, ..., Vn >> U
-								WildcardBinding actualIntersection = (WildcardBinding) actualType;
-								this.bound.collectSubstitutes(scope, actualIntersection.bound, inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-					        	for (int i = 0, length = actualIntersection.otherBounds == null ? 0 : actualIntersection.otherBounds.length; i < length; i++) {
-									this.bound.collectSubstitutes(scope, actualIntersection.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-					        	}
-								break;
-							default : // A=V == F={? extends U} ---> 0
-								break;
-						}
-						break;
-					case Wildcard.SUPER: // F={? super U}
-						switch (actualType.kind()) {
-							case Binding.WILDCARD_TYPE :
-								WildcardBinding actualWildcard = (WildcardBinding) actualType;
-								switch(actualWildcard.boundKind) {
-									case Wildcard.UNBOUND: // A={?} >> F={? super U}  --> 0
-										break;
-									case Wildcard.EXTENDS: // A={? extends V} >> F={? super U} ---> 0
-										break;
-									case Wildcard.SUPER: // A={? super V} >> F={? super U} ---> V >> U
-										this.bound.collectSubstitutes(scope, actualWildcard.bound, inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	for (int i = 0, length = actualWildcard.otherBounds == null ? 0 : actualWildcard.otherBounds.length; i < length; i++) {
-											this.bound.collectSubstitutes(scope, actualWildcard.otherBounds[i], inferenceContext, TypeConstants.CONSTRAINT_SUPER);
-							        	}
-							        	break;
-								}
-								break;
-							case Binding.INTERSECTION_TYPE :  // A={? extends V1&...&Vn} >> F={? super U} ---> 0
-								break;
-							default : // A=V >> F={? super U} ---> 0
-								break;
-						}
-						break;
-				}
-				break;
-		}
-	}
-
 	/*
 	 * genericTypeKey {rank}*|+|- [boundKey]
 	 * p.X<T> { X<?> ... } --> Lp/X<TT;>;{0}*
@@ -547,7 +301,9 @@ public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 
 	@Override
 	public TypeBinding clone(TypeBinding immaterial) {
-		return new WildcardBinding(this.genericType, this.rank, this.bound, this.otherBounds, this.boundKind, this.environment);
+		WildcardBinding clone = new WildcardBinding(this.genericType, this.rank, this.bound, this.otherBounds, this.boundKind, this.environment);
+		clone.nullTagBitsFromErasedObjectBound = this.nullTagBitsFromErasedObjectBound;
+		return clone;
 	}
 
 	@Override
@@ -1127,5 +883,11 @@ public class WildcardBinding extends ReferenceBinding implements HotSwappable{
 		if (annots == null)
 			return type;
 		return this.environment.createAnnotatedType(type, annots);
+	}
+
+	public boolean hasNullTagBits(long nullTagBits) {
+		if (nullTagBits == this.nullTagBitsFromErasedObjectBound)
+			return true;
+		return (this.tagBits & TagBits.AnnotationNullMASK) == nullTagBits;
 	}
 }

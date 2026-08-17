@@ -1,6 +1,6 @@
 //AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -224,6 +224,8 @@ public class CompilerOptions {
 	public static final String OPTION_UseStringConcatFactory = "org.eclipse.jdt.core.compiler.codegen.useStringConcatFactory"; //$NON-NLS-1$
 
 	public static final String OPTION_validateOperandStack = "org.eclipse.jdt.core.compiler.codegen.validateOperandStack"; //$NON-NLS-1$
+
+	public static final String OPTION_MemberOfDeprecatedTypeNotDeprecated = "org.eclipse.jdt.core.compiler.problem.memberOfDeprecatedTypeNotDeprecated"; //$NON-NLS-1$
 	/**
 	 * Possible values for configurable options
 	 */
@@ -258,6 +260,7 @@ public class CompilerOptions {
 	public static final String VERSION_23 = "23"; //$NON-NLS-1$
 	public static final String VERSION_24 = "24"; //$NON-NLS-1$
 	public static final String VERSION_25 = "25"; //$NON-NLS-1$
+	public static final String VERSION_26 = "26"; //$NON-NLS-1$
 	/*
 	 * Note: Whenever a new version is added, make sure getLatestVersion()
 	 * is updated with it.
@@ -411,6 +414,8 @@ public class CompilerOptions {
 	public static final int InsufficientResourceManagement = IrritantSet.GROUP3 | ASTNode.Bit1;
 	public static final int IncompatibleOwningContract = IrritantSet.GROUP3 | ASTNode.Bit2;
 	public static final int UnusedLambdaParameter = IrritantSet.GROUP3 | ASTNode.Bit3;
+	public static final int MemberOfDeprecatedType = IrritantSet.GROUP3 | ASTNode.Bit4;
+	public static final int NullAnnotationUnsupportedLocation = IrritantSet.GROUP3 | ASTNode.Bit5;
 
 	// Severity level for handlers
 	/**
@@ -687,7 +692,7 @@ public class CompilerOptions {
 	 * Return the latest Java language version supported by the Eclipse compiler
 	 */
 	public static String getLatestVersion() {
-		return VERSION_25;
+		return VERSION_26;
 	}
 	/**
 	 * Return the most specific option key controlling this irritant. Note that in some case, some irritant is controlled by
@@ -707,6 +712,8 @@ public class CompilerOptions {
 			case UsingTerminallyDeprecatedAPI :
 			case (InvalidJavadoc | UsingTerminallyDeprecatedAPI) :
 				return OPTION_ReportTerminalDeprecation;
+			case MemberOfDeprecatedType :
+				return OPTION_MemberOfDeprecatedTypeNotDeprecated;
 			case MaskedCatchBlock  :
 				return OPTION_ReportHiddenCatchBlock;
 			case UnusedLocalVariable :
@@ -945,7 +952,7 @@ public class CompilerOptions {
 		}
 		return 0;
 	}
-	
+
 	public static long releaseToJDKLevel(int release) {
 		int major = release + ClassFileConstants.MAJOR_VERSION_0;
 		if (major <= ClassFileConstants.MAJOR_LATEST_VERSION) {
@@ -1216,6 +1223,7 @@ public class CompilerOptions {
 			case PessimisticNullAnalysisForFreeTypeVariables:
 			case NonNullTypeVariableFromLegacyInvocation:
 			case AnnotatedTypeArgumentToUnannotated:
+			case NullAnnotationUnsupportedLocation:
 				return "null"; //$NON-NLS-1$
 			case FallthroughCase :
 				return "fallthrough"; //$NON-NLS-1$
@@ -1362,6 +1370,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_ReportTerminalDeprecation, getSeverityString(UsingTerminallyDeprecatedAPI));
 		optionsMap.put(OPTION_ReportDeprecationInDeprecatedCode, this.reportDeprecationInsideDeprecatedCode ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportDeprecationWhenOverridingDeprecatedMethod, this.reportDeprecationWhenOverridingDeprecatedMethod ? ENABLED : DISABLED);
+		optionsMap.put(OPTION_MemberOfDeprecatedTypeNotDeprecated, getSeverityString(MemberOfDeprecatedType));
 		optionsMap.put(OPTION_ReportHiddenCatchBlock, getSeverityString(MaskedCatchBlock));
 		optionsMap.put(OPTION_ReportUnusedLocal, getSeverityString(UnusedLocalVariable));
 		optionsMap.put(OPTION_ReportUnusedLambdaParameter, getSeverityString(UnusedLambdaParameter));
@@ -1941,6 +1950,7 @@ public class CompilerOptions {
 		if ((optionValue = optionsMap.get(OPTION_ReportOverridingPackageDefaultMethod)) != null) updateSeverity(OverriddenPackageDefaultMethod, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportDeprecation)) != null) updateSeverity(UsingDeprecatedAPI, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportTerminalDeprecation)) != null) updateSeverity(UsingTerminallyDeprecatedAPI, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_MemberOfDeprecatedTypeNotDeprecated)) != null) updateSeverity(MemberOfDeprecatedType, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportHiddenCatchBlock)) != null) updateSeverity(MaskedCatchBlock, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedLocal)) != null) updateSeverity(UnusedLocalVariable, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedLambdaParameter)) != null) updateSeverity(UnusedLambdaParameter, optionValue);
@@ -2192,9 +2202,9 @@ public class CompilerOptions {
 			}
 		}
 		if ((optionValue = optionsMap.get(OPTION_GenerateClassFiles)) != null) {
-			if (ENABLED.equals(optionValue)) {
+			if (ENABLED.equals(optionValue) || GENERATE.equals(optionValue)) {
 				this.generateClassFiles = true;
-			} else if (DISABLED.equals(optionValue)) {
+			} else if (DISABLED.equals(optionValue) || DO_NOT_GENERATE.equals(optionValue)) {
 				this.generateClassFiles = false;
 			}
 		}

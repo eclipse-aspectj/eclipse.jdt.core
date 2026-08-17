@@ -17,7 +17,9 @@ import static org.eclipse.jdt.internal.core.JavaModelManager.trace;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
@@ -100,6 +102,9 @@ public class SourceIndexer extends AbstractIndexer implements ITypeRequestor, Su
 
 	@Override
 	public void indexDocument() {
+		if (disabledForFile()) {
+			return;
+		}
 		if (usedDomBasedIndexing()) {
 			indexDocumentFromDOM();
 			return;
@@ -385,8 +390,8 @@ public class SourceIndexer extends AbstractIndexer implements ITypeRequestor, Su
 	}
 
 	private org.eclipse.jdt.core.ICompilationUnit getUnit() {
-		if (this.document instanceof JavaSearchDocument javaSearchDoc) {
-			IFile file = javaSearchDoc.getFile();
+		IFile file = getJavaSearchFile();
+		if (file != null) {
 			try {
 				if (JavaProject.hasJavaNature(file.getProject())) {
 					IJavaProject javaProject = JavaCore.create(file.getProject());
@@ -405,16 +410,34 @@ public class SourceIndexer extends AbstractIndexer implements ITypeRequestor, Su
 		return null;
 	}
 
+	private IFile getJavaSearchFile() {
+		if (this.document instanceof JavaSearchDocument javaSearchDoc) {
+			return javaSearchDoc.getFile();
+		}
+		return null;
+	}
+
 	/**
 	 * @return whether the operation was successful
 	 */
 	boolean indexDocumentFromDOM() {
 		var unit = getUnit();
+		String documentPath = this.document.getPath();
+		char[] source = null;
+		char[] name = null;
+		try {
+			source = this.document.getCharContents();
+			name = documentPath.toCharArray();
+		} catch(Exception e){
+			// ignore
+		}
+		if (source == null || name == null) return false; // could not retrieve document info (e.g. resource was discarded)
+
 		ASTParser astParser = ASTParser.newParser(AST.getJLSLatest()); // we don't seek exact compilation the more tolerant the better here
 		if (unit != null) {
 			astParser.setSource(unit);
 		} else {
-			astParser.setSource(this.document.getCharContents());
+			astParser.setSource(source);
 		}
 		astParser.setStatementsRecovery(true);
 		astParser.setResolveBindings(this.document.shouldIndexResolvedDocument());
@@ -443,4 +466,25 @@ public class SourceIndexer extends AbstractIndexer implements ITypeRequestor, Su
 		return false;
 	}
 
+	private boolean disabledForFile() {
+		if (JavaModelManager.disableRestrictedFileIndexing()) {
+			IFile file = getJavaSearchFile();
+			if (file == null) {
+				IPath path = new Path(this.document.getPath());
+				IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
+				file = root.getFile(path);
+			}
+			try {
+				return file.isContentRestricted();
+			} catch (CoreException e) {
+				JavaCore.getPlugin().getLog().log(e.getStatus());
+				/*
+				 * Assume indexing is disabled for the file, since the preference for disabling is set
+				 * but we cannot determine if the file is restricted.
+				 */
+				return true;
+			}
+		}
+		return false;
+	}
 }

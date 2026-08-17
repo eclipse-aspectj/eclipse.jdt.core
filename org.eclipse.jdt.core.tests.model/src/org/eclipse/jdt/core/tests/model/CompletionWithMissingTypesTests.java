@@ -200,7 +200,7 @@ public void test0004() throws JavaModelException {
 			"   MissingType[TYPE_REF]{missing.MissingType, missing, Lmissing.MissingType;, null, null, ["+start2+", "+end2+"], " + (relevance2) + "}\n" +
 			"finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, ["+start1+", "+end1+"], " + (relevance2) + "}\n" +
 			"   MissingType[TYPE_REF]{missing.MissingType, missing, Lmissing.MissingType;, null, null, ["+start2+", "+end2+"], " + (relevance2) + "}\n" +
-			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, ["+start1+", "+end1+"], " + (relevance2) + "}\n" +
+			"getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, ["+start1+", "+end1+"], " + (relevance2) + "}\n" +
 			"   MissingType[TYPE_REF]{missing.MissingType, missing, Lmissing.MissingType;, null, null, ["+start2+", "+end2+"], " + (relevance2) + "}\n" +
 			"hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, ["+start1+", "+end1+"], " + (relevance2) + "}\n" +
 			"   MissingType[TYPE_REF]{missing.MissingType, missing, Lmissing.MissingType;, null, null, ["+start2+", "+end2+"], " + (relevance2) + "}\n" +
@@ -897,7 +897,8 @@ public void test0021() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 		assertResults(
-				"",
+				"bar[METHOD_REF]{bar(), Lmissing.MissingType$MissingMemberType;, ()V, bar, null, [82, 83], 61}\n" +
+				"   MissingType.MissingMemberType[TYPE_REF]{missing.MissingType.MissingMemberType, missing, Lmissing.MissingType$MissingMemberType;, null, null, [50, 67], 61}",
 				requestor.getResults());
 	} finally {
 		JavaCore.setOptions(this.oldOptions);
@@ -995,7 +996,8 @@ public void test0023() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 		assertResults(
-				"",
+				"bar[METHOD_REF]{bar(), Lmissing.MissingType$MissingMemberType$MissingMemberMemberType;, ()V, bar, null, [88, 89], 61}\n" +
+				"   MissingType.MissingMemberType.MissingMemberMemberType[TYPE_REF]{missing.MissingType.MissingMemberType.MissingMemberMemberType, missing, Lmissing.MissingType$MissingMemberType$MissingMemberMemberType;, null, null, [50, 73], 61}",
 				requestor.getResults());
 	} finally {
 		JavaCore.setOptions(this.oldOptions);

@@ -15,8 +15,14 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
 import junit.framework.Test;
+import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.Excuse;
+import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.JavacHasABug;
+import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.lookup.Binding;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 
 /**
  * Test class originally capturing issues specific to Java9, but meanwhile also just a continuation
@@ -35,6 +41,56 @@ public GenericsRegressionTest_9(String name) {
 public static Test suite() {
 	return buildMinimalComplianceTestSuite(testClass(), F_9);
 }
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5193
+public void testGH5193() {
+	if (this.complianceLevel < ClassFileConstants.JDK10)
+		return; // uses 'var'
+	runNegativeTest(
+		new String[] {
+			"Sample.java",
+			"""
+			class Sample {
+			  void test() throws Exception {
+			    try (var value = new Missing<>() {}) {}
+			  }
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in Sample.java (at line 3)
+			try (var value = new Missing<>() {}) {}
+			     ^^^
+		The resource type Object does not implement java.lang.AutoCloseable
+		----------
+		2. ERROR in Sample.java (at line 3)
+			try (var value = new Missing<>() {}) {}
+			                     ^^^^^^^
+		Missing cannot be resolved to a type
+		----------
+		""");
+}
+
+public void testGH5193ProblemBindingCannotInferDiamondConstructor() {
+	ProblemReferenceBinding missingType = new ProblemReferenceBinding(
+		new char[][] { "Missing".toCharArray() }, null, ProblemReasons.NotFound);
+
+	assertNull(AllocationExpression.inferDiamondConstructor(null, null, missingType, Binding.NO_TYPES));
+}
+
+// ========= OPT-IN to run.javac mode: ===========
+@Override
+protected void setUp() throws Exception {
+	this.runJavacOptIn = true;
+	super.setUp();
+}
+@Override
+protected void tearDown() throws Exception {
+	super.tearDown();
+	this.runJavacOptIn = false; // do it last, so super can still clean up
+}
+// =================================================
 
 // vanilla test case
 public void testBug488663_001() {
@@ -346,7 +402,8 @@ public void testBug488663_011() {
 }
 // Nested anonymous diamonds - TODO - confirm that this is indeed correct as per spec
 public void testBug488663_012() {
-	this.runConformTest(
+	Runner runner = new Runner();
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"public class X {\n" +
@@ -374,14 +431,18 @@ public void testBug488663_012() {
 			"		i.doSomething(t);\n" +
 			"	}\n" +
 			"}",
-		},
-		"Done");
+		};
+	runner.expectedOutputString =
+		"Done";
+	runner.javacTestOptions = JavacHasABug.JavacBug8361641;
+	runner.runConformTest();
 }
 // Redundant type argument specification - TODO - confirm that this is correct
 public void testBug488663_013() {
-	Map<String, String> options = getCompilerOptions();
-	options.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"public class X {\n" +
@@ -405,14 +466,16 @@ public void testBug488663_013() {
 			"interface I<T> {\n" +
 			"	String toString(T t);\n" +
 			"}"
-		},
+		};
+	runner.expectedCompilerLog =
 		"----------\n" +
 		"1. ERROR in X.java (at line 11)\n" +
 		"	I<X> i = new I<X>() {\n" +
 		"	             ^\n" +
 		"Redundant specification of type arguments <X>\n" +
-		"----------\n",
-		null, true, options);
+		"----------\n";
+	runner.javacTestOptions = Excuse.EclipseWarningConfiguredAsError;
+	runner.runNegativeTest();
 }
 // All non-private methods of an anonymous class instantiated with '<>' must be treated as being annotated with @override
 public void testBug488663_014() {
@@ -601,7 +664,8 @@ public void testBug521815b() {
 	if (this.complianceLevel <= ClassFileConstants.JDK1_8) {
 		return;
 	}
-	runNegativeTest(
+	Runner runner = new Runner();
+	runner.testFiles =
 			new String[] {
 					"a/b/X.java",
 					"package a.b;\n" +
@@ -617,13 +681,16 @@ public void testBug521815b() {
 					"import static a.b.X.Inner;\n" +
 					"public class Y {;\n" +
 					"}\n"
-			},
+			};
+	runner.expectedCompilerLog =
 			"----------\n" +
 			"1. WARNING in a\\Y.java (at line 2)\n" +
 			"	import static a.b.X.Inner;\n" +
 			"	              ^^^^^^^^^^^\n" +
 			"The import a.b.X.Inner is never used\n" +
-			"----------\n");
+			"----------\n";
+	runner.javacTestOptions = Excuse.EclipseHasSomeMoreWarnings;
+	runner.runWarningTest();
 }
 public void testBug533644() {
 	runConformTest(
@@ -701,9 +768,10 @@ public void testBug551913_001() {
 // "Remove redundant type arguments" diagnostic should be reported ONLY if all the non-private methods defined in the anonymous class
 // are also present in the parent class.
 public void testBug551913_002() {
-	Map<String, String> options = getCompilerOptions();
-	options.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"public class X {\n" +
@@ -715,22 +783,25 @@ public void testBug551913_002() {
 			"		};\n" +
 			"	}\n" +
 			"}",
-		},
+		};
+	runner.expectedCompilerLog =
 		"----------\n" +
 		"1. ERROR in X.java (at line 4)\n" +
 		"	java.util.HashSet<String> b = new java.util.HashSet<String>(a) {\n" +
 		"	                                            ^^^^^^^\n" +
 		"Redundant specification of type arguments <String>\n" +
-		"----------\n",
-		null, true, options);
+		"----------\n";
+	runner.javacTestOptions = Excuse.EclipseWarningConfiguredAsError;
+	runner.runNegativeTest();
 }
 
 // https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1506
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=551913
 public void testBug551913_003() {
-	Map<String, String> options = getCompilerOptions();
-	options.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"public class X {\n" +
@@ -743,14 +814,16 @@ public void testBug551913_003() {
 			"		};\n" +
 			"	}\n" +
 			"}",
-		},
+		};
+	runner.expectedCompilerLog =
 		"----------\n" +
 		"1. ERROR in X.java (at line 4)\n" +
 		"	java.util.HashSet<String> b = new java.util.HashSet<String>(a) {\n" +
 		"	                                            ^^^^^^^\n" +
 		"Redundant specification of type arguments <String>\n" +
-		"----------\n",
-		null, true, options);
+		"----------\n";
+	runner.javacTestOptions = Excuse.EclipseWarningConfiguredAsError;
+	runner.runNegativeTest();
 }
 // https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1506
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=551913
@@ -810,9 +883,10 @@ public void testGH1506() {
 // https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1506
 // Recommendation from compiler to drop type arguments leads to compile error
 public void testGH1506_2() {
-	Map<String, String> options = getCompilerOptions();
-	options.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
-	this.runNegativeTest(
+	Runner runner = new Runner();
+	runner.customOptions = getCompilerOptions();
+	runner.customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);
+	runner.testFiles =
 		new String[] {
 			"X.java",
 			"import java.io.File;\n" +
@@ -836,14 +910,16 @@ public void testGH1506_2() {
 			"		};\n" +
 			"	}\n" +
 			"}\n",
-		},
+		};
+	runner.expectedCompilerLog =
 		"----------\n"
 		+ "1. ERROR in X.java (at line 8)\n"
 		+ "	return new Iterable<File>() {\n"
 		+ "	           ^^^^^^^^\n"
 		+ "Redundant specification of type arguments <File>\n"
-		+ "----------\n",
-		null, true, options);
+		+ "----------\n";
+	runner.javacTestOptions = Excuse.EclipseWarningConfiguredAsError;
+	runner.runNegativeTest();
 }
 // https://github.com/eclipse-jdt/eclipse.jdt.core/issues/1506
 // Recommendation from compiler to drop type arguments leads to compile error
@@ -1121,7 +1197,8 @@ public void testGH3457c() {
 	});
 }
 public void testGH3948() {
-	runConformTest(new String[] {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
 			"Foo.java",
 			"""
 			import java.util.Collections;
@@ -1151,7 +1228,9 @@ public void testGH3948() {
 			    public static interface Bar{}
 			}
 			"""
-		});
+		};
+	runner.javacTestOptions = JavacHasABug.JavacBug8387487;
+	runner.runConformTest();
 }
 public void testGH4022a() {
 	runConformTest(new String[] {
@@ -1236,7 +1315,8 @@ public void testGH4033() {
 		});
 }
 public void testGH4039() {
-	runConformTest(new String[] {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
 		"CollectionsSortReproducer.java",
 		"""
 		import java.util.Collection;
@@ -1256,7 +1336,9 @@ public void testGH4039() {
 			}
 		}
 		"""
-	});
+	};
+	runner.javacTestOptions = JavacHasABug.JavacBugIvarInterning;
+	runner.runConformTest();
 }
 
 public void testGH4003() {
@@ -1664,6 +1746,39 @@ public void testIssue4503_matches_with_javac() {
 			"Unhandled exception type Throwable\n" +
 			"----------\n");
 }
+public void testGH4715() {
+	runConformTest(new String[] {
+		"TestMain.java",
+		"""
+		import java.util.Map;
+		import java.util.Map.Entry;
+		import java.util.Set;
+		import java.util.stream.Collectors;
+
+		public class TestMain {
+			public static void main(String[] args) {
+				final Map<String, Set<String>> pathToPIDMap = Map.ofEntries(
+						Map.entry("i1", Set.of("PID1")),
+						Map.entry("i1,i2", Set.of("PID2"))
+						);
+
+				final Map<Boolean, Map<String, Set<String>>> partitiionedPathToPIDSet = pathToPIDMap.entrySet().stream() // Error 3
+					.collect(Collectors.partitioningBy(entry -> {
+						final Set<String> pidSet = entry.getValue();
+						final boolean isSinglePIDSet = pidSet.size() == 1;
+						return isSinglePIDSet;
+					}, Collectors.mapping(entry -> {
+						final String path = entry.getKey();
+						final Set<String> pidSet = entry.getValue();
+
+						return Map.entry(path, pidSet);
+					}, Collectors.toMap(Entry::getKey, Entry::getValue)))); //Errors 1 and 2
+			}
+		}
+
+		"""
+	});
+}
 public void testGH4533() {
 	runConformTest(new String[] {
 		"X.java",
@@ -1780,6 +1895,703 @@ public void testGH1501() {
 		Cannot infer type arguments for Outer<>
 		----------
 		""");
+}
+public void testGH4463() {
+	runConformTest(new String[] {
+		"A.java",
+		"""
+		interface A<T> {}
+		interface B<T> extends A<T> {}
+		interface C<T> extends A<T> {}
+
+		class BC1 implements B<String>, C<String> {}
+		class BC2 implements B<Integer>, C<Integer> {}
+
+		// Eclipse Compile error "The interface A cannot be implemented more than once with different arguments: A<?> and A<?>"
+		interface IHelperBC<T extends B<?> & C<?>> {}
+
+		class HelperBC1 implements IHelperBC<BC1> {}
+		class HelperBC2 implements IHelperBC<BC2> {}
+		"""
+	});
+}
+public void testGH4463b() {
+	runConformTest(new String[] {
+		"A.java",
+		"""
+		interface A<T> {}
+		interface B<T> extends A<T> {}
+		interface C<T> extends A<T> {}
+
+		class BC1 implements B<String>, C<String> {}
+		class BC2 implements B<Integer>, C<Integer> {}
+
+		// eclipse compile error "The interface A cannot be implemented more than once with different arguments: A<? super T> and A<? super T>"
+		interface IHelperBCSuper<T, BC extends B<? super T> & C<? super T>> {}
+		// eclipse compile error "The interface A cannot be implemented more than once with different arguments: A<? extends T> and A<? extends T>"
+		interface IHelperBCExtends<T, BC extends B<? extends T> & C<? extends T>> {}
+		"""
+	});
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4550
+// Static interface methods excluded from type variable membership
+public void testIssue4550() {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"Tester.java",
+			"""
+			public class Tester<T extends Thing> {
+			    public void test() {
+			        System.out.println("Testing: " + T.getStuff());  // Error is here
+			    }
+
+			    public static void main(String[] args) {
+			        Tester<OtherThing> tester = new Tester<>();
+			        tester.test();
+			    }
+
+			}
+
+			interface Thing {
+			    static String getStuff() {
+			        return "Stuff";
+			    }
+			}
+
+			class OtherThing implements Thing {
+			}
+			""",
+	    };
+	runner.expectedCompilerLog =
+		"----------\n" +
+		"1. ERROR in Tester.java (at line 3)\n" +
+		"	System.out.println(\"Testing: \" + T.getStuff());  // Error is here\n" +
+		"	                                   ^^^^^^^^\n" +
+		"The method getStuff() is undefined for the type T\n" +
+		"----------\n";
+	runner.javacTestOptions = JavacHasABug.JavacBug8365676;
+	runner.runNegativeTest();
+}
+
+public void testGH4635() {
+	runConformTest(new String[] {
+		"Test.java",
+		"""
+		import java.util.stream.Stream;
+		import java.util.Objects;
+		public class Test {
+		    static class Obj<T> {
+		    }
+
+		    public static void main(String[] args) {
+		        String arg = "";
+
+		        Stream<Obj<?>> stream11 = Stream.of(newObj());
+		        Stream<Obj<?>> stream21 = Stream.of(newObj2(arg));
+
+		        Stream<Obj<?>> stream12 = Stream.of(newObj(), newObj());
+		        Stream<Obj<?>> stream22 = Stream.of(newObj2(arg), newObj2(arg));
+
+		        //Stream<Obj<?>> stream11f = Stream.of(newObj()).filter(Objects::nonNull); // javac & eclipse KO
+		        //Stream<Obj<?>> stream21f = Stream.of(newObj2(arg)).filter(Objects::nonNull); // javac & eclipse KO
+
+		        Stream<Obj<?>> stream12f = Stream.of(newObj(), newObj()).filter(Objects::nonNull);
+		        Stream<Obj<?>> stream22f = Stream.of(newObj2(arg), newObj2(arg)).filter(Objects::nonNull); // javac OK, eclipse KO
+		    }
+
+		    public static Obj<?> newObj() {
+		        return new Obj<>();
+		    }
+
+		    public static <T> Obj<?> newObj2(T arg) {
+		        return new Obj<>();
+		    }
+		}
+		"""
+
+	});
+}
+public void testGH4604() {
+	runConformTest(new String[] {
+			"X.java",
+			"""
+			import java.util.concurrent.*;
+			import java.util.stream.*;
+			public class X {
+				public static void main(String[] args) {
+					CompletableFuture.allOf(Stream.of(1)
+						.map(value -> future(value))
+						.toArray(CompletableFuture[]::new));
+				}
+
+				public static <T> CompletableFuture<?> future(T t) {
+					return CompletableFuture.completedFuture(t);
+				}
+			}
+			"""
+		});
+}
+public void testGH4699_1() {
+	if (this.complianceLevel < ClassFileConstants.JDK10) return; // uses 'var'
+	runConformTest(new String[] {
+			"EclipseBug.java",
+			"""
+			public class EclipseBug {
+				void error1() {
+					var someObject = getObject(); // <<--- Compiler complains here
+				}
+				private SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> getObject() {
+					return null;
+				}
+				static interface SomeLocation { }
+				static interface SpecialLocation extends SomeLocation { }
+
+				static interface SomeType<O extends SomeObject<? extends SomeType<?, L>, L, ? extends SomeObject<?, ?, ?>>, L extends SomeLocation> { }
+
+				public interface SomeObject<T extends SomeType<?, L>, L extends SomeLocation, P extends SomeObject<?, ?, ?>> { }
+			}
+			"""
+		});
+}
+public void testGH4699_full() {
+	if (this.complianceLevel < ClassFileConstants.JDK10) return; // uses 'var'
+	runConformTest(new String[] {
+			"EclipseBug.java",
+			"""
+			public class EclipseBug {
+
+				void error1() {
+					var someObject = getObject();
+				}
+
+				void error2(SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> theObject) {
+					method(theObject);
+				}
+
+				void error3(SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> theObject) {
+					SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> theObject2 = theObject;
+				}
+
+				void method(SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> theObject) { }
+
+				private SomeObject<? extends SomeType<?, ? extends SpecialLocation>, ? extends SpecialLocation, ?> getObject() {
+					return null;
+				}
+
+				static interface SomeLocation { }
+				static interface SpecialLocation extends SomeLocation { }
+				static interface SomeType<O extends SomeObject<? extends SomeType<?, L>, L, ? extends SomeObject<?, ?, ?>>, L extends SomeLocation> { }
+				public interface SomeObject<T extends SomeType<?, L>, L extends SomeLocation, P extends SomeObject<?, ?, ?>> { }
+			}
+			"""
+		});
+}
+
+public void testGH4810() {
+	runConformTest(new String[] {
+			"Repro.java",
+			"""
+			import java.util.concurrent.Callable;
+			public class Repro {
+				Object test() {
+					try {
+						return myMethod(new MyCallable<>() {
+							@Override
+							public Object call() {
+								return new Object();
+							}
+						});
+					} catch (Exception e) {
+						e.printStackTrace();
+						return null;
+					}
+				}
+				<T, E extends Exception> T myMethod(MyCallable<T, E> callable) throws E {
+					return callable.call();
+				}
+			}
+			interface MyCallable<U, F extends Exception> extends Callable<U> {
+				@Override
+				U call() throws F;
+			}
+			"""
+	});
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4864
+// Cannot infer type arguments with ecj 3.44.0 but not with 3.43.0
+public void testIssue4864() {
+	runConformTest(new String[] {
+			"X.java",
+			"""
+			import java.util.Locale;
+
+			public class X {
+
+				interface TypeConverter<T> {
+					T convert(String s) throws Exception;
+				}
+
+				class EnumConverter<E extends Enum<E>> implements TypeConverter<E> {
+					private Class<E> clazz;
+
+					EnumConverter(Class<E> clazz) {
+						this.clazz = clazz;
+					}
+
+					@Override
+					public E convert(String s) {
+						return valueOf(clazz, s);
+					}
+
+					<T extends Enum<T>> T valueOf(Class<T> enumType, String name) {
+						return Enum.valueOf(enumType, name.toUpperCase(Locale.ENGLISH));
+					}
+				}
+
+				TypeConverter<?> findCompatibleConverter(Class<?> clazz) {
+					EnumConverter<? extends Enum> converter = new EnumConverter<>(clazz.asSubclass(Enum.class));
+					return converter;
+				}
+			}
+			"""
+	});
+}
+
+public void testGH5052() {
+	runConformTest(new String[] {
+			"Freeze.java",
+			"""
+			import java.util.function.Function;
+
+			public class Freeze {
+				interface Ifc<S> {}
+				class Val implements Ifc<Val> {}
+
+				public static void main(String... args) {
+					Val v = null; // specific value doesn't matter here
+					consume(v, t -> someMapper(t));
+				}
+
+				static <T> void consume(T t, Function<T,T> mapper) {
+					mapper.apply(null);
+					System.out.print("consume");
+					// impl doesn't matter here
+				}
+
+				static <U extends Ifc<U>> U someMapper(U u) {
+					System.out.print("map.");
+					return null; // impl doesn't matter here
+				}
+			}
+			"""
+		},
+		"map.consume");
+}
+public void testGH5028() {
+	if (this.complianceLevel < ClassFileConstants.JDK10) return; // uses 'var'
+	runConformTest(new String[] {
+			"InferredGenerics.java",
+			"""
+			import java.util.Map;
+
+			public class InferredGenerics {
+			    public static void main(String[] args) {
+			        var child1 = new ParentGeneric<String>();
+			        var child2 = new ParentGeneric<Integer>();
+
+			        var wrappedChild1 = new WrapperGeneric<ParentGeneric<String>>();
+			        var wrappedChild2 = new WrapperGeneric<ParentGeneric<Object>>();
+
+			        var generics = Map.of(
+			                "wrap1", wrappedChild1,
+			                "wrap2", wrappedChild2);
+			        System.out.println(new GenericRegistry(generics));
+			    }
+
+			    static class GenericRegistry {
+			        Map<String, WrapperGeneric<? extends ParentGeneric<?>>> registry;
+
+			        public GenericRegistry(Map<String, WrapperGeneric<? extends ParentGeneric<?>>> registry) {
+			            this.registry = registry;
+			        }
+			    }
+
+			    static class WrapperGeneric<T> {}
+			    static class ParentGeneric<T> { }
+			    static class ChildOne extends ParentGeneric<String> {}
+			    static class ChildTwo extends ParentGeneric<Integer> {}
+			}
+			"""});
+}
+
+public void testListRewrite() {
+	// previously this triggered an unchecked warning
+	runNegativeTest(new String[] {
+			"X.java",
+			"""
+			import java.util.*;
+			public class X {
+				public List getOriginalList(List list) {
+					return Collections.unmodifiableList(list);
+				}
+			}
+			"""
+		},
+		"""
+		----------
+		1. WARNING in X.java (at line 3)
+			public List getOriginalList(List list) {
+			       ^^^^
+		List is a raw type. References to generic type List<E> should be parameterized
+		----------
+		2. WARNING in X.java (at line 3)
+			public List getOriginalList(List list) {
+			                            ^^^^
+		List is a raw type. References to generic type List<E> should be parameterized
+		----------
+		""");
+}
+public void testGH4774() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK16) return; // uses records
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"Test.java",
+			"""
+			import java.util.List;
+			public class Test {
+				public static void main(String[] args) {
+					Z<B> z = new Z<>(List.of(
+							new Y<>(new A()),
+							new Y<>(new B()),
+							new Y<>(new C())));
+				}
+
+				public static record Z<T>(List<? extends X<? super T>> l) {}
+				public static record Y<T>(T t) implements X<T> {}
+				public static interface X<T> {}
+
+				public static class A {}
+				public static class B extends A {}
+				public static class C extends B {}
+			}
+			"""
+		};
+	runner.runConformTest();
+}
+public void testGH4774b() throws Exception {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"Test.java",
+			"""
+			import java.util.List;
+			public class Test {
+			    public void test() {
+			        List<Z> l = consume(List.of(
+			                new B(),
+			                new C()));
+			    }
+			    public <U> List<U> consume(List<? extends A<? super U>> l) {
+			        return null;
+			    }
+			    public interface A<T> {}
+			    public class B implements A<Z> {}
+			    public class C implements A<Y> {}
+			    public class Y {}
+			    public class Z extends Y {}
+			}
+			"""
+		};
+	runner.runConformTest();
+}
+public void testGH4731() {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"TestWildcard.java",
+			"""
+			import java.util.Collection;
+			import java.util.Iterator;
+
+			public class TestWildcard {
+
+				private Collection<? extends Collection<? extends Runnable>> _parts;
+
+				public Iterator<Runnable> iterator() {
+					return TestWildcard.concat(_parts).iterator();
+				}
+
+				public static <T> Iterable<T> concat(Iterable<? extends Iterable<? extends T>> entries) {
+					return null;
+				}
+
+			}
+			"""
+		};
+	runner.expectedCompilerLog = """
+			----------
+			1. ERROR in TestWildcard.java (at line 9)
+				return TestWildcard.concat(_parts).iterator();
+				       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			Type mismatch: cannot convert from Iterator<capture#2-of ? extends Runnable> to Iterator<Runnable>
+			----------
+			""";
+	runner.javacTestOptions = JavacHasABug.JavacBug8016207;
+	runner.runNegativeTest();
+}
+public void testGH4937() {
+	runConformTest(new String[] {
+		"A.java",
+		"""
+		import java.util.List;
+
+		public class A {
+		    public static void foo() {
+		        System.out.println(List.of(BusinessExtractBuilder.create())); // Error here
+		    }
+		    public static class BusinessExtractBuilder<T> {
+		        public static <U extends BusinessExtractBuilder<U>> U create() {
+		            return null;
+		        }
+		    }
+		}
+		"""
+	});
+}
+
+public void testGH3351() {
+	// error message is bogus (see https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5078)
+	// but rejecting is in line with javac
+	runNegativeTest(new String[] {
+			"PassThroughGenerics.java",
+			"""
+			import java.util.List;
+			public class PassThroughGenerics {
+			    private class MyComp implements Comparable<MyComp> {
+			        @Override public int compareTo(MyComp other) { return 0; }
+			    }
+
+			    static <E extends Comparable<E>> List<E> sort(List<E> list) {
+			        return list;
+			    }
+
+			    static <T> List<T> genericList() {
+			        return null;
+			    }
+
+			    public static void main(String[] args) {
+			        List<MyComp> sorted = sort(genericList());
+			        System.out.println(sorted);
+			    }
+			}
+			"""
+		},
+		"""
+		----------
+		1. ERROR in PassThroughGenerics.java (at line 16)
+			List<MyComp> sorted = sort(genericList());
+			                      ^^^^
+		The method sort(java.util.List<E extends java.lang.Comparable<E>>) in the type PassThroughGenerics is not applicable for the arguments (java.util.List<E extends java.lang.Comparable<E>>)
+		----------
+		""");
+}
+public void testGH3367() {
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"Test.java",
+			"""
+			class A<S> {}
+			class B<T> {}
+			public interface Test {
+			   <U> B<U> b(U t);
+			   <V> B<A<? super V>> bOfA(B<? super V> t);
+			   <W> void errors(W t, B<? super W> m);
+
+			   default void test(A<String> a) {
+			      errors(a, bOfA(b(a)));
+			   }
+			}
+			"""
+		};
+	runner.runConformTest();
+}
+
+public void testGH4984() throws Exception {
+	runConformTest(new String[] {
+		"MyCall.java",
+		"""
+		import java.util.function.Predicate;
+
+		public class MyCall {
+		  public Predicate<String> callOk() {
+			// OK javac
+			// KO ecj (eclipse >= 2026.03)
+		    return MyCall.notNullAnd(MyCall.and(predicate(), predicate()));
+		  }
+
+		  public Predicate<String> predicate() {
+			  return null;
+		  }
+
+		  @SafeVarargs
+		  public static <T> Predicate<? super T> and(Predicate<? super T>... predicates) {
+		    return null;
+		  }
+
+		  public static <T> Predicate<T> notNullAnd(Predicate<? super T> predicate) {
+		    return null;
+		  }
+		}
+		""" });
+}
+
+public void testGH4893() throws Exception  {
+	runConformTest(new String[] {
+		"Bug.java",
+		"""
+		public class Bug {
+			public static <K1 extends Key<? extends P1>, P1 extends Provider> P1 getProvider(K1 key) {
+				return null;
+			}
+			interface Key<P2 extends Provider> { }
+			interface Provider { }
+
+			interface AnObject<K2 extends Key<? extends AnObjectProvider<?>>> {
+				default K2 getKey() {
+					return null;
+				}
+
+				public default AnObjectProvider<?> getObjectProvider() {
+					// OK for all javac and all eclipse compilers
+					return getProvider(getKey());
+				}
+			}
+
+			interface AnObjectProvider<P3 extends AnObjectProvider<P3>> extends Provider { }
+			interface SubKey<P4 extends SubProvider> extends Key<P4> { }
+			interface SubProvider extends Provider { }
+
+			interface AnSubObject<K3 extends SubKey<? extends AnSubObjectProvider<?>>> extends AnObject<K3> {
+				public default AnSubObjectProvider<?> getObjectProvider() {
+					// OK for all javac compilers and all eclipse compilers up to 2025-09
+					return getProvider(getKey()); // fails with eclipse 2025-12 and 2026-03 RC2
+				}
+			}
+
+			interface AnSubObjectProvider<P5 extends AnSubObjectProvider<P5>> extends AnObjectProvider<P5> { }
+		}
+		"""
+	});
+}
+public void testJDK8375572() {
+	if (this.complianceLevel < ClassFileConstants.JDK16)
+		return;
+	Runner runner = new Runner();
+	runner.testFiles = new String[] { "MethodRefStuck3.java",
+			"""
+			class MethodRefStuck3 {
+				interface Interface<A> {
+					interface Factory<A extends Interface<B>,B> {
+						Interface<B> create(B obj);
+					}
+				}
+
+				record Klass(String value, int otherValue) implements Interface<String> {
+					public Klass(String thing) {
+						this(thing, -1);
+					}
+				}
+
+				interface InterfaceB<A extends Interface<B>,B> {}
+
+				record KlassB<A extends Interface<B>,B>(Class<A> cls, Interface.Factory<A,B> factory) implements InterfaceB<A,B> {}
+
+				private interface InterfaceC<A extends Interface<B>,B> {
+					InterfaceB<A,B> getInterfaceB();
+				}
+
+				private static class KlassC implements InterfaceC<Klass,String> {
+					@Override
+					public InterfaceB<Klass, String> getInterfaceB() {
+						return new KlassB<>(Klass.class, Klass::new);
+					}
+				}
+			}
+			"""
+		};
+	runner.javacTestOptions = JavacHasABug.JavacBug8375572;
+	runner.runConformTest();
+}
+public void testGH5219() {
+	runConformTest(new String[] {"Test.java",
+			"""
+			import java.util.Collection;
+			import java.util.List;
+
+			public abstract class Test {
+
+				public void test() {
+					assertThat(getRawValue(Collection.class));
+			        assertThat(getRawValue(List.class));
+				}
+
+				static <S> void assertThat(S actual) { }
+				static <E> void assertThat(Collection<? extends E> actual) { }
+
+				abstract <T> T getRawValue(Class<T> type);
+			}
+			"""},
+			"");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5214
+public void testIssue5214() {
+	runNegativeTest(new String[] {"X.java",
+			"""
+			import java.util.List;
+			import java.util.function.Function;
+			import java.util.stream.Stream;
+
+			public class X {
+
+			    static class Parent<T> {}
+
+			    static class Child<T> extends Parent<T> {}
+
+			    interface A {}
+
+			    private static Stream<Child<A>> streamRelevant(List<Parent<A>> items) {
+			    	return items.stream()
+			                .<Child<A>>map(Child.class::cast) // <R> Stream<R> map(Function<? super T, ? extends R> mapper);
+			                .filter(X::isRelevant);
+			    }
+
+			    private static boolean isRelevant(Child<A> item) {
+			        return true;
+			    }
+			}
+			"""},
+			"----------\n"
+			+ "1. WARNING in X.java (at line 14)\n"
+			+ "	return items.stream()\n"
+			+ "                .<Child<A>>map(Child.class::cast) // <R> Stream<R> map(Function<? super T, ? extends R> mapper);\n"
+			+ "	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"
+			+ "Type safety: Unchecked invocation map(Function<? super X.Parent<X.A>,? extends X.Child<X.A>>) of the generic method map(Function<? super T,? extends R>) of type Stream<X.Parent<X.A>>\n"
+			+ "----------\n"
+			+ "2. ERROR in X.java (at line 16)\n"
+			+ "	.filter(X::isRelevant);\n"
+			+ "	 ^^^^^^\n"
+			+ "The method filter(Predicate) in the type Stream is not applicable for the arguments (X::isRelevant)\n"
+			+ "----------\n"
+			+ "3. ERROR in X.java (at line 16)\n"
+			+ "	.filter(X::isRelevant);\n"
+			+ "	        ^^^^^^^^^^^^^\n"
+			+ "The type X does not define isRelevant(Object) that is applicable here\n"
+			+ "----------\n"
+			+ "4. WARNING in X.java (at line 19)\n"
+			+ "	private static boolean isRelevant(Child<A> item) {\n"
+			+ "	                       ^^^^^^^^^^^^^^^^^^^^^^^^^\n"
+			+ "The method isRelevant(X.Child<X.A>) from the type X is never used locally\n"
+			+ "----------\n");
 }
 public static Class<GenericsRegressionTest_9> testClass() {
 	return GenericsRegressionTest_9.class;

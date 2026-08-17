@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 GK Software AG and others.
+ * Copyright (c) 2013, 2026 GK Software SE and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -88,7 +88,7 @@ public class TypeBound extends ReductionResult {
 		buf.append(isBound ? "TypeBound  " : "Dependency "); //$NON-NLS-1$ //$NON-NLS-2$
 		buf.append(this.left.sourceName);
 		buf.append(relationToString(this.relation));
-		buf.append(this.right.readableName());
+		ConstraintFormula.appendTypeName(buf, this.right);
 		return buf.toString();
 	}
 }

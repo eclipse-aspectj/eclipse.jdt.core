@@ -757,7 +757,7 @@ public void testMissingLibrary4() throws JavaModelException {
 	env.removeProject(projectPath);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=172345
-public void testIncompatibleJdkLEvelOnProject() throws JavaModelException {
+public void testIncompatibleJdkLevelOnProject() throws JavaModelException {
 
 	// Create project
 	IPath projectPath = env.addProject("Project");
@@ -812,9 +812,41 @@ public void testIncompatibleJdkLEvelOnProject() throws JavaModelException {
 	// Remove project to avoid side effect on other tests
 	env.removeProject(projectPath);
 }
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4826
+public void testIncompatibleJdkLevelOnMrJar() throws Exception {
+
+	// Create project
+	IPath projectPath = env.addProject("testIncompatibleJdkLevelOnMrJar");
+	IJavaProject project = env.getJavaProject(projectPath);
+	project.setOption(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
+	project.setOption(JavaCore.COMPILER_COMPLIANCE, "1.8");
+	project.setOption(JavaCore.COMPILER_SOURCE, "1.8");
+	project.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, "1.8");
+	
+	// The multi-release jar contains Java 8 classes in base directory and multiple
+	// higher versions of base class in META-INF/versions/ directories
+	String mrJar = getCompilerTestsPluginDirectoryPath() + File.separator + "workspace" + File.separator + "multi-release-example.jar";
+	env.addExternalJars(projectPath, new String[] {mrJar});
+
+	// Build it expecting no problem
+	fullBuild();
+	expectingNoProblems();
+
+	// Change project incompatible jdk level preferences to error, perform incremental build and expect no problems
+	project.setOption(JavaCore.CORE_INCOMPATIBLE_JDK_LEVEL, CompilerOptions.ERROR);
+	env.waitForManualRefresh();
+	incrementalBuild();
+	env.waitForAutoBuild();
+
+	// There should be no problems reported if the jar contains Java 8 compatible classes
+	expectingNoProblems();
+
+	// Remove project to avoid side effect on other tests
+	env.removeProject(projectPath);
+}
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=172345
-public void testIncompatibleJdkLEvelOnWksp() throws JavaModelException {
+public void testIncompatibleJdkLevelOnWksp() throws JavaModelException {
 
 	// Save preference
 	JavaModelManager manager = JavaModelManager.getJavaModelManager();
@@ -1018,24 +1050,52 @@ public void test0100() throws JavaModelException {
 }
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=143025
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4745
 public void testMissingOutputFolder() throws JavaModelException {
 	IPath projectPath = env.addProject("P"); //$NON-NLS-1$
+	IJavaProject p = env.getJavaProject(projectPath);
 	env.removePackageFragmentRoot(projectPath, ""); //$NON-NLS-1$
-	env.addPackageFragmentRoot(projectPath, "src"); //$NON-NLS-1$
+	IPath root = env.addPackageFragmentRoot(projectPath, "src"); //$NON-NLS-1$
 	IPath bin = env.setOutputFolder(projectPath, "bin"); //$NON-NLS-1$
-
+	env.addExternalJars(projectPath, Util.getJavaClassLibs());
+	env.addClass(root, "q", "Y", """
+			package q;
+			public class Y {}
+			""");
 	fullBuild();
 	expectingNoProblems();
+	IPath expectedClassFilePath = bin.append("q").append("Y.class");
+	expectingPresenceOf(new IPath[]{ expectedClassFilePath });
 
 	env.removeFolder(bin);
+	expectingNoPresenceOf(new IPath[]{ expectedClassFilePath });
 
 	incrementalBuild();
 	expectingNoProblems();
 	expectingPresenceOf(bin); // check that bin folder was recreated and is marked as derived
-	if (!env.getProject(projectPath).getFolder("bin").isDerived())
+	if (!env.getProject(projectPath).getFolder("bin").isDerived()) {
 		fail("output folder is not derived");
+	}
+	expectingNoPresenceOf(new IPath[]{ expectedClassFilePath });
+
+	// now enable the (disabled by default) preference and try again
+	p.setOption(JavaCore.CORE_JAVA_BUILD_RECREATE_MODIFIED_CLASS_FILES_IN_OUTPUT_FOLDER, JavaCore.ENABLED);
+
+	env.removeFolder(bin);
+	expectingNoPresenceOf(new IPath[]{ expectedClassFilePath });
+
+	incrementalBuild();
+	expectingNoProblems();
+	expectingPresenceOf(bin); // check that bin folder was recreated and is marked as derived
+	if (!env.getProject(projectPath).getFolder("bin").isDerived()) {
+		fail("output folder is not derived");
+	}
+
+	expectingPresenceOf(new IPath[]{ expectedClassFilePath });
 	env.removeProject(projectPath);
 }
+
+
 @Override
 protected void tearDown() throws Exception {
 	super.tearDown();

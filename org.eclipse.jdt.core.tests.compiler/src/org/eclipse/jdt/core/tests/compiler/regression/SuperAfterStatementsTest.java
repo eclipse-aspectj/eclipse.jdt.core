@@ -3488,4 +3488,190 @@ public class SuperAfterStatementsTest extends AbstractRegressionTest9 {
 		----------
 		""");
 	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4585
+	// [25] ECJ reports a bogus "The final field t may already have been assigned" error
+	public void testIssue4585() {
+		runConformTest(new String[] {
+			"X.java",
+			"""
+			public class X {
+				class TestClass<T extends Object> {
+					T t;
+					TestClass() {}
+
+					TestClass(T v) {
+						switch (0) {
+							case 2:
+								t = v;
+								break;
+						}
+						this(); // Error here
+					}
+				}
+			}
+			"""
+		});
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4696
+	public void testIssue4696a() {
+	    runConformTest(new String[] {
+	        "EcjBugRepro.java",
+	        """
+	        import java.util.HashMap;
+            import java.util.Map;
+
+            public class EcjBugRepro {
+
+                // 1. Field with implicit initializer
+                private final Map<String, String> data = new HashMap<>();
+
+                // Constructor 1: Uses Java 25 Pre-construction context + Chaining
+                public EcjBugRepro(int check) {
+                    if (check < 0) throw new IllegalArgumentException(); // Pre-construction statement
+                    this("delegated"); // Chaining
+                    // ERROR: ECJ seems to re-run 'data = new HashMap()' here, wiping the map
+                }
+
+                // Constructor 2: Standard
+                public EcjBugRepro(String val) {
+                    super();
+                    // Field init runs here (Correct)
+                    data.put("key", val);
+                    System.out.println("Constructor 2: Added item. Size: " + data.size());
+                }
+
+                public static void main(String[] args) {
+                    // Trigger via Constructor 1
+                    EcjBugRepro instance = new EcjBugRepro(1);
+
+                    if (instance.data.isEmpty()) {
+                        System.err.println("FAILURE: Map is empty! Field was re-initialized.");
+                    } else {
+                        System.out.println("Success: Map size is " + instance.data.size());
+                    }
+                }
+            }
+	        """
+	    },
+        "Constructor 2: Added item. Size: 1\n" +
+        "Success: Map size is 1");
+	}
+	public void testIssue4696b() {
+	    runConformTest(new String[] {
+	        "Problem.java",
+	        """
+  	        public class Problem {
+                private int counter = 0;
+
+                Problem(int counter) {
+                    this.counter = counter;
+                    System.out.println("counter=" + this.counter);
+                }
+
+                Problem(boolean b) {
+                    if (b) {
+                        System.out.println("constructor called");
+                    }
+                    this(1);
+                }
+
+                private Problem() {
+                    this(true);
+                }
+
+                public static void main(String[] args) {
+                	System.out.println(new Problem().counter);
+                }
+            }
+	        """
+	        },
+	        "constructor called\n" +
+	        "counter=1\n" +
+	        "1");
+	}
+	public void testIssue4720() {
+		runNegativeTest(new String[] {
+			"Test.java",
+			"""
+			public class Test {
+				private final Object o;
+
+				public Test() {
+					System.out.println();
+					super();
+				}
+			}
+			"""
+			},
+			"""
+			----------
+			1. WARNING in Test.java (at line 2)
+				private final Object o;
+				                     ^
+			The value of the field Test.o is not used
+			----------
+			2. ERROR in Test.java (at line 4)
+				public Test() {
+				       ^^^^^^
+			The blank final field o may not have been initialized
+			----------
+			""");
+	}
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4700
+	public void testIssue4700() {
+	    runConformTest(new String[] {
+        	"Test.java",
+        	"""
+        	public class Test {
+            	private final Object a;
+            	public Test() {
+            		a = new Object();
+            		class Test2 {
+            			private final Object b;
+            			public Test2() {
+            				System.out.println();
+            				super();
+            				b = new Object();
+            			}
+            		}
+            	}
+            }
+        	"""
+	    });
+	}
+	public void testIssue4700b() {
+		runNegativeTest(new String[] {
+			"Test.java",
+			"""
+			@SuppressWarnings("unused")
+			public class Test {
+				private final Object a;
+				public Test() {
+					a = new Object();
+					class Test2 {
+						private final Object b;
+						public Test2() {
+							System.out.println();
+							super();
+							try {
+								b = new Object();
+							} finally {
+								a = new Object();
+							}
+						}
+					}
+				}
+			}
+			"""
+			},
+			"""
+			----------
+			1. ERROR in Test.java (at line 14)
+				a = new Object();
+				^
+			The final field Test.a cannot be assigned
+			----------
+			""");
+	}
 }
+

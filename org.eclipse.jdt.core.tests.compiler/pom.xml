@@ -15,15 +15,16 @@
   <parent>
     <artifactId>tests-pom</artifactId>
     <groupId>org.eclipse.jdt</groupId>
-    <version>4.38.0-SNAPSHOT</version>
+    <version>4.41.0-SNAPSHOT</version>
     <relativePath>../tests-pom/</relativePath>
   </parent>
   <artifactId>org.eclipse.jdt.core.tests.compiler</artifactId>
-  <version>3.13.1000-SNAPSHOT</version>
+  <version>3.13.1300-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
     <defaultSigning-excludeInnerJars>true</defaultSigning-excludeInnerJars>
+    <surefire.timeout>5400</surefire.timeout><!-- timeout in seconds -->
   </properties>
 
   <build>
@@ -147,6 +148,27 @@
 		</build>
 		<properties>
 			<tycho.surefire.argLine>--add-modules ALL-SYSTEM -Dcompliance=1.8,17,21,25</tycho.surefire.argLine>
+		</properties>
+	</profile>
+	<profile>
+		<id>test-on-javase-26</id>
+		<build>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-toolchains-plugin</artifactId>
+					<configuration>
+						<toolchains>
+							<jdk>
+								<id>JavaSE-26</id>
+							</jdk>
+						</toolchains>
+					</configuration>
+				</plugin>
+			</plugins>
+		</build>
+		<properties>
+			<tycho.surefire.argLine>--add-modules ALL-SYSTEM -Dcompliance=1.8,17,21,26</tycho.surefire.argLine>
 		</properties>
 	</profile>
 	</profiles>

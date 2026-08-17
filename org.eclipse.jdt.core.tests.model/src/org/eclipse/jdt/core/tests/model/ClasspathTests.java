@@ -50,6 +50,7 @@ import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.UserLibraryClasspathContainer;
 import org.eclipse.jdt.internal.core.builder.State;
+import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.team.core.RepositoryProvider;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -91,6 +92,16 @@ public void setUpSuite() throws Exception {
 	setupExternalJCL("jclMin");
 	setupExternalJCL("jclMin1.8");
 	setupExternalJCL("jclMin24");
+}
+
+@Override
+protected void tearDown() throws Exception {
+	try {
+		waitForAutoRefresh();
+		waitForAutoBuild();
+	} finally {
+		super.tearDown();
+	}
 }
 
 void restoreAutobuild(IWorkspaceDescription preferences, boolean autoBuild) throws CoreException {
@@ -7424,9 +7435,10 @@ public void testBug539998() throws CoreException {
 
 		IJavaModelStatus status = JavaConventions.validateClasspath(proj, newCP, proj.getOutputLocation());
 
-		assertStatus("should complain",
-				"Project has only main sources but depends on project 'P1' which has only test sources.",
-				status);
+		final String expected = Messages.bind(Messages.classpath_main_only_project_depends_on_test_only_project,
+				new String[] { proj.getElementName(), proj1TestOnly.getElementName() });
+
+		assertStatus("should complain", expected, status);
 	} finally {
 		this.deleteProjects(new String[] { "P1", "P2" });
 	}
@@ -7486,6 +7498,63 @@ public void testBug576735a() throws Exception {
 	} finally {
 		if ( project != null && project.exists())
 			this.deleteProject("P1");
+	}
+}
+
+/*
+ * Test that validates test library classpath entries skip JDK level compatibility checks
+ * while non-test library entries still perform the check
+ */
+public void testTestLibraryEntrySkipsJdkLevelCheck() throws Exception {
+	IJavaProject p = null;
+	try {
+		p = createJavaProject("P");
+		String firstVersion = CompilerOptions.getFirstSupportedJavaVersion();
+		String latestVersion = CompilerOptions.getLatestVersion();
+		setUpProjectCompliance(p, firstVersion, true);
+		p.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, firstVersion);
+		p.setOption(JavaCore.CORE_INCOMPATIBLE_JDK_LEVEL, JavaCore.ERROR);
+		setUpJCLClasspathVariables(latestVersion, false);
+
+		IPath libPath = getExternalJCLPath(latestVersion);
+
+		// Test 1: Non-test library entry should fail with JDK incompatibility error
+		IClasspathEntry nonTestLibraryEntry = JavaCore.newLibraryEntry(
+			libPath,
+			null,
+			null,
+			ClasspathEntry.NO_ACCESS_RULES,
+			ClasspathEntry.NO_EXTRA_ATTRIBUTES,
+			false);
+
+		IJavaModelStatus status = JavaConventions.validateClasspathEntry(p, nonTestLibraryEntry, false);
+		assertEquals(
+			"Non-test library entry should report JDK level incompatibility",
+			IJavaModelStatusConstants.INCOMPATIBLE_JDK_LEVEL,
+			status.getCode());
+
+		// Test 2: Test library entry should pass without JDK incompatibility error
+		// Create a test library entry with TEST attribute set to "true"
+		IClasspathAttribute testAttribute = JavaCore.newClasspathAttribute(IClasspathAttribute.TEST, "true");
+		IClasspathEntry testLibraryEntry = JavaCore.newLibraryEntry(
+			libPath,
+			null,
+			null,
+			ClasspathEntry.NO_ACCESS_RULES,
+			new IClasspathAttribute[] { testAttribute },
+			false);
+
+		// Validate the test entry - it should skip JDK level check because isTest() returns true
+		status = JavaConventions.validateClasspathEntry(p, testLibraryEntry, false);
+		
+		// The status should be OK even though JDK levels are incompatible
+		// because test entries skip JDK level compatibility checks
+		assertStatus(
+			"Test library entry should pass validation regardless of JDK level mismatch",
+			"OK",
+			status);
+	} finally {
+		deleteProject("P");
 	}
 }
 }

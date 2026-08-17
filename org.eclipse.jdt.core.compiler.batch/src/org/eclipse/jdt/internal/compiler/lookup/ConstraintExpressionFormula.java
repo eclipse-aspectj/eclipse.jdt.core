@@ -132,9 +132,16 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 						inferenceContext.inferenceKind = inferenceContext.getInferenceKind(previousMethod, argumentTypes);
 						boolean isDiamond = method.isConstructor() && this.left.isPolyExpression(method);
 						inferInvocationApplicability(inferenceContext, method, argumentTypes, isDiamond, inferenceContext.inferenceKind);
+						try {
+							CapturingContext.enter(invocation.sourceStart(), invocation.sourceEnd(), inferenceContext.scope);
+							if (!inferenceContext.reduce())
+								return FALSE;
+						} finally {
+							CapturingContext.leave();
+						}
 						// b2 has been lifted, inferring poly invocation type amounts to lifting b3.
 					}
-					if (!inferenceContext.computeB3(invocation, this.right, method))
+					if (!inferenceContext.computeB3(invocation, this.right, method, false))
 						return FALSE;
 					return null; // already incorporated
 				} finally {
@@ -178,7 +185,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					for (TypeBinding parameter : parameters)
 						if (!parameter.isProperType(true))
 							return FALSE;
-				lambda = lambda.resolveExpressionExpecting(t, inferenceContext.scope, inferenceContext);
+				lambda = lambda.resolveExpressionExpecting(t, inferenceContext.scope);
 				if (lambda == null)
 					return FALSE; // not strictly unreduceable, but proceeding with TRUE would likely produce secondary errors
 				if (functionType.returnType == TypeBinding.VOID) {
@@ -261,7 +268,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		if (functionType == null)
 			return FALSE;
 		// potentially-applicable method for the method reference when targeting T (15.13.1),
-		reference = reference.resolveExpressionExpecting(t, inferenceContext.scope, inferenceContext);
+		reference = reference.resolveExpressionExpecting(t, inferenceContext.scope);
 		MethodBinding potentiallyApplicable = reference != null ? reference.binding : null;
 		if (potentiallyApplicable == null)
 			return FALSE;
@@ -321,7 +328,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 						innerContext.pushBoundsTo(inferenceContext);
 					int innerInferenceKind = determineInferenceKind(compileTimeDecl, argumentTypes, innerContext);
 					inferInvocationApplicability(inferenceContext, original, argumentTypes, original.isConstructor()/*mimic a diamond?*/, innerInferenceKind);
-					if (!inferenceContext.computeB3(reference, r, original))
+					if (!inferenceContext.computeB3(reference, r, original, false))
 						return FALSE;
 					return null; // already incorporated
 				} catch (InferenceFailureException e) {
@@ -421,6 +428,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				ParameterizedTypeBinding gbeta = inferenceContext.environment.createParameterizedType(
 						parameterizedType.genericType(), betas, parameterizedType.enclosingType(), parameterizedType.getTypeAnnotations());
 				inferenceContext.currentBounds.captures.put(gbeta, parameterizedType); // established: both types have nonnull arguments
+				inferenceContext.currentBounds.allCaptures.put(gbeta, parameterizedType); // established: both types have nonnull arguments
 				if (InferenceContext18.SHOULD_WORKAROUND_BUG_JDK_8054721) {
 					for (int i = 0, length = arguments.length; i < length; i++) {
 						if (arguments[i].isWildcard()) {
@@ -511,7 +519,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				if (sam.returnType != TypeBinding.VOID) {
 					// ii)
 					final TypeBinding r = sam.returnType;
-					LambdaExpression resolved = lambda.resolveExpressionExpecting(this.right, context.scope, context);
+					LambdaExpression resolved = lambda.resolveExpressionExpecting(this.right, context.scope);
 					Expression[] resultExpressions = resolved != null ? resolved.resultExpressions() : null;
 					for (int i = 0, length = resultExpressions == null ? 0 : resultExpressions.length; i < length; i++) {
 						variables.addAll(new ConstraintExpressionFormula(resultExpressions[i], r, COMPATIBLE).inputVariables(context));

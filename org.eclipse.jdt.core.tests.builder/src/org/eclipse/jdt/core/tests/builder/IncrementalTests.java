@@ -1781,4 +1781,127 @@ public class IncrementalTests extends BuilderTests {
 		env.removeProject(projectPath);
 	}
 
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4622
+	// Inconsistent classfile encountered on annotated generic types
+	public void testIssue4622() throws JavaModelException {
+		IPath projectPath = env.addProject("Project", "19");
+		env.addExternalJars(projectPath, Util.getJavaClassLibs());
+
+		// remove old package fragment root so that names don't collide
+		env.removePackageFragmentRoot(projectPath, "");
+
+		IPath root = env.addPackageFragmentRoot(projectPath, "src");
+		env.setOutputFolder(projectPath, "bin");
+
+		env.addClass(root, "", "Record",
+					"""
+					import java.lang.annotation.Target;
+
+					public record Record(
+					        Patch<@ValidUrlTemplate(value = UrlValidationType.AA, message = "{}") String> labelUrl) {
+					}
+
+					class Patch<T> {
+					    public T field;
+					}
+
+					enum UrlValidationType {
+					    AA, BB
+					}
+
+					@Target(java.lang.annotation.ElementType.TYPE_USE)
+					@interface ValidUrlTemplate {
+					    UrlValidationType value();
+					    String message();
+					}
+					""");
+		fullBuild(projectPath);
+		expectingNoProblems();
+
+		env.addClass(root, "", "Driver",
+				"""
+				public class Driver {
+				    public Record r;
+
+				    public static void main(String [] args) {
+				    	System.out.println("OK!");
+					}
+				}
+				""");
+
+		incrementalBuild(projectPath);
+		expectingNoProblems();
+
+		env.removeProject(projectPath);
+	}
+
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4632
+	// The type ... from the descriptor computed for the target context is not visible here
+	public void testIssue4632() throws JavaModelException {
+		IPath projectPath = env.addProject("Project", "19");
+		env.addExternalJars(projectPath, Util.getJavaClassLibs());
+
+		// remove old package fragment root so that names don't collide
+		env.removePackageFragmentRoot(projectPath, "");
+
+		IPath root = env.addPackageFragmentRoot(projectPath, "src");
+		env.setOutputFolder(projectPath, "bin");
+
+		env.addClass(root, "other", "AuthorizeHttpRequestsConfigurer",
+					"""
+					package other;
+
+					public class AuthorizeHttpRequestsConfigurer<T> {
+						public class AuthorizationManagerRequestMatcherRegistry {}
+					}
+					""");
+		env.addClass(root, "other", "Customizer",
+				"""
+				package other;
+
+				public interface Customizer<T> {
+					void customize(T t);
+				}
+				""");
+		env.addClass(root, "other", "HttpSecurity",
+				"""
+				package other;
+
+				public class HttpSecurity {
+				}
+				""");
+		env.addClass(root, "test", "FrontEndSecurityCustomizer",
+				"""
+				package test;
+
+				import other.AuthorizeHttpRequestsConfigurer;
+				import other.Customizer;
+				import other.HttpSecurity;
+
+				public interface FrontEndSecurityCustomizer extends Customizer<AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry> {
+
+				}
+				""");
+		fullBuild(projectPath);
+		expectingNoProblems();
+
+		env.addClass(root, "test", "ProfileSecurityConfiguration",
+				"""
+				package test;
+
+				public class ProfileSecurityConfiguration {
+
+				    FrontEndSecurityCustomizer profileFrontEndSecurityCustomizer() {
+				        return auth -> System.out.println(auth);
+				    }
+				}
+				""");
+
+		incrementalBuild(projectPath);
+		expectingNoProblems();
+
+		env.removeProject(projectPath);
+	}
+
 }

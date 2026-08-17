@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -116,6 +116,7 @@ public class SwitchStatement extends Expression {
 
 	/* package */ boolean isNonTraditional = false;
 	/* package */ boolean isPrimitiveSwitch = false;
+	/* package */ boolean caseElementsHaveErrors = false; // a case pattern failed applicability/cast checks
 	/* package */ List<Pattern> caseLabelElements = new ArrayList<>(0);//TODO: can we remove this?
 	public List<TypeBinding> caseLabelElementTypes = new ArrayList<>(0);
 
@@ -136,12 +137,14 @@ public class SwitchStatement extends Expression {
 			if (len > 0) {
 				RecordComponentBinding comp = comps[0];
 				if (comp != null && comp.type != null)
-					this.firstComponent = new TNode(comp.type);
+					this.firstComponent = new TNode(comp.type, rec);
 			}
 		}
 
 		void addPattern(Pattern p) {
-			if (p instanceof RecordPattern rp && TypeBinding.equalsEquals(this.type, rp.type.resolvedType) && this.firstComponent != null)
+			if (p instanceof RecordPattern rp && rp.type.resolvedType != null
+					&& TypeBinding.equalsEquals(this.type.erasure(), rp.type.resolvedType.erasure())
+					&& this.firstComponent != null)
 				this.firstComponent.addPattern(rp, 0);
 		}
 
@@ -161,9 +164,12 @@ public class SwitchStatement extends Expression {
 	class TNode extends Node {
 
 		List<PatternNode> children;
+		/** The record type whose component this column represents; used to resolve the next component type. */
+		TypeBinding enclosingRecord;
 
-		TNode(TypeBinding type) {
+		TNode(TypeBinding type, TypeBinding enclosingRecord) {
 			this.type = type;
+			this.enclosingRecord = enclosingRecord;
 			this.children = new ArrayList<>();
 		}
 
@@ -172,20 +178,36 @@ public class SwitchStatement extends Expression {
 				this.hasError = true;
 				return;
 			}
-			TypeBinding childType = rp.patterns[i].resolvedType;
+			Pattern componentPattern = rp.patterns[i];
+			TypeBinding childType = componentPattern.resolvedType;
+			if (childType == null) {
+				this.hasError = true;
+				return;
+			}
 			PatternNode child = null;
 			for (PatternNode c : this.children) {
-				if (TypeBinding.equalsEquals(childType, c.type)) {
+				// Group by erasure per JLS 14.11.1.1 ("... covers a type U where T and U have the
+				// same erasure"), consistent with RNode.addPattern and caseElementsCoverSealedType.
+				if (TypeBinding.equalsEquals(childType.erasure(), c.type.erasure())) {
 					child = c;
 					break;
 				}
 			}
 			if (child == null) {
-				child = new PatternNode(childType);
+				child = new PatternNode(childType, this.enclosingRecord);
 				if (this.type.isSubtypeOf(childType, false))
 					this.children.add(0, child);
 				else
 					this.children.add(child);
+			}
+			// Record how this component slot is matched: a nested record pattern must have its own
+			// components covered, whereas a (type) pattern covers the whole slot unconditionally.
+			if (componentPattern instanceof RecordPattern nestedRp) {
+				if (child.nested == null)
+					child.nested = new RNode(childType);
+				child.nested.addPattern(nestedRp);
+			} else {
+				child.unconditional = true;
 			}
 			if ((i+1) < rp.patterns.length) {
 				child.addPattern(rp, i + 1);
@@ -214,18 +236,24 @@ public class SwitchStatement extends Expression {
 	class PatternNode extends Node {
 
 		TNode next; // next component
+		/** Nested record coverage when this component is matched by a record pattern (e.g. Pair(..) inside Box(..)). */
+		RNode nested;
+		/** True when this component slot is matched by a (total) type pattern, covering the whole slot type. */
+		boolean unconditional;
+		/** The record type whose component this node represents; used to resolve the next component type. */
+		TypeBinding enclosingRecord;
 
-		PatternNode(TypeBinding type) {
+		PatternNode(TypeBinding type, TypeBinding enclosingRecord) {
 			this.type = type;
+			this.enclosingRecord = enclosingRecord;
 		}
 
 		public void addPattern(RecordPattern rp, int i) {
-			TypeBinding ref = SwitchStatement.this.expression.resolvedType;
-			RecordComponentBinding[] comps = ref.components();
+			RecordComponentBinding[] comps = this.enclosingRecord != null ? this.enclosingRecord.components() : null;
 			if (comps == null || comps.length <= i) // safety-net for incorrect code.
 				return;
 			if (this.next == null)
-				this.next = new TNode(comps[i].type);
+				this.next = new TNode(comps[i].type, this.enclosingRecord);
 			this.next.addPattern(rp, i);
 		}
 
@@ -251,22 +279,43 @@ public class SwitchStatement extends Expression {
 				return false;
 
 			List<TypeBinding> availableTypes = new ArrayList<>();
+			boolean allChildrenCover = true;
 			if (node.children != null) {
-				for (Node child : node.children) {
-					if (node.type.isSubtypeOf(child.type, false))
-						this.covers = true;
+				for (PatternNode child : node.children) {
+					// Coverage of the remaining components (columns) to the right of this one.
+					// Evaluated in isolation so a fully-covering sibling cannot mask a partially-covering
+					// one; each alternative of this component must be individually covering.
+					this.covers = true;
 					child.traverse(this);
-					if (node.type.isSubtypeOf(child.type, false) && this.covers)
-						return false; // no further visit required - covering!
+					boolean remainderCovers = this.covers;
+					// Coverage of this component's own slot: a type pattern is unconditional, whereas a
+					// nested record pattern covers the slot only if its own components are fully covered.
+					boolean slotCovers = slotCovers(child);
+					if (node.type.isSubtypeOf(child.type, false) && slotCovers && remainderCovers)
+						return this.covers = true; // an unconditional (total) child covers everything below
+					allChildrenCover &= slotCovers && remainderCovers;
 					availableTypes.add(child.type);
 				}
 			}
-			if (node.type instanceof ReferenceBinding ref && ref.isSealed()) {
-				this.covers &= caseElementsCoverSealedType(ref, availableTypes);
-				return this.covers;
-			}
-
+			if (node.type instanceof ReferenceBinding ref && ref.isSealed())
+				return this.covers = allChildrenCover && caseElementsCoverSealedType(ref, availableTypes, false);
 			return this.covers = false; // no need to visit further.
+		}
+
+		/** Whether this component slot is fully covered by its own (possibly nested) pattern. */
+		private boolean slotCovers(PatternNode child) {
+			if (child.unconditional)
+				return true;
+			if (child.nested != null)
+				return nestedRecordCovers(child.nested);
+			return false;
+		}
+
+		/** Recursively check that a nested record's components are collectively covered. */
+		private boolean nestedRecordCovers(RNode nested) {
+			if (nested == null || nested.firstComponent == null)
+				return true; // a record pattern over a component-less record covers it
+			return new CoverageCheckerVisitor().visit(nested.firstComponent);
 		}
 	}
 
@@ -301,7 +350,7 @@ public class SwitchStatement extends Expression {
 			return false; // apples and oranges
 		if (current.expression instanceof NullLiteral ^ prior.expression instanceof NullLiteral) // I actually got to use XOR! :)
 			return false;
-		if (current.constant.equals(prior.constant))
+		if (current.constant.compareAfterPromoting(prior.constant))
 			return true;
 		if (current.type.id == TypeIds.T_boolean)
 			this.switchBits |= Exhaustive; // 2 different boolean constants => exhaustive :)
@@ -315,7 +364,7 @@ public class SwitchStatement extends Expression {
 				this.scope.problemReporter().patternDominatedByAnother(pattern);
 			} else {
 				for (int i = 0; i < this.labelExpressionIndex; i++) {
-					if (this.labelExpressions[i].expression instanceof Pattern priorPattern && priorPattern.dominates(pattern)) {
+					if (this.labelExpressions[i].expression instanceof Pattern priorPattern && priorPattern.dominates(pattern, this.scope)) {
 						this.scope.problemReporter().patternDominatedByAnother(pattern);
 						break;
 					}
@@ -326,11 +375,29 @@ public class SwitchStatement extends Expression {
 				if (this.defaultCase != null)
 					this.scope.problemReporter().patternDominatedByAnother(labelExpression.expression);
 			} else {
-				TypeBinding boxedType = labelExpression.type.isBaseType() ? this.scope.environment().computeBoxingType(labelExpression.type) : labelExpression.type;
-				for (int i = 0; i < this.labelExpressionIndex; i++) {
-					if (this.labelExpressions[i].expression instanceof Pattern priorPattern && priorPattern.coversType(boxedType, this.scope)) {
+				boolean dominatedByUnconditional = false;
+				if (JavaFeature.PRIMITIVES_IN_PATTERNS.isSupported(this.scope.compilerOptions())
+						&& this.unconditionalPatternCase != null) {
+					Constant cst = labelExpression.expression.constant;
+					if (cst != null && cst != Constant.NotAConstant) {
 						this.scope.problemReporter().patternDominatedByAnother(labelExpression.expression);
-						break;
+						dominatedByUnconditional = true;
+					}
+				}
+				if (!dominatedByUnconditional) {
+					TypeBinding boxedType = labelExpression.type.isBaseType() ? this.scope.environment().computeBoxingType(labelExpression.type) : labelExpression.type;
+					for (int i = 0; i < this.labelExpressionIndex; i++) {
+						if (this.labelExpressions[i].expression instanceof Pattern priorPattern) {
+							if (priorPattern.coversType(boxedType, this.scope)) {
+								this.scope.problemReporter().patternDominatedByAnother(labelExpression.expression);
+								break;
+							}
+							Constant cst = labelExpression.expression.constant;
+							if (cst != null && cst != Constant.NotAConstant && priorPattern.coversValue(cst, this.scope)) {
+								this.scope.problemReporter().patternDominatedByAnother(labelExpression.expression);
+								break;
+							}
+						}
 					}
 				}
 			}
@@ -346,6 +413,13 @@ public class SwitchStatement extends Expression {
 	}
 
 	private void complainIfNotExhaustiveSwitch(BlockScope upperScope, TypeBinding selectorType, CompilerOptions compilerOptions) {
+
+		// When a case pattern failed applicability/cast checks, the switch is already in error; don't
+		// pile on a redundant missing-default/exhaustiveness diagnostic (matches javac's behavior).
+		if (this.caseElementsHaveErrors) {
+			this.switchBits |= SwitchStatement.Exhaustive;
+			return;
+		}
 
 		boolean isEnhanced = isEnhancedSwitch(upperScope, selectorType);
 		if (selectorType != null && selectorType.isEnum()) {
@@ -389,7 +463,8 @@ public class SwitchStatement extends Expression {
 			return;
 		}
 
-		if (JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(compilerOptions) && selectorType.isSealed() && caseElementsCoverSealedType((ReferenceBinding) selectorType, this.caseLabelElementTypes))
+		if (JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(compilerOptions) && selectorType.isSealed()
+				&& caseElementsCoverSealedType((ReferenceBinding) selectorType, this.caseLabelElementTypes, true))
 			this.switchBits |= SwitchStatement.Exhaustive;
 		else if (selectorType.isRecordWithComponents() && this.containsRecordPatterns && caseElementsCoverRecordType(upperScope, compilerOptions, (ReferenceBinding) selectorType))
 			this.switchBits |= SwitchStatement.Exhaustive;
@@ -466,7 +541,14 @@ public class SwitchStatement extends Expression {
 		return ccv.covers;
 	}
 
-	private boolean caseElementsCoverSealedType(ReferenceBinding sealedType,  List<TypeBinding> listedTypes) {
+	/**
+	 * @param checkRecordPatterns when true (top-level sealed selector), a permitted record
+	 *        is covered only if case patterns fully cover it — including nested components.
+	 *        When false (nested CoverageCheckerVisitor), {@code listedTypes} are already the
+	 *        component pattern types and the simple name check is enough.
+	 */
+	private boolean caseElementsCoverSealedType(ReferenceBinding sealedType, List<TypeBinding> listedTypes,
+			boolean checkRecordPatterns) {
 		List<ReferenceBinding> allAllowedTypes = sealedType.getAllEnumerableAvatars();
 		Iterator<ReferenceBinding> iterator = allAllowedTypes.iterator();
 		while (iterator.hasNext()) {
@@ -487,6 +569,12 @@ public class SwitchStatement extends Expression {
 					continue;
 				}
 			}
+			if (checkRecordPatterns && this.containsRecordPatterns && next.isRecord()) {
+				// Absolute(GlobalPosition) must not count as covering Absolute when Position is sealed
+				if (isRecordTypeFullyCoveredByCasePatterns(next))
+					iterator.remove();
+				continue;
+			}
 			for (TypeBinding type : listedTypes) {
 				// permits specifies classes, not parameterizations
 				if (next.erasure().isCompatibleWith(type.erasure())) {
@@ -496,6 +584,27 @@ public class SwitchStatement extends Expression {
 			}
 		}
 		return allAllowedTypes.size() == 0;
+	}
+
+	/** Type pattern covers the record, or record patterns collectively cover nested components. */
+	private boolean isRecordTypeFullyCoveredByCasePatterns(ReferenceBinding recordType) {
+		ReferenceBinding patternRecordType = null;
+		for (Pattern pattern : this.caseLabelElements) {
+			if (pattern instanceof RecordPattern rp) {
+				if (rp.resolvedType instanceof ReferenceBinding ref
+						&& TypeBinding.equalsEquals(recordType.erasure(), ref.erasure())) {
+					patternRecordType = ref; // use pattern's parameterization for RNode matching
+				}
+			} else if (pattern.resolvedType != null
+					&& recordType.erasure().isCompatibleWith(pattern.resolvedType.erasure())
+					&& pattern.coversType(pattern.resolvedType, this.scope)) {
+				return true; // case Absolute a
+			}
+		}
+		if (patternRecordType == null)
+			return false;
+		// Reuse record-selector coverage (RNode + CoverageCheckerVisitor)
+		return caseElementsCoverRecordType(this.scope, null, patternRecordType);
 	}
 
 	private void reserveSecretVariablesSlot() { // may be released later if unused.
@@ -527,7 +636,7 @@ public class SwitchStatement extends Expression {
 		switch (eType.id) {
 			case TypeIds.T_JavaLangLong, TypeIds.T_JavaLangFloat, TypeIds.T_JavaLangDouble:
 				return true;
-			case TypeIds.T_long, TypeIds.T_double, TypeIds.T_float :
+			case TypeIds.T_boolean, TypeIds.T_long, TypeIds.T_double, TypeIds.T_float :
 				if (this.isPrimitiveSwitch)
 					return true;
 			// note: if no patterns are present we optimize Boolean to use unboxing rather than indy typeSwitch
@@ -690,11 +799,11 @@ public class SwitchStatement extends Expression {
 										caseInits.markAsDefinitelyNonNull(reference.localVariableBinding());
 									} else if (reference.lastFieldBinding() != null) {
 										if (this.scope.compilerOptions().enableSyntacticNullAnalysisForFields)
-											switchContext.recordNullCheckedFieldReference(reference, 2); // survive this case statement and into the next
+											switchContext.recordNullCheckedFieldReference(reference, 2, FlowInfo.NON_NULL); // survive this case statement and into the next
 									}
 								} else if (this.expression instanceof FieldReference) {
 									if (this.scope.compilerOptions().enableSyntacticNullAnalysisForFields)
-										switchContext.recordNullCheckedFieldReference((FieldReference) this.expression, 2); // survive this case statement and into the next
+										switchContext.recordNullCheckedFieldReference((FieldReference) this.expression, 2, FlowInfo.NON_NULL); // survive this case statement and into the next
 								}
 							}
 						}
@@ -919,7 +1028,7 @@ public class SwitchStatement extends Expression {
 				this.swich.breakLabel.initialize(codeStream);
 				this.caseLabels = new BranchLabel[this.swich.nConstants];
 				gatherLabels(codeStream, BranchLabel::new);
-				this.swich.defaultLabel = new CaseLabel(codeStream, true /* allow narrow branch to */);
+				this.swich.defaultLabel = new CaseLabel(codeStream, true /* reachable also via goto[_w] */);
 				if (this.swich.defaultCase != null)
 					this.swich.defaultCase.targetLabel = this.swich.defaultLabel; // Replace the vanilla branch label with a case label that doubles as a branch label.
 			}
@@ -974,7 +1083,7 @@ public class SwitchStatement extends Expression {
 					if (i == 0 || hashCode != lastHashCode) {
 						lastHashCode = hashCode;
 						if (i != 0)
-							codeStream.goto_(this.swich.defaultLabel);
+							codeStream.goto_(this.swich.defaultLabel.branchLabel);
 						this.caseLabels[j++].place();
 					}
 					codeStream.load(this.swich.selector);
@@ -982,7 +1091,7 @@ public class SwitchStatement extends Expression {
 					codeStream.invokeStringEquals();
 					codeStream.ifne(this.stringCaseConstants[i].label);
 				}
-				codeStream.goto_(this.swich.defaultLabel);
+				codeStream.goto_(this.swich.defaultLabel.branchLabel);
 			}
 		}
 

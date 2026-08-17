@@ -164,7 +164,7 @@ public class LineBreaksPreparator extends ASTVisitor {
 		for (int i = 0; i < enumConstants.size(); i++) {
 			EnumConstantDeclaration declaration = enumConstants.get(i);
 			if (declaration.getJavadoc() != null)
-				this.tm.firstTokenIn(declaration, TokenNameCOMMENT_JAVADOC).breakBefore();
+				this.tm.firstTokenIn(declaration.getJavadoc(), ANY).breakBefore();
 			if (declaration.getAnonymousClassDeclaration() != null && i < enumConstants.size() - 1)
 				this.tm.firstTokenAfter(declaration, TokenNameCOMMA).breakAfter();
 		}
@@ -433,10 +433,17 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	@Override
 	public boolean visit(SingleVariableDeclaration node) {
-		handleAnnotations(node.modifiers(),
-				node.getParent() instanceof EnhancedForStatement
-						? this.options.insert_new_line_after_annotation_on_local_variable
-						: this.options.insert_new_line_after_annotation_on_parameter);
+		boolean parameterConfigValue = false;
+		boolean shouldAddNewLine = isRecordOrMethodDecl(node);
+		if (node.getParent() instanceof RecordDeclaration) {
+			parameterConfigValue = this.options.insert_new_line_after_annotation_on_record_parameter;
+		} else if (node.getParent() instanceof EnhancedForStatement) {
+			parameterConfigValue = this.options.insert_new_line_after_annotation_on_local_variable;
+		} else {
+			parameterConfigValue = this.options.insert_new_line_after_annotation_on_parameter;
+		}
+		handleAnnotations(node.modifiers(), parameterConfigValue, shouldAddNewLine);
+
 		return true;
 	}
 
@@ -464,17 +471,34 @@ public class LineBreaksPreparator extends ASTVisitor {
 		return true;
 	}
 
+	private boolean isRecordOrMethodDecl(SingleVariableDeclaration node) {
+		if ( node.getParent() instanceof MethodDeclaration || node.getParent() instanceof RecordDeclaration) {
+			return true;
+		}
+		return false;
+	}
+
 	private void handleAnnotations(List<? extends IExtendedModifier> modifiers, boolean breakAfter) {
+		handleAnnotations(modifiers, breakAfter, false);
+	}
+
+	private void handleAnnotations(List<? extends IExtendedModifier> modifiers, boolean breakAfter, boolean shouldAddNewLines) {
 		Annotation last = null;
 		int i;
 		for (i = 0; i < modifiers.size(); i++) {
 			if (modifiers.get(i).isModifier())
 				break;
 			last = (Annotation) modifiers.get(i);
+			if ( last != null && breakAfter && shouldAddNewLines) {
+				breakLineBefore(last);
+				if (i == modifiers.size()-1) this.tm.lastTokenIn(last, ANY).breakAfter();
+			}
 		}
+
 		if (last != null && breakAfter) {
 			this.tm.lastTokenIn(last, ANY).breakAfter();
 		}
+
 
 		if (i < modifiers.size()) {
 			// any annotations following other modifiers will be associated with declaration type
@@ -577,12 +601,16 @@ public class LineBreaksPreparator extends ASTVisitor {
 	@Override
 	public boolean visit(TextBlock node) {
 		int indentOption = this.options.text_block_indentation;
-		if (indentOption == Alignment.M_INDENT_PRESERVE)
+		if (indentOption == Alignment.M_INDENT_PRESERVE && !this.options.put_text_block_quotes_on_new_line)
 			return true;
 		Token block = this.tm.firstTokenIn(node, TokenNameTextBlock);
-		ArrayList<Token> lines = new ArrayList<>();
-		lines.add(new Token(block.originalStart, block.originalStart + 2, TokenNameNotAToken)); // first line; """
 		int incidentalWhitespace = Integer.MAX_VALUE;
+		ArrayList<Token> lines = new ArrayList<>();
+		Token newLine = new Token(block.originalStart, block.originalStart + 2, TokenNameNotAToken); // first line; """
+		lines.add(newLine); // first line; """
+		if (this.options.put_text_block_quotes_on_new_line) {
+				breakLineBefore(node);
+		}
 		int blankLines = -1; // will go to 0 on line break after first line
 		int i = block.originalStart + 3;
 		while (i <= block.originalEnd) {
@@ -619,13 +647,37 @@ public class LineBreaksPreparator extends ASTVisitor {
 			Token line = new Token(t, t.originalStart + incidentalWhitespace, t.originalEnd, TokenNameTextBlock);
 			line.setWrapPolicy(wrapPolicy);
 			lines.set(i, line);
+			block.setInternalStructure(lines);
 		}
-		block.setInternalStructure(lines);
+		if (this.options.put_text_block_quotes_on_new_line) {
+			if (block instanceof TokenTextBlock && !checkSemicolonTextBlock(block)) {
+				breakLineAfter(node);
+			}
+		}
+
 		return true;
+	}
+
+	private boolean checkSemicolonTextBlock(Token token) {
+		boolean semicolonFound = false;
+		if (token instanceof TokenTextBlock) {
+			String source = this.tm.getSource();
+			for(int i=token.originalEnd+1; i < source.length(); i++) {
+				char curChar = source.charAt(i);
+				if (curChar == ' ' || curChar == '\t') continue;
+				if (curChar == ';') semicolonFound = true;
+				break;
+			}
+		}
+		return semicolonFound;
 	}
 
 	private void breakLineBefore(ASTNode node) {
 		this.tm.firstTokenIn(node, ANY).breakBefore();
+	}
+
+	private void breakLineAfter(ASTNode node) {
+		this.tm.firstTokenIn(node, ANY).breakAfter();
 	}
 
 	private void putBlankLinesBefore(ASTNode node, int linesCount) {

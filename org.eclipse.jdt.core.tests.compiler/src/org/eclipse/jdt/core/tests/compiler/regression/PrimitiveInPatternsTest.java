@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2024, 2025 IBM Corporation and others.
+ * Copyright (c) 2024, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,9 +12,12 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
+import java.io.IOException;
 import java.util.Map;
 import junit.framework.Test;
 import org.eclipse.jdt.core.tests.util.PreviewTest;
+import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
+import org.eclipse.jdt.core.util.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -22,19 +25,19 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 @PreviewTest
 public class PrimitiveInPatternsTest extends AbstractRegressionTest9 {
 
-	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 25");
+	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 26");
 	private static final String[] VMARGS = new String[] {"--enable-preview"};
 	static {
 //		TESTS_NUMBERS = new int [] { 1 };
 //		TESTS_RANGE = new int[] { 1, -1 };
-//		TESTS_NAMES = new String[] { "testIssue3536" };
+//		TESTS_NAMES = new String[] { "testDominanceIssue4979_00" };
 	}
 	private String extraLibPath;
 	public static Class<?> testClass() {
 		return PrimitiveInPatternsTest.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_25);
+		return buildMinimalComplianceTestSuite(testClass(), F_26);
 	}
 	public PrimitiveInPatternsTest(String testName) {
 		super(testName);
@@ -56,9 +59,9 @@ public class PrimitiveInPatternsTest extends AbstractRegressionTest9 {
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean preview) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_25);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_25);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_25);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_26);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_26);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_26);
 		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, preview ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
 		return defaultOptions;
@@ -7510,4 +7513,253 @@ public class PrimitiveInPatternsTest extends AbstractRegressionTest9 {
 			},
 			"1");
 	}
+
+	public void testSwitchPrimitiveboolean_01() throws IOException, ClassFormatException {
+		runConformTest(new String[] { "X.java",
+				"""
+				public class X {
+
+				    public static int primitiveSwitch(boolean b) {
+				    	return switch(b) {
+				    	case true -> 100;
+				    	case false -> 200;
+				    	};
+				    }
+
+				    public static void main(String[] args) {
+				        System.out.println(primitiveSwitch(true));
+				        System.out.println(primitiveSwitch(false));
+					}
+				}
+				"""
+			},
+			"100\n"+
+			"200");
+		String expectedOutput = "invokedynamic 1 typeSwitch(boolean, int)";
+		verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
+	}
+
+	public void testSwitchPrimitiveboolean_02() throws IOException, ClassFormatException {
+		runConformTest(new String[] { "X.java",
+				"""
+				public class X {
+					public static int primitiveSwitch(float f) {
+						return switch (f) {
+						case 1.0f -> 100;
+						//		case 0.999999999f -> 200;
+						default -> 300;
+						};
+					}
+
+					public static void main(String[] args) {
+						System.out.println(primitiveSwitch(1.0f));
+
+					}
+				}
+				"""
+			},
+			"100");
+		String expectedOutput =
+		"	Method arguments:\n" +
+		"		#50 1.0\n";
+		verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
+	}
+	public void testSwitchPrimitiveboolean_03() throws IOException, ClassFormatException {
+		runConformTest(new String[] { "X.java",
+				"""
+				public class X {
+					public static int primitiveSwitch(long l) {
+						return switch (l) {
+						case 10L -> 100;
+						default -> 300;
+						};
+					}
+
+					public static void main(String[] args) {
+						System.out.println(primitiveSwitch(10L));
+
+					}
+				}
+				"""
+			},
+			"100");
+		String expectedOutput =
+		"	Method arguments:\n" +
+		"		#31 10\n";
+		verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
+	}
+
+	public void testSwitchPrimitiveboolean_04() throws IOException, ClassFormatException {
+		runConformTest(new String[] { "X.java",
+				"""
+				public class X {
+					public static int primitiveSwitch(double d) {
+						return switch (d) {
+						case 10.0 -> 100;
+						default -> 300;
+						};
+					}
+
+					public static void main(String[] args) {
+						System.out.println(primitiveSwitch(10.0));
+
+					}
+				}
+				"""
+			},
+			"100");
+		String expectedOutput =
+		"	Method arguments:\n" +
+		"		#31 10.0\n";
+		verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
+	}
+	public void testDominanceIssue4979_001() {
+		runNegativeTest(new String[] {
+			"X.java",
+				"""
+				public class X {
+					public int foo(Character c) {
+						int result = 0;
+						switch (c) {
+							case Character c1 -> {
+								result = c1;
+								break;
+							}
+							case 0 -> {  // Same goes for case (int) 0
+								result = 0;
+								break;
+							}
+						}
+						return result;
+					}
+				}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 9)\n" +
+			"	case 0 -> {  // Same goes for case (int) 0\n" +
+			"	     ^\n" +
+			"This case label is dominated by one of the preceding case labels\n" +
+			"----------\n");
+	}
+
+	public void testDominanceIssue4979_002() {
+		runNegativeTest(new String[] {
+			"X.java",
+				"""
+				public class X {
+					public int foo1(Short c) {
+						int result = 0;
+						switch (c) {
+						  case Short c1 -> {
+							result = c1;
+							break;
+						  }
+						  case (byte) 0 -> {
+							result = 0;
+							break;
+						  }
+						}
+						return result;
+					}
+				}
+				"""
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 9)\n" +
+			"	case (byte) 0 -> {\n" +
+			"	     ^^^^^^^^\n" +
+			"This case label is dominated by one of the preceding case labels\n" +
+			"----------\n");
+	}
+	public void testDominanceIssue4979_003() {
+		runConformTest(new String[] {
+				"X.java",
+				"""
+				@SuppressWarnings("preview")
+				public class X {
+					public static void foo() {
+						int j = 1;
+						switch(j) {
+							case byte b ->
+								System.out.println("A byte");
+							default ->
+								System.out.println("An int that cannot be represented as a byte exactly");
+						}
+					}
+					public static void main(String[] args) {
+						foo();
+					}
+				}
+				"""
+			},
+				"A byte"
+			);
+	}
+	public void testDominanceIssue4979_004() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+				@SuppressWarnings("preview")
+				public class X {
+					public static void foo() {
+						int j = 1;
+						switch(j) {
+							case byte b ->
+								System.out.println("A byte");
+							case 2 -> // dominated
+								System.out.println("An int that can be represented as a byte exactly");
+							default ->
+								System.out.println("An int that cannot be represented as a byte exactly");
+						};
+					}
+					public static void main(String[] args) {
+						foo();
+					}
+				}
+				"""
+			},
+				"----------\n" +
+				"1. ERROR in X.java (at line 8)\n" +
+				"	case 2 -> // dominated\n" +
+				"	     ^\n" +
+				"This case label is dominated by one of the preceding case labels\n" +
+				"----------\n"
+			);
+	}
+	public void testDominanceIssue4979_005() {
+		runNegativeTest(new String[] {
+				"X.java",
+				"""
+				@SuppressWarnings("preview")
+				public class X {
+					static final byte Z = 0;
+
+					static int firstBulletOnly(int x) {
+					    return switch (x) {
+					        case short s -> s;
+					        case Z -> 999;      // Error - dominated
+					        default -> -1;
+					    };
+					}
+					public static void main(String[] args) {
+						Zork();
+					}
+				}
+				"""
+			},
+				"----------\n" +
+				"1. ERROR in X.java (at line 8)\n" +
+				"	case Z -> 999;      // Error - dominated\n" +
+				"	     ^\n" +
+				"This case label is dominated by one of the preceding case labels\n" +
+				"----------\n" +
+				"2. ERROR in X.java (at line 13)\n" +
+				"	Zork();\n" +
+				"	^^^^\n" +
+				"The method Zork() is undefined for the type X\n" +
+				"----------\n"
+			);
+	}
+
 }

@@ -348,17 +348,27 @@ public class NullAnnotationMatching {
 						okStatus = okNonNullStatus(providedExpression, localFlow || requiredBits == TagBits.AnnotationNonNull);
 				}
 				if (severity != Severity.MISMATCH && nullStatus != FlowInfo.NULL) {  // null value has no details
-					TypeBinding providedSuper = providedType.findSuperTypeOriginatingFrom(requiredType);
-					TypeBinding providedSubstituteSuper = providedSubstitute != null ? providedSubstitute.findSuperTypeOriginatingFrom(requiredType) : null;
-					if (severity == Severity.UNCHECKED && requiredType.isTypeVariable() && providedType.isTypeVariable() && (providedSuper == requiredType || providedSubstituteSuper == requiredType)) { //$IDENTITY-COMPARISON$
+					TypeBinding providedToCheck = providedType.findSuperTypeOriginatingFrom(requiredType);
+					TypeBinding providedSubstituteToCheck = providedSubstitute != null ? providedSubstitute.findSuperTypeOriginatingFrom(requiredType) : null;
+					if (severity == Severity.UNCHECKED && requiredType.isTypeVariable() && providedType.isTypeVariable() && (providedToCheck == requiredType || providedSubstituteToCheck == requiredType)) { //$IDENTITY-COMPARISON$
 						severity = Severity.OK;
 					}
-					if (providedSuper != providedType) //$IDENTITY-COMPARISON$
-						superTypeHint = providedSuper;
-					if (requiredType.isParameterizedType()  && providedSuper instanceof ParameterizedTypeBinding) { // TODO(stephan): handle providedType.isRaw()
-						TypeBinding[] requiredArguments = ((ParameterizedTypeBinding) requiredType).arguments;
-						TypeBinding[] providedArguments = ((ParameterizedTypeBinding) providedSuper).arguments;
-						TypeBinding[] providedSubstitutes = (providedSubstituteSuper instanceof ParameterizedTypeBinding) ? ((ParameterizedTypeBinding)providedSubstituteSuper).arguments : null;
+					if (providedToCheck != providedType) //$IDENTITY-COMPARISON$
+						superTypeHint = providedToCheck;
+					TypeBinding requiredToCheck = requiredType;
+					if (providedToCheck == null) { // when analyzing a cast expression, supertype search goes the opposite direction:
+						requiredToCheck = requiredType.findSuperTypeOriginatingFrom(providedType);
+						if (requiredToCheck != null) {
+							providedToCheck = providedType;
+							providedSubstituteToCheck = providedSubstitute;
+						} else {
+							requiredToCheck = requiredType;
+						}
+					}
+					if (requiredToCheck.isParameterizedType()  && providedToCheck instanceof ParameterizedTypeBinding) { // TODO(stephan): handle providedType.isRaw()
+						TypeBinding[] requiredArguments = ((ParameterizedTypeBinding) requiredToCheck).arguments;
+						TypeBinding[] providedArguments = ((ParameterizedTypeBinding) providedToCheck).arguments;
+						TypeBinding[] providedSubstitutes = (providedSubstituteToCheck instanceof ParameterizedTypeBinding) ? ((ParameterizedTypeBinding)providedSubstituteToCheck).arguments : null;
 						if (requiredArguments != null && providedArguments != null && requiredArguments.length == providedArguments.length) {
 							for (int i = 0; i < requiredArguments.length; i++) {
 								TypeBinding providedArgSubstitute = providedSubstitutes != null ? providedSubstitutes[i] : null;
@@ -768,6 +778,7 @@ public class NullAnnotationMatching {
 	}
 
 	public static TypeBinding strongerType(TypeBinding type1, TypeBinding type2, LookupEnvironment environment) {
+		if (!TypeBinding.equalsEquals(type1, type2)) return type1; // don't change the unannotated type
 		if ((type1.tagBits & TagBits.AnnotationNonNull) != 0)
 			return mergeTypeAnnotations(type1, type2, true, environment);
 		return mergeTypeAnnotations(type2, type1, true, environment); // don't bother to distinguish unannotated vs. @Nullable, since both can accept null
@@ -840,5 +851,21 @@ public class NullAnnotationMatching {
 		buf.append("Analysis result: severity="+this.severity); //$NON-NLS-1$
 		buf.append(" nullStatus="+this.nullStatus); //$NON-NLS-1$
 		return buf.toString();
+	}
+	public static MethodBinding methodWithMergedNullAnnotations(MethodBinding current, MethodBinding[] moreSpecific, int count, LookupEnvironment environment) {
+		if (count < 2)
+			return current;
+		TypeBinding[] parameters = weakerTypes(moreSpecific[0].parameters, moreSpecific[1].parameters, environment);
+		TypeBinding returnType = strongerType(moreSpecific[0].returnType, moreSpecific[1].returnType, environment);
+		for (int i = 2; i < count; i++) {
+			parameters = weakerTypes(parameters, moreSpecific[i].parameters, environment);
+			returnType = strongerType(returnType, moreSpecific[i].returnType, environment);
+		}
+		if (parameters != current.parameters || returnType != current.returnType) { //$IDENTITY-COMPARISON$
+			current = current.copy();
+			current.parameters = parameters;
+			current.returnType = returnType;
+		}
+		return current;
 	}
 }

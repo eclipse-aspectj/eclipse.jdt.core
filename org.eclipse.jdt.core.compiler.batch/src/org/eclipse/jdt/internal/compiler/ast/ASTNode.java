@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -62,7 +62,7 @@ import org.eclipse.jdt.internal.compiler.env.IBinaryAnnotation;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public abstract class ASTNode implements TypeConstants, TypeIds {
+public abstract class ASTNode implements Location, TypeConstants, TypeIds {
 
 	public int sourceStart, sourceEnd;
 
@@ -354,6 +354,12 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			scope.problemReporter().unsafeTypeConversion(argument, argumentType, checkedParameterType);
 			return INVOCATION_ARGUMENT_UNCHECKED;
 		}
+		if (argument instanceof ReferenceExpression rExpression && rExpression.binding != null) {
+			TypeBinding returnType = rExpression.binding.returnType;
+			if (returnType.needsUncheckedConversion(rExpression.descriptor.returnType)) {
+    			return INVOCATION_ARGUMENT_UNCHECKED;
+			}
+		}
 		return INVOCATION_ARGUMENT_OK;
 	}
 	public static boolean checkInvocationArguments(BlockScope scope, Expression receiver, TypeBinding receiverType, MethodBinding method, Expression[] arguments, TypeBinding[] argumentTypes, boolean argsContainCast, InvocationSite invocationSite) {
@@ -492,13 +498,16 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			}
 		}
 
-		if (!field.isViewedAsDeprecated()) return false;
+		if (!field.isDeprecated()) return false;
 
-		// inside same unit - no report
-		if (scope.isDefinedInSameUnit(field.declaringClass)) return false;
+		// inside same outermost enclosing type - no report
+		if (scope.isDefinedInSameEnclosingType(field.declaringClass.outermostEnclosingType())) return false;
 
-		// if context is deprecated, may avoid reporting
-		if (!scope.compilerOptions().reportDeprecationInsideDeprecatedCode && scope.isInsideDeprecatedCode()) return false;
+		// if context is deprecated, may avoid reporting ordinary deprecation
+		if ((field.tagBits & TagBits.AnnotationTerminallyDeprecated) == 0
+				&& !scope.compilerOptions().reportDeprecationInsideDeprecatedCode
+				&& scope.isInsideDeprecatedCode())
+			return false;
 		return true;
 	}
 
@@ -542,19 +551,16 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			}
 		}
 
-		if (!method.isViewedAsDeprecated()) return false;
+		if (!method.isDeprecated()) return false;
 
-		// inside same unit - no report
-		if (scope.isDefinedInSameUnit(method.declaringClass)) return false;
+		// inside same outermost enclosing type - no report
+		if (scope.isDefinedInSameEnclosingType(method.declaringClass.outermostEnclosingType())) return false;
 
-		// non explicit use and non explicitly deprecated - no report
-		if (!isExplicitUse &&
-				(method.modifiers & ClassFileConstants.AccDeprecated) == 0) {
+		// if context is deprecated, may avoid reporting ordinary deprecation
+		if ((method.tagBits & TagBits.AnnotationTerminallyDeprecated) == 0
+				&& !scope.compilerOptions().reportDeprecationInsideDeprecatedCode
+				&& scope.isInsideDeprecatedCode())
 			return false;
-		}
-
-		// if context is deprecated, may avoid reporting
-		if (!scope.compilerOptions().reportDeprecationInsideDeprecatedCode && scope.isInsideDeprecatedCode()) return false;
 		return true;
 	}
 
@@ -599,7 +605,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			// ignore cases where type is used from inside itself
 			((ReferenceBinding)refType.erasure()).modifiers |= ExtraCompilerModifiers.AccLocallyUsed;
 		}
-		if (type instanceof BinaryTypeBinding btb) {
+		if (type.actualType() instanceof BinaryTypeBinding btb) {
 			reportPreviewAPI(scope, btb.binaryPreviewAnnotation);
 		}
 		if (refType.hasRestrictedAccess()) {
@@ -615,13 +621,16 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		// force annotations resolution before deciding whether the type may be deprecated
 		refType.initializeDeprecatedAnnotationTagBits();
 
-		if (!refType.isViewedAsDeprecated()) return false;
+		if (!refType.isDeprecated()) return false;
 
-		// inside same unit - no report
-		if (scope.isDefinedInSameUnit(refType)) return false;
+		// inside same outermost enclosing type - no report
+		if (scope.isDefinedInSameEnclosingType(refType.outermostEnclosingType())) return false;
 
-		// if context is deprecated, may avoid reporting
-		if (!scope.compilerOptions().reportDeprecationInsideDeprecatedCode && scope.isInsideDeprecatedCode()) return false;
+		// if context is deprecated, may avoid reporting ordinary deprecation
+		if ((type.tagBits & TagBits.AnnotationTerminallyDeprecated) == 0
+				&& !scope.compilerOptions().reportDeprecationInsideDeprecatedCode
+				&& scope.isInsideDeprecatedCode())
+			return false;
 		return true;
 	}
 
@@ -1385,11 +1394,12 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	public void acceptPotentiallyCompatibleMethods(MethodBinding [] methods) {
 		// Discard. Interested subclasses should override and grab these goodies.
 	}
-	// --- "default methods" for InvocationSite
 
+	@Override
 	public int sourceStart() {
 		return this.sourceStart;
 	}
+	@Override
 	public int sourceEnd() {
 		return this.sourceEnd;
 	}

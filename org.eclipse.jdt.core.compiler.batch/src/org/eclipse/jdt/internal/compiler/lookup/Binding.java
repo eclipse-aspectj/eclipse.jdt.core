@@ -67,11 +67,13 @@ public abstract class Binding {
 	public static final ReferenceBinding[] NO_MEMBER_TYPES = new ReferenceBinding[0];
 	public static final TypeVariableBinding[] NO_TYPE_VARIABLES = new TypeVariableBinding[0];
 	public static final AnnotationBinding[] NO_ANNOTATIONS = new AnnotationBinding[0];
+	public static final AnnotationBinding[] AWAITED_ANNOTATIONS = new AnnotationBinding[0];
 	public static final ElementValuePair[] NO_ELEMENT_VALUE_PAIRS = new ElementValuePair[0];
 	public static final char[][] NO_PARAMETER_NAMES = new char[0][];
 	public static final RecordComponentBinding[] NO_COMPONENTS = new RecordComponentBinding[0];
 	public static final FieldBinding[] UNINITIALIZED_FIELDS = new FieldBinding[0];
 	public static final MethodBinding[] UNINITIALIZED_METHODS = new MethodBinding[0];
+	public static final RecordComponentBinding[] UNINITIALIZED_COMPONENTS = new RecordComponentBinding[0];
 	public static final ReferenceBinding[] UNINITIALIZED_REFERENCE_TYPES = new ReferenceBinding[0];
 
 	static final InferenceVariable[] NO_INFERENCE_VARIABLES = new InferenceVariable[0];

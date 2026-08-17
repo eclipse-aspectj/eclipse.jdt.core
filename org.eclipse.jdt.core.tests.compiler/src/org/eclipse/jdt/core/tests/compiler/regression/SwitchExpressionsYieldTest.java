@@ -5769,7 +5769,7 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 5)\n" +
 				"	case AAABBB -> 1;\n" +
 				"	                ^\n" +
-				"Syntax error on token \";\", [ expected\n" +
+				"Syntax error on token \";\", , expected\n" +
 				"----------\n" +
 				"2. ERROR in X.java (at line 6)\n" +
 				"	(I)()->();\n" +
@@ -5782,11 +5782,6 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"Syntax error, insert \")\" to complete Expression\n" +
 				"----------\n" +
 				"4. ERROR in X.java (at line 6)\n" +
-				"	(I)()->();\n" +
-				"	        ^\n" +
-				"Syntax error, insert \"]\" to complete ArrayAccess\n" +
-				"----------\n" +
-				"5. ERROR in X.java (at line 6)\n" +
 				"	(I)()->();\n" +
 				"	        ^\n" +
 				"Syntax error, insert \":\" to complete SwitchLabel\n" +
@@ -6141,20 +6136,9 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				"----------\n" +
 				"1. ERROR in X.java (at line 5)\n" +
 				"	new ArrayList<>().stream().filter(p -> p != null)\n" +
-				"	                                            ^^^^^\n" +
-				"Syntax error on tokens, delete these tokens\n" +
-				"----------\n" +
-				"2. ERROR in X.java (at line 8)\n" +
-				"	}\n" +
-				"	^\n" +
-				"Syntax error, insert \")\" to complete Expression\n" +
-				"----------\n" +
-				"3. ERROR in X.java (at line 8)\n" +
-				"	}\n" +
-				"	^\n" +
+				"	                                                ^\n" +
 				"Syntax error, insert \";\" to complete BlockStatements\n" +
-				"----------\n"
-				);
+				"----------\n");
 	}
 	public void testBug571833_01() {
 		runConformTest(
@@ -8620,4 +8604,71 @@ public class SwitchExpressionsYieldTest extends AbstractRegressionTest {
 				},
 				"");
 	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5201
+	// VerifyError: Instruction type does not match stack map with for loop in switch
+	public void testIssue5201() {
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						public class X {
+							public static void main(String[] args) {
+								System.out.println(10 + switch ("B") {
+								default -> {
+									for (int i = 0; i < 10; i++)
+										System.out.println(i);
+									yield "A";
+								}
+								case "B" -> "B";
+								});
+							}
+						}
+						"""
+				},
+				"10B");
+	}
+
+	// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5201
+	// VerifyError: Instruction type does not match stack map with for loop in switch
+	public void testIssue5201_full() {
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"""
+						import java.util.Collection;
+						import java.util.Set;
+
+						public class X {
+
+							public static class Dummy {
+
+							}
+
+							public static class ExtendedDummy extends Dummy {
+
+							}
+
+							public static void main(String[] args) {
+								test(ExtendedDummy.class, switch ("B") {
+								case "A" -> {
+									for (int i = 0; i < 10; i++)
+										System.out.println(i);
+
+									yield Set.of("NoopA");
+								}
+								case "B" -> Set.of("NoopB");
+								default -> throw new IllegalArgumentException();
+								});
+							}
+
+							public static <T extends Dummy> void test(Class<T> cls, Collection<String> entities) {
+								entities.forEach(e -> System.out.println(e));
+							}
+						}
+						"""
+				},
+				"NoopB");
+	}
+
 }

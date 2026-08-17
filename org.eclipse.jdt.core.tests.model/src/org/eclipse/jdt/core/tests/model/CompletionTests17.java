@@ -13,6 +13,7 @@
 package org.eclipse.jdt.core.tests.model;
 
 import junit.framework.Test;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
@@ -25,7 +26,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 	private static int unqualified_Rel = R_DEFAULT+R_RESOLVED+ R_CASE+ R_INTERESTING +R_UNQUALIFIED+R_NON_RESTRICTED;
 	private static int unqualifiedExact_Rel = R_DEFAULT+R_RESOLVED+R_EXACT_EXPECTED_TYPE+ R_CASE+ R_INTERESTING +R_UNQUALIFIED+R_NON_RESTRICTED;
 	static {
-		 // TESTS_NAMES = new String[]{"test034"};
+//		  TESTS_NAMES = new String[]{"testGH4525_2"};
 	}
 
 	public CompletionTests17(String name) {
@@ -78,7 +79,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), "+void_Rel+"}\n"
 				+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+nonVoid_Rel+"}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+nonVoid_Rel+"}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+nonVoid_Rel+"}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+nonVoid_Rel+"}\n"
 				+ "codePointAt[METHOD_REF]{codePointAt(), Ljava.lang.String;, (I)I, codePointAt, (index), "+expected_Rel+"}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+expected_Rel+"}\n"
 				+ "length[METHOD_REF]{length(), Ljava.lang.String;, ()I, length, null, "+expected_Rel+"}\n"
@@ -244,7 +245,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "codePointAt[METHOD_REF]{codePointAt(), Ljava.lang.String;, (I)I, codePointAt, (index), "+nonVoid_Rel+"}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+nonVoid_Rel+"}\n"
 				+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+nonVoid_Rel+"}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+nonVoid_Rel+"}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+nonVoid_Rel+"}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+nonVoid_Rel+"}\n"
 				+ "length[METHOD_REF]{length(), Ljava.lang.String;, ()I, length, null, "+nonVoid_Rel+"}\n"
 				+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, "+nonVoid_Rel+"}\n"
@@ -318,7 +319,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 		assertResults("clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+nonVoid_Rel+"}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+nonVoid_Rel+"}\n"
 				+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+nonVoid_Rel+"}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+nonVoid_Rel+"}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+nonVoid_Rel+"}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+nonVoid_Rel+"}\n"
 				+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, "+nonVoid_Rel+"}\n"
 				+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, "+nonVoid_Rel+"}\n"
@@ -362,7 +363,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), "+void_Rel+"}\n"
 				+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+nonVoid_Rel+"}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+nonVoid_Rel+"}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+nonVoid_Rel+"}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+nonVoid_Rel+"}\n"
 				+ "codePointAt[METHOD_REF]{codePointAt(), Ljava.lang.String;, (I)I, codePointAt, (index), "+expected_Rel+"}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+expected_Rel+"}\n"
 				+ "length[METHOD_REF]{length(), Ljava.lang.String;, ()I, length, null, "+expected_Rel+"}\n"
@@ -400,7 +401,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "codePointAt[METHOD_REF]{codePointAt(), Ljava.lang.String;, (I)I, codePointAt, (index), "+nonVoid_Rel+"}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+nonVoid_Rel+"}\n"
 				+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+nonVoid_Rel+"}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, "+nonVoid_Rel+"}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, "+nonVoid_Rel+"}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+nonVoid_Rel+"}\n"
 				+ "length[METHOD_REF]{length(), Ljava.lang.String;, ()I, length, null, "+nonVoid_Rel+"}\n"
 				+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, "+nonVoid_Rel+"}\n"
@@ -580,7 +581,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "codePointAt[METHOD_REF]{codePointAt(), Ljava.lang.String;, (I)I, codePointAt, (index), 60}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 60}\n"
 				+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 60}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, 60}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 60}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 60}\n"
 				+ "length[METHOD_REF]{length(), Ljava.lang.String;, ()I, length, null, 60}\n"
 				+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 60}\n"
@@ -617,7 +618,7 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 				+ "clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, 60}\n"
 				+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 60}\n"
 				+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, 60}\n"
-				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<+Ljava.lang.Object;>;, getClass, null, 60}\n"
+				+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class<*>;, getClass, null, 60}\n"
 				+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 60}\n"
 				+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, 60}\n"
 				+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 60}\n"
@@ -649,5 +650,102 @@ public class CompletionTests17 extends AbstractJavaModelCompletionTests {
 		assertResults("other[LOCAL_VARIABLE_REF]{other, null, LX;, other, null, 52}",
 				requestor.getResults());
 		}
-
+	public void testGH4623() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/Foo.java",
+				"""
+				public @interface Foo {
+						String[] groups() default {};
+						Str
+					}
+				""");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "Str";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		assertResults("strictfp[KEYWORD]{strictfp, null, null, strictfp, null, 39}\n"
+				+ "String[TYPE_REF]{String, java.lang, Ljava.lang.String;, null, null, 54}",
+				requestor.getResults());
+	}
+	public void testGH4525_1() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				public class X {
+					public static void main(String[] args) {
+						List<> result= new ArrayList<>();
+					}
+				}
+				public interface Collection<E>{}
+				interface List<T> {}
+				class ArrayList<T> implements List<T> {
+					public ArrayList() {}
+					public ArrayList(Collection<? extends E> c) {}
+				}
+				""");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "ArrayList";
+		int cursorLocation = str.indexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, new NullProgressMonitor());
+		assertResults("ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList;, ()V, ArrayList, null, 56}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList;, (I)V, ArrayList, (initialCapacity), 56}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList;, (Ljava.util.Collection<+TT;>;)V, ArrayList, (c), 56}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, LArrayList<TT;>;, ()V, ArrayList, null, 79}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, LArrayList<TT;>;, (LCollection<+LE;>;)V, ArrayList, (c), 79}",
+				requestor.getResults());
+	}
+	public void testGH4525_2() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				import java.util.List;
+				import java.util.ArrayList;
+				public class X {
+					public static void main(String[] args) {
+						List<> result= new ArrayList<>();
+					}
+				}
+				""");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "ArrayList";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, new NullProgressMonitor());
+		assertResults("ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList<TT;>;, ()V, ArrayList, null, 84}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList<TT;>;, (I)V, ArrayList, (initialCapacity), 84}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{, Ljava.util.ArrayList<TT;>;, (Ljava.util.Collection<+TT;>;)V, ArrayList, (c), 84}",
+				requestor.getResults());
+	}
+	public void testGH4525_3() throws JavaModelException {
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/Completion/src/X.java",
+				"""
+				import java.util.List;
+				import java.util.ArrayList;
+				public class X {
+					public static void main(String[] args) {
+						List<> result= new ArrayList;
+					}
+				}
+				""");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.allowAllRequiredProposals();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "ArrayList";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, new NullProgressMonitor());
+		assertResults("ArrayList[CONSTRUCTOR_INVOCATION]{(), Ljava.util.ArrayList<TT;>;, ()V, ArrayList, null, 84}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{(), Ljava.util.ArrayList<TT;>;, (I)V, ArrayList, (initialCapacity), 84}\n"
+				+ "ArrayList[CONSTRUCTOR_INVOCATION]{(), Ljava.util.ArrayList<TT;>;, (Ljava.util.Collection<+TT;>;)V, ArrayList, (c), 84}",
+				requestor.getResults());
+	}
 }

@@ -131,7 +131,6 @@ public class SourceTypeBinding extends ReferenceBinding {
 	private Set<SourceTypeBinding> nestMembers;
 
 	public boolean isImplicit = false;
-	public boolean supertypeAnnotationsUpdated = false; // have any supertype annotations been updated during CompleteTypeBindingsSteps.INTEGRATE_ANNOTATIONS_IN_HIERARCHY?
 
 public SourceTypeBinding(char[][] compoundName, PackageBinding fPackage, ClassScope scope) {
 	this.compoundName = compoundName;
@@ -145,6 +144,7 @@ public SourceTypeBinding(char[][] compoundName, PackageBinding fPackage, ClassSc
 	// expect the fields & methods to be initialized correctly later
 	this.fields = Binding.UNINITIALIZED_FIELDS;
 	this.methods = Binding.UNINITIALIZED_METHODS;
+	this.components = this.isRecord() ? Binding.UNINITIALIZED_COMPONENTS : NO_COMPONENTS;
 	this.prototype = this;
 	this.isImplicit = scope.referenceContext.isImplicitType();
 	computeId();
@@ -162,6 +162,7 @@ public SourceTypeBinding(SourceTypeBinding prototype) {
 	this.permittedTypes = prototype.permittedTypes;
 	this.fields = prototype.fields;
 	this.methods = prototype.methods;
+	this.components = prototype.components;
 	this.memberTypes = prototype.memberTypes;
 	this.typeVariables = prototype.typeVariables;
 	this.environment = prototype.environment;
@@ -797,6 +798,11 @@ public SyntheticMethodBinding addSyntheticRecordOverrideMethod(char[] selector) 
 	}
 	return accessMethod;
 }
+boolean areComponentsInitialized() {
+	if (!isPrototype())
+		return this.prototype.areComponentsInitialized();
+	return this.components != Binding.UNINITIALIZED_COMPONENTS;
+}
 boolean areFieldsInitialized() {
 	if (!isPrototype())
 		return this.prototype.areFieldsInitialized();
@@ -866,12 +872,6 @@ public char[] computeUniqueKey(boolean isLeaf) {
 private void checkAnnotationsInType() {
 	// check @Deprecated annotation
 	getAnnotationTagBits(); // marks as deprecated by side effect
-	ReferenceBinding enclosingType = enclosingType();
-	if (enclosingType != null && enclosingType.isViewedAsDeprecated() && !isDeprecated()) {
-		this.modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-		this.tagBits |= (enclosingType.tagBits & TagBits.AnnotationTerminallyDeprecated);
-	}
-
 	for (ReferenceBinding memberType : this.memberTypes)
 		((SourceTypeBinding) memberType).checkAnnotationsInType();
 }
@@ -958,7 +958,21 @@ public RecordComponentBinding[] components() {
 	if (!isPrototype()) {
 		return this.components = this.prototype.components();
 	}
-	return this.components;
+	if ((this.tagBits & TagBits.HasUnresolvedComponents) == 0)
+		return this.components;
+
+	int length = this.components.length;
+	int count = 0;
+	RecordComponentBinding[] rcbs = length == 0 ? Binding.NO_COMPONENTS : new RecordComponentBinding[length];
+	for (int i = 0; i < length; i++) {
+		if (resolveTypeFor(this.components[i]) != null) {
+			rcbs[count++] = this.components[i];
+		}
+	}
+	if (count != rcbs.length) // remove duplicate or broken components
+		System.arraycopy(rcbs, 0, rcbs = count == 0 ? Binding.NO_COMPONENTS : new RecordComponentBinding[count], 0, count);
+	this.tagBits &= ~TagBits.HasUnresolvedComponents;
+	return setComponents(rcbs);
 }
 
 private VariableBinding resolveTypeFor(VariableBinding variable) {
@@ -967,7 +981,7 @@ private VariableBinding resolveTypeFor(VariableBinding variable) {
 		return this.prototype.resolveTypeFor(variable);
 
 	if ((variable.modifiers & ExtraCompilerModifiers.AccUnresolved) == 0)
-		return variable;
+		return variable.type == null ? null : variable; // don't allow a prior resolution error to be masked.
 
 	MethodScope initializationScope = variable.isStatic()
 		? this.scope.referenceContext.staticInitializerScope
@@ -1008,10 +1022,6 @@ private VariableBinding resolveTypeFor(VariableBinding variable) {
 
 		if ((variable.getAnnotationTagBits() & TagBits.AnnotationDeprecated) != 0)
 			variable.modifiers |= ClassFileConstants.AccDeprecated;
-		if (isViewedAsDeprecated() && !variable.isDeprecated()) {
-			variable.modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-			variable.tagBits |= this.tagBits & TagBits.AnnotationTerminallyDeprecated;
-		}
 		if (hasRestrictedAccess())
 			variable.modifiers |= ExtraCompilerModifiers.AccRestrictedAccess;
 
@@ -1095,6 +1105,9 @@ public FieldBinding[] fields() {
 
 	if ((this.tagBits & TagBits.AreFieldsComplete) != 0)
 		return this.fields;
+
+	if ((this.tagBits & TagBits.HasUnresolvedComponents) != 0)
+		components();
 
 	int failed = 0;
 	FieldBinding[] resolvedFields = this.fields;
@@ -1220,12 +1233,12 @@ public long getAnnotationTagBits() {
 
 	if (!ExtendedTagBits.areAllAnnotationsResolved(this.extendedTagBits) && this.scope != null) {
 		TypeDeclaration typeDecl = this.scope.referenceContext;
-		boolean old = typeDecl.staticInitializerScope.insideTypeAnnotation;
+		boolean old = typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations;
 		try {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = true;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = true;
 			ASTNode.resolveAnnotations(typeDecl.staticInitializerScope, typeDecl.annotations, this);
 		} finally {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = old;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = old;
 		}
 		if ((this.tagBits & TagBits.AnnotationDeprecated) != 0)
 			this.modifiers |= ClassFileConstants.AccDeprecated;
@@ -1239,13 +1252,13 @@ void initializeNullDefaultAnnotation() {
 	}
 	if ((this.extendedTagBits & ExtendedTagBits.NullDefaultAnnotationResolved) == 0 && this.scope != null) {
 		TypeDeclaration typeDecl = this.scope.referenceContext;
-		boolean old = typeDecl.staticInitializerScope.insideTypeAnnotation;
+		boolean old = typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations;
 		try {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = true;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = true;
 			ASTNode.resolveNullDefaultAnnotations(typeDecl.staticInitializerScope, typeDecl.annotations, this);
 			evaluateNullAnnotations();
 		} finally {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = old;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = old;
 		}
 	}
 }
@@ -1454,6 +1467,9 @@ public FieldBinding getFieldBase(char[] fieldName, boolean needResolve) {
 	if ((this.tagBits & TagBits.AreFieldsComplete) != 0)
 		return ReferenceBinding.binarySearch(fieldName, this.fields);
 
+	if (needResolve && (this.tagBits & TagBits.HasUnresolvedComponents) != 0)
+		components();
+
 	// lazily sort fields
 	if ((this.tagBits & TagBits.AreFieldsSorted) == 0) {
 		int length = this.fields.length;
@@ -1639,13 +1655,13 @@ public void initializeDeprecatedAnnotationTagBits() {
 	}
 	if ((this.extendedTagBits & ExtendedTagBits.DeprecatedAnnotationResolved) == 0) {
 		TypeDeclaration typeDecl = this.scope.referenceContext;
-		boolean old = typeDecl.staticInitializerScope.insideTypeAnnotation;
+		boolean old = typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations;
 		try {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = true;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = true;
 			ASTNode.resolveDeprecatedAnnotations(typeDecl.staticInitializerScope, typeDecl.annotations, this);
 			this.extendedTagBits |= ExtendedTagBits.DeprecatedAnnotationResolved;
 		} finally {
-			typeDecl.staticInitializerScope.insideTypeAnnotation = old;
+			typeDecl.staticInitializerScope.insideTypeDeclarationAnnotations = old;
 		}
 		if ((this.tagBits & TagBits.AnnotationDeprecated) != 0) {
 			this.modifiers |= ClassFileConstants.AccDeprecated;
@@ -1665,7 +1681,7 @@ void initializeForStaticImports() {
 
 	if (this.superInterfaces == null)
 		this.scope.connectTypeHierarchy();
-	this.scope.collateRecordComponents();
+	this.scope.buildComponents();
 	this.scope.buildFields();
 	this.scope.buildMethods();
 }
@@ -1821,6 +1837,9 @@ public MethodBinding[] methodsBase() {  // AspectJ Extension - added Base suffix
 	if (!areMethodsInitialized()) { // https://bugs.eclipse.org/384663
 		this.scope.buildMethods();
 	}
+
+	if ((this.tagBits & TagBits.HasUnresolvedComponents) != 0)
+		components();
 
 	// lazily sort methods
 	if ((this.tagBits & TagBits.AreMethodsSorted) == 0) {
@@ -2090,26 +2109,25 @@ private MethodBinding resolveTypesWithSuspendedTempErrorHandlingPolicy(MethodBin
 
 	final long sourceLevel = this.scope.compilerOptions().sourceLevel;
 	ReferenceBinding object = this.scope.getJavaLangObject();
+	AbstractMethodDeclaration methodDecl = method.sourceMethod();
+
+	if (methodDecl != null) methodDecl.ensureScopeSetup(); // AspectJ Extension - with Java26 have moved this up to here before typeparameters is accessed
+
+	TypeParameter[] typeParameters = methodDecl != null ? methodDecl.typeParameters() : null;
 	TypeVariableBinding[] tvb = method.typeVariables;
+	this.scope.preprocessTypeVariables(tvb, typeParameters);
 	for (int i = 0; i < tvb.length; i++)
 		tvb[i].superclass = object;		// avoid null (see https://bugs.eclipse.org/426048)
 
 	if ((method.getAnnotationTagBits() & TagBits.AnnotationDeprecated) != 0)
 		method.modifiers |= ClassFileConstants.AccDeprecated;
-	if (isViewedAsDeprecated() && !method.isDeprecated()) {
-		method.modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-		method.tagBits |= this.tagBits & TagBits.AnnotationTerminallyDeprecated;
-	}
 	if (hasRestrictedAccess())
 		method.modifiers |= ExtraCompilerModifiers.AccRestrictedAccess;
 
-	AbstractMethodDeclaration methodDecl = method.sourceMethod();
+
 	if (methodDecl == null) return null; // method could not be resolved in previous iteration
 
 
-    methodDecl.ensureScopeSetup(); // AspectJ extension
-
-	TypeParameter[] typeParameters = methodDecl.typeParameters();
 	if (typeParameters != null) {
 		methodDecl.scope.connectTypeVariables(typeParameters, true);
 		// Perform deferred bound checks for type variables (only done after type variable hierarchy is connected)
@@ -2446,24 +2464,6 @@ public void evaluateNullAnnotations() {
 		if (!isInDefaultPkg)
 			pkg.setDefaultNullness(NULL_UNSPECIFIED_BY_DEFAULT);
 	}
-	maybeMarkTypeParametersNonNull();
-}
-
-private void maybeMarkTypeParametersNonNull() {
-	if (this.typeVariables != null && this.typeVariables.length > 0) {
-		// when creating type variables we didn't yet have the defaultNullness, fill it in now:
-		if (this.scope == null || !this.scope.hasDefaultNullnessFor(DefaultLocationTypeParameter, this.sourceStart()))
-			return;
-		AnnotationBinding[] annots = new AnnotationBinding[]{ this.environment.getNonNullAnnotation() };
-		for (int i = 0; i < this.typeVariables.length; i++) {
-			TypeVariableBinding tvb = this.typeVariables[i];
-			TypeParameter typeParameter = this.scope.referenceContext.typeParameters[i];
-			if (typeParameter.annotations != null && (tvb.extendedTagBits & ExtendedTagBits.AnnotationResolved) == 0)
-				continue; // not yet ready
-			if ((tvb.tagBits & TagBits.AnnotationNullMASK) == 0)
-				this.typeVariables[i] = (TypeVariableBinding) this.environment.createAnnotatedType(tvb, annots);
-		}
-	}
 }
 
 @Override
@@ -2554,7 +2554,7 @@ public RecordComponentBinding[] setComponents(RecordComponentBinding[] component
 
 	for (RecordComponentBinding component : components) {
 		for (FieldBinding field : this.fields) {
-			if (CharOperation.equals(field.name, component.name) && field.type == null) { // field got built before record component resolution
+			if (CharOperation.equals(field.name, component.name)) { // field got built before record component resolution
 				field.type = component.type;
 				field.modifiers |= component.modifiers & ExtraCompilerModifiers.AccGenericSignature;
 				field.tagBits |= component.tagBits & (TagBits.AnnotationNullMASK | TagBits.AnnotationOwningMASK);
@@ -3019,7 +3019,7 @@ public boolean isNestmateOf(SourceTypeBinding other) {
 @Override
 public MethodBinding getRecordComponentAccessor(char[] name) {
 	if (this.isRecord()) {
-		for (MethodBinding m : this.methods) {
+		for (MethodBinding m : this.methods()) {
 			if (CharOperation.equals(m.selector, name)) {
 				if (m.parameters == null || m.parameters.length == 0)
 					return m;

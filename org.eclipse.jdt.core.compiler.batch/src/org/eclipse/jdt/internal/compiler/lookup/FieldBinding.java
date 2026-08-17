@@ -83,6 +83,13 @@ public boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invocationSi
 	if (isPublic()) return true;
 
 	SourceTypeBinding invocationType = scope.invocationType(); // AspectJ Extension, was enclosingSourceType()
+	if (isPrivate()) {
+		// JLS 6.6-5: A private class member or constructor is accessible only within the body of the top level
+		// class (§7.6) that encloses the declaration of the member or constructor => we should forbid access from top level class `header`.
+		ClassScope topLevelScope = scope.outerMostClassScope();
+		if (topLevelScope != null && topLevelScope.referenceContext.staticInitializerScope.insideTypeDeclarationAnnotations)
+			return false;
+	}
 	if (TypeBinding.equalsEquals(invocationType, this.declaringClass) && TypeBinding.equalsEquals(invocationType, receiverType)) return true;
 
 	if (invocationType == null) // static import call
@@ -218,12 +225,18 @@ public Constant constant() {
 					TypeDeclaration typeDecl = sourceType.scope.referenceContext;
 					FieldDeclaration fieldDecl = typeDecl.declarationOf(originalField);
 					MethodScope initScope = originalField.isStatic() ? typeDecl.staticInitializerScope : typeDecl.initializerScope;
-					boolean old = initScope.insideTypeAnnotation;
+					ClassScope topLevelScope = initScope.outerMostClassScope();
+					boolean oldInsideTypeDeclarationAnnotations = initScope.insideTypeDeclarationAnnotations;
+					boolean oldInsideTopLevelTypeDeclarationAnnotations = topLevelScope != null ? topLevelScope.referenceContext.staticInitializerScope.insideTypeDeclarationAnnotations : false;
 					try {
-						initScope.insideTypeAnnotation = false;
+						initScope.insideTypeDeclarationAnnotations = false;
+						if (topLevelScope != null)
+							topLevelScope.referenceContext.staticInitializerScope.insideTypeDeclarationAnnotations = false;
 						fieldDecl.resolve(initScope); //side effect on binding
 					} finally {
-						initScope.insideTypeAnnotation = old;
+						initScope.insideTypeDeclarationAnnotations = oldInsideTypeDeclarationAnnotations;
+						if (topLevelScope != null)
+							topLevelScope.referenceContext.staticInitializerScope.insideTypeDeclarationAnnotations = oldInsideTopLevelTypeDeclarationAnnotations;
 					}
 					fieldConstant = originalField.constant == null ? Constant.NotAConstant : originalField.constant;
 				} else {
@@ -369,12 +382,6 @@ public final boolean isUsedOnlyInCompound() {
 	return (this.modifiers & ExtraCompilerModifiers.AccLocallyUsed) == 0 && this.compoundUseFlag > 0;
 }
 /* Answer true if the receiver has protected visibility
-*/
-
-public final boolean isViewedAsDeprecated() {
-	return (this.modifiers & (ClassFileConstants.AccDeprecated | ExtraCompilerModifiers.AccDeprecatedImplicitly)) != 0;
-}
-/* Answer true if the receiver is a volatile field
 */
 
 @Override

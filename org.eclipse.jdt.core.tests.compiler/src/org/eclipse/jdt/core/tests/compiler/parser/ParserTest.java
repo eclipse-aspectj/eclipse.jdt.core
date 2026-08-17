@@ -810,17 +810,42 @@ public void testBug485477() {
 		"1. ERROR in T.java (at line 2)\n" +
 		"	Object o = T.super; // error: \'.\' expected\n" +
 		"	             ^^^^^\n" +
-		"Syntax error, insert \". Identifier\" to complete Expression\n" +
+		"Syntax error, insert \". Identifier\" to complete VariableInitializer\n" +
 		"----------\n" +
 		"2. ERROR in T.java (at line 7)\n" +
 		"	Object o2 = T.super;\n" +
 		"	              ^^^^^\n" +
-		"Syntax error, insert \". Identifier\" to complete Expression\n" +
+		"Syntax error, insert \". Identifier\" to complete VariableInitializer\n" +
 		"----------\n" +
 		"3. ERROR in T.java (at line 9)\n" +
 		"	o1 = U.super;\n" +
 		"	       ^^^^^\n" +
 		"Syntax error, insert \". Identifier\" to complete Expression\n" +
 		"----------\n");
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5217
+// OPTION_GenerateClassFiles silently ignores GENERATE/DO_NOT_GENERATE — accepts only enabled/disabled
+public void testIssue5217() {
+	CompilerOptions options = new CompilerOptions(Map.of(
+	        CompilerOptions.OPTION_GenerateClassFiles, CompilerOptions.DO_NOT_GENERATE));
+	if (options.generateClassFiles)
+		throw new AssertionError("Option processing broken!");
+
+	Map<String, String> optionsMap = options.getMap();
+
+	optionsMap.put(CompilerOptions.OPTION_GenerateClassFiles, CompilerOptions.GENERATE);
+	options.set(optionsMap);
+	if (!options.generateClassFiles)
+		throw new AssertionError("Option processing broken!");
+
+	optionsMap.put(CompilerOptions.OPTION_GenerateClassFiles, "disabled");
+	options.set(optionsMap);
+	if (options.generateClassFiles)
+		throw new AssertionError("Option processing broken!");
+
+	optionsMap.put(CompilerOptions.OPTION_GenerateClassFiles, "enabled");
+	options.set(optionsMap);
+	if (!options.generateClassFiles)
+		throw new AssertionError("Option processing broken!");
 }
 }

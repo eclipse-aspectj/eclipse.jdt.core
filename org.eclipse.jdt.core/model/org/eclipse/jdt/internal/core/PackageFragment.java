@@ -56,6 +56,8 @@ public class PackageFragment extends Openable implements IPackageFragment, Suffi
 
 	private final boolean isValidPackageName;
 
+	private volatile String cachedElementName;
+
 protected PackageFragment(PackageFragmentRoot root, String[] names) {
 	super(root);
 	this.names = names;
@@ -273,11 +275,12 @@ public IClassFile[] getClassFiles() throws JavaModelException {
 
 /**
  * @see IPackageFragment#getCompilationUnit(String)
- * @exception IllegalArgumentException if the name does not end with ".java"
+ * @exception IllegalArgumentException if the name does not end with java-like or java-derived file extension
  */
 @Override
 public ICompilationUnit getCompilationUnit(String cuName) {
-	if (!org.eclipse.jdt.internal.core.util.Util.isJavaLikeFileName(cuName)) {
+	if (!org.eclipse.jdt.internal.core.util.Util.isJavaLikeFileName(cuName)
+			&& !org.eclipse.jdt.internal.core.util.Util.isJavaDerivedFileName(cuName)) {
 		throw new IllegalArgumentException(Messages.convention_unit_notJavaName);
 	}
 	return new CompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
@@ -321,7 +324,12 @@ public ICompilationUnit[] getCompilationUnits(WorkingCopyOwner owner) {
 public String getElementName() {
 	if (this.names.length == 0)
 		return DEFAULT_PACKAGE_NAME;
-	return Util.concatWith(this.names, '.');
+	String name = this.cachedElementName;
+	if (name == null) {
+		name = Util.concatWith(this.names, '.');
+		this.cachedElementName = name;
+	}
+	return name;
 }
 /**
  * @see IJavaElement

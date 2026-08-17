@@ -638,6 +638,8 @@ private static int appendClassTypeSignature(char[] string, int start, boolean fu
 			throw newIllegalArgumentException(string, start);
 		}
 		c = string[p];
+		char prevC = string[p - 1];
+		char nextC = p < string.length - 1 ? string[p + 1] : 0;
 		switch(c) {
 			case C_SEMICOLON :
 				// all done
@@ -665,20 +667,39 @@ private static int appendClassTypeSignature(char[] string, int start, boolean fu
 				}
 				break;
 			 case C_DOLLAR :
-			 	innerTypeStart = buffer.length();
-			 	inAnonymousType = false;
-			 	if (resolved) {
-					// once we hit "$" there are no more package prefixes
-					removePackageQualifiers = false;
-					/**
-					 * Convert '$' in resolved type signatures into '.'.
-					 * NOTE: This assumes that the type signature is an inner type
-					 * signature. This is true in most cases, but someone can define a
-					 * non-inner type name containing a '$'.
-					 */
-					buffer.append('.');
-			 	}
-			 	break;
+				 if (nextC == C_DOT) {
+					 buffer.append('$');
+				 } else {
+					 boolean foundDotAfterDollar = false;
+					 if (prevC == C_DOT) {
+						 int i = p + 1;
+						 // check to see if we have dollar as part of package or class
+						 while (i < string.length) {
+							 if (string[i++] == C_DOT) {
+								 foundDotAfterDollar = true;
+								 break;
+							 }
+						 }
+					 }
+					 if (foundDotAfterDollar) {
+						 buffer.append('$');
+						 break;
+					 }
+					 innerTypeStart = buffer.length();
+					 inAnonymousType = false;
+					 if (resolved) {
+						 // once we hit "$" there are no more package prefixes
+						 removePackageQualifiers = false;
+						 /**
+						  * Convert '$' in resolved type signatures into '.'.
+						  * NOTE: This assumes that the type signature is an inner type
+						  * signature. This is true in most cases, but someone can define a
+						  * non-inner type name containing a '$'.
+						  */
+						 buffer.append('.');
+					 }
+				 }
+				 break;
 			 default :
 				if (innerTypeStart != -1 && !inAnonymousType && Character.isDigit(c)) {
 					inAnonymousType = true;
@@ -1501,43 +1522,39 @@ private static int encodeTypeSignature(char[] typeName, int start, boolean isRes
 	    end = -1;
 	}
 	buffer.append(isResolved ? C_RESOLVED : C_UNRESOLVED);
-	while (true) { // loop on type[&type]*
-		while (true) { // loop on qualifiedName[<args>][.qualifiedName[<args>]*
-		    pos = encodeQualifiedName(typeName, pos, length, buffer);
-			checkPos = checkNextChar(typeName, '<', pos, length, true);
-			if (checkPos > 0) {
-				buffer.append(C_GENERIC_START);
-				// Stop gap fix for <>.
-				if ((pos = checkNextChar(typeName, '>', checkPos, length, true)) > 0) {
-					buffer.append(C_GENERIC_END);
-				} else {
-					pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
-					while ((checkPos = checkNextChar(typeName, ',', pos, length, true)) > 0) {
-						pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
-					}
-					pos = checkNextChar(typeName, '>', pos, length, false);
-					buffer.append(C_GENERIC_END);
-				}
-			}
-			checkPos = checkNextChar(typeName, '.', pos, length, true);
-			if (checkPos > 0) {
-				buffer.append(C_DOT);
-				pos = checkPos;
+
+	while (true) { // loop on qualifiedName[<args>][.qualifiedName[<args>]*
+	    pos = encodeQualifiedName(typeName, pos, length, buffer);
+		checkPos = checkNextChar(typeName, '<', pos, length, true);
+		if (checkPos > 0) {
+			buffer.append(C_GENERIC_START);
+			// Stop gap fix for <>.
+			if ((pos = checkNextChar(typeName, '>', checkPos, length, true)) > 0) {
+				buffer.append(C_GENERIC_END);
 			} else {
-				break;
+				pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
+				while ((checkPos = checkNextChar(typeName, ',', pos, length, true)) > 0) {
+					pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
+				}
+				pos = checkNextChar(typeName, '>', pos, length, false);
+				buffer.append(C_GENERIC_END);
 			}
 		}
-		buffer.append(C_NAME_END);
-		checkPos = checkNextChar(typeName, '&', pos, length, true);
+		checkPos = checkNextChar(typeName, '.', pos, length, true);
 		if (checkPos > 0) {
-			if (buffer.charAt(0) != C_UNION) // the constant name is wrong, its value is correct :-X
-				buffer.insert(0, C_UNION);
-			buffer.append(C_COLON);
-			pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
-			if (pos == length) {
-				break;
-			}
+			buffer.append(C_DOT);
+			pos = checkPos;
 		} else {
+			break;
+		}
+	}
+	buffer.append(C_NAME_END);
+	while ((checkPos = checkNextChar(typeName, '&', pos, length, true)) > 0) {
+		if (buffer.charAt(0) != C_UNION) // the constant name is wrong, its value is correct :-X
+			buffer.insert(0, C_UNION);
+		buffer.append(C_COLON);
+		pos = encodeTypeSignature(typeName, checkPos, isResolved, length, buffer);
+		if (pos == length) {
 			break;
 		}
 	}

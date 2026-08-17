@@ -16236,7 +16236,8 @@ public void testDeprecationCheck15() throws JavaModelException {
 		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 		assertResults(
-				"",
+				"foo1[FIELD_REF]{foo1, Ldeprecation.ZZZType1;, I, foo1, null, 51}\n" +
+				"foo2[FIELD_REF]{foo2, Ldeprecation.ZZZType1;, I, foo2, null, 51}",
 				requestor.getResults());
 	} finally {
 		COMPLETION_PROJECT.setOption(JavaCore.CODEASSIST_DEPRECATION_CHECK, optionValue);
@@ -26223,4 +26224,88 @@ public void testGH1021OnSourceTypeArrayExpectArrayCompletion() throws JavaModelE
 					+ "}",
 			requestor.getResults());
 }
+public void testIssue832a() throws Exception {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Foo.java",
+			"package test;\n" +
+			"class K {\n" +
+			"	int l;\n" +
+			"	public K getThis() {\n" +
+			"		return this;\n" +
+			"	}\n" +
+			"	public int getFoo() {\n" +
+			"		return 3;\n" +
+			"	}\n" +
+			"}\n" +
+			"public class Foo {\n" +
+			"	K k = new K();\n" +
+			"	public void foo() {\n" +
+			"		k.getThis()\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "k.getThis()";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertResults(
+			"equals[METHOD_REF]{.equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 52}\n" +
+			"getClass[METHOD_REF]{.getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, 52}\n" +
+			"getFoo[METHOD_REF]{.getFoo(), LK;, ()I, getFoo, null, 52}\n" +
+			"getThis[METHOD_REF]{.getThis(), LK;, ()LK;, getThis, null, 52}\n" +
+			"hashCode[METHOD_REF]{.hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n" +
+			"l[FIELD_REF]{.l, LK;, I, l, null, 52}\n" +
+			"notify[METHOD_REF]{.notify(), Ljava.lang.Object;, ()V, notify, null, 52}\n" +
+			"notifyAll[METHOD_REF]{.notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 52}\n" +
+			"toString[METHOD_REF]{.toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, ()V, wait, null, 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, (J)V, wait, (millis), 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 52}",
+			requestor.getResults());
+}
+public void testIssue832b() throws Exception {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"Completion/src/Foo.java",
+			"package test;\n" +
+			"class K {\n" +
+			"	int l;\n" +
+			"	public K getThis() {\n" +
+			"		return this;\n" +
+			"	}\n" +
+			"	public int getFoo() {\n" +
+			"		return 3;\n" +
+			"	}\n" +
+			"}\n" +
+			"public class Foo {\n" +
+			"	public void foo() {\n" +
+			"		new K()\n" +
+			"	}\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "new K()";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertResults(
+			"equals[METHOD_REF]{.equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), 52}\n" +
+			"getClass[METHOD_REF]{.getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, 52}\n" +
+			"getFoo[METHOD_REF]{.getFoo(), LK;, ()I, getFoo, null, 52}\n" +
+			"getThis[METHOD_REF]{.getThis(), LK;, ()LK;, getThis, null, 52}\n" +
+			"hashCode[METHOD_REF]{.hashCode(), Ljava.lang.Object;, ()I, hashCode, null, 52}\n" +
+			"l[FIELD_REF]{.l, LK;, I, l, null, 52}\n" +
+			"notify[METHOD_REF]{.notify(), Ljava.lang.Object;, ()V, notify, null, 52}\n" +
+			"notifyAll[METHOD_REF]{.notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, 52}\n" +
+			"toString[METHOD_REF]{.toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, ()V, wait, null, 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, (J)V, wait, (millis), 52}\n" +
+			"wait[METHOD_REF]{.wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), 52}",
+			requestor.getResults());
+}
+
 }

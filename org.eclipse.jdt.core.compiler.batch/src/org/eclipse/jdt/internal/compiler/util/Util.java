@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -24,6 +24,9 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,6 +35,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -42,6 +48,8 @@ import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.batch.Main;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
@@ -239,6 +247,14 @@ public class Util implements SuffixConstants {
 	 */
 	public static final String COMMA_SEPARATOR = new String(CharOperation.COMMA_SEPARATOR);
 	public static final int[] EMPTY_INT_ARRAY= new int[0];
+
+	/**
+	 * The jar entry path under which JDK expects compiler to place class files for multi-release JARs. See
+	 * https://docs.oracle.com/javase/9/docs/specs/jar/jar.html#multi-release-jar-files.
+	 * <p>
+	 * The value is "META-INF/versions/".
+	 */
+	public static final String METAINF_VERSIONS = "META-INF/versions/"; //$NON-NLS-1$
 
 	/**
 	 * Build all the directories and subdirectories corresponding to the packages names
@@ -465,11 +481,15 @@ public class Util implements SuffixConstants {
 
 	public static char[] getBytesAsCharArray(byte[] byteContents, String encoding) {
 		Charset charset;
-		try {
-			charset = Charset.forName(encoding);
-		} catch (IllegalArgumentException e) {
-			// encoding is not supported
+		if (encoding == null) {
 			charset = Charset.defaultCharset();
+		} else {
+			try {
+				charset = Charset.forName(encoding);
+			} catch (IllegalArgumentException e) {
+				// encoding is not supported
+				charset = Charset.defaultCharset();
+			}
 		}
 
 		// check for BOM in encoded byte content
@@ -582,6 +602,29 @@ public class Util implements SuffixConstants {
 			if (inputStream == null)
 				throw new IOException("Invalid zip entry name : " + ze.getName()); //$NON-NLS-1$
 			return inputStream.readAllBytes();
+		}
+	}
+
+	/**
+	 * Returns whether the given archive is identified as a multi-release JAR.
+	 * The JAR specification requires {@code Multi-Release: true} in the main
+	 * section of the manifest, with the value compared case-insensitively.
+	 *
+	 * @see <a href="https://openjdk.org/jeps/238">JEP 238: Multi-Release JAR Files</a>
+	 * @see <a href="https://docs.oracle.com/en/java/javase/17/docs/specs/jar/jar.html#multi-release-jar-files">
+	 *      JAR File Specification: Multi-release JAR files</a>
+	 */
+	public static boolean isMultiRelease(ZipFile zipFile) {
+		ZipEntry manifestEntry = zipFile.getEntry(JarFile.MANIFEST_NAME);
+		if (manifestEntry == null) {
+			return false;
+		}
+		try (InputStream inputStream = zipFile.getInputStream(manifestEntry)) {
+			Manifest manifest = new Manifest(inputStream);
+			String value = manifest.getMainAttributes().getValue(Attributes.Name.MULTI_RELEASE);
+			return Boolean.parseBoolean(value);
+		} catch (IOException e) {
+			return false;
 		}
 	}
 
@@ -1534,6 +1577,12 @@ public class Util implements SuffixConstants {
 		return true;
 	}
 
+	public static boolean effectivelyEqual(AnnotationBinding [] one, AnnotationBinding [] two) {
+		if (one == Binding.AWAITED_ANNOTATIONS || two == Binding.AWAITED_ANNOTATIONS)
+			return one == two;
+		return effectivelyEqual((Object []) one, (Object []) two);
+	}
+
 	public static void appendEscapedChar(StringBuilder buffer, char c, boolean stringLiteral) {
 		switch (c) {
 			case '\b' :
@@ -1583,5 +1632,65 @@ public class Util implements SuffixConstants {
 
 	private static IllegalArgumentException newIllegalArgumentException(char[] string, int start) {
 		return new IllegalArgumentException("\"" + String.valueOf(string) + "\" at " + start); //$NON-NLS-1$ //$NON-NLS-2$
+	}
+
+	/**
+	 * Tells whether the given relative path is safe to resolve against a base
+	 * directory, i.e. it is not absolute and does not contain any {@code ".."}
+	 * segment that could be used to escape the base directory (path traversal).
+	 * <p>
+	 * The check is performed purely on the textual/logical form of the path and
+	 * does not touch the file system.
+	 * </p>
+	 *
+	 * @param relativeFileName a '/'-separated relative file name, may be {@code null}
+	 * @return {@code true} if the name is a safe relative path, {@code false} otherwise
+	 */
+	public static boolean isSafeRelativePath(String relativeFileName) {
+		if (relativeFileName == null || relativeFileName.isEmpty())
+			return false;
+		// Reject any traversal irrespective of platform separators:
+		if (relativeFileName.indexOf("..") != -1) { //$NON-NLS-1$
+			Path path;
+			try {
+				path = Paths.get(relativeFileName);
+			} catch (InvalidPathException e) {
+				return false;
+			}
+			for (Path segment : path.normalize()) {
+				if (segment.toString().equals("..")) //$NON-NLS-1$
+					return false;
+			}
+		}
+		try {
+			return !Paths.get(relativeFileName).isAbsolute();
+		} catch (InvalidPathException e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Safely resolve a relative file name against a base directory, guarding
+	 * against path traversal. The returned file is guaranteed to be contained
+	 * within the (normalized) base directory.
+	 *
+	 * @param baseDirPath the base directory path
+	 * @param relativeFileName a '/'-separated relative file name
+	 * @return the resolved {@link File} if it stays within {@code baseDirPath},
+	 *         or {@code null} if the relative name is unsafe or would escape the
+	 *         base directory
+	 */
+	public static File getFileWithinBaseDir(String baseDirPath, String relativeFileName) {
+		if (baseDirPath == null || !isSafeRelativePath(relativeFileName))
+			return null;
+		try {
+			Path base = Paths.get(baseDirPath).normalize();
+			Path resolved = base.resolve(relativeFileName).normalize();
+			if (!resolved.startsWith(base))
+				return null;
+			return resolved.toFile();
+		} catch (InvalidPathException e) {
+			return null;
+		}
 	}
 }

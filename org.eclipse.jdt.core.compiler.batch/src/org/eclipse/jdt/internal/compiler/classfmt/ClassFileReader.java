@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2023 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -825,6 +825,7 @@ public IBinaryNestedType[] getMemberTypes(boolean keepIncorrectlyNamedInners) { 
 			 * So I added this extra check to filter out this anonymous class from the
 			 * member types.
 			 */
+			char[] innerSourceName = currentInnerInfo.getSourceName();
 			if (outerClassNameIdx != 0
 				&& innerNameIndex != 0
 				// AspectJ change:
@@ -832,7 +833,7 @@ public IBinaryNestedType[] getMemberTypes(boolean keepIncorrectlyNamedInners) { 
 				// now:
 				&& (keepIncorrectlyNamedInners || outerClassNameIdx == this.classNameIndex)
 				// AspectJ end
-				&& currentInnerInfo.getSourceName().length != 0) {
+				&& innerSourceName != null && innerSourceName.length != 0) {
 				memberTypes[memberTypeIndex++] = currentInnerInfo;
 			}
 		}

@@ -127,6 +127,7 @@ class CompilationUnitResolver extends Compiler {
 	public static final int IGNORE_METHOD_BODIES = 0x8;
 	public static final int BINDING_RECOVERY = 0x10;
 	public static final int INCLUDE_RUNNING_VM_BOOTCLASSPATH = 0x20;
+	public static final int FORCE_PROBLEM_DETECTION = 0x40;
 
 	/* A list of int */
 	static class IntArrayList {
@@ -1346,6 +1347,14 @@ class CompilationUnitResolver extends Compiler {
 			return unit;
 		} catch (AbortCompilation e) {
 			this.handleInternalException(e, unit);
+			if(e.isSilent) {
+				if (e.silentException == null) {
+					if (this.monitor != null) {
+						this.monitor.setCanceled(true);
+					}
+					throw new OperationCanceledException();
+				}
+			}
 			return unit == null ? this.unitsToProcess[0] : unit;
 		} catch (Error | RuntimeException e) {
 			this.handleInternalException(e, unit, null);

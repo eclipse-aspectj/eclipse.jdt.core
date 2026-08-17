@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -425,6 +425,24 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 * @category CompilerOptionID
 	 */
 	public static final String COMPILER_PB_DEPRECATION_WHEN_OVERRIDING_DEPRECATED_METHOD = "org.eclipse.jdt.core.compiler.problem.deprecationWhenOverridingDeprecatedMethod"; //$NON-NLS-1$
+	/**
+	 * Compiler option ID: Reporting members in a deprecated type that are not deprecated.
+	 * <p>When enabled, the compiler will issue a configurable warning against every member of
+	 * 	a deprecated type that is not deprecated itself.</p>
+	 * <p>This information is relevant in particular in light that previous versions of JDT have treated such
+	 * 	members as <em>implicitly deprecated</em>, which, however, is incorrect with respect to JLS.
+	 * 	Users are advised to consider explicitly marking all affected members as deprecated, to raise visibility
+	 * 	of any usage of members from deprecated types.</p>
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.problem.memberOfDeprecatedTypeNotDeprecated"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "error", "warning", "info", "ignore" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"info"</code></dd>
+	 * </dl>
+	 * @since 3.44
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_MEMBER_OF_DEPRECATED_TYPE = "org.eclipse.jdt.core.compiler.problem.memberOfDeprecatedTypeNotDeprecated"; //$NON-NLS-1$
+
 	/**
 	 * Compiler option ID: Reporting Hidden Catch Block.
 	 * <p>Locally to a try statement, some catch blocks may hide others. For example,</p>
@@ -3302,13 +3320,19 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	public static final String VERSION_26 = "26"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
+	 * @since 3.46
+	 * @category OptionValue
+	 */
+	public static final String VERSION_27 = "27"; //$NON-NLS-1$
+	/**
+	 * Configurable option value: {@value}.
 	 * @since 3.4
 	 * @category OptionValue
 	 */
 	public static final String VERSION_CLDC_1_1 = "cldc1.1"; //$NON-NLS-1$
 	private static final List<String> allVersions = Collections.unmodifiableList(Arrays.asList(VERSION_CLDC_1_1, VERSION_1_1, VERSION_1_2, VERSION_1_3, VERSION_1_4, VERSION_1_5,
 			VERSION_1_6, VERSION_1_7, VERSION_1_8, VERSION_9, VERSION_10, VERSION_11, VERSION_12, VERSION_13, VERSION_14, VERSION_15, VERSION_16, VERSION_17, VERSION_18,
-			VERSION_19, VERSION_20, VERSION_21, VERSION_22, VERSION_23, VERSION_24, VERSION_25));
+			VERSION_19, VERSION_20, VERSION_21, VERSION_22, VERSION_23, VERSION_24, VERSION_25, VERSION_26));
 
 	/**
 	 * Unordered set of all Java source versions <b>not supported</b> by compiler anymore.
@@ -3548,6 +3572,16 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 * @since 3.2
 	 */
 	public static final String JAVA_SOURCE_CONTENT_TYPE = JavaCore.PLUGIN_ID+".javaSource" ; //$NON-NLS-1$
+
+	/**
+	 * Value of the content-type for Java-derived source files (e.g. Kotlin). Use this value to retrieve the Java content type
+	 * from the content type manager, and to add new Java-derived extensions to this content type.
+	 *
+	 * @see org.eclipse.core.runtime.content.IContentTypeManager#getContentType(String)
+	 * @see #getJavaDerivedExtensions()
+	 * @since 3.45
+	 */
+	public static final String JAVA_DERIVED_SOURCE_CONTENT_TYPE = JavaCore.PLUGIN_ID+".javaDerivedSource" ; //$NON-NLS-1$
 
 	/**
 	 * The ID of the Eclipse built-in formatter.
@@ -4540,6 +4574,21 @@ public /*final*/ class JavaCore extends Plugin {  // AspectJ Extension - made no
 	 */
 	public static String[] getJavaLikeExtensions() {
 		return CharOperation.toStrings(Util.getJavaLikeExtensions());
+	}
+
+	/**
+	 * Returns the list of known Java-derived extensions (e.g. Kotlin .kt)
+	 * Java derived extension are defined in the {@link org.eclipse.core.runtime.Platform#getContentTypeManager()
+	 * content type manager} for the {@link #JAVA_DERIVED_SOURCE_CONTENT_TYPE}.
+	 * <p>
+	 * Note that a Java-derived extension doesn't include the leading dot ('.').
+	 * </p>
+	 *
+	 * @return the list of known Java-like extensions.
+	 * @since 3.45
+	 */
+	public static String[] getJavaDerivedExtensions() {
+		return CharOperation.toStrings(Util.getJavaDerivedExtensions());
 	}
 
 	/**

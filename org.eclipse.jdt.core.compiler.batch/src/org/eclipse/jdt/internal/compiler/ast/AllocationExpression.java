@@ -92,7 +92,6 @@ public class AllocationExpression extends Expression implements IPolyExpression,
 	 // hold on to this context from invocation applicability inference until invocation type inference (per method candidate):
 	private Map<ParameterizedGenericMethodBinding, InferenceContext18> inferenceContexts;
 	public HashMap<TypeBinding, MethodBinding> solutionsPerTargetType;
-	private InferenceContext18 outerInferenceContext; // resolving within the context of an outer (lambda) inference?
 	public boolean argsContainCast;
 	public TypeBinding[] argumentTypes = Binding.NO_PARAMETERS;
 	public boolean argumentsHaveErrors = false;
@@ -132,7 +131,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	ReferenceBinding[] thrownExceptions;
 	if (((thrownExceptions = this.binding.thrownExceptions).length) != 0) {
 		if ((this.bits & ASTNode.Unchecked) != 0 && this.genericTypeArguments == null) {
-			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=277643, align with javac on JLS 15.12.2.6
+			// NON-JLS https://bugs.eclipse.org/bugs/show_bug.cgi?id=277643, align with javac on JLS 15.12.2.6
 			thrownExceptions = currentScope.environment().convertToRawTypes(this.binding.thrownExceptions, true, true);
 		}
 		// check exception handling
@@ -650,7 +649,7 @@ public MethodBinding inferConstructorOfElidedParameterizedType(final Scope scope
 		if (cached != null)
 			return cached;
 	}
-	MethodBinding constructor = inferDiamondConstructor(scope, this, this.type.resolvedType, this.argumentTypes);
+	MethodBinding constructor = inferDiamondConstructor(scope, this, this.resolvedType, this.argumentTypes);
 	if (constructor != null) {
 		if (this.expressionContext == INVOCATION_CONTEXT && this.typeExpected == null) { // not ready for invocation type inference
 			if (constructor instanceof PolyParameterizedGenericMethodBinding) {
@@ -667,8 +666,10 @@ public MethodBinding inferConstructorOfElidedParameterizedType(final Scope scope
 }
 
 public static MethodBinding inferDiamondConstructor(Scope scope, InvocationSite site, TypeBinding type, TypeBinding[] argumentTypes) {
-	ReferenceBinding genericType = ((ParameterizedTypeBinding) type).genericType();
-	ReferenceBinding enclosingType = type.enclosingType();
+	if (!(type instanceof ParameterizedTypeBinding parameterizedTypeBinding))
+		return null;
+	ReferenceBinding genericType = parameterizedTypeBinding.genericType();
+	ReferenceBinding enclosingType = parameterizedTypeBinding.enclosingType();
 	ParameterizedTypeBinding allocationType = scope.environment().createParameterizedType(genericType, genericType.typeVariables(), enclosingType);
 
 	// Given the allocation type and the arguments to the constructor, see if we can infer the constructor of the elided parameterized type.
@@ -874,7 +875,6 @@ public void cleanUpInferenceContexts() {
 		value.cleanUp();
 	}
 	this.inferenceContexts = null;
-	this.outerInferenceContext = null;
 	this.solutionsPerTargetType = null;
 }
 
@@ -885,7 +885,7 @@ public ExpressionContext getExpressionContext() {
 }
 @Override
 public InferenceContext18 freshInferenceContext(Scope scope) {
-	return new InferenceContext18(scope, this.arguments, this, this.outerInferenceContext);
+	return new InferenceContext18(scope, this.arguments, this);
 }
 @Override
 public int nameSourceStart() {

@@ -977,10 +977,18 @@ public class WrapPreparator extends ASTVisitor {
 
 	@Override
 	public boolean visit(SingleVariableDeclaration node) {
-		handleAnnotations(node.modifiers(),
+		if (node.getParent() instanceof RecordDeclaration) {
+			handleAnnotations(node.modifiers(),
+				node.getParent() instanceof EnhancedForStatement
+						? this.options.alignment_for_annotations_on_local_variable
+						: this.options.alignment_for_annotations_on_parameter,
+				this.options.insert_new_line_after_annotation_on_record_parameter);
+		} else {
+			handleAnnotations(node.modifiers(),
 				node.getParent() instanceof EnhancedForStatement
 						? this.options.alignment_for_annotations_on_local_variable
 						: this.options.alignment_for_annotations_on_parameter);
+		}
 		return true;
 	}
 
@@ -1189,17 +1197,27 @@ public class WrapPreparator extends ASTVisitor {
 	}
 
 	private void handleAnnotations(List<? extends IExtendedModifier> modifiers, int wrappingOption) {
+		handleAnnotations(modifiers, wrappingOption, true);
+	}
+
+	private void handleAnnotations(List<? extends IExtendedModifier> modifiers, int wrappingOption, boolean shouldWrap) {
+		//This method has it's specific rule to handle newline on annotations, that clash with the
+		//insert_new_line_after_annotation_on_record_parameter options, so if Applied, since it uses a different logic
+		//it rewrite the whole line, and remove the formatting just applied. To avoid that the shouldWrap boolean
+		//has been added, making it optional in case of need.
 		Annotation last = null;
 		int i;
 		for (i = 0; i < modifiers.size(); i++) {
 			if (modifiers.get(i).isModifier())
 				break;
 			Annotation annotation = (Annotation) modifiers.get(i);
-			if (i == 0) {
-				this.wrapParentIndex = this.tm.firstIndexIn(annotation, ANY);
-			} else {
-				this.wrapIndexes.add(this.tm.firstIndexIn(annotation, ANY));
-				this.wrapGroupEnd = this.tm.lastIndexIn(annotation, ANY);
+			if (shouldWrap) {
+				if (i == 0) {
+					this.wrapParentIndex = this.tm.firstIndexIn(annotation, ANY);
+				} else {
+					this.wrapIndexes.add(this.tm.firstIndexIn(annotation, ANY));
+					this.wrapGroupEnd = this.tm.lastIndexIn(annotation, ANY);
+				}
 			}
 			last = annotation;
 		}
@@ -1433,16 +1451,6 @@ public class WrapPreparator extends ASTVisitor {
 		if ((token1 != null && !token1.isPreserveLineBreaksAfter())
 				|| (token2 != null && !token2.isPreserveLineBreaksBefore())) {
 			return 0;
-		}
-		if (token1 != null) {
-			List<Token> structure = token1.getInternalStructure();
-			if (structure != null && !structure.isEmpty())
-				token1 = structure.get(structure.size() - 1);
-		}
-		if (token2 != null) {
-			List<Token> structure = token2.getInternalStructure();
-			if (structure != null && !structure.isEmpty())
-				token2 = structure.get(0);
 		}
 		int lineBreaks = WrapPreparator.this.tm.countLineBreaksBetween(token1, token2);
 		int toPreserve = this.options.number_of_empty_lines_to_preserve;

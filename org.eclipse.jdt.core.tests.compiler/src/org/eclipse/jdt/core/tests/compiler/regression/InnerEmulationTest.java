@@ -4788,60 +4788,20 @@ public void test135() {
 		"	^\n" +
 		"The type A is deprecated\n" +
 		"----------\n" +
-		"2. WARNING in p\\X.java (at line 6)\n" +
-		"	A.M2.MM1 mm1 = (A.M2.MM1) o;\n" +
-		"	  ^^\n" +
-		"The type A.M2 is deprecated\n" +
-		"----------\n" +
-		"3. WARNING in p\\X.java (at line 6)\n" +
-		"	A.M2.MM1 mm1 = (A.M2.MM1) o;\n" +
-		"	     ^^^\n" +
-		"The type A.M1.MM1 is deprecated\n" +
-		"----------\n" +
 		"4. WARNING in p\\X.java (at line 6)\n" +
 		"	A.M2.MM1 mm1 = (A.M2.MM1) o;\n" +
 		"	                ^\n" +
 		"The type A is deprecated\n" +
-		"----------\n" +
-		"5. WARNING in p\\X.java (at line 6)\n" +
-		"	A.M2.MM1 mm1 = (A.M2.MM1) o;\n" +
-		"	                  ^^\n" +
-		"The type A.M2 is deprecated\n" +
-		"----------\n" +
-		"6. WARNING in p\\X.java (at line 6)\n" +
-		"	A.M2.MM1 mm1 = (A.M2.MM1) o;\n" +
-		"	                     ^^^\n" +
-		"The type A.M1.MM1 is deprecated\n" +
 		"----------\n" +
 		"7. WARNING in p\\X.java (at line 7)\n" +
 		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
 		"	^\n" +
 		"The type A is deprecated\n" +
 		"----------\n" +
-		"8. WARNING in p\\X.java (at line 7)\n" +
-		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
-		"	  ^^\n" +
-		"The type A.M2 is deprecated\n" +
-		"----------\n" +
-		"9. WARNING in p\\X.java (at line 7)\n" +
-		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
-		"	     ^^^\n" +
-		"The type A.M1.MM1 is deprecated\n" +
-		"----------\n" +
 		"10. WARNING in p\\X.java (at line 7)\n" +
 		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
 		"	                   ^\n" +
 		"The type A is deprecated\n" +
-		"----------\n" +
-		"12. WARNING in p\\X.java (at line 7)\n" +
-		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
-		"	                     ^^\n" +
-		"The type A.M2 is deprecated\n" +
-		"----------\n" +
-		"13. WARNING in p\\X.java (at line 7)\n" +
-		"	A.M2.MM1[] mm1s = (A.M2.MM1[]) os;\n" +
-		"	                        ^^^\n" +
-		"The type A.M1.MM1 is deprecated\n" +
 		"----------\n" +
 		"13. ERROR in p\\X.java (at line 16)\n" +
 		"	Zork z;\n" +
@@ -6397,6 +6357,33 @@ public void testbug481793() {
 		"}"
 	};
 	this.runConformTest(sources);
+}
+// Test for Guards the hardened next-index computation in SyntheticMethodBinding
+public void testSyntheticAccessorIndexAssignment() {
+	String[] sources = new String[] {
+		"Outer.java",
+		"""
+		public class Outer {
+	        private int f1 = 1;
+	        private int f2 = 2;
+	        private int f3 = 3;
+	        private int add(int a, int b) { return a + b; }
+	        class Inner {
+	                int run() {
+	                        Outer.this.f1 = Outer.this.f1 + 10;
+	                        int s = Outer.this.add(Outer.this.f2, Outer.this.f3);
+	                        return Outer.this.f1 + s;
+	                }
+	        }
+	        public static void main(String[] args) {
+	                Outer o = new Outer();
+	                System.out.print(o.new Inner().run());
+	        }
+		}
+
+		"""
+	};
+	this.runConformTest(sources, "16"); // (1+10) + (2+3) = 16
 }
 public static Class testClass() {
 	return InnerEmulationTest.class;

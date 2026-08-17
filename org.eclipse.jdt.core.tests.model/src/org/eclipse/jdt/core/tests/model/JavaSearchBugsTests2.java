@@ -47,6 +47,7 @@ import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.search.matching.MatchLocator;
 import org.eclipse.jdt.internal.core.search.matching.MethodPattern;
+import org.eclipse.jdt.internal.core.search.processing.JobManager;
 import org.eclipse.osgi.service.environment.Constants;
 
 // The size of JavaSearchBugsTests.java is very big, Hence continuing here.
@@ -76,11 +77,22 @@ public class JavaSearchBugsTests2 extends AbstractJavaSearchTests {
 		}
 	}
 
+	private boolean wasVerbose;
+
 	@Override
 	protected void setUp() throws Exception {
+		this.wasVerbose = JobManager.VERBOSE;
+		JobManager.VERBOSE = true;
 		super.setUp();
 		this.resultCollector = new TestCollector();
 		this.resultCollector.showAccuracy(true);
+		waitUntilIndexesReady();
+	}
+
+	@Override
+	protected void tearDown() throws Exception {
+		super.tearDown();
+		JobManager.VERBOSE = this.wasVerbose;
 	}
 
 	/**
@@ -1868,7 +1880,7 @@ public class JavaSearchBugsTests2 extends AbstractJavaSearchTests {
 			if (egit != null) deleteProject(egit);
 		}
 	}
-	public void testBug469965_0001() throws CoreException {
+	public void testBug469965_0001() throws Exception {
 		try {
 
 			IJavaProject project = createJavaProject("P", new String[] {"src"}, new String[] { "/P/lib469965.jar", "JCL18_LIB" }, "bin", "1.8");
@@ -1913,11 +1925,7 @@ public class JavaSearchBugsTests2 extends AbstractJavaSearchTests {
 					"lib469965.jar void f3.<anonymous>.goo() EXACT_MATCH\n" +
 					"lib469965.jar void f3.<anonymous>.goo() EXACT_MATCH\n" +
 					"lib469965.jar void f3.<anonymous>.goo() EXACT_MATCH");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		finally {
+		} finally {
 			deleteProject("P");
 		}
 	}

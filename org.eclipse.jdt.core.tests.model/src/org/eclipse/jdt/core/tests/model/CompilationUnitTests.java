@@ -36,9 +36,11 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.rewrite.ImportRewrite;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
+import org.eclipse.jdt.internal.compiler.env.IElementInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.Buffer;
 import org.eclipse.jdt.internal.core.CompilationUnit;
+import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.util.Util;
 import org.eclipse.text.edits.ReplaceEdit;
 import org.eclipse.text.edits.TextEdit;
@@ -498,6 +500,7 @@ public void testDeprecatedFlag09() throws JavaModelException {
 /*
  * Bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
  * Ensure that package level annotation is evaluated during AST creation.
+ * Edit https://github.com/eclipse-jdt/eclipse.jdt.core/pull/4564: package deprecation has no effect
  */
 public void testDeprecatedFlag10() throws CoreException {
 	try {
@@ -533,8 +536,7 @@ public void testDeprecatedFlag10() throws CoreException {
 		parser.setResolveBindings(true);
 		org.eclipse.jdt.core.dom.CompilationUnit cuAST = (org.eclipse.jdt.core.dom.CompilationUnit) parser.createAST(null);
 		IProblem[] problems = cuAST.getProblems();
-		assertEquals("Should have 1 problem", 1, problems.length);
-		assertEquals("Should have a deprecation warning", "The type C is deprecated", problems[0].getMessage());
+		assertEquals("Should have no problem", 0, problems.length);
 	} finally {
 		deleteFile("/P/src/p/D.java");
 		deleteFolder("/P/src/p2");
@@ -546,6 +548,7 @@ public void testDeprecatedFlag10() throws CoreException {
  * Bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
  * Ensure that package level annotation is evaluated during AST creation.
  * a working copy for package-info exists and must be used.
+ * Edit https://github.com/eclipse-jdt/eclipse.jdt.core/pull/4564: package deprecation has no effect
  */
 public void testDeprecatedFlag11() throws CoreException {
 	try {
@@ -585,8 +588,7 @@ public void testDeprecatedFlag11() throws CoreException {
 		parser.setResolveBindings(true);
 		org.eclipse.jdt.core.dom.CompilationUnit cuAST = (org.eclipse.jdt.core.dom.CompilationUnit) parser.createAST(null);
 		IProblem[] problems = cuAST.getProblems();
-		assertEquals("Should have 1 problem", 1, problems.length);
-		assertEquals("Should have a deprecation warning", "The type C is deprecated", problems[0].getMessage());
+		assertEquals("Should have no problem", 0, problems.length);
 	} finally {
 		deleteFile("/P/src/p/D.java");
 		deleteFolder("/P/src/p2");
@@ -2881,5 +2883,53 @@ public void testCompilationUnitProblemsWhenNonCompiling() throws CoreException {
 
 	assertTrue(methodStatements.size() == 1);
 	assertTrue("Should have at least 1 problem", problems.length > 0);
+}
+
+/**
+ * Test that calling getOptions(true) on a closed ICompilationUnit does NOT
+ * cause the element info to be loaded (i.e., does not trigger parsing/opening).
+ *
+ * Regression test for https://github.com/eclipse-jdt/eclipse.jdt.core/pull/4779
+ *
+ * Before the fix, getCustomOptions() unconditionally called
+ * getCompilationUnitElementInfo(), which triggered openWhenClosed() ->
+ * buildStructure() -> parse, even when no setOptions() had ever been called
+ * on the CU.  After the fix it uses JavaModelManager.getInfo(this) which
+ * returns null without opening when the element is not yet cached.
+ */
+public void testGetOptionsDoesNotLoadElementInfo() throws CoreException {
+    // Use a CU that is definitely not open (force-close it first).
+    ICompilationUnit cu2 = getCompilationUnit("P", "src", "p", "X.java");
+    cu2.close(); // ensure info is evicted from the model cache
+
+    // Precondition: info must be null before we call getOptions.
+    IElementInfo infoBefore = JavaModelManager.getJavaModelManager().getInfo(cu2);
+    assertNull("Precondition failed: element info should be null before getOptions()", infoBefore);
+
+    // Call the API under test.
+    cu2.getOptions(true);
+
+    // The fix: info must STILL be null — getOptions must not have opened the CU.
+    IElementInfo infoAfter = JavaModelManager.getJavaModelManager().getInfo(cu2);
+    assertNull(
+        "getOptions(true) should not load the IElementInfo when setOptions() " +
+        "has never been called on this CU",
+        infoAfter);
+}
+
+public void testGetOptionsReturnsCustomOptionsWhenSet() throws CoreException {
+    ICompilationUnit cu2 = getCompilationUnit("P", "src", "p", "X.java");
+    ICompilationUnit wc = null;
+    try {
+        wc = cu2.getWorkingCopy(null);
+        Map<String, String> opts = new HashMap<>();
+        opts.put(JavaCore.COMPILER_SOURCE, "11");
+        wc.setOptions(opts);
+
+        Map<String, String> result = wc.getOptions(false);
+        assertEquals("11", result.get(JavaCore.COMPILER_SOURCE));
+    } finally {
+        if (wc != null) wc.discardWorkingCopy();
+    }
 }
 }

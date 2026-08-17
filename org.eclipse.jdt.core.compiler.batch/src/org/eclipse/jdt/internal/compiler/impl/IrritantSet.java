@@ -1,6 +1,6 @@
 // AspectJ
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -89,7 +89,9 @@ public class IrritantSet {
 		.set(
 			CompilerOptions.UnlikelyEqualsArgumentType
 			| CompilerOptions.SuppressWarningsNotAnalysed
-			| CompilerOptions.AnnotatedTypeArgumentToUnannotated);
+			| CompilerOptions.AnnotatedTypeArgumentToUnannotated)
+		// group-3 infos enabled by default
+		.set(CompilerOptions.MemberOfDeprecatedType);
 
 		COMPILER_DEFAULT_WARNINGS
 			// group-0 warnings enabled by default
@@ -147,7 +149,8 @@ public class IrritantSet {
 		// default errors IF AnnotationBasedNullAnalysis is enabled:
 		COMPILER_DEFAULT_ERRORS.set(
 				CompilerOptions.NullSpecViolation
-				|CompilerOptions.NullAnnotationInferenceConflict);
+				|CompilerOptions.NullAnnotationInferenceConflict)
+			.set(CompilerOptions.NullAnnotationUnsupportedLocation);
 
 		ALL.setAll();
 		HIDING
@@ -165,7 +168,8 @@ public class IrritantSet {
 			.set(CompilerOptions.MissingNonNullByDefaultAnnotation)
 			.set(CompilerOptions.PessimisticNullAnalysisForFreeTypeVariables)
 			.set(CompilerOptions.NonNullTypeVariableFromLegacyInvocation)
-			.set(CompilerOptions.AnnotatedTypeArgumentToUnannotated);
+			.set(CompilerOptions.AnnotatedTypeArgumentToUnannotated)
+			.set(CompilerOptions.NullAnnotationUnsupportedLocation);
 
 		RESTRICTION.set(CompilerOptions.DiscouragedReference);
 		STATIC_ACCESS.set(CompilerOptions.NonStaticAccessToStatic);

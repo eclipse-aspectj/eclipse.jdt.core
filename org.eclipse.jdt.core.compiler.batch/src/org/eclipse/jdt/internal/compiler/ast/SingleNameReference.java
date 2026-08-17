@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -29,7 +29,6 @@ package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
@@ -1008,6 +1007,8 @@ public TypeBinding reportError(BlockScope scope) {
 		scope.problemReporter().invalidField(this, (FieldBinding) this.binding);
 	} else if (this.binding instanceof ProblemReferenceBinding || this.binding instanceof MissingTypeBinding) {
 		scope.problemReporter().invalidType(this, (TypeBinding) this.binding);
+	} else if (this.binding instanceof ProblemLocalVariableBinding plvb && plvb.problemId() == ProblemReasons.NonStaticReferenceInStaticContext) {
+		scope.problemReporter().recordStaticReferenceToOuterLocalVariable(plvb.closestMatch, this);
 	} else {
 		scope.problemReporter().unresolvableReference(this, this.binding);
 	}
@@ -1077,22 +1078,6 @@ public TypeBinding resolveType(BlockScope scope) {
 	}
 	// error scenario
 	return this.resolvedType = reportError(scope);
-}
-
-private void checkLocalStaticClassVariables(BlockScope scope, VariableBinding variable) {
-	if (this.actualReceiverType.isStatic() && this.actualReceiverType.isLocalType()) {
-		if ((variable.modifiers & ClassFileConstants.AccStatic) == 0 &&
-				(this.bits & ASTNode.IsCapturedOuterLocal) != 0) {
-			BlockScope declaringScope = ((LocalVariableBinding) this.binding).declaringScope;
-			MethodScope declaringMethodScope = declaringScope instanceof MethodScope ? (MethodScope)declaringScope :
-				declaringScope.enclosingMethodScope();
-			MethodScope currentMethodScope = scope instanceof MethodScope ? (MethodScope) scope : scope.enclosingMethodScope();
-			ClassScope declaringClassScope = declaringMethodScope != null ? declaringMethodScope.classScope() : null;
-			ClassScope currentClassScope = currentMethodScope != null ? currentMethodScope.classScope() : null;
-			if (declaringClassScope != currentClassScope)
-			scope.problemReporter().recordStaticReferenceToOuterLocalVariable((LocalVariableBinding)variable, this);
-		}
-	}
 }
 
 @Override

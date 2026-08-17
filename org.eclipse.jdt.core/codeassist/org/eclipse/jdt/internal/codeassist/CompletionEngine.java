@@ -1632,6 +1632,22 @@ public final class CompletionEngine
 		this.uninterestingBindings[this.uninterestingBindingsPtr] = binding;
 	}
 
+	// Returns whether the arguments appearing before completion node are compatible
+	private boolean areParametersCompatibleWith(MethodBinding method, TypeBinding[] argTypes, int minArgLength) {
+		for (int a = minArgLength; --a >= 0;){
+			if (argTypes[a] != null) { // can be null if it could not be resolved properly
+				TypeBinding argType = argTypes[a].erasure();
+				TypeBinding paramType = method.isVarargs()
+						? ((ArrayBinding) method.parameters[a]).elementsType()
+						: method.parameters[a];
+				paramType = paramType.erasure();
+				if (!argType.isCompatibleWith(paramType)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 	// this code is derived from MethodBinding#areParametersCompatibleWith(TypeBinding[])
 	private final boolean areParametersCompatibleWith(TypeBinding[] parameters, TypeBinding[] arguments, boolean isVarargs) {
 		int paramLength = parameters.length;
@@ -1644,7 +1660,7 @@ public final class CompletionEngine
 				TypeBinding lastArgument = arguments[lastIndex];
 				if (TypeBinding.notEquals(varArgType, lastArgument) && !lastArgument.isCompatibleWith(varArgType))
 					return false;
-			} else if (paramLength < argLength) { // all remainig argument types must be compatible with the elementsType of varArgType
+			} else if (paramLength < argLength) { // all remaining argument types must be compatible with the elementsType of varArgType
 				TypeBinding varArgType = ((ArrayBinding) parameters[lastIndex]).elementsType();
 				for (int i = lastIndex; i < argLength; i++)
 					if (TypeBinding.notEquals(varArgType, arguments[i]) && !arguments[i].isCompatibleWith(varArgType))
@@ -1891,6 +1907,8 @@ public final class CompletionEngine
 			completionOnMethodName(astNode, scope);
 		} else if (astNode instanceof CompletionOnFieldName) {
 			completionOnFieldName(astNode, scope);
+		} else if (astNode instanceof CompletionOnExpressionOfType) {
+			completionOnExpressionOfType(astNode, qualifiedBinding, scope);
 		} else if (astNode instanceof CompletionOnRecordComponentName) {
 			completionOnRecordComponentName(astNode, scope);
 		} else if (astNode instanceof CompletionOnLocalName) {
@@ -3356,6 +3374,35 @@ public final class CompletionEngine
 		}
 	}
 
+
+	private void completionOnExpressionOfType(ASTNode astNode, Binding qualifiedBinding, Scope scope) {
+		CompletionOnExpressionOfType completion = (CompletionOnExpressionOfType) astNode;
+
+		// Resolve the method call's return type
+		TypeBinding receiverType = completion.methodCall.resolveType((BlockScope) scope);
+
+		if (receiverType != null && receiverType.isValidBinding()) {
+			// Propose all accessible fields and methods of the return type
+			this.completionToken = completion.token;
+			findFieldsAndMethods(
+					this.completionToken,
+					receiverType,
+					scope,
+					new ObjectVector(),
+					new ObjectVector(),
+					completion,
+					scope,
+					false, // not in javadoc
+					false, // not exact match
+					null,
+					null,
+					null,
+					false,
+					null,
+					-1,
+					-1);
+		}
+	}
 
 	private void completionOnMethodName(ASTNode astNode, Scope scope) {
 		if (!this.requestor.isIgnored(CompletionProposal.VARIABLE_DECLARATION)) {
@@ -5655,9 +5702,7 @@ public final class CompletionEngine
 					isQualified ?
 							CharOperation.concat(currentType.qualifiedPackageName(), currentType.qualifiedSourceName(), '.') :
 								currentType.sourceName();
-				if (this.source != null
-							&& this.source.length > this.endPosition
-							&& this.source[this.endPosition] == '(') {
+				if (omitParanthesis()) {
 					completion = CharOperation.NO_CHAR;
 				} else {
 					completion = new char[] { '(', ')' };
@@ -5997,7 +6042,7 @@ public final class CompletionEngine
 					if (constructor.isSynthetic()) continue next;
 
 					if (this.options.checkDeprecation &&
-							constructor.isViewedAsDeprecated() &&
+							constructor.isDeprecated() &&
 							!scope.isDefinedInSameUnit(constructor.declaringClass))
 						continue next;
 
@@ -6011,13 +6056,9 @@ public final class CompletionEngine
 					int paramLength = parameters.length;
 					if (minArgLength > paramLength)
 						continue next;
-					for (int a = minArgLength; --a >= 0;)
-						if (argTypes[a] != null) { // can be null if it could not be resolved properly
-							if (!argTypes[a].isCompatibleWith(constructor.parameters[a])
-								// check if this type pair is parameterized types and their erasure types matches
-									&& !argTypes[a].erasure().isCompatibleWith(constructor.parameters[a].erasure()))
-								continue next;
-						}
+
+					if (areParametersCompatibleWith(constructor, argTypes, minArgLength))
+						continue next;
 
 					constructorsFound.add(new Object[] { constructor, currentType });
 					if (noCollection) {
@@ -6042,9 +6083,7 @@ public final class CompletionEngine
 								isQualified ?
 										CharOperation.concat(currentType.qualifiedPackageName(), currentType.qualifiedSourceName(), '.') :
 											currentType.sourceName();
-							if (this.source != null
-										&& this.source.length > this.endPosition
-										&& this.source[this.endPosition] == '(') {
+							if (omitParanthesis()) {
 								completion = CharOperation.NO_CHAR;
 							} else {
 								completion = new char[] { '(', ')' };
@@ -6205,9 +6244,7 @@ public final class CompletionEngine
 											CharOperation.concat(currentType.qualifiedPackageName(), currentType.qualifiedSourceName(), '.') :
 												currentType.sourceName();
 
-								if (this.source != null
-											&& this.source.length > this.endPosition
-											&& this.source[this.endPosition] == '(') {
+								if (omitParanthesis()) {
 									completion = CharOperation.NO_CHAR;
 								} else {
 									completion = new char[] { '(', ')' };
@@ -6733,7 +6770,7 @@ public final class CompletionEngine
 			return;
 
 		if (this.options.checkDeprecation &&
-				exceptionType.isViewedAsDeprecated() &&
+				exceptionType.isDeprecated() &&
 				!scope.isDefinedInSameUnit(exceptionType))
 			return;
 
@@ -6923,7 +6960,7 @@ public final class CompletionEngine
 					if (constructor.isSynthetic()) continue next;
 
 					if (this.options.checkDeprecation &&
-							constructor.isViewedAsDeprecated() &&
+							constructor.isDeprecated() &&
 							!scope.isDefinedInSameUnit(constructor.declaringClass))
 						continue next;
 
@@ -6943,9 +6980,7 @@ public final class CompletionEngine
 					char[][] parameterNames = findMethodParameterNames(constructor,parameterTypeNames);
 
 					char[] completion = CharOperation.NO_CHAR;
-					if (this.source != null
-						&& this.source.length > this.endPosition
-						&& this.source[this.endPosition] == '(')
+					if (omitParanthesis())
 						completion = name;
 					else
 						completion = CharOperation.concat(name, new char[] { '(', ')' });
@@ -7074,7 +7109,7 @@ public final class CompletionEngine
 			if (isFailedMatch(fieldName, field.name))	continue next;
 
 			if (this.options.checkDeprecation &&
-					field.isViewedAsDeprecated() &&
+					field.isDeprecated() &&
 					!scope.isDefinedInSameUnit(field.declaringClass))
 				continue next;
 
@@ -7148,6 +7183,8 @@ public final class CompletionEngine
 			if(prefixRequired || this.options.forceImplicitQualification){
 				char[] prefix = computePrefix(scope.enclosingSourceType(), invocationScope.enclosingSourceType(), field.isStatic());
 				completion = CharOperation.concat(prefix,completion,'.');
+			} else if (invocationSite instanceof CompletionOnExpressionOfType) {
+				completion = CharOperation.concat(new char[] {'.'}, completion);
 			}
 
 
@@ -7564,9 +7601,7 @@ public final class CompletionEngine
 					relevance += computeRelevanceForMissingElements(missingElementsHaveProblems);
 				}
 				char[] completion;
-				if (this.source != null
-					&& this.source.length > this.endPosition
-					&& this.source[this.endPosition] == '(') {
+				if (omitParanthesis()) {
 					completion = cloneMethod;
 					} else {
 					completion = CharOperation.concat(cloneMethod, new char[] { '(', ')' });
@@ -8352,7 +8387,7 @@ public final class CompletionEngine
 			if (isFailedMatch(fieldName, field.name))	continue next;
 
 			if (this.options.checkDeprecation &&
-					field.isViewedAsDeprecated() &&
+					field.isDeprecated() &&
 					!scope.isDefinedInSameUnit(field.declaringClass))
 				continue next;
 
@@ -8596,7 +8631,7 @@ public final class CompletionEngine
 			if (isFailedMatch(typeName, memberType.sourceName))
 				continue next;
 
-			if (this.options.checkDeprecation && memberType.isViewedAsDeprecated()) continue next;
+			if (this.options.checkDeprecation && memberType.isDeprecated()) continue next;
 
 			if (this.options.checkVisibility
 				&& !memberType.canBeSeenBy(this.unitScope.fPackage))
@@ -8652,7 +8687,7 @@ public final class CompletionEngine
 			if (isFailedMatch(fieldName, field.name))
 				continue next;
 
-			if (this.options.checkDeprecation && field.isViewedAsDeprecated()) continue next;
+			if (this.options.checkDeprecation && field.isDeprecated()) continue next;
 
 			if (this.options.checkVisibility
 				&& !field.canBeSeenBy(this.unitScope.fPackage))
@@ -8705,7 +8740,7 @@ public final class CompletionEngine
 
 			if (!method.isStatic()) continue next;
 
-			if (this.options.checkDeprecation && method.isViewedAsDeprecated()) continue next;
+			if (this.options.checkDeprecation && method.isDeprecated()) continue next;
 
 			if (this.options.checkVisibility
 				&& !method.canBeSeenBy(this.unitScope.fPackage)) continue next;
@@ -9225,7 +9260,7 @@ public final class CompletionEngine
             }
 
 			if (this.options.checkDeprecation &&
-					method.isViewedAsDeprecated() &&
+					method.isDeprecated() &&
 					!scope.isDefinedInSameUnit(method.declaringClass))
 				continue next;
 
@@ -9385,7 +9420,7 @@ public final class CompletionEngine
 			if (method.isConstructor()) continue next;
 
 			if (this.options.checkDeprecation &&
-					method.isViewedAsDeprecated() &&
+					method.isDeprecated() &&
 					!scope.isDefinedInSameUnit(method.declaringClass))
 				continue next;
 
@@ -9423,13 +9458,8 @@ public final class CompletionEngine
 			if (minArgLength > method.parameters.length)
 				continue next;
 
-			for (int a = minArgLength; --a >= 0;){
-				if (argTypes[a] != null) { // can be null if it could not be resolved properly
-					if (!argTypes[a].isCompatibleWith(method.parameters[a])) {
-						continue next;
-					}
-				}
-			}
+			if (areParametersCompatibleWith(method, argTypes, minArgLength))
+				continue next;
 
 			boolean prefixRequired = false;
 
@@ -9543,9 +9573,7 @@ public final class CompletionEngine
 				if (!exactMatch) {
 					if (completionOnReferenceExpressionName)
 						completion = method.selector;
-					else if (this.source != null
-						&& this.source.length > this.endPosition
-						&& this.source[this.endPosition] == '(')
+					else if (omitParanthesis())
 						completion = method.selector;
 					else
 						completion = CharOperation.concat(method.selector, new char[] { '(', ')' });
@@ -9565,6 +9593,8 @@ public final class CompletionEngine
 				if(prefixRequired || this.options.forceImplicitQualification){
 					char[] prefix = computePrefix(scope.enclosingSourceType(), invocationScope.enclosingSourceType(), method.isStatic());
 					completion = CharOperation.concat(prefix,completion,'.');
+				} else if (invocationSite instanceof CompletionOnExpressionOfType) {
+					completion = CharOperation.concat(new char[] {'.'}, completion);
 				}
 			}
 
@@ -9845,7 +9875,7 @@ public final class CompletionEngine
 				if (method.isConstructor()) continue next;
 
 				if (this.options.checkDeprecation &&
-						method.isViewedAsDeprecated() &&
+						method.isDeprecated() &&
 						!scope.isDefinedInSameUnit(method.declaringClass))
 					continue next;
 
@@ -9934,9 +9964,7 @@ public final class CompletionEngine
 				int previousStartPosition = this.startPosition;
 				int previousTokenStart = this.tokenStart;
 
-				if (this.source != null
-					&& this.source.length > this.endPosition
-					&& this.source[this.endPosition] == '(') {
+				if (omitParanthesis()) {
 					completion = method.selector;
 				} else {
 					completion = CharOperation.concat(method.selector, new char[] { '(', ')' });
@@ -10136,7 +10164,7 @@ public final class CompletionEngine
 			if (!method.isStatic()) continue next;
 
 			if (this.options.checkDeprecation &&
-					method.isViewedAsDeprecated() &&
+					method.isDeprecated() &&
 					!scope.isDefinedInSameUnit(method.declaringClass))
 				continue next;
 
@@ -10176,9 +10204,7 @@ public final class CompletionEngine
 			int previousTokenStart = this.tokenStart;
 
 			if (!exactMatch) {
-				if (this.source != null
-					&& this.source.length > this.endPosition
-					&& this.source[this.endPosition] == '(') {
+				if (omitParanthesis()) {
 					completion = method.selector;
 				} else {
 					completion = CharOperation.concat(method.selector, new char[] { '(', ')' });
@@ -10642,7 +10668,7 @@ public final class CompletionEngine
 				continue next;
 
 			if (this.options.checkDeprecation &&
-					memberType.isViewedAsDeprecated() &&
+					memberType.isDeprecated() &&
 					!scope.isDefinedInSameUnit(memberType))
 				continue next;
 
@@ -11417,7 +11443,7 @@ public final class CompletionEngine
 		ReferenceBinding refBinding = (ReferenceBinding) ref.resolvedType;
 		if(refBinding != null) {
 			if (this.options.checkDeprecation &&
-					refBinding.isViewedAsDeprecated() &&
+					refBinding.isDeprecated() &&
 					!scope.isDefinedInSameUnit(refBinding))
 				return;
 
@@ -12072,7 +12098,7 @@ public final class CompletionEngine
 						&& !(this.options.camelCaseMatch && CharOperation.camelCaseMatch(token, sourceType.sourceName)))	continue;
 
 				if (this.options.checkDeprecation &&
-						sourceType.isViewedAsDeprecated() &&
+						sourceType.isDeprecated() &&
 						!scope.isDefinedInSameUnit(sourceType))
 					continue;
 
@@ -12230,7 +12256,7 @@ public final class CompletionEngine
 						continue next;
 					}
 					if (this.options.checkDeprecation &&
-							refBinding.isViewedAsDeprecated() &&
+							refBinding.isDeprecated() &&
 							!scope.isDefinedInSameUnit(refBinding))
 						continue next;
 
@@ -14053,7 +14079,11 @@ public final class CompletionEngine
 			buffer.append('\t');
 		}
 	}
-
+	private boolean omitParanthesis() {
+		return this.source != null
+				&& this.source.length > this.endPosition
+				&& (this.source[this.endPosition] == '(' || this.source[this.endPosition] == '<');
+	}
 	private void proposeConstructor(AcceptedConstructor deferredProposal, Scope scope) {
 		if (deferredProposal.proposeConstructor) {
 			proposeConstructor(
@@ -14147,9 +14177,7 @@ public final class CompletionEngine
 		}
 
 		char[] completion;
-		if (this.source != null
-					&& this.source.length > this.endPosition
-					&& this.source[this.endPosition] == '(') {
+		if (omitParanthesis()) {
 			completion = CharOperation.NO_CHAR;
 		} else {
 			completion = new char[] { '(', ')' };

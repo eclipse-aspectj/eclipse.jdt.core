@@ -24,6 +24,8 @@
 package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -91,6 +93,11 @@ public abstract class AbstractRegressionTest extends AbstractCompilerTest implem
 
 	protected static long PREVIEW_FEATURE_CLASS_FILE_CONST = ClassFileConstants.JDK25;
 	protected static int PREVIEW_FEATURE_LEVEL = 25;
+
+	// statistics for run.javac mode:
+	static int numRunJavacTests = 0;
+	static Set<JavacTestOptions.Excuse> javacBugs = new HashSet<>();
+	static Set<JavacTestOptions.Excuse> ecjBugs = new HashSet<>();
 
 	protected class Runner {
 		boolean shouldFlushOutputDirectory = true;
@@ -342,6 +349,8 @@ static class JavacCompiler {
 			return JavaCore.VERSION_24;
 		} else if(rawVersion.startsWith("25")) {
 			return JavaCore.VERSION_25;
+		} else if(rawVersion.startsWith("26")) {
+			return JavaCore.VERSION_26;
 		} else {
 			throw new RuntimeException("unknown javac version: " + rawVersion);
 		}
@@ -590,6 +599,20 @@ static class JavacCompiler {
 			switch(rawVersion) {
 				case "25-ea", "25-beta", "25":
 					return 0000;
+				case "25.0.1":
+					return 0100;
+				case "25.0.2":
+					return 0200;
+			}
+		}
+		if (version == JavaCore.VERSION_26) {
+			switch(rawVersion) {
+				case "26-ea", "26-beta", "26":
+					return 0000;
+				case "26.0.1":
+					return 0100;
+				case "26.0.2":
+					return 0200;
 			}
 		}
 		throw new RuntimeException("unknown raw javac version: " + rawVersion);
@@ -933,9 +956,6 @@ protected static class JavacTestOptions {
 				new EclipseHasABug(MismatchType.JavacErrorsEclipseWarnings),
 			EclipseBug421922 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=421922
 						new EclipseHasABug(MismatchType.EclipseErrorsJavacNone),
-			EclipseBug428061 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428061
-								new EclipseHasABug(MismatchType.JavacErrorsEclipseNone |
-										MismatchType.JavacErrorsEclipseWarnings),
 			EclipseBug510528 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=510528
 				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone),
 			EclipseBug531531 = // https://bugs.eclipse.org/bugs/show_bug.cgi?id=531531
@@ -1145,6 +1165,8 @@ protected static class JavacTestOptions {
 				new JavacHasABug(
 					MismatchType.EclipseErrorsJavacNone),
 			JavacBug6573446 = // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6573446 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=190945
+							// updated link https://bugs.openjdk.org/browse/JDK-6573446
+							// see also confirmation https://mail.openjdk.org/archives/list/compiler-dev@openjdk.org/thread/TLIVNI7SPUVX646O7RTGG7IOYJVWSV47/
 				new JavacHasABug(
 					MismatchType.EclipseErrorsJavacNone),
 			JavacBug6575821 = // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6575821
@@ -1180,8 +1202,25 @@ protected static class JavacTestOptions {
 			JavacBug8348928 = // https://bugs.openjdk.org/browse/JDK-8348928
 					new JavacHasABug(MismatchType.EclipseErrorsJavacWarnings),
 			JavacBug8348410 = // https://bugs.openjdk.org/browse/JDK-8348410
-					new JavacHasABug(MismatchType.EclipseErrorsJavacNone, ClassFileConstants.JDK25, 0000);
-
+					new JavacHasABug(MismatchType.EclipseErrorsJavacNone, ClassFileConstants.JDK25, 0000),
+			JavacBug8016196 = // https://bugs.openjdk.org/browse/JDK-8016196
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone),
+			JavacBug8016207 = // https://bugs.openjdk.org/browse/JDK-8016207 Widening of capture vars occurs at unspecified times
+					new JavacHasABug(MismatchType.EclipseErrorsJavacNone),
+			JavacBugIvarInterning = // https://mail.openjdk.org/pipermail/compiler-dev/2025-October/031866.html
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone),
+			JavacBug8387487 = // https://bugs.openjdk.org/browse/JDK-8297428 and https://bugs.openjdk.org/browse/JDK-8387487
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone),
+			JavacBug8365676 = // https://bugs.openjdk.org/browse/JDK-8365676
+					new JavacHasABug(MismatchType.EclipseErrorsJavacNone, ClassFileConstants.JDK26, 0000),
+			JavacBug8361641 = // https://bugs.openjdk.org/browse/JDK-8361641
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone, ClassFileConstants.JDK25, 0000),
+			JavacBug8383563 = // https://bugs.openjdk.org/browse/JDK-8383563
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone),
+			JavacBug8375572 = // https://bugs.openjdk.org/browse/JDK-8375572
+					new JavacHasABug(MismatchType.JavacErrorsEclipseNone),
+			JavacBug8343286 = // https://bugs.openjdk.org/browse/JDK-8343286
+					new JavacHasABug(MismatchType.EclipseWarningsJavacNone, ClassFileConstants.JDK24, 0000);
 
 		// bugs that have been fixed but that we've not identified
 		public static JavacHasABug
@@ -2749,6 +2788,7 @@ protected void runJavac(
 				e.printStackTrace();
 				mismatch = JavacTestOptions.MismatchType.JavaNotLaunched;
 			}
+			numRunJavacTests++;
 			handleMismatch(compiler, testName, testFiles, expectedCompilerLog, expectedOutputString,
 					expectedErrorString, compilerLog, output, err, excuse, mismatch);
 		}
@@ -2798,6 +2838,7 @@ void handleMismatch(JavacCompiler compiler, String testName, String[] testFiles,
 		JavacTestOptions.Excuse excuse, int mismatch) {
 	if (mismatch != 0) {
 		if (excuse != null && excuse.clears(mismatch)) {
+			recordBugHit(excuse);
 			excuse = null;
 		} else {
 			System.err.println("----------------------------------------");
@@ -4250,6 +4291,7 @@ protected void runNegativeTest(
 				Util.flushDirectoryContent(JAVAC_OUTPUT_DIR);
 			}
 			printJavacResultsSummary();
+			javacUsePathOption(" -classpath ");
 		}
 	}
 	/**
@@ -4272,5 +4314,44 @@ protected void runNegativeTest(
 		options.put(CompilerOptions.OPTION_EnablePreviews, CompilerOptions.ENABLED);
 		options.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.IGNORE);
 		return options;
+	}
+
+	private static void recordBugHit(JavacTestOptions.Excuse excuse) {
+		if (excuse instanceof JavacTestOptions.JavacHasABug)
+			javacBugs.add(excuse);
+		else if (excuse instanceof JavacTestOptions.EclipseHasABug)
+			ecjBugs.add(excuse);
+	}
+
+	public static void printRunJavacStats() {
+		if (RUN_JAVAC || RUN_JAVAC_OPT_IN) {
+			System.out.println("Num tests with run.javac enabled: "+numRunJavacTests);
+			System.out.println("Num tests triggering a javac bug: "+javacBugs.size());
+			printBugConstants(javacBugs, JavacTestOptions.JavacHasABug.class);
+			System.out.println("Num tests triggering an ecj bug : "+ecjBugs.size());
+			printBugConstants(ecjBugs, JavacTestOptions.EclipseHasABug.class);
+		}
+	}
+
+	private static void printBugConstants(Set<JavacTestOptions.Excuse> bugs, Class<? extends JavacTestOptions.Excuse> clazz) {
+		List<String> bugNames = new ArrayList<>();
+		bugs: for (JavacTestOptions.Excuse bug : bugs) {
+			for (Class<?> aClazz : new Class<?>[] { clazz, JavacTestOptions.Excuse.class }) {
+				for (Field field : aClazz.getDeclaredFields()) {
+					if ((field.getModifiers() & Modifier.STATIC) != 0) {
+						try {
+							if (bug == field.get(null)) {
+								bugNames.add(field.getName());
+								continue bugs;
+							}
+						} catch (IllegalArgumentException | IllegalAccessException e) {
+							// ignore
+						}
+					}
+				}
+			}
+			bugNames.add("\tunknown excuse "+bug);
+		}
+		bugNames.stream().sorted().forEach(s -> System.out.println("\t"+s));
 	}
 }

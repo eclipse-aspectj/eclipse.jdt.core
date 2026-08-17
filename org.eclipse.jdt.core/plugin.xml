@@ -87,6 +87,13 @@
 	schema="schema/javaSearchDelegate.exsd"/>
 
 <!-- =================================================================================== -->
+<!-- Extension Point: Search Participant for Java Derived Source                          -->
+<!-- =================================================================================== -->
+<extension-point name="%derivedSourceSearchParticipantsName"
+	id="derivedSourceSearchParticipant"
+	schema="schema/derivedSourceSearchParticipant.exsd"/>
+
+<!-- =================================================================================== -->
 <!-- Extension Point: Java 6 Annotation Processor Manager                                -->
 <!-- =================================================================================== -->
 
@@ -267,6 +274,9 @@
 		base-type="org.eclipse.core.runtime.text"
 		priority="high"				
 		file-extensions="java"/>
+	<content-type id="javaDerivedSource" name="%javaDerivedSourceName"
+		base-type="org.eclipse.core.runtime.text"
+		priority="high"/>
 	<!-- declares a content type for Java class files -->
     <content-type id="javaClass" name="%javaClassName" 
         priority="high"				

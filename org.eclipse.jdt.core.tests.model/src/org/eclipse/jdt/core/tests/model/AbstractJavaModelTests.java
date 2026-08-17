@@ -96,6 +96,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	protected static boolean isJRE23 = false;
 	protected static boolean isJRE24 = false;
 	protected static boolean isJRE25 = false;
+	protected static boolean isJRE26 = false;
 	static {
 		String javaVersion = System.getProperty("java.version");
 		String vmName = System.getProperty("java.vm.name");
@@ -108,6 +109,9 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 		long jdkLevel = CompilerOptions.versionToJdkLevel(javaVersion.length() > 3 ? javaVersion.substring(0, 3) : javaVersion);
+		if (jdkLevel >= ClassFileConstants.JDK26) {
+			isJRE26 = true;
+		}
 		if (jdkLevel >= ClassFileConstants.JDK25) {
 			isJRE25 = true;
 		}
@@ -253,6 +257,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	 * Internal synonym for constant AST.JSL25
 	 */
 	protected static final int AST_INTERNAL_JLS25 = AST.JLS25;
+	/**
+	 * Internal synonym for constant AST.JSL26
+	 */
+	protected static final int AST_INTERNAL_JLS26 = AST.JLS26;
 	/**
 	 * Internal synonym for the latest AST level.
 	 */
@@ -2464,6 +2472,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			project.open(null);
 		}
 		deleteResource(project);
+		waitForSnapShot();
 	}
 	protected void deleteProject(IJavaProject project) throws CoreException {
 		if (project.exists() && !project.isOpen()) { // force opening so that project can be deleted without logging (see bug 23629)
@@ -3490,7 +3499,10 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				newJclSrcString = "JCL18_FULL_SRC";
 			}
 		} else {
-			if (compliance.equals("25")) {
+			if (compliance.equals("26")) {
+				newJclLibString = "JCL_26_LIB";
+				newJclSrcString = "JCL_26_SRC";
+			} else if (compliance.equals("25")) {
 				newJclLibString = "JCL_25_LIB";
 				newJclSrcString = "JCL_25_SRC";
 			} else if (compliance.equals("24")) {
@@ -3714,6 +3726,14 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 				JavaCore.setClasspathVariables(
 					new String[] {"JCL_25_LIB", "JCL_25_SRC", "JCL_SRCROOT"},
 					new IPath[] {getExternalJCLPath("25"), getExternalJCLSourcePath("25"), getExternalJCLRootSourcePath()},
+					null);
+			}
+		} else if ("26".equals(compliance)) {
+			if (JavaCore.getClasspathVariable("JCL_26_LIB") == null) {
+				setupExternalJCL("jclMin26");
+				JavaCore.setClasspathVariables(
+					new String[] {"JCL_26_LIB", "JCL_26_SRC", "JCL_SRCROOT"},
+					new IPath[] {getExternalJCLPath("26"), getExternalJCLSourcePath("26"), getExternalJCLRootSourcePath()},
 					null);
 			}
 		} else {
@@ -4108,6 +4128,15 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		} while (wasInterrupted);
 	}
 
+	public static void waitForAutoRefresh() throws CoreException {
+		try {
+			Job.getJobManager().wakeUp(ResourcesPlugin.FAMILY_AUTO_REFRESH);
+			Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_REFRESH, null);
+		} catch (OperationCanceledException | InterruptedException e) {
+			throw new CoreException(Status.error("Waiting on auto-refresh interrupted", e));
+		}
+	}
+
 	public static boolean isTouchJobRunning() {
 		Job[] jobs = Job.getJobManager().find(JavaModelManager.class);
 		for (Job job : jobs) {
@@ -4186,12 +4215,54 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		javaProject.setRawClasspath(classpath, null);
 	}
 
-	private static void logError(String errorMessage, CoreException e) {
+	protected static void logDeltaEvent(IResourceChangeEvent event) {
+		StringBuilder s = new StringBuilder();
+		s.append("Logging resource change event");
+		s.append(System.lineSeparator());
+		s.append("thread: ");
+		s.append(Thread.currentThread().getName());
+		s.append(System.lineSeparator());
+		s.append("type: ");
+		s.append(event.getType());
+		s.append(System.lineSeparator());
+		s.append("buildKind: ");
+		s.append(event.getBuildKind());
+		s.append(System.lineSeparator());
+		s.append("resource: ");
+		s.append(event.getResource());
+		s.append(System.lineSeparator());
+		s.append("source: " );
+		s.append(event.getSource());
+		IResourceDelta delta = event.getDelta();
+		if (delta != null) {
+			s.append(System.lineSeparator());
+			s.append("Delta:");
+			IResourceDeltaVisitor visitor = new IResourceDeltaVisitor() {
+				@Override
+				public boolean visit(IResourceDelta d) throws CoreException {
+					s.append(System.lineSeparator());
+					s.append("\tkind: ");
+					s.append(d.getKind());
+					s.append(", resource: ");
+					s.append(d.getResource());
+					return true;
+				}
+			};
+			try {
+				delta.accept(visitor);
+			} catch (CoreException e) {
+				logError("Error occurred while visiting delta", e);
+			}
+			logInfo(s.toString());
+		}
+	}
+
+	protected static void logError(String errorMessage, CoreException e) {
 		logInfo(errorMessage);
 		e.printStackTrace(System.out);
 	}
 
-	private static void logInfo(String message) {
+	protected static void logInfo(String message) {
 		System.out.println(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + " " + message);
 	}
 }

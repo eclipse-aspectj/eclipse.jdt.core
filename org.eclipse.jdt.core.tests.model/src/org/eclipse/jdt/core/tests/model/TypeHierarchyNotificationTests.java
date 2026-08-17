@@ -28,6 +28,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.core.DeltaProcessor;
 
 public class TypeHierarchyNotificationTests extends ModifyingResourceTests implements ITypeHierarchyChangedListener {
 	/**
@@ -111,6 +112,7 @@ protected void setUp() throws Exception {
 	super.setUp();
 	reset();
 	this.setUpJavaProject("TypeHierarchyNotification", CompilerOptions.getFirstSupportedJavaVersion());
+	DeltaProcessor.DEBUG = true;
 }
 static {
 //	TESTS_NAMES= new String[] { "testAddExtendsSourceType3" };
@@ -120,6 +122,7 @@ public static Test suite() {
 }
 @Override
 protected void tearDown() throws Exception {
+	DeltaProcessor.DEBUG = false;
 	this.deleteProject("TypeHierarchyNotification");
 	super.tearDown();
 }
@@ -533,6 +536,7 @@ public void testAddPackageFragmentRoot() throws CoreException {
 		// now create the actual resource for the root and populate it
 		reset();
 		project.getProject().getFolder("extra").create(false, true, null);
+		waitForAutoRefresh();
 		IPackageFragmentRoot newRoot= getPackageFragmentRoot("TypeHierarchyNotification", "extra");
 		assertTrue("New root should now be visible", newRoot != null);
 		assertOneChange(h);

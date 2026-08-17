@@ -48,6 +48,7 @@ package org.eclipse.jdt.internal.compiler.ast;
 
 import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION_CONTEXT;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -103,7 +104,6 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	private static final Block NO_BODY = new Block(0);
 	private HashMap<TypeBinding, LambdaExpression> copiesPerTargetType;
 	protected Expression [] resultExpressions = NO_EXPRESSIONS;
-	public InferenceContext18 inferenceContext; // when performing tentative resolve keep a back reference to the driving context
 	private Map<Integer/*sourceStart*/, LocalTypeBinding> localTypes; // support look-up of a local type from this lambda copy
 	public boolean hasVarTypedArguments = false;
 	int firstLocalLocal; // analysis index of first local variable (if any) post parameter(s) in the lambda; ("local local" as opposed to "outer local")
@@ -300,13 +300,6 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 							haveDescriptor ? this.descriptor.thrownExceptions : Binding.NO_EXCEPTIONS,
 							blockScope.enclosingSourceType());
 		this.binding.typeVariables = Binding.NO_TYPE_VARIABLES;
-
-		MethodScope enm = this.scope.namedMethodScope();
-		MethodBinding enmb = enm == null ? null : enm.referenceMethodBinding();
-		if (enmb != null && enmb.isViewedAsDeprecated()) {
-			this.binding.modifiers |= ExtraCompilerModifiers.AccDeprecatedImplicitly;
-			this.binding.tagBits |= enmb.tagBits & TagBits.AnnotationTerminallyDeprecated;
-		}
 
 		boolean argumentsHaveErrors = false;
 		if (haveDescriptor) {
@@ -900,7 +893,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 		LambdaExpression copy = null;
 		try {
-			copy = cachedResolvedCopy(targetType, argumentsTypeElided(), false, null, skope); // if argument types are elided, we don't care for result expressions against *this* target, any valid target is OK.
+			copy = cachedResolvedCopy(targetType, argumentsTypeElided(), false, skope); // if argument types are elided, we don't care for result expressions against *this* target, any valid target is OK.
 		} catch (CopyFailureException cfe) {
 			if (this.assistNode)
 				return CompatibilityResult.COMPATIBLE; // can't type check result expressions, just say yes.
@@ -954,7 +947,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		private static final long serialVersionUID = 1L;
 	}
 
-	private LambdaExpression cachedResolvedCopy(TypeBinding targetType, boolean anyTargetOk, boolean requireExceptionAnalysis, InferenceContext18 context, Scope outerScope) {
+	private LambdaExpression cachedResolvedCopy(TypeBinding targetType, boolean anyTargetOk, boolean requireExceptionAnalysis, Scope outerScope) {
 		if (this.committed && outerScope instanceof BlockScope) {
 			this.enclosingScope = (BlockScope) outerScope;
 			// trust the result of any previous shape analysis:
@@ -999,15 +992,12 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 				copy.setExpressionContext(this.expressionContext);
 				copy.setExpectedType(targetType);
-				copy.inferenceContext = context;
 				TypeBinding type = copy.resolveType(this.enclosingScope, true);
 				if (type == null || !type.isValidBinding())
 					return null;
 
 				targetType = copy.expectedType; // possibly updated local types
-				if (this.copiesPerTargetType == null)
-					this.copiesPerTargetType = new HashMap<>();
-				this.copiesPerTargetType.put(targetType, copy);
+				this.copiesPerTargetType.put(targetType, copy); // copy() has linked this lambda to the original's cache
 			}
 			if (!requireExceptionAnalysis)
 				return copy;
@@ -1027,10 +1017,10 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	 * @return a resolved copy of 'this' or null if significant errors where encountered
 	 */
 	@Override
-	public LambdaExpression resolveExpressionExpecting(TypeBinding targetType, Scope skope, InferenceContext18 context) {
+	public LambdaExpression resolveExpressionExpecting(TypeBinding targetType, Scope skope) {
 		LambdaExpression copy = null;
 		try {
-			copy = cachedResolvedCopy(targetType, false, true, context, null /* to be safe we signal: not yet committed */);
+			copy = cachedResolvedCopy(targetType, false, true, null /* to be safe we signal: not yet committed */);
 		} catch (CopyFailureException cfe) {
 			return null;
 		}
@@ -1083,7 +1073,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 
 		LambdaExpression copy;
 		try {
-			copy = cachedResolvedCopy(s, true /* any resolved copy is good */, false, null, null /*not yet committed*/); // we expect a cached copy - otherwise control won't reach here.
+			copy = cachedResolvedCopy(s, true /* any resolved copy is good */, false, null /*not yet committed*/); // we expect a cached copy - otherwise control won't reach here.
 		} catch (CopyFailureException cfe) {
 			if (this.assistNode)
 				return false;
@@ -1136,12 +1126,50 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 		if (copy != null) { // ==> syntax errors == null
 			if (copy.sourceStart != this.sourceStart || copy.sourceEnd != this.sourceEnd)
 				return null; // something wrong
-			copy.original = this;
+			shareInferenceCaches(copy);
 			copy.assistNode = this.assistNode;
 			copy.enclosingScope = this.enclosingScope;
 			copy.text = this.text; // discard redundant textual copy
 		}
 		return copy;
+	}
+
+	private void shareInferenceCaches(LambdaExpression copy) {
+		// A speculative copy can contain nested lambdas. Link each collected lambda to its
+		// original lambda and share the per-target inference cache.
+		// A cache entry is a resolved lambda copy and owns its parameter bindings. Nested
+		// lambdas may use parameters from an enclosing lambda, so collectLambdas() stops
+		// below a lambda with parameters. Caches below that point stay local to the
+		// enclosing copy.
+		// Both traversals start at the root and visit nested lambdas in source order.
+		List<LambdaExpression> sourceLambdas = collectLambdas(this);
+		List<LambdaExpression> copiedLambdas = collectLambdas(copy);
+		if (sourceLambdas.size() != copiedLambdas.size())
+			throw new CopyFailureException();
+		for (int i = 0; i < sourceLambdas.size(); i++) {
+			LambdaExpression sourceLambda = sourceLambdas.get(i);
+			LambdaExpression copiedLambda = copiedLambdas.get(i);
+			if (sourceLambda.sourceStart != copiedLambda.sourceStart || sourceLambda.sourceEnd != copiedLambda.sourceEnd)
+				throw new CopyFailureException();
+			LambdaExpression originalLambda = sourceLambda.original;
+			copiedLambda.original = originalLambda;
+			if (originalLambda.copiesPerTargetType == null)
+				originalLambda.copiesPerTargetType = new HashMap<>();
+			sourceLambda.copiesPerTargetType = originalLambda.copiesPerTargetType;
+			copiedLambda.copiesPerTargetType = originalLambda.copiesPerTargetType;
+		}
+	}
+
+	private static List<LambdaExpression> collectLambdas(LambdaExpression root) {
+		List<LambdaExpression> lambdas = new ArrayList<>();
+		root.traverse(new ASTVisitor() {
+			@Override
+			public boolean visit(LambdaExpression lambda, BlockScope skope) {
+				lambdas.add(lambda);
+				return lambda.arguments.length == 0; // nested lambdas may use these parameters
+			}
+		}, root.enclosingScope);
+		return lambdas;
 	}
 
 	public void returnsExpression(Expression expression, TypeBinding resultType) {

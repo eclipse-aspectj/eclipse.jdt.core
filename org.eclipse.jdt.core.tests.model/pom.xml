@@ -15,17 +15,17 @@
   <parent>
     <artifactId>tests-pom</artifactId>
     <groupId>org.eclipse.jdt</groupId>
-    <version>4.38.0-SNAPSHOT</version>
+    <version>4.41.0-SNAPSHOT</version>
     <relativePath>../tests-pom/</relativePath>
   </parent>
   <artifactId>org.eclipse.jdt.core.tests.model</artifactId>
-  <version>3.13.600-SNAPSHOT</version>
+  <version>3.13.800-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
     <defaultSigning-excludeInnerJars>true</defaultSigning-excludeInnerJars>
     <jitExclusion>-XX:CompileCommand=exclude,org.eclipse.jdt.internal.core.dom.rewrite.ASTRewriteAnalyzer::getExtendedRange</jitExclusion>
-
+    <surefire.timeout>1800</surefire.timeout><!-- timeout in seconds -->
   </properties>
 
   <build>

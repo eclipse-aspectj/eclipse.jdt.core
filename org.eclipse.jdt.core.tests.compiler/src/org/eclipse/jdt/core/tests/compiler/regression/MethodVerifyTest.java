@@ -910,7 +910,7 @@ public class MethodVerifyTest extends AbstractComparableTest {
 			"1. ERROR in X.java (at line 1)\n" +
 			"	abstract class X1 extends A implements I {}\n" +
 			"	               ^^\n" +
-			"The inherited method A.foo(T) cannot hide the public abstract method in I\n" +
+			"The inherited method A.foo(T) cannot reduce the visibility of the public abstract method in I\n" +
 			"----------\n"
 			// <T>foo(T) in A cannot implement <T>foo(T) in I; attempting to assign weaker access privileges; was public
 		);
@@ -2591,7 +2591,7 @@ public class MethodVerifyTest extends AbstractComparableTest {
 			"1. ERROR in X.java (at line 1)\n" +
 			"	public abstract class X extends Y implements I { }\n" +
 			"	                      ^\n" +
-			"The inherited method Y.foo(A) cannot hide the public abstract method in I\n" +
+			"The inherited method Y.foo(A) cannot reduce the visibility of the public abstract method in I\n" +
 			"----------\n" +
 			"2. WARNING in X.java (at line 3)\n" +
 			"	class Y { void foo(A a) {} }\n" +
@@ -8381,7 +8381,7 @@ public void test132() {
 		"2. ERROR in X.java (at line 7)\n" +
 		"	public Object foo2(I<?> p) { return null; }\n" +
 		"	       ^^^^^^\n" +
-		"The return type is incompatible with I<U>.foo2(I<? extends Object>)\n" +
+		"The return type is incompatible with I<U>.foo2(I<?>)\n" +
 		"----------\n"
 	);
 }
@@ -13656,5 +13656,59 @@ public void testIssue4354() {
 		"Name clash: The method andThen(Function<? super R,? extends V>) of type BiFunction<T,U,R> has the same erasure as andThen(Function<? super R,? extends V>) of type Function<T,R> but does not override it\n" +
 		"----------\n"
 	);
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4601
+// New Compile Errors in Xtext Dev Workspace with newer jdt versions
+public void testIssue4601() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"""
+			abstract class TraceForStorageProvider extends AbstractTraceForURIProvider<IFile, StorageAwareTrace> implements ITraceForStorageProvider {
+
+			}
+
+
+			abstract class AbstractTraceForURIProvider<SomeFile, Trace extends AbstractTrace> implements ITraceForURIProvider {
+
+				public Trace getTraceToSource(final SomeFile generatedFile) {
+					return null;
+				}
+			}
+
+			interface ITraceForStorageProvider extends IPlatformSpecificTraceProvider<IStorage, IEclipseTrace> {}
+
+			interface IPlatformSpecificTraceProvider<PlatformResource, Trace extends IPlatformSpecificTrace<PlatformResource, ?>> {
+				Trace getTraceToSource(PlatformResource derivedResource);
+			}
+
+			interface ITraceForURIProvider {}
+
+			interface IFile {}
+
+			interface IStorage {}
+
+			class StorageAwareTrace extends AbstractEclipseTrace {}
+
+			abstract class AbstractEclipseTrace extends AbstractTrace implements IEclipseTrace {}
+			abstract class AbstractTrace implements ITrace {}
+
+			interface ITrace {}
+
+			interface IEclipseTrace extends IPlatformSpecificTrace<IStorage, ILocationInEclipseResource> {}
+
+			interface ILocationInEclipseResource extends IPlatformSpecificLocation<IStorage> {}
+
+			interface IPlatformSpecificTrace<PlatformResource, Location extends IPlatformSpecificLocation<? extends PlatformResource>> extends ITrace {}
+
+			interface IPlatformSpecificLocation<PlatformResource> {}
+			"""
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 1)\n" +
+		"	abstract class TraceForStorageProvider extends AbstractTraceForURIProvider<IFile, StorageAwareTrace> implements ITraceForStorageProvider {\n" +
+		"	               ^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"Name clash: The method getTraceToSource(SomeFile) of type AbstractTraceForURIProvider<SomeFile,Trace> has the same erasure as getTraceToSource(PlatformResource) of type IPlatformSpecificTraceProvider<PlatformResource,Trace> but does not override it\n" +
+		"----------\n");
 }
 }

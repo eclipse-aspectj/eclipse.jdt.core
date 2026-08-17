@@ -98,29 +98,6 @@ public List<TypeBinding> collectMissingTypes(List<TypeBinding> missingTypes) {
 }
 
 @Override
-public void collectSubstitutes(Scope scope, TypeBinding actualType, InferenceContext inferenceContext, int constraint) {
-
-	if ((this.tagBits & TagBits.HasTypeVariable) == 0) return;
-	if (actualType == TypeBinding.NULL || actualType.kind() == POLY_TYPE) return;
-
-	switch(actualType.kind()) {
-		case Binding.ARRAY_TYPE :
-	        int actualDim = actualType.dimensions();
-	        if (actualDim == this.dimensions) {
-			    this.leafComponentType.collectSubstitutes(scope, actualType.leafComponentType(), inferenceContext, constraint);
-	        } else if (actualDim > this.dimensions) {
-	            ArrayBinding actualReducedType = this.environment.createArrayType(actualType.leafComponentType(), actualDim - this.dimensions);
-	            this.leafComponentType.collectSubstitutes(scope, actualReducedType, inferenceContext, constraint);
-	        }
-			break;
-		case Binding.TYPE_PARAMETER :
-			//TypeVariableBinding variable = (TypeVariableBinding) otherType;
-			// TODO (philippe) should consider array bounds, and recurse
-			break;
-	}
-}
-
-@Override
 public boolean mentionsAny(TypeBinding[] parameters, int idx) {
 	return this.leafComponentType.mentionsAny(parameters, idx);
 }
@@ -235,6 +212,8 @@ public ArrayBinding upwardsProjection(Scope scope, TypeBinding[] mentionedTypeVa
 @Override
 public ArrayBinding downwardsProjection(Scope scope, TypeBinding[] mentionedTypeVariables) {
 	TypeBinding leafType = this.leafComponentType.downwardsProjection(scope, mentionedTypeVariables);
+	if (leafType == null)
+		return null;
 	return scope.environment().createArrayType(leafType, this.dimensions, this.typeAnnotations);
 }
 

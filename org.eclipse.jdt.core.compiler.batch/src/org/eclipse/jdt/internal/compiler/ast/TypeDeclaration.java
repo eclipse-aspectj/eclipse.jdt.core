@@ -785,7 +785,7 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 			for (int i=0; i<this.methods.length; i++) {
 				AbstractMethodDeclaration method = this.methods[i];
 				if (method.isConstructor()) {
-					FlowInfo ctorInfo = flowInfo.copy();
+					FlowInfo ctorInfo = flowInfo.unconditionalFieldLessCopy();
 					ConstructorDeclaration constructor = (ConstructorDeclaration) method;
 					constructor.analyseCode(this.scope, initializerContext, ctorInfo, ctorInfo.reachMode(), AnalysisMode.PROLOGUE);
 					ctorInfo = constructor.getPrologueInfo();
@@ -854,7 +854,8 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 					this.initializerScope.problemReporter().initializerMustCompleteNormally(field);
 					nonStaticFieldInfo = FlowInfo.initial(this.maxFieldCount).setReachMode(FlowInfo.UNREACHABLE_OR_DEAD);
 				}
-				if (fieldNeedingClose == null && useOwningAnnotations && isCloseable && (field.binding.tagBits & TagBits.AnnotationOwning) != 0) {
+				if (fieldNeedingClose == null && useOwningAnnotations && isCloseable
+						&& !(field instanceof Initializer) && (field.binding.tagBits & TagBits.AnnotationOwning) != 0) {
 					fieldNeedingClose = field;
 				}
 			}
@@ -1211,9 +1212,7 @@ public StringBuilder printHeader(int indent, StringBuilder output) {
 		output.append('(');
 		for (int i = 0, length = this.recordComponents.length; i < length; i++) {
 			if (i > 0) output.append(", "); //$NON-NLS-1$
-			output.append(this.recordComponents[i].type.getTypeName()[0]);
-			output.append(' ');
-			output.append(this.recordComponents[i].name);
+			this.recordComponents[i].print(indent, output);
 		}
 		output.append(')');
 	}
@@ -1291,8 +1290,8 @@ public void resolve() {
 		this.scope.problemReporter().validateRestrictedKeywords(this.name, this);
 		// resolve annotations and check @Deprecated annotation
 		long annotationTagBits = sourceType.getAnnotationTagBits();
-		if ((annotationTagBits & TagBits.AnnotationDeprecated) == 0
-				&& (sourceType.modifiers & ClassFileConstants.AccDeprecated) != 0) {
+		boolean isDeprecated = (annotationTagBits & TagBits.AnnotationDeprecated) != 0;
+		if (!isDeprecated && (sourceType.modifiers & ClassFileConstants.AccDeprecated) != 0) {
 			this.scope.problemReporter().missingDeprecatedAnnotationForType(this);
 		}
 		if ((annotationTagBits & TagBits.AnnotationFunctionalInterface) != 0) {
@@ -1425,6 +1424,8 @@ public void resolve() {
 					field.javadoc = this.javadoc;
 				}
 				field.resolve(field.isStatic() ? this.staticInitializerScope : this.initializerScope);
+				if (isDeprecated)
+					checkMemberOfDeprecated(sourceType, field.binding, field);
 			}
 		}
 		if (this.maxFieldCount < localMaxFieldCount) {
@@ -1487,7 +1488,13 @@ public void resolve() {
 		if (this.methods != null) {
 			for (AbstractMethodDeclaration method : this.methods) {
 				method.resolve(this.scope);
+				if (isDeprecated)
+					checkMemberOfDeprecated(sourceType, method.binding, method);
 			}
+		}
+		if (this.memberTypes != null && isDeprecated) {
+			for (TypeDeclaration member : this.memberTypes)
+				checkMemberOfDeprecated(sourceType, member.binding, member);
 		}
 		// Resolve javadoc
 		if (this.javadoc != null) {
@@ -1526,6 +1533,22 @@ public void resolve() {
 	} catch (AbortType e) {
 		this.ignoreFurtherInvestigation = true;
 		return;
+	}
+}
+
+private void checkMemberOfDeprecated(SourceTypeBinding declaringType, Binding memberBinding, ASTNode memberDeclaration) {
+	if (declaringType.isAnnotationType())
+		return; // don't suggest to deprecate annotation attributes
+
+	if (memberBinding instanceof MethodBinding method && method.isPrivate()) return;
+	else if (memberBinding instanceof FieldBinding field && field.isPrivate()) return;
+	else if (memberBinding instanceof ReferenceBinding type && type.isPrivate()) return;
+
+	if (memberBinding != null && memberBinding.isValidBinding() && (memberBinding.tagBits & TagBits.HasMissingType) == 0) {
+		if (memberDeclaration instanceof ConstructorDeclaration ctor && ctor.isDefaultConstructor())
+			return;
+		if ((memberBinding.tagBits & TagBits.AnnotationDeprecated) == 0)
+			this.scope.problemReporter().memberOfDeprecatedTypeNotDeprecated(memberDeclaration, declaringType);
 	}
 }
 
@@ -1882,9 +1905,6 @@ public void updateSupertypesWithAnnotations(Map<ReferenceBinding,ReferenceBindin
 	if (this.binding == null)
 		return;
 	this.binding.getAnnotationTagBits();
-	if (this.binding instanceof MemberTypeBinding) {
-		((MemberTypeBinding) this.binding).updateDeprecationFromEnclosing();
-	}
 	Map<ReferenceBinding,ReferenceBinding> updates = new HashMap<>();
 	if (this.typeParameters != null) {
 		for (TypeParameter typeParameter : this.typeParameters) {
@@ -1917,15 +1937,6 @@ public void updateSupertypesWithAnnotations(Map<ReferenceBinding,ReferenceBindin
 protected ReferenceBinding updateWithAnnotations(TypeReference typeRef, ReferenceBinding previousType,
 		Map<ReferenceBinding, ReferenceBinding> outerUpdates, Map<ReferenceBinding, ReferenceBinding> updates)
 {
-	if (!TESTING_GH_2158
-			&& previousType instanceof ParameterizedTypeBinding previousPTB
-			&& previousPTB.original() instanceof SourceTypeBinding previousOriginal
-			&& previousOriginal.supertypeAnnotationsUpdated) {
-		// re-initialized parameterized type with updated annotations from the original:
-		typeRef.resolvedType = this.scope.environment().createParameterizedType(previousOriginal,		// <- has been updated
-				previousPTB.arguments, previousType.enclosingType(), previousType.getAnnotations());	// <- no changes here
-	}
-
 	typeRef.updateWithAnnotations(this.scope, 0);
 	ReferenceBinding updatedType = (ReferenceBinding) typeRef.resolvedType;
 	if (updatedType instanceof ParameterizedTypeBinding) {
@@ -1939,10 +1950,8 @@ protected ReferenceBinding updateWithAnnotations(TypeReference typeRef, Referenc
 	if (previousType != null) {
 		if (previousType.id == TypeIds.T_JavaLangObject && ((this.binding.tagBits & TagBits.HierarchyHasProblems) != 0))
 			return previousType; // keep this cycle breaker
-		if (previousType != updatedType) { //$IDENTITY-COMPARISON$
+		if (previousType != updatedType) //$IDENTITY-COMPARISON$
 			updates.put(previousType, updatedType);
-			this.binding.supertypeAnnotationsUpdated = true;
-		}
 	}
 	return updatedType;
 }

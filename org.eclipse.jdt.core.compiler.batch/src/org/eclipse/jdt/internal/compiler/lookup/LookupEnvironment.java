@@ -1,6 +1,6 @@
 // ASPECTJ
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -55,6 +55,7 @@ import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.ClassFilePool;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.Location;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
@@ -127,7 +128,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 	public HashtableOfModule knownModules;		// SHARED
 
 	public CompilationUnitDeclaration unitBeingCompleted = null; // only set while completing units -- ROOT_ONLY
-	public Object missingClassFileLocation = null; // only set when resolving certain references, to help locating problems
+	public Location missingClassFileLocation = null; // only set when resolving certain references, to help locating problems
     // AspectJ Extension - raised visibility
 	protected CompilationUnitDeclaration[] units = new CompilationUnitDeclaration[4]; // ROOT_ONLY
 	private MethodVerifier verifier;
@@ -135,6 +136,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 	private ArrayList<MissingTypeBinding> missingTypes;
 	final Set<SourceTypeBinding> typesBeingConnected;	// SHARED
 	public boolean isProcessingAnnotations = false; // ROOT_ONLY
+	public boolean isResolvingSuperType = false; // ROOT_ONLY
 	public boolean mayTolerateMissingType = false;
 
 	AnnotationBinding nonNullAnnotation;
@@ -164,14 +166,19 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 	static class GlobalDataMemento {
 		Set<SourceTypeBinding> typesBeingConnected;
 		boolean mayTolerateMissingType = false;
-		GlobalDataMemento(Set<SourceTypeBinding> typesBeingConnected, boolean mayTolerateMissingType) {
+		boolean isResolvingSuperType = false;
+		GlobalDataMemento(Set<SourceTypeBinding> typesBeingConnected, boolean mayTolerateMissingType, boolean isResolvingSuperType) {
 			this.typesBeingConnected = typesBeingConnected;
 			this.mayTolerateMissingType = mayTolerateMissingType;
+			this.isResolvingSuperType = isResolvingSuperType;
 		}
 	}
 	GlobalDataMemento stashGlobalData() {
-		GlobalDataMemento memento = new GlobalDataMemento(new LinkedHashSet<>(this.typesBeingConnected), this.mayTolerateMissingType);
-		this.typesBeingConnected.clear();
+		GlobalDataMemento memento = new GlobalDataMemento(new LinkedHashSet<>(this.typesBeingConnected),
+				this.mayTolerateMissingType, this.root.isResolvingSuperType);
+		if (!this.root.isResolvingSuperType)
+			this.typesBeingConnected.clear(); // lookup is not within the hierarchy of these types
+		this.root.isResolvingSuperType = false;
 		this.mayTolerateMissingType = false;
 		return memento;
 	}
@@ -179,6 +186,14 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 		this.typesBeingConnected.clear();
 		this.typesBeingConnected.addAll(memento.typesBeingConnected);
 		this.mayTolerateMissingType = memento.mayTolerateMissingType;
+		this.root.isResolvingSuperType = memento.isResolvingSuperType;
+	}
+
+	public boolean enterSuperTypeLookup(SourceTypeBinding sourceType) {
+		this.typesBeingConnected.add(sourceType);
+		boolean previous = this.root.isResolvingSuperType;
+		this.root.isResolvingSuperType = true;
+		return previous;
 	}
 
 	// AspectJ extension - raised visibility to protected
@@ -217,7 +232,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 				case CHECK_AND_SET_IMPORTS -> scope.checkAndSetImports();
 				case CONNECT_TYPE_HIERARCHY -> scope.connectTypeHierarchy();
 				case SEAL_TYPE_HIERARCHY -> scope.sealTypeHierarchy();
-				case COLLATE_RECORD_COMPONENTS -> scope.collateRecordComponents();
+				case COLLATE_RECORD_COMPONENTS -> scope.buildComponents();
 				case BUILD_FIELDS_AND_METHODS -> scope.buildFieldsAndMethods();
 				case INTEGRATE_ANNOTATIONS_IN_HIERARCHY -> scope.integrateAnnotationsInHierarchy();
 				case CHECK_PARAMETERIZED_TYPES -> scope.checkParameterizedTypes();
@@ -1111,6 +1126,14 @@ public TypeBinding createIntersectionType18(ReferenceBinding[] intersectingTypes
 			}
 		});
 	}
+	int j = 0;
+	for (int i = 1; i < intersectingTypes.length; i++) {
+		if (!TypeBinding.equalsEquals(intersectingTypes[j], intersectingTypes[i])) {
+			intersectingTypes[++j] = intersectingTypes[i];
+		}
+	}
+	if (j < intersectingTypes.length)
+		intersectingTypes = Arrays.copyOfRange(intersectingTypes, 0, j+1);
 	return this.typeSystem.getIntersectionType18(intersectingTypes);
 }
 
@@ -1530,7 +1553,6 @@ public WildcardBinding createWildcard(ReferenceBinding genericType, int rank, Ty
 }
 
 public CaptureBinding createCapturedWildcard(WildcardBinding wildcard, ReferenceBinding contextType, int start, int end, ASTNode cud, Supplier<Integer> idSupplier) {
-	wildcard = normalizeWildcard(wildcard);
 	return this.typeSystem.getCapturedWildcard(wildcard, contextType, start, end, cud, idSupplier);
 }
 
@@ -1546,13 +1568,6 @@ private TypeBinding normalizeWildcardBound(TypeBinding bound, int boundKind) {
 			return capture.firstBound;
 	}
 	return bound;
-}
-private WildcardBinding normalizeWildcard(WildcardBinding wildcard) {
-	if (wildcard.boundKind == Wildcard.EXTENDS
-			&& wildcard.bound instanceof CaptureBinding wildCap
-			&& wildCap.wildcard != null) // null happens for CaptureBinding18
-		return wildCap.wildcard;
-	return wildcard;
 }
 
 /**

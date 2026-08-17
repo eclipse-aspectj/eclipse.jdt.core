@@ -14,6 +14,7 @@
 package org.eclipse.jdt.internal.compiler.impl;
 
 import org.eclipse.jdt.internal.compiler.ast.OperatorIds;
+import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.problem.ShouldNotImplement;
 import org.eclipse.jdt.internal.compiler.util.Messages;
@@ -1540,6 +1541,118 @@ public abstract class Constant implements TypeIds, OperatorIds {
 			case T_long : return "long";//$NON-NLS-1$
 			case T_JavaLangString : return "java.lang.String"; //$NON-NLS-1$
 			default: return "unknown"; //$NON-NLS-1$
+		}
+	}
+
+	public boolean isExactTestingConversion(BaseTypeBinding resolvedType) {
+		if (typeID() == resolvedType.id || BaseTypeBinding.isExactWidening(resolvedType.id, typeID()))
+			return true;
+		if (resolvedType.id == T_boolean)
+			return false;
+		switch (typeID()) {
+			case T_byte -> {
+				byte n = byteValue();
+				switch (resolvedType.id) {
+					case T_char: return n == (char)n;
+					default: return true;
+				}
+			}
+			case T_char -> {
+				char n = charValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n;
+					case T_short: return n == (short)n;
+					default: return true;
+				}
+			}
+			case T_short -> {
+				short n = shortValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n;
+					case T_char: return n == (char)n;
+					default: return true;
+				}
+			}
+			case T_int -> {
+				int n = intValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n;
+					case T_short: return n == (short)n;
+					case T_char: return n == (char)n;
+					case T_float: return n == (int)(float)n && n != Integer.MAX_VALUE;
+					default: return true;
+				}
+			}
+			case T_long -> {
+				long n = longValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n;
+					case T_short: return n == (short)n;
+					case T_char: return n == (char)n;
+					case T_int: return n == (int)n;
+					case T_float: return n == (long)(float)n && n != Long.MAX_VALUE;
+					case T_long: return true;
+					case T_double: return n == (long)(double)n && n != Long.MAX_VALUE;
+				}
+			}
+			case T_float -> {
+				float n = floatValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n;
+					case T_short: return n == (short)n;
+					case T_char: return n == (char)n;
+					case T_int: return n == (int)n;
+					case T_long: return n == (long)n && n != 0x1p63f && !isNegativeZero(n);
+					default: return true;
+				}
+			}
+			case T_double -> {
+				double n = doubleValue();
+				switch (resolvedType.id) {
+					case T_byte: return n == (byte)n && !isNegativeZero(n);
+					case T_short: return n == (short)n && !isNegativeZero(n);
+					case T_char: return n == (char)n && !isNegativeZero(n);
+					case T_int: return n == (int)n && !isNegativeZero(n);
+					case T_float: return n == (float)n || n != n;
+					case T_long: return n == (long)n && !isNegativeZero(n);
+					case T_double: return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static boolean isNegativeZero(float n) {
+		return Float.floatToRawIntBits(n) == Integer.MIN_VALUE;
+	}
+
+	private static boolean isNegativeZero(double n) {
+		return Double.doubleToRawLongBits(n) == Long.MIN_VALUE;
+	}
+	public boolean compareAfterPromoting(Constant otherConstant) {
+		if (this == otherConstant)
+			return true;
+		if (otherConstant == null)
+			return false;
+		// Preserve the per-kind semantics (incl. float/double zero & NaN handling) for same-typed constants.
+		if (equals(otherConstant))
+			return true;
+		// Case label constants of the integral types byte, short, char and int are compared after
+		// binary numeric promotion to int (JLS 5.6, 14.11.1). Two such constants denoting the same int
+		// value are therefore duplicate case labels even if their compile-time constant kinds differ,
+		// e.g. (byte)0 (ByteConstant) and 0 (IntConstant), or 'A' (CharConstant) and 65 (IntConstant).
+		return comparesAsInt(this) && comparesAsInt(otherConstant) && intValue() == otherConstant.intValue();
+	}
+
+	private static boolean comparesAsInt(Constant constant) {
+		switch (constant.typeID()) {
+			case T_byte:
+			case T_short:
+			case T_char:
+			case T_int:
+				return true;
+			default:
+				return false;
 		}
 	}
 }

@@ -42,6 +42,7 @@ import java.io.File;
 import java.util.Map;
 import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.JavacTestOptions.JavacHasABug;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
@@ -2466,7 +2467,7 @@ public void test366131b() {
 		"4. WARNING in X.java (at line 13)\n" +
 		"	return castTo((Class) null).containsNC((Comparable) null);\n" +
 		"	              ^^^^^^^^^^^^\n" +
-		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<Comparable<? super Comparable<? super N>&Number>&Number>\n" +
+		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<capture-Y#0-of N extends Comparable<? super capture-Y#0-of N>&Number>\n" +
 		"----------\n" +
 		"5. WARNING in X.java (at line 13)\n" +
 		"	return castTo((Class) null).containsNC((Comparable) null);\n" +
@@ -5336,7 +5337,7 @@ public void testBug454644() {
 		"5. WARNING in example\\CollectionFactory.java (at line 87)\n" +
 		"	return EnumSet.noneOf((Class) elementType);\n" +
 		"	                      ^^^^^^^^^^^^^^^^^^^\n" +
-		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<Enum<Enum<E>>>\n" +
+		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<capture-Y#0-of E extends Enum<capture-Y#0-of E>>\n" +
 		"----------\n" +
 		"6. WARNING in example\\CollectionFactory.java (at line 87)\n" +
 		"	return EnumSet.noneOf((Class) elementType);\n" +
@@ -5392,7 +5393,7 @@ public void testBug456459a() {
 		"5. WARNING in EnumTest.java (at line 9)\n" +
 		"	EnumSet<? extends T> set = EnumSet.allOf(enumType);\n" +
 		"	                                         ^^^^^^^^\n" +
-		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<Enum<Enum<E>>>\n" +
+		"Type safety: The expression of type Class needs unchecked conversion to conform to Class<capture-Y#0-of E extends Enum<capture-Y#0-of E>>\n" +
 		"----------\n" +
 		"6. ERROR in EnumTest.java (at line 10)\n" +
 		"	return set.iterator().next();\n" +
@@ -6973,6 +6974,232 @@ public void testGH4254() {
 			"""
 		}
 	);
+}
+
+public void testGH4314() {
+    runConformTest(new String[] {
+            "Test.java",
+            """
+            import java.util.function.Function;
+
+            public class Test {
+
+                public static void main(String[] args) {
+                    m(
+                            i -> new A<>(i),
+                            b -> b.intValue());
+                }
+
+                private static <T, R> void m(Function<Integer, A<T>> f1, Function<T, R> f2) {}
+                private static class A<T> {
+                    public A(T t) {}
+                }
+            }
+            """
+    });
+}
+public void testGH4314b() {
+	if (this.complianceLevel < ClassFileConstants.JDK22)
+		return; // uses unnamed lambda param
+	Runner runner = new Runner();
+	runner.testFiles = new String[] {
+			"Test.java",
+			"""
+			import java.util.function.Function;
+			public class Test {
+				public static void main(String[] args) {
+					C<B<?>> c = null;
+					m(
+							_ -> new A<>(c),
+							b -> b.intValue());
+				}
+				static <T, R> void m(Function<B<Number>, A<T>> f1, Function<T, R> f2) {}
+				static class A<U> {
+					public A(C<? extends C<U>> t) {}
+				}
+				record B<V extends Number>(V t) implements C<V> {
+
+				}
+				interface C<W> {
+					W t();
+				}
+			}
+			"""
+		};
+	runner.javacTestOptions = JavacHasABug.JavacBug8016196;
+	runner.runConformTest();
+}
+public void testGH4314c() {
+	if (this.complianceLevel < ClassFileConstants.JDK22)
+		return; // uses unnamed lambda param
+	runConformTest(new String[] {
+			"Test.java",
+			"""
+			import java.util.function.Function;
+			public class Test {
+				public static void main(String[] args) {
+					C<B<?>> c = null;
+					m(
+							_ -> new A<>(c),
+							b -> b.intValue());
+				}
+				static <T, R> void m(Function<B<Number>, A<T>> f1, Function<T, R> f2) {}
+				static class A<U> {
+					public A(C<? extends C<? extends U>> t) {}
+				}
+				record B<V extends Number>(V t) implements C<V> {
+
+				}
+				interface C<W> {
+					W t();
+				}
+			}
+			"""
+		},
+		"");
+}
+
+public void testGH4557() {
+    runConformTest(new String[] {
+            "Test.java",
+            """
+            import java.util.List;
+            public class Test {
+                public static void main(List<?> l) {
+                    get(get(get(l)));
+                }
+                public static <T> List<?> get(List<T> l) {
+                    return l;
+                }
+            }
+            """
+        },
+        "");
+}
+
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4891
+// "Internal inconsistency" Warning when mixing lambda expressions with bounded wildcards
+public void testIssue4891() {
+	if (this.complianceLevel < ClassFileConstants.JDK22)
+		return;
+
+	Runner runner = new Runner();
+	runner.expectedOutputString =
+			"Compiled and ran fine!";
+	runner.expectedCompilerLog = "";
+
+	runner.testFiles = new String[] {
+		"Bug.java",
+        """
+		import java.util.function.Predicate;
+
+		// Internal inconsistency: Inappropriate operand stack size encountered during translation
+		public class Bug<T>{
+
+			static class Builder<T>{
+				Predicate<? super T> p;
+			}
+
+			final Predicate<? super T> p;
+
+			Bug(Builder<T> builder) {
+				this.p=builder.p==null?_->true:builder.p; //<-- caused by this line
+				// does not happen if passing predicate directly as argument
+				// does not happen without generic bounds <T>
+				// does not happen without ternary expression
+				// does not happen with unbounded wildcard <?>
+			}
+
+			public static void main(String [] args) {
+				System.out.println("Compiled and ran fine!");
+			}
+		}
+         """
+	};
+	runner.runConformTest();
+}
+// https://github.com/eclipse-jdt/eclipse.jdt.core/issues/4900
+// Type interference with generics (and lambdas?) fails in Eclipse but compile in Javac
+public void testIssue4900() {
+
+	Runner runner = new Runner();
+	runner.expectedOutputString =
+			"";
+	runner.expectedCompilerLog = "";
+
+	runner.testFiles = new String[] {
+		"de/ivu/example/typeinference/eclipse/EclipseTypeInferenceExample.java",
+		"""
+		package de.ivu.example.typeinference.eclipse;
+
+		import java.util.List;
+		import java.util.Map;
+		import java.util.Optional;
+		import java.util.function.Function;
+		import java.util.stream.Collectors;
+
+		/**
+		 * Minimal examples to find where Eclipse type inference actually fails.
+		 */
+		public class EclipseTypeInferenceExample {
+
+		    /**
+		     * TEST 1: Generic method with type parameters where Eclipse type interference FAILS
+		     */
+		    public static class Test_1 {
+
+		        static <A, B, C, D> void process(
+		                List<A> items,
+		                Function<A, B> extract,
+		                Function<List<B>, C> aggregate,
+		                Function<C, Map<B, D>> transform) {
+		        }
+
+		        // FAILS in Eclipse: "Cannot infer type argument(s) for <A, B, C, D> process(...)"
+		        public static void test_FAILS(List<String> items) {
+		            process(
+		                items,
+		                String::toLowerCase,
+		                list -> list.stream().distinct().toList(),
+		                list -> list.stream().collect(Collectors.toMap(
+		                    Function.identity(),
+		                    String::length)));
+		        }
+
+		        // WORKS in Eclipse only with explicit type parameters
+		        public static void test_WORKS(List<String> items) {
+		            /* type information for eclipse */Test_1
+		                .<String, String, List<String>, Integer> /* type information for eclipse */
+		                process(
+		                    items,
+		                    String::toLowerCase,
+		                    list -> list.stream().distinct().toList(),
+		                    list -> list.stream().collect(Collectors.toMap(
+		                        Function.identity(),
+		                        String::length)));
+		        }
+
+		        /**
+		         * TEST 2: Generic method with type parameters - simple case works fine in Eclipse
+		         */
+		        public static class Test_2 {
+
+		            static <A, B, C, D> void process(A a, Function<A, B> f1, Function<B, C> f2, Function<C, D> f3) {
+		            }
+
+		            public static void test_WORKS(String input) {
+		                process(
+		                    input,
+		                    String::length,
+		                    len -> Optional.of(len),
+		                    opt -> List.of(opt));
+		            }
+		        }
+		    }
+		}
+	    """
+	};
+	runner.runConformTest();
 }
 }
 

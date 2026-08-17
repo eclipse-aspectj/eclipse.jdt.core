@@ -2294,6 +2294,9 @@ void setSourceStart(int sourceStart);
 	/** @since 3.14 */
 	int UsingTerminallyDeprecatedSinceVersionModule = ModuleRelated + 1432;
 
+	/** @since 3.44 */
+	int MemberOfDeprecatedTypeNotDeprecated = TypeRelated + 1433;
+
 	/** @since 3.14 */
 	int NotAccessibleType = TypeRelated + 1450;
 	/** @since 3.14 */
@@ -2917,4 +2920,8 @@ void setSourceStart(int sourceStart);
 
 	/** @since 3.41 */
 	int MissingTypeForInference = Internal + 2103;
+
+
+	/** @since 3.45 */
+	int CyclicStructureNonNullByDefault = Internal + 2104;
 }

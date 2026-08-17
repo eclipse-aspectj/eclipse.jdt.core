@@ -862,16 +862,32 @@ public abstract class Scope {
 		return null; // incompatible
 	}
 
+	/* If the type variables will eventually come to be type annotated (express declaration site type annotations or applicable null defaults),
+	 * proactively create an "annotatable" variant now. When integrating annotations into hierarchy, we can then apply annotations `in place'.
+	 * Doing this now, ahead of connecting super types ensures that all references to the type variables in various AST nodes, will see the
+	 * annotatable variant being created here and once that gets annotated, all AST nodes into which the type variable binding was fanned out
+	 * by resolution will automatically see the update.
+	 */
+	void preprocessTypeVariables(TypeVariableBinding [] typeVariables, TypeParameter [] typeParameters) {
+		if (environment().typeSystem instanceof AnnotatableTypeSystem) {
+			int length;
+			if (typeVariables != null && typeParameters != null && (length = typeVariables.length) == typeParameters.length) {
+				for (int i = 0; i < length; i++) {
+					TypeParameter typeParameter = typeParameters[i];
+					TypeVariableBinding typeVariable = typeVariables[i];
+					if (typeParameter.binding != typeVariable) //$IDENTITY-COMPARISON$
+						throw new AssertionError("Unexpected type variable"); //$NON-NLS-1$
+					if ((typeParameter.bits & ASTNode.HasTypeAnnotations) != 0 || hasDefaultNullnessFor(Binding.DefaultLocationTypeParameter, typeParameter.sourceStart()))
+						typeParameters[i].binding = typeVariables[i] = (TypeVariableBinding) environment().createAnnotatedType(typeVariable, new AnnotationBinding [][] { Binding.AWAITED_ANNOTATIONS });
+				}
+			}
+		}
+	}
+
 	/**
 	 * Connect type variable supertypes, and returns true if no problem was detected
 	 */
 	protected boolean connectTypeVariables(TypeParameter[] typeParameters, boolean checkForErasedCandidateCollisions) {
-		/* https://bugs.eclipse.org/bugs/show_bug.cgi?id=305259 - We used to not bother with connecting
-		   type variables if source level is < 1.5. This creates problems in the reconciler if a 1.4
-		   project references the generified API of a 1.5 project. The "current" project's source
-		   level cannot decide this question for some other project. Now, if we see type parameters
-		   at all, we assume that the concerned java element has some legitimate business with them.
-		 */
 		if (typeParameters == null || typeParameters.length == 0) return true;
 		Map<TypeBinding, Object> invocations = new HashMap<>(2);
 		boolean noProblems = true;
@@ -1033,7 +1049,6 @@ public abstract class Scope {
 	}
 
 	public TypeVariableBinding[] createTypeVariables(TypeParameter[] typeParameters, Binding declaringElement) {
-		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=324850, If they exist at all, process type parameters irrespective of source level.
 		if (typeParameters == null || typeParameters.length == 0)
 			return Binding.NO_TYPE_VARIABLES;
 
@@ -1439,7 +1454,6 @@ public abstract class Scope {
 		FieldBinding field = currentType.getField(fieldName,true/*resolve*/,invocationSite,this); // AspectJ extension, was getField(fieldName,needResolve);
 //		FieldBinding field = currentType.getField(fieldName, needResolve);
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=316456
-		boolean insideTypeAnnotations = this instanceof MethodScope && ((MethodScope) this).insideTypeAnnotation;
 		if (field != null) {
             //      AspectJ Extension
             FieldBinding ret = field.getVisibleBinding(currentType, invocationSite, this);
@@ -1486,7 +1500,20 @@ public abstract class Scope {
 			unitScope.recordTypeReference(currentType);
 			currentType.initializeForStaticImports();
 			currentType = (ReferenceBinding) currentType.capture(this, invocationSite == null ? 0 : invocationSite.sourceStart(), invocationSite == null ? 0 : invocationSite.sourceEnd());
-			if ((field = currentType.getField(fieldName, needResolve, invocationSite, this)) != null) { // AspectJ Extension - was getField(fieldName,needResolve)
+			boolean deferredResolution = needResolve && currentType instanceof BinaryTypeBinding;
+			if ((field = currentType.getField(fieldName, deferredResolution ? false : needResolve, invocationSite, this)) != null) { // AspectJ Extension - was currentType.getField(fieldName, deferredResolution ? false : needResolve)
+//			if ((field = currentType.getField(fieldName, deferredResolution ? false : needResolve)) != null) {
+				boolean fieldCanbeSeenBy = invisibleFieldsOk || field.canBeSeenBy(receiverType, invocationSite, this);
+				if (deferredResolution) {
+					boolean save = environment().mayTolerateMissingType;
+					try {
+						if (!fieldCanbeSeenBy)
+							environment().mayTolerateMissingType = true;
+						field = ((BinaryTypeBinding) currentType).resolveTypeFor(field);
+					} finally {
+						environment().mayTolerateMissingType = save;
+					}
+				}
 				if (invisibleFieldsOk) {
 					return field;
 				}
@@ -1495,7 +1522,7 @@ public abstract class Scope {
 				field = field.getVisibleBinding(receiverType, invocationSite, this);
 				if (field != null) {
 				// End AspectJ Extension
-				if (field.canBeSeenBy(receiverType, invocationSite, this)) {
+				if (fieldCanbeSeenBy) {
 					if (visibleField == null)
 						visibleField = field;
 					else
@@ -2103,6 +2130,7 @@ public abstract class Scope {
 			FieldBinding problemField = null;
 			if ((mask & Binding.VARIABLE) != 0) {
 				boolean insideStaticContext = false;
+				boolean insideLocalRecordContext = false;
 				boolean insideConstructorCall = false;
 				boolean insideTypeAnnotation = false;
 
@@ -2123,7 +2151,7 @@ public abstract class Scope {
 							methodScope = (MethodScope) scope;
 							insideStaticContext |= methodScope.isStatic;
 							insideConstructorCall |= methodScope.isConstructorCall;
-							insideTypeAnnotation = methodScope.insideTypeAnnotation;
+							insideTypeAnnotation = methodScope.insideTypeDeclarationAnnotations;
 
 							//$FALL-THROUGH$ could duplicate the code below to save a cast - questionable optimization
 						case BLOCK_SCOPE :
@@ -2132,6 +2160,11 @@ public abstract class Scope {
 							LocalVariableBinding variableBinding = scope.findVariable(name);
 							// looks in this scope only
 							if (variableBinding != null) {
+								if (insideLocalRecordContext) {
+									return new ProblemLocalVariableBinding(
+											variableBinding,
+											ProblemReasons.NonStaticReferenceInStaticContext);
+								}
 								if (foundField != null && foundField.isValidBinding())
 									return new ProblemFieldBinding(
 										foundField, // closest match
@@ -2243,7 +2276,9 @@ public abstract class Scope {
 							insideTypeAnnotation = false;
 							depth+=classScope.addDepth(); // AspectJ Extension - was depth++
 							shouldTrackOuterLocals = true;
-							insideStaticContext |= invocationType().isStatic(); // AspectJ Extension - was receiverType
+							SourceTypeBinding invocationType = invocationType(); // AspectJ Extension - assigned invocationType()
+							insideStaticContext |= invocationType.isStatic(); // AspectJ Extension - was receiverType
+							insideLocalRecordContext |= invocationType.isRecord() && invocationType.isLocalType(); // AspectJ Extension - was receiverType in both cases
 							// 1EX5I8Z - accessing outer fields within a constructor call is permitted
 							// in order to do so, we change the flag as we exit from the type, not the method
 							// itself, because the class scope is used to retrieve the fields.
@@ -2680,7 +2715,7 @@ public abstract class Scope {
 					methodScope = (MethodScope) scope;
 					insideStaticContext |= methodScope.isStatic;
 					insideConstructorCall |= methodScope.isConstructorCall;
-					insideTypeAnnotation = methodScope.insideTypeAnnotation;
+					insideTypeAnnotation = methodScope.insideTypeDeclarationAnnotations;
 					break;
 				case CLASS_SCOPE :
 					ClassScope classScope = (ClassScope) scope;
@@ -3464,7 +3499,7 @@ public abstract class Scope {
 							}
 						}
 						insideStaticContext |= methodScope.isStatic;
-						insideTypeAnnotation = methodScope.insideTypeAnnotation;
+						insideTypeAnnotation = methodScope.insideTypeDeclarationAnnotations;
 						//$FALL-THROUGH$
 					case BLOCK_SCOPE :
 						ReferenceBinding localType = ((BlockScope) scope).findLocalType(name); // looks in this scope only
@@ -3855,13 +3890,48 @@ public abstract class Scope {
 				Object value = invocations.get(mec);
 				if (value instanceof TypeBinding[]) {
 					TypeBinding[] invalidInvocations = (TypeBinding[]) value;
-					problemReporter().superinterfacesCollide(invalidInvocations[0].erasure(), typeRef, invalidInvocations[0], invalidInvocations[1]);
-					type.tagBits |= TagBits.HierarchyHasProblems;
-					return true;
+					if (TypeDeclaration.TESTING_GH_2158 || areSignificantlyDifferent(invalidInvocations[0], invalidInvocations[1])) {
+						problemReporter().superinterfacesCollide(invalidInvocations[0].erasure(), typeRef, invalidInvocations[0], invalidInvocations[1]);
+						type.tagBits |= TagBits.HierarchyHasProblems;
+						return true;
+					}
 				}
 			}
 		}
 		return false;
+	}
+
+	private boolean areSignificantlyDifferent(TypeBinding one, TypeBinding two) {
+		if (!one.enterRecursiveFunction())
+			return true;
+		try {
+			if (one instanceof ParameterizedTypeBinding ptb1 && two instanceof ParameterizedTypeBinding ptb2) {
+				if (TypeBinding.notEquals(ptb1.erasure(), ptb2.erasure()))
+					return true;
+				return areSignificantlyDifferent(ptb1.arguments, ptb2.arguments);
+			} else if (one instanceof WildcardBinding wb1 && two instanceof WildcardBinding wb2) {
+				if (wb1.boundKind() != wb2.boundKind())
+					return true;
+				if (TypeBinding.notEquals(wb1.bound, wb2.bound))
+					return true;
+				return areSignificantlyDifferent(wb1.otherBounds, wb2.otherBounds);
+			}
+			return TypeBinding.notEquals(one, two);
+		} finally {
+			one.exitRecursiveFunction();
+		}
+	}
+
+	private boolean areSignificantlyDifferent(TypeBinding[] ones, TypeBinding[] twos) {
+		if (ones == null || twos == null)
+			return ones != twos;
+		if (ones.length != twos.length)
+			return true;
+		for (int i = 0; i < ones.length; i++) {
+			if (areSignificantlyDifferent(ones[i], twos[i]))
+				return true;
+		}
+		return false; // no significant difference found
 	}
 
 	/**
@@ -3936,6 +4006,15 @@ public abstract class Scope {
 		return false;
 	}
 
+	/* Answer true if this scope and the given type share a outermost enclosing type
+	 */
+	public final boolean isDefinedInSameEnclosingType(ReferenceBinding type) {
+		ClassScope outerMostClassScope = outerMostClassScope();
+		if (outerMostClassScope != null && outerMostClassScope.referenceContext != null)
+			return TypeBinding.equalsEquals(outerMostClassScope.referenceContext.binding, type.outermostEnclosingType());
+		return false;
+	}
+
 	/* Answer true if the scope is nested inside a given type declaration
 	*/
 	public final boolean isDefinedInType(ReferenceBinding type) {
@@ -3977,24 +4056,20 @@ public abstract class Scope {
 					ReferenceContext referenceContext = methodScope.referenceContext();
 					if (referenceContext instanceof AbstractMethodDeclaration) {
 						MethodBinding context = ((AbstractMethodDeclaration) referenceContext).binding;
-						if (context != null && context.isViewedAsDeprecated())
-							return true;
-					} else if (referenceContext instanceof LambdaExpression) {
-						MethodBinding context = ((LambdaExpression) referenceContext).binding;
-						if (context != null && context.isViewedAsDeprecated())
+						if (context != null && context.isDeprecated())
 							return true;
 					} else if (referenceContext instanceof ModuleDeclaration) {
 						ModuleBinding context = ((ModuleDeclaration) referenceContext).binding;
 						return context != null && context.isDeprecated();
 					}
-				} else if (methodScope.initializedField != null && methodScope.initializedField.isViewedAsDeprecated()) {
+				} else if (methodScope.initializedField != null && methodScope.initializedField.isDeprecated()) {
 					// inside field declaration ? check field modifier to see if deprecated
 					return true;
 				}
 				SourceTypeBinding declaringType = ((BlockScope)this).referenceType().binding;
 				if (declaringType != null) {
 					declaringType.initializeDeprecatedAnnotationTagBits(); // may not have been resolved until then
-					if (declaringType.isViewedAsDeprecated())
+					if (declaringType.isDeprecated())
 						return true;
 				}
 				break;
@@ -4002,7 +4077,7 @@ public abstract class Scope {
 				ReferenceBinding context = ((ClassScope)this).referenceType().binding;
 				if (context != null) {
 					context.initializeDeprecatedAnnotationTagBits(); // may not have been resolved until then
-					if (context.isViewedAsDeprecated())
+					if (context.isDeprecated())
 						return true;
 				}
 				break;
@@ -4013,11 +4088,13 @@ public abstract class Scope {
 					SourceTypeBinding type = unit.types[0].binding;
 					if (type != null) {
 						type.initializeDeprecatedAnnotationTagBits(); // may not have been resolved until then
-						if (type.isViewedAsDeprecated())
+						if (type.isDeprecated())
 							return true;
 					}
 				}
 		}
+		if (this.parent != null && !(this.parent instanceof CompilationUnitScope))
+			return this.parent.isInsideDeprecatedCode();
 		return false;
 	}
 
@@ -4702,7 +4779,7 @@ public abstract class Scope {
 					} else {
 						expressions = ((ReferenceExpression)invocationSite).createPseudoExpressions(argumentTypes);
 					}
-					InferenceContext18 ic18 = new InferenceContext18(this, expressions, invocationSite, null);
+					InferenceContext18 ic18 = new InferenceContext18(this, expressions, invocationSite);
 					if (!ic18.isMoreSpecificThan(mbj, mbk, levelj == VARARGS_COMPATIBLE, levelk == VARARGS_COMPATIBLE)) {
 						continue nextJ;
 					}
@@ -4754,142 +4831,127 @@ public abstract class Scope {
 		// see if they are equal after substitution of type variables (do the type variables have to be equal to be considered an override???)
 		if (receiverType != null)
 			receiverType = receiverType instanceof CaptureBinding ? receiverType : (ReferenceBinding) receiverType.erasure();
-		boolean hasConsideredNullContract = false;
-		// perform 1 or 2 attempts, the second being the safety net, in case considering null contracts may have prevented finding a solution.
-		for (int attempt = 0; attempt < 2; attempt++) {
-			nextSpecific : for (int i = 0; i < visibleSize; i++) {
-				MethodBinding current = moreSpecific[i];
-				if (current != null) {
-					ReferenceBinding[] mostSpecificExceptions = null;
-					MethodBinding original = current.original();
-					boolean shouldIntersectExceptions = original.declaringClass.isAbstract() && original.thrownExceptions != Binding.NO_EXCEPTIONS; // only needed when selecting from interface methods
-					for (int j = 0; j < visibleSize; j++) {
-						MethodBinding next = moreSpecific[j];
-						if (next == null || i == j) continue;
-						MethodBinding original2 = next.original();
 
-						// ASPECTJ EXTENSION
-//						if (TypeBinding.equalsEquals(original.declaringClass, original2.declaringClass))
-						if (TypeBinding.equalsEquals(original.getOwningClass(),original2.getOwningClass()))
-							break nextSpecific; // duplicates thru substitution
+		nextSpecific : for (int i = 0; i < visibleSize; i++) {
+			MethodBinding current = moreSpecific[i];
+			if (current != null) {
+				ReferenceBinding[] mostSpecificExceptions = null;
+				MethodBinding original = current.original();
+				boolean shouldIntersectExceptions = original.declaringClass.isAbstract() && original.thrownExceptions != Binding.NO_EXCEPTIONS; // only needed when selecting from interface methods
+				for (int j = 0; j < visibleSize; j++) {
+					MethodBinding next = moreSpecific[j];
+					if (next == null || i == j) continue;
+					MethodBinding original2 = next.original();
 
-						if (!original.isAbstract()) {
-							if (original2.isAbstract() || original2.isDefaultMethod())
-								continue; // only compare current against other concrete methods
-							// AspectJ Extension - moved this test down into the if block (pr233838)
-							//original2 = original.findOriginalInheritedMethod(original2);
-							//if (original2 == null)
-							//	continue nextSpecific; // current's declaringClass is not a subtype of next's declaringClass
-							// AspectJ Extension End
-							if (current.hasSubstitutedParameters() || original.typeVariables != Binding.NO_TYPE_VARIABLES) {
-								// AspectJ Extension - from above
-								original2 = original.findOriginalInheritedMethod(original2);
-								if (original2 == null)
-									continue nextSpecific; // current's declaringClass is not a subtype of next's declaringClass
-								// AspectJ Extension End
+					// ASPECTJ EXTENSION
+	//				if (TypeBinding.equalsEquals(original.declaringClass, original2.declaringClass))
+					if (TypeBinding.equalsEquals(original.getOwningClass(),original2.getOwningClass()))
+						break nextSpecific; // duplicates thru substitution
 
-								if (!environment().methodVerifier().isParameterSubsignature(original, original2))
-									continue nextSpecific; // current does not override next
-							}
-						} else if (receiverType != null) { // should not be null if original isAbstract, but be safe
-							TypeBinding superType = receiverType.findSuperTypeOriginatingFrom(original.declaringClass.erasure());
-							if (TypeBinding.equalsEquals(original.declaringClass, superType) || !(superType instanceof ReferenceBinding)) {
-								// keep original
-							} else {
-								// must find inherited method with the same substituted variables
-								MethodBinding[] superMethods = ((ReferenceBinding) superType).getMethods(original.selector, argumentTypes.length);
-								for (MethodBinding superMethod : superMethods) {
-									if (superMethod.original() == original) {
-										original = superMethod;
-										break;
-									}
-								}
-							}
-							superType = receiverType.findSuperTypeOriginatingFrom(original2.declaringClass.erasure());
-							if (TypeBinding.equalsEquals(original2.declaringClass, superType) || !(superType instanceof ReferenceBinding)) {
-								// keep original2
-							} else {
-								// must find inherited method with the same substituted variables
-								MethodBinding[] superMethods = ((ReferenceBinding) superType).getMethods(original2.selector, argumentTypes.length);
-								for (MethodBinding superMethod : superMethods) {
-									if (superMethod.original() == original2) {
-										original2 = superMethod;
-										break;
-									}
-								}
-							}
-							if (original.typeVariables != Binding.NO_TYPE_VARIABLES)
-								original2 = original.computeSubstitutedMethod(original2, environment());
-							if (original2 == null || !original.areParameterErasuresEqual(original2))
+					if (!original.isAbstract()) {
+						if (original2.isAbstract() || original2.isDefaultMethod())
+							continue; // only compare current against other concrete methods
+
+						// AspectJ Extension - moved this test down into the if block (pr233838)
+						//original2 = original.findOriginalInheritedMethod(original2);
+						//if (original2 == null)
+						//	continue nextSpecific; // current's declaringClass is not a subtype of next's declaringClass
+						// AspectJ Extension End
+						if (current.hasSubstitutedParameters() || original.typeVariables != Binding.NO_TYPE_VARIABLES) {
+							// AspectJ Extension - from above
+							original2 = original.findOriginalInheritedMethod(original2);
+							if (original2 == null)
+								continue nextSpecific; // current's declaringClass is not a subtype of next's declaringClass
+	//						// AspectJ Extension End
+							if (!environment().methodVerifier().isParameterSubsignature(original, original2))
 								continue nextSpecific; // current does not override next
-							if (TypeBinding.notEquals(original.returnType, original2.returnType)) {
-								if (next.original().typeVariables != Binding.NO_TYPE_VARIABLES) {
-									if (original.returnType.erasure().findSuperTypeOriginatingFrom(original2.returnType.erasure()) == null)
-										continue nextSpecific;
-								} else if (!current.returnType.isCompatibleWith(next.returnType)) {
-									continue nextSpecific;
+						}
+					} else if (receiverType != null) { // should not be null if original isAbstract, but be safe
+						TypeBinding superType = receiverType.findSuperTypeOriginatingFrom(original.declaringClass.erasure());
+						if (TypeBinding.equalsEquals(original.declaringClass, superType) || !(superType instanceof ReferenceBinding)) {
+							// keep original
+						} else {
+							// must find inherited method with the same substituted variables
+							MethodBinding[] superMethods = ((ReferenceBinding) superType).getMethods(original.selector, argumentTypes.length);
+							for (MethodBinding superMethod : superMethods) {
+								if (superMethod.original() == original) {
+									original = superMethod;
+									break;
 								}
-								// continue with original 15.12.2.5
 							}
-							if (attempt == 0
-									&& compilerOptions().isAnnotationBasedNullAnalysisEnabled
-									&& j > i // don't go backwards
-									&& NullAnnotationMatching.hasMoreSpecificNullness(next, current))
-							{
-								// In this case we want to prefer 'next' among equivalent methods.
-								// (the case where JLS 15.12.2.5 says "...is chosen arbitrarily...")
-								// To try if 'next' matches all criteria, skip outer loop to j (after increment):
-								i = j -1 ;
-								hasConsideredNullContract = true;
+						}
+						superType = receiverType.findSuperTypeOriginatingFrom(original2.declaringClass.erasure());
+						if (TypeBinding.equalsEquals(original2.declaringClass, superType) || !(superType instanceof ReferenceBinding)) {
+							// keep original2
+						} else {
+							// must find inherited method with the same substituted variables
+							MethodBinding[] superMethods = ((ReferenceBinding) superType).getMethods(original2.selector, argumentTypes.length);
+							for (MethodBinding superMethod : superMethods) {
+								if (superMethod.original() == original2) {
+									original2 = superMethod;
+									break;
+								}
+							}
+						}
+						if (original.typeVariables != Binding.NO_TYPE_VARIABLES)
+							original2 = original.computeSubstitutedMethod(original2, environment());
+						if (original2 == null || !original.areParameterErasuresEqual(original2))
+							continue nextSpecific; // current does not override next
+						if (TypeBinding.notEquals(original.returnType, original2.returnType)) {
+							if (next.original().typeVariables != Binding.NO_TYPE_VARIABLES) {
+								if (original.returnType.erasure().findSuperTypeOriginatingFrom(original2.returnType.erasure()) == null)
+									continue nextSpecific;
+							} else if (!current.returnType.isCompatibleWith(next.returnType)) {
 								continue nextSpecific;
 							}
-							if (shouldIntersectExceptions && original2.declaringClass.isInterface()) {
-								if (current.thrownExceptions != next.thrownExceptions) {
-									if (next.thrownExceptions == Binding.NO_EXCEPTIONS) {
-										mostSpecificExceptions = Binding.NO_EXCEPTIONS;
-									} else {
-										if (mostSpecificExceptions == null) {
-											mostSpecificExceptions = current.thrownExceptions;
-										}
-										int mostSpecificLength = mostSpecificExceptions.length;
-										ReferenceBinding[] nextExceptions = getFilteredExceptions(next);
-										int nextLength = nextExceptions.length;
-										SimpleSet temp = new SimpleSet(mostSpecificLength);
-										boolean changed = false;
-										nextException : for (int t = 0; t < mostSpecificLength; t++) {
-											ReferenceBinding exception = mostSpecificExceptions[t];
-											for (int s = 0; s < nextLength; s++) {
-												ReferenceBinding nextException = nextExceptions[s];
-												if (exception.isCompatibleWith(nextException)) {
-													temp.add(exception);
-													continue nextException;
-												} else if (nextException.isCompatibleWith(exception)) {
-													temp.add(nextException);
-													changed = true;
-													continue nextException;
-												} else {
-													changed = true;
-												}
+							// continue with original 15.12.2.5
+						}
+						if (shouldIntersectExceptions && original2.declaringClass.isInterface()) {
+							if (current.thrownExceptions != next.thrownExceptions) {
+								if (next.thrownExceptions == Binding.NO_EXCEPTIONS) {
+									mostSpecificExceptions = Binding.NO_EXCEPTIONS;
+								} else {
+									if (mostSpecificExceptions == null) {
+										mostSpecificExceptions = current.thrownExceptions;
+									}
+									int mostSpecificLength = mostSpecificExceptions.length;
+									ReferenceBinding[] nextExceptions = getFilteredExceptions(next);
+									int nextLength = nextExceptions.length;
+									SimpleSet temp = new SimpleSet(mostSpecificLength);
+									boolean changed = false;
+									nextException : for (int t = 0; t < mostSpecificLength; t++) {
+										ReferenceBinding exception = mostSpecificExceptions[t];
+										for (int s = 0; s < nextLength; s++) {
+											ReferenceBinding nextException = nextExceptions[s];
+											if (exception.isCompatibleWith(nextException)) {
+												temp.add(exception);
+												continue nextException;
+											} else if (nextException.isCompatibleWith(exception)) {
+												temp.add(nextException);
+												changed = true;
+												continue nextException;
+											} else {
+												changed = true;
 											}
 										}
-										if (changed) {
-											mostSpecificExceptions = temp.elementSize == 0 ? Binding.NO_EXCEPTIONS : new ReferenceBinding[temp.elementSize];
-											temp.asArray(mostSpecificExceptions);
-										}
+									}
+									if (changed) {
+										mostSpecificExceptions = temp.elementSize == 0 ? Binding.NO_EXCEPTIONS : new ReferenceBinding[temp.elementSize];
+										temp.asArray(mostSpecificExceptions);
 									}
 								}
 							}
 						}
 					}
-					if (mostSpecificExceptions != null && mostSpecificExceptions != current.thrownExceptions) {
-						return new MostSpecificExceptionMethodBinding(current, mostSpecificExceptions);
-					}
-					return current;
 				}
+				if (mostSpecificExceptions != null && mostSpecificExceptions != current.thrownExceptions) {
+					return new MostSpecificExceptionMethodBinding(current, mostSpecificExceptions);
+				}
+				if (environment().usesNullTypeAnnotations()) {
+					return NullAnnotationMatching.methodWithMergedNullAnnotations(current, moreSpecific, count, environment());
+				}
+				return current;
 			}
-			if (!hasConsideredNullContract)
-				break;
-			// otherwise retry without considering null contracts
 		}
 		return new ProblemMethodBinding(visible[0], visible[0].selector, visible[0].parameters, ProblemReasons.Ambiguous);
 	}

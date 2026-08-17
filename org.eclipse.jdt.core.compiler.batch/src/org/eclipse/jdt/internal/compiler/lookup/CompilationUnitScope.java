@@ -427,10 +427,9 @@ void sealTypeHierarchy() {
 		sourceType.scope.connectPermittedTypes();
 	}
 }
-
-public void collateRecordComponents() { // AspectJ Extension - raised to public
+public void buildComponents() { // AspectJ Extension - raised to public
 	for (SourceTypeBinding sourceType : this.topLevelTypes) {
-		sourceType.scope.collateRecordComponents();
+		sourceType.scope.buildComponents();
 	}
 }
 public void integrateAnnotationsInHierarchy() { // AspectJ Extension - raised to public

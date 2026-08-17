@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -95,6 +95,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 	protected boolean lineStarted = false;
 	protected boolean inlineTagStarted = false;
 	protected boolean inlineReturn= false;
+	protected int inlineReturnStart= -1;
 	protected int inlineReturnOpenBraces= 0;
 	protected boolean abort = false;
 	protected int kind;
@@ -181,6 +182,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 			boolean isDomParser = (this.kind & DOM_PARSER) != 0;
 			boolean isFormatterParser = (this.kind & FORMATTER_COMMENT_PARSER) != 0;
 			int lastStarPosition = -1;
+			boolean annotationAtSymbolHandling = false;
 
 			// Init scanner position
 			this.markdown = this.source[this.javadocStart + 1] == '/';
@@ -260,7 +262,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: ignore all tags when inside @literal or @code tags
 						if (considerTagAsPlainText || this.markdownHelper.isInCode()) {
 							// new tag found
-							if (!this.lineStarted) {
+							if (!this.lineStarted && !checkInlineTagForAnnotaion()) {
 								// we may want to report invalid syntax when no closing brace found,
 								// or when incoherent number of closing braces found
 								if (openingBraces > 0 && this.reportProblems) {
@@ -341,44 +343,15 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 								textEndPosition = previousPosition;
 							}
 							if (this.textStart != -1 && this.textStart < textEndPosition) {
-								pushText(this.textStart, textEndPosition);
+								pushText(annotationAtSymbolHandling ? this.textStart - 1 : this.textStart, textEndPosition);
 							}
 						}
+						annotationAtSymbolHandling = false;
 						this.lineStarted = false;
 						lineHasStar = false;
 						// Fix bug 51650
-						// Only reset textStart if not in an unclosed markdown inline tag
-						if (!(this.markdown && this.inlineTagStarted)) {
-							this.textStart = -1;
-						}
+						this.textStart = -1;
 						this.markdownHelper.resetAtLineEnd();
-						if (this.markdown && this.inlineTagStarted && this.index < this.javadocEnd - 2) {
-							// Special handling for markdown comments with unclosed inline tags
-							if (this.source[this.index] == '\r') this.index++;
-							if (this.source[this.index] == '\n') this.index++;
-
-							// Skip any whitespace before the /// sequence
-							while (this.index < this.javadocEnd && ScannerHelper.isWhitespace(this.source[this.index])) {
-						        this.index++;
-						    }
-
-							// Skip exact '///' sequence if present
-							if (this.index + 2 < this.javadocEnd &&
-									this.source[this.index] == '/' &&
-									this.source[this.index + 1] == '/' &&
-									this.source[this.index + 2] == '/') {
-								this.index += 3;
-							}
-
-							// Skip additional whitespace after ///
-							while (this.index < this.javadocEnd && ScannerHelper.isWhitespace(this.source[this.index])) {
-								this.index++;
-							}
-							// Preserve textStart position for continued tag content
-							if (this.textStart == -1) {
-								this.textStart = this.index;
-							}
-						}
 						break;
 					case '}' :
 						if (verifText && this.tagValue == TAG_RETURN_VALUE && this.returnStatement != null) {
@@ -391,6 +364,11 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 								considerTagAsPlainText = false; // re-enable tag validation
 							}
 						}
+						boolean isLiteralOrCode = this.tagValue == TAG_LITERAL_VALUE || this.tagValue == TAG_CODE_VALUE;
+						boolean shouldCloseInlineTag =
+						        this.inlineTagStarted
+						        && !considerTagAsPlainText
+						        && !(isLiteralOrCode && openingBraces != 0);
 						if (this.inlineTagStarted) {
 							textEndPosition = this.index - 1;
 							boolean treatAsText= considerTagAsPlainText || (this.inlineReturn && this.inlineReturnOpenBraces > 0);
@@ -400,23 +378,25 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 									pushText(this.textStart, textEndPosition);
 								}
 								refreshInlineTagPosition(previousPosition);
+							} else if ((this.source[this.index] == '\n' || this.source[this.index] == '\r') && !shouldAbortDueToJavadocTag(previousPosition) ) {
+								pushText(previousPosition, this.index); // Enables adding closing curly brackets to node elements in Javadoc when the TagElement spans multiple lines
 							}
-							if (!isFormatterParser && !treatAsText && (!this.inlineReturn || this.inlineReturnOpenBraces <= 0)) {
-								// Reset textStart only if there's content after the tag
-								if (this.index < this.javadocEnd) {
-									char next = this.source[this.index];
-									if (!(this.markdown && (next == '\r' || next == '\n'))) {
-										this.textStart = this.index;
-									}
-								}
+							if (!isFormatterParser && !treatAsText && (!this.inlineReturn || this.inlineReturnOpenBraces <= 0))
+								this.textStart = this.index;
+							if (shouldCloseInlineTag) {
+								setInlineTagStarted(false);
+								annotationAtSymbolHandling= false;
 							}
-							setInlineTagStarted(false);
 							if (this.inlineReturn) {
 								if (this.inlineReturnOpenBraces > 0) {
 									--this.inlineReturnOpenBraces;
 									setInlineTagStarted(true);
+								} else if (this.inlineTagStart > this.inlineReturnStart) {
+									setInlineTagStarted(true);
+									this.inlineTagStart= this.inlineReturnStart;
 								} else {
-									addFragmentToInlineReturn();
+									this.inlineReturn= false;
+									this.inlineReturnStart= -1;
 								}
 							}
 						} else {
@@ -435,39 +415,34 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						// https://bugs.eclipse.org/bugs/show_bug.cgi?id=206345: count opening braces when ignoring tags
 						if (considerTagAsPlainText) {
 							openingBraces++;
-						} else {
-							if (this.markdown) {
-								if (this.inlineTagStarted && this.tagValue == TAG_RETURN_VALUE) {
-									this.inlineReturn= true;
-									this.inlineReturnOpenBraces++;
-								}
-							} else {
-								if (this.inlineTagStarted) {
-									if (this.tagValue == TAG_RETURN_VALUE) {
-										this.inlineReturn= true;
-									}
-									if (this.inlineReturn && peekChar() != '@') {
-										++this.inlineReturnOpenBraces;
-										doNotResetInlineTagStart= true;
-									} else {
-										if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
-											pushText(this.textStart, textEndPosition);
-										}
-										setInlineTagStarted(false);
-										// bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=53279
-										// Cannot have opening brace in inline comment
-										if (this.reportProblems && !this.inlineReturn) {
-											int end = previousPosition<invalidInlineTagLineEnd ? previousPosition : invalidInlineTagLineEnd;
-											this.sourceParser.problemReporter().javadocUnterminatedInlineTag(this.inlineTagStart, end);
-										}
-										refreshInlineTagPosition(textEndPosition);
-										textEndPosition = this.index;
-									}
-								} else if (peekChar() != '@') {
-									if (this.textStart == -1) this.textStart = previousPosition;
-									textEndPosition = this.index;
-								}
+							if (this.source[this.index] == '\n' || this.source[this.index] == '\r') {
+								pushText(this.textStart, this.index); // Enables adding opening curly brackets to node elements in Javadoc when the TagElement spans multiple lines
 							}
+						} else if (this.inlineTagStarted) {
+							if (this.tagValue == TAG_RETURN_VALUE) {
+								this.inlineReturn= true;
+								this.inlineReturnStart= this.inlineTagStart;
+							}
+							if (this.inlineReturn && peekChar() != '@') {
+								++this.inlineReturnOpenBraces;
+								doNotResetInlineTagStart= true;
+							} else {
+								if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
+									pushText(this.textStart, textEndPosition);
+								}
+								setInlineTagStarted(false);
+								// bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=53279
+								// Cannot have opening brace in inline comment
+								if (this.reportProblems && !this.inlineReturn) {
+									int end = previousPosition<invalidInlineTagLineEnd ? previousPosition : invalidInlineTagLineEnd;
+									this.sourceParser.problemReporter().javadocUnterminatedInlineTag(this.inlineTagStart, end);
+								}
+								refreshInlineTagPosition(textEndPosition);
+								textEndPosition = this.index;
+							}
+						} else if (peekChar() != '@') {
+							if (this.textStart == -1) this.textStart = previousPosition;
+							textEndPosition = this.index;
 						}
 						if (!this.lineStarted && !this.inlineReturn) {
 							this.textStart = previousPosition;
@@ -510,8 +485,12 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 									}
 								}
 							}
-							break;
+						} else {
+							if (this.index == this.javadocEnd) {
+								pushText(this.textStart, this.javadocEnd);
+							}
 						}
+						break;
 						//$FALL-THROUGH$
 					case '/':
 						if (this.markdown) {
@@ -559,6 +538,9 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						if (!this.lineStarted || this.textStart == -1) {
 							this.textStart = previousPosition;
 						}
+						if (previousChar == '@' && checkInlineTagForAnnotaion()) {
+							annotationAtSymbolHandling = true;
+						}
 						this.lineStarted = true;
 						textEndPosition = this.index;
 						break;
@@ -578,16 +560,50 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 				if (this.lineStarted && this.textStart != -1 && this.textStart < textEndPosition) {
 					pushText(this.textStart, textEndPosition);
 				}
-				refreshInlineTagPosition(textEndPosition);
+				refreshInlineTagPosition((this.markdown && this.tagValue == TAG_SNIPPET_VALUE) ? textEndPosition - 2 : textEndPosition);
 				setInlineTagStarted(false);
 			} else if (this.lineStarted && this.textStart != -1 && this.textStart <= textEndPosition && (this.textStart < this.starPosition || this.starPosition == lastStarPosition || this.markdown)) {
-				pushText(this.textStart, textEndPosition);
+				if (!(invalidInlineTagLineEnd > 0 && nextCharacter == '}' && this.markdown && this.index == this.javadocEnd))
+					pushText(this.textStart, textEndPosition);
 			}
 			updateDocComment();
 		} catch (Exception ex) {
 			validComment = false;
 		}
 		return validComment;
+	}
+
+	/**
+	 * Scans backwards from current position to find if `{ @` pattern exists
+	 * before a newline. Returns true immediately when pattern is found.
+	 */
+	protected boolean shouldAbortDueToJavadocTag(int currPos) {
+	    int pos = currPos - 1;
+	    if (this.source == null || pos < 0 || pos >= this.source.length) {
+	        return false;
+	    }
+
+	    while (pos >= 0) {
+	        char currentChar = this.source[pos];
+
+	        // If encounter a newline, stop scanning
+	        if (currentChar == '\n' || currentChar == '\r') {
+	        	pos--;
+	            break;
+	        }
+
+	        // Check for pattern
+	        if (currentChar == '@' && pos > 0 && this.source[pos - 1] == '{') {
+	            return true;
+	        }
+
+	        pos--;
+	    }
+	    return false;
+	}
+
+	protected boolean checkInlineTagForAnnotaion() {
+		return (this.tagValue == TAG_SNIPPET_VALUE || this.tagValue == TAG_CODE_VALUE || this.tagValue == TAG_LITERAL_VALUE);
 	}
 
 	protected void addFragmentToInlineReturn() {
@@ -1433,6 +1449,40 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 		return parseReference(false);
 	}
 
+	// Parses a complete URL reference starting from current position
+	protected boolean parseURLReference(int pos, boolean advanceEndPos) throws InvalidInputException {
+		char[]fullURL = null;
+		int firstTokenStartPos;
+		StringBuilder urlBuilder = new StringBuilder();
+		char c;
+		firstTokenStartPos = pos;
+		while (pos < this.source.length) {
+			c = this.source[pos];
+			if (c == '[') // invalid syntax for url
+				return false;
+			if (c == '(' || c == ' ') {
+				pos++;
+				continue;
+			}
+			if (c == '\n' || c == '\r' || c == ')') {
+	            break;
+	        }
+	        urlBuilder.append(c);
+	        pos++;
+		}
+		if (advanceEndPos)
+			this.index = pos;
+		fullURL = urlBuilder.toString().toCharArray();
+
+		this.identifierPtr = 0;
+		this.identifierStack[this.identifierPtr] =  fullURL;
+		this.identifierPositionStack[this.identifierPtr] = (((long) firstTokenStartPos) << 32) + (pos - 1);
+		this.identifierLengthStack[this.identifierLengthPtr] = 1;
+		Object typeRef = createTypeReference(TerminalToken.TokenNameInvalid, true);
+		pushSeeRef(typeRef);
+		return true;
+	}
+
 	/*
 	 * Parse a reference in @see tag
 	 */
@@ -1629,6 +1679,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 		int openBraces = 1;
 		boolean parsingJava18Plus = this.scanner != null ? this.scanner.sourceLevel >= ClassFileConstants.JDK18 : false;
 		boolean valid = true;
+		boolean markdownSnippetIsValid = false;
 		if (!parsingJava18Plus) {
 			throw Scanner.invalidInput();
 		}
@@ -1821,6 +1872,36 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 							this.textStart = -1;
 						}
 						break;
+					case TokenNameCOMMENT_MARKDOWN:
+						if (this.markdown) {
+							String markdownTokenString = this.scanner.getCurrentTokenString();
+							String[] elements = markdownTokenString.split("\\r?\\n", -1); //$NON-NLS-1$
+							int elmentStart = this.scanner.getCurrentTokenStartPosition();
+							int elementEnd = 0;
+							try {
+								for (int i = 0; i < elements.length; i++) {
+									if (elementEnd != 0 ) {
+										elmentStart = elementEnd + 1; // +1 because of new line
+									}
+									int pos = elements[i].indexOf("///"); //$NON-NLS-1$
+									if (pos != -1) {
+										elmentStart = elmentStart + 3 + pos;
+										String element = elements[i].substring(3 + pos);
+										elementEnd = elmentStart + element.length();
+										if (element.stripLeading().startsWith("}")) { //$NON-NLS-1$
+											break;
+										}
+									}
+									pushText(elmentStart, elementEnd);
+								}
+								if (elements.length > 0)
+									markdownSnippetIsValid = true;
+							} catch (Exception e) {
+								markdownSnippetIsValid = false;
+							}
+
+						}
+						break;
 					case TokenNameCOMMENT_LINE:
 						String tokenString = this.scanner.getCurrentTokenString();
 						boolean handleNow = handleCommentLineForCurrentLine(tokenString);
@@ -1832,6 +1913,9 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 						if (!handleNow) {
 							this.nonRegionTagCount = 0;
 							this.inlineTagCount = 0;
+						}
+						if (this.markdown) {
+							markdownSnippetIsValid = true;
 						}
 						Object innerTag = parseSnippetInlineTags(indexOfLastComment == -1 ? tokenString : tokenString.substring(indexOfLastComment+2), snippetTag, this.scanner);
 						if (innerTag != null) {
@@ -1864,7 +1948,6 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 								addSnippetInnerTag(innerTag, snippetTag);
 							this.snippetInlineTagStarted = true;
 						}
-						//valid = valid & lvalid;
 						break;
 					default:
 						if (!this.lineStarted || this.textStart == -1) {
@@ -1902,7 +1985,11 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 			this.index = lastRBracePosition - 1;
 		}
 		if (snippetTag != null) {
-			this.setSnippetIsValid(snippetTag, retVal);
+			if (this.markdown) {
+				this.setSnippetIsValid(snippetTag, markdownSnippetIsValid);
+			} else {
+				this.setSnippetIsValid(snippetTag, retVal);
+			}
 		}
 		return retVal;
 	}
@@ -3652,6 +3739,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 		// Whitespace or inline tag closing brace
 		char ch = peekChar();
 		switch (ch) {
+			case ')':
 			case ']':
 				// TODO: Check if we need to exclude escaped ]
 				if (this.markdown)

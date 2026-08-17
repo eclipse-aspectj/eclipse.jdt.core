@@ -46,7 +46,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
@@ -77,13 +76,9 @@ public class TypeVariableBinding extends ReferenceBinding {
 	public ReferenceBinding superclass;        // MUST NOT be modified directly, use setter !
 	public ReferenceBinding[] superInterfaces; // MUST NOT be modified directly, use setter !
 	public char[] genericTypeSignature;
-	LookupEnvironment environment;
 
-	/*
-	 * In one particular situation a TVB will be cloned and the clone will be used as the 'naked' type
-	 * within TypeSystem. This may require some updating inside TypeSystem's hash structure.
-	 */
-	Consumer<TypeVariableBinding> updateWhenSettingTypeAnnotations;
+	protected TypeVariableBinding prototype;
+	LookupEnvironment environment;
 
 	public TypeVariableBinding(char[] sourceName, Binding declaringElement, int rank, LookupEnvironment environment) {
 		this.sourceName = sourceName;
@@ -93,6 +88,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 		this.tagBits |= TagBits.HasTypeVariable;
 		this.environment = environment;
 		this.typeBits = TypeIds.BitUninitialized;
+		this.prototype = this;
 		computeId(environment);
 	}
 
@@ -103,11 +99,15 @@ public class TypeVariableBinding extends ReferenceBinding {
 		this.tagBits |= TagBits.HasTypeVariable;
 		this.environment = environment;
 		this.typeBits = TypeIds.BitUninitialized;
+		this.prototype = this;
 		// don't yet compute the ID!
 	}
 
 	public TypeVariableBinding(TypeVariableBinding prototype) {
 		super(prototype);
+		this.prototype = prototype.prototype;
+		this.prototype.tagBits |= TagBits.HasAnnotatedVariants;
+		this.tagBits &= ~TagBits.HasAnnotatedVariants;
 		this.declaringElement = prototype.declaringElement;
 		this.rank = prototype.rank;
 		this.firstBound = prototype.firstBound;
@@ -121,8 +121,6 @@ public class TypeVariableBinding extends ReferenceBinding {
 		}
 		this.genericTypeSignature = prototype.genericTypeSignature;
 		this.environment = prototype.environment;
-		prototype.tagBits |= TagBits.HasAnnotatedVariants;
-		this.tagBits &= ~TagBits.HasAnnotatedVariants;
 	}
 
 	/**
@@ -190,7 +188,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 												// non-object real superclass should have produced a valid 'match' above
 												return BoundCheckStatus.MISMATCH;
 											}
-											// not fully spec-ed in JLS, but based on email communication (2017-09-13):
+											// NON-JLS, but based on email communication (2017-09-13):
 											// (a) bound check should apply capture
 											// (b) capture applies glb
 											// (c) and then the glb should be checked for well-formedness (see Scope.isMalformedPair() - this part missing in JLS).
@@ -255,17 +253,6 @@ public class TypeVariableBinding extends ReferenceBinding {
 					break;
 			}
 			return BoundCheckStatus.OK;
-		} else if (checkNullAnnotations && argumentType.kind() == Binding.TYPE_PARAMETER && !argumentType.hasNullTypeAnnotations()) {
-			// refresh argumentType in case a nullness default(TYPE_PARAMETER) was applied late:
-			TypeVariableBinding tvb = (TypeVariableBinding) argumentType;
-			if (tvb.declaringElement instanceof SourceTypeBinding) {
-				TypeVariableBinding[] typeVariables = ((SourceTypeBinding) tvb.declaringElement).typeVariables;
-				if (typeVariables != null && typeVariables.length > tvb.rank) {
-					TypeVariableBinding refreshed = typeVariables[tvb.rank];
-					if (refreshed.id == argumentType.id)
-						argumentType = refreshed;
-				}
-			}
 		}
 		boolean unchecked = false;
 		if (this.superclass.id != TypeIds.T_JavaLangObject) {
@@ -362,52 +349,6 @@ public class TypeVariableBinding extends ReferenceBinding {
 			}
 		}
 		return missingTypes;
-	}
-
-	/**
-	 * Collect the substitutes into a map for certain type variables inside the receiver type
-	 * e.g. {@code Collection<T>.collectSubstitutes(Collection<List<X>>, Map)} will populate Map with: {@code T --> List<X>}
-	 * <pre>{@code
-	 * Constraints:
-	 *   A << F   corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_EXTENDS (1))
-	 *   A = F    corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_EQUAL (0))
-	 *   A >> F   corresponds to:   F.collectSubstitutes(..., A, ..., CONSTRAINT_SUPER (2))
-	 * }</pre>
-	 */
-	@Override
-	public void collectSubstitutes(Scope scope, TypeBinding actualType, InferenceContext inferenceContext, int constraint) {
-
-		//	only infer for type params of the generic method
-		if (this.declaringElement != inferenceContext.genericMethod) return;
-
-		// cannot infer anything from a null type
-		switch (actualType.kind()) {
-			case Binding.BASE_TYPE :
-				if (actualType == TypeBinding.NULL) return;
-				TypeBinding boxedType = scope.environment().computeBoxingType(actualType);
-				if (boxedType == actualType) return; //$IDENTITY-COMPARISON$
-				actualType = boxedType;
-				break;
-			case Binding.POLY_TYPE: // cannot steer inference, only learn from it.
-			case Binding.WILDCARD_TYPE :
-				return; // wildcards are not true type expressions (JLS 15.12.2.7, p.453 2nd discussion)
-		}
-
-		// reverse constraint, to reflect variable on rhs:   A << T --> T >: A
-		int variableConstraint;
-		switch(constraint) {
-			case TypeConstants.CONSTRAINT_EQUAL :
-				variableConstraint = TypeConstants.CONSTRAINT_EQUAL;
-				break;
-			case TypeConstants.CONSTRAINT_EXTENDS :
-				variableConstraint = TypeConstants.CONSTRAINT_SUPER;
-				break;
-			default:
-			//case CONSTRAINT_SUPER :
-				variableConstraint =TypeConstants.CONSTRAINT_EXTENDS;
-				break;
-		}
-		inferenceContext.recordSubstitute(this, actualType, variableConstraint);
 	}
 
 	/*
@@ -657,6 +598,15 @@ public class TypeVariableBinding extends ReferenceBinding {
 	}
 	public void exitRecursiveProjectionFunction() {
 		this.inRecursiveProjectionFunction = false;
+	}
+
+	public boolean isPrototype() {
+		return this == this.prototype;  //$IDENTITY-COMPARISON$
+	}
+
+	@Override
+	public TypeVariableBinding prototype() {
+		return this.prototype;
 	}
 
 	@Override
@@ -910,18 +860,6 @@ public class TypeVariableBinding extends ReferenceBinding {
 		return this;
 	}
 
-	@Override
-	public void setTypeAnnotations(AnnotationBinding[] annotations, boolean evalNullAnnotations) {
-		if (getClass() == TypeVariableBinding.class && this.environment.globalOptions.storeAnnotations) {
-			// TVB only: if the declaration itself carries type annotations,
-			// make sure TypeSystem will still have an unannotated variant at position 0, to answer getUnannotated()
-			// (in this case the unannotated type is never explicit in source code, that's why we need this charade).
-			this.environment.typeSystem.forceRegisterAsDerived(this);
-		} else {
-			this.environment.getUnannotatedType(this); // exposes original TVB/capture to type system for id stamping purposes.
-		}
-		super.setTypeAnnotations(annotations, evalNullAnnotations);
-	}
 	/**
      * @see org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding#shortReadableName()
      */
@@ -945,7 +883,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 	@Override
 	public String toString() {
 		if (this.hasTypeAnnotations())
-			return annotatedDebugName();
+			return '<'+ annotatedDebugName() + '>';
 		StringBuilder buffer = new StringBuilder(10);
 		buffer.append('<').append(this.sourceName);//.append('[').append(this.rank).append(']');
 		if (this.superclass != null && TypeBinding.equalsEquals(this.firstBound, this.superclass)) {
@@ -1012,9 +950,9 @@ public class TypeVariableBinding extends ReferenceBinding {
 					typeVariables = ((MethodBinding) this.declaringElement).typeVariables();
 				}
 				if (typeVariables != null && typeVariables.length > this.rank) {
-					TypeVariableBinding prototype = typeVariables[this.rank];
-					if (prototype != this)//$IDENTITY-COMPARISON$
-						prototype.appendNullAnnotation(nameBuffer, options);
+					TypeVariableBinding typeVariable = typeVariables[this.rank];
+					if (typeVariable != this)//$IDENTITY-COMPARISON$
+						typeVariable.appendNullAnnotation(nameBuffer, options);
 				}
 			}
 		}
@@ -1123,12 +1061,16 @@ public class TypeVariableBinding extends ReferenceBinding {
 	   Propagate writes to all annotated variants so the clones evolve along.
 	*/
 	public TypeBinding setFirstBound(TypeBinding firstBound) {
+		if (!isPrototype())
+			return this.prototype.setFirstBound(firstBound);
 		this.firstBound = firstBound;
 		if ((this.tagBits & TagBits.HasAnnotatedVariants) != 0) {
 			TypeBinding [] annotatedTypes = getDerivedTypesForDeferredInitialization();
 			for (int i = 0, length = annotatedTypes == null ? 0 : annotatedTypes.length; i < length; i++) {
 				TypeVariableBinding annotatedType = (TypeVariableBinding) annotatedTypes[i];
 				annotatedType.firstBound = firstBound;
+				if (firstBound != null)
+					annotatedType.tagBits |= firstBound.tagBits & (TagBits.HasNullTypeAnnotation|TagBits.HasMissingType);
 			}
 		}
 		if (firstBound != null)
@@ -1139,12 +1081,18 @@ public class TypeVariableBinding extends ReferenceBinding {
 	   Propagate writes to all annotated variants so the clones evolve along.
 	*/
 	public ReferenceBinding setSuperClass(ReferenceBinding superclass) {
+		if (!isPrototype())
+			return this.prototype.setSuperClass(superclass);
 		this.superclass = superclass;
+		if (superclass != null)
+			this.tagBits |= superclass.tagBits & (TagBits.HasNullTypeAnnotation|TagBits.HasMissingType);
 		if ((this.tagBits & TagBits.HasAnnotatedVariants) != 0) {
 			TypeBinding [] annotatedTypes = getDerivedTypesForDeferredInitialization();
 			for (int i = 0, length = annotatedTypes == null ? 0 : annotatedTypes.length; i < length; i++) {
 				TypeVariableBinding annotatedType = (TypeVariableBinding) annotatedTypes[i];
 				annotatedType.superclass = superclass;
+				if (superclass != null)
+					annotatedType.tagBits |= superclass.tagBits & (TagBits.HasNullTypeAnnotation|TagBits.HasMissingType);
 			}
 		}
 		return superclass;
@@ -1153,6 +1101,8 @@ public class TypeVariableBinding extends ReferenceBinding {
 	   Propagate writes to all annotated variants so the clones evolve along.
 	*/
 	public ReferenceBinding [] setSuperInterfaces(ReferenceBinding[] superInterfaces) {
+		if (!isPrototype())
+			return this.prototype.setSuperInterfaces(superInterfaces);
 		this.superInterfaces = superInterfaces;
 		if ((this.tagBits & TagBits.HasAnnotatedVariants) != 0) {
 			TypeBinding [] annotatedTypes = getDerivedTypesForDeferredInitialization();
