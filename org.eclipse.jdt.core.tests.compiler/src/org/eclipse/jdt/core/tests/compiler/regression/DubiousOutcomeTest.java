@@ -26,6 +26,7 @@ import org.eclipse.jdt.core.tests.compiler.regression.AbstractRegressionTest.Jav
  * <li>if the new outcome is good, thus removing the doubt, then move the test to a 'regular' suite class
  * </ol>
  */
+@RunJavac
 public class DubiousOutcomeTest extends AbstractRegressionTest {
 
 	static {
@@ -43,18 +44,6 @@ public class DubiousOutcomeTest extends AbstractRegressionTest {
 	public static Test suite() {
 		return buildMinimalComplianceTestSuite(testClass(), F_1_8);
 	}
-	// ========= OPT-IN to run.javac mode: ===========
-	@Override
-	protected void setUp() throws Exception {
-		this.runJavacOptIn = true;
-		super.setUp();
-	}
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
-		this.runJavacOptIn = false; // do it last, so super can still clean up
-	}
-	// =================================================
 
 	public void testGH1591() {
 		// javac accepts
@@ -314,5 +303,35 @@ public class DubiousOutcomeTest extends AbstractRegressionTest {
 			};
 		runner.javacTestOptions = DubiousOutcome.JavacErrorsEclipseNone;
 		runner.runConformTest();
+	}
+	public void testGH5368() {
+		// javac is to be fixed via https://bugs.openjdk.org/browse/JDK-8386318
+		// ecj shows the same result, likely for different reasons, though.
+		runConformTest(new String[] {
+			"Pair.java",
+			"""
+			public class Pair<A,B>{
+				A left;
+				B right;
+				static <X,Y> Pair<X,Y> change(Pair<X,Y> a){ return a;}
+
+				static <A> Pair<A,?> left(Pair<A,Integer> p){return p;}
+
+				public static void main(String[] args){
+					Pair<Object,Integer> p1 = new Pair<Object,Integer>();
+					p1.left = "1";
+					p1.right = 2;
+					Pair<Object,Object> p = change(left(p1));
+					p.right = p.left;
+					try {
+						System.out.println(p1.right + p1.right);
+					} catch (ClassCastException cce) {
+						System.out.print("CCE");
+					}
+				}
+			}
+			"""
+		},
+		"CCE");
 	}
 }

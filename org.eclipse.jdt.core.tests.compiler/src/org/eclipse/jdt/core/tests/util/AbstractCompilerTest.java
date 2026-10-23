@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2025 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 import org.eclipse.core.runtime.IPath;
@@ -53,7 +54,8 @@ public class AbstractCompilerTest extends TestCase {
 	public static final int F_24  = 0x200000;
 	public static final int F_25  = 0x400000;
 	public static final int F_26  = 0x800000;
-	public static final int NUM_VERSIONS = 19;
+	public static final int F_27  = 0x1000000;
+	public static final int NUM_VERSIONS = 20;
 	/** Should be adopted if {@link CompilerOptions#getFirstSupportedJdkLevel()} changes */
 	public static final int FIRST_SUPPORTED_JAVA_VERSION = F_1_8;
 
@@ -89,7 +91,10 @@ public class AbstractCompilerTest extends TestCase {
 	protected static boolean isJRE24Plus = false;
 	protected static boolean isJRE25Plus = false;
 	protected static boolean isJRE26Plus = false;
+	protected static boolean isJRE27Plus = false;
 	protected static boolean reflectNestedClassUseDollar;
+
+	public static Predicate<Class<?>> testClassFilter;
 
 	public static int[][] complianceTestLevelMapping = new int[][] {
 		new int[] {F_1_8, ClassFileConstants.MAJOR_VERSION_1_8},
@@ -111,6 +116,7 @@ public class AbstractCompilerTest extends TestCase {
 		new int[] {F_24, ClassFileConstants.MAJOR_VERSION_24},
 		new int[] {F_25, ClassFileConstants.MAJOR_VERSION_25},
 		new int[] {F_26, ClassFileConstants.MAJOR_VERSION_26},
+		new int[] {F_27, ClassFileConstants.MAJOR_VERSION_27},
 	};
 
 	/**
@@ -186,6 +192,9 @@ public class AbstractCompilerTest extends TestCase {
 	 * @return built test suite (see {@link TestSuite}
 	 */
 	private static Test buildComplianceTestSuite(List testClasses, Class setupClass, long complianceLevel) {
+		if (testClassFilter != null) {
+			testClasses = testClasses.stream().filter(testClassFilter).toList();
+		}
 		// call the setup constructor with the compliance level
 		TestSuite complianceSuite = null;
 		try {
@@ -355,7 +364,8 @@ public class AbstractCompilerTest extends TestCase {
 			if (spec > Integer.parseInt(CompilerOptions.getLatestVersion())) {
 				specVersion = CompilerOptions.getLatestVersion();
 			}
-			isJRE26Plus = CompilerOptions.VERSION_26.equals(specVersion);
+			isJRE27Plus = CompilerOptions.VERSION_27.equals(specVersion);
+			isJRE26Plus = isJRE27Plus || CompilerOptions.VERSION_26.equals(specVersion);
 			isJRE25Plus = isJRE26Plus || CompilerOptions.VERSION_25.equals(specVersion);
 			isJRE24Plus = isJRE25Plus || CompilerOptions.VERSION_24.equals(specVersion);
 			isJRE23Plus = isJRE24Plus || CompilerOptions.VERSION_23.equals(specVersion);
@@ -414,7 +424,8 @@ public class AbstractCompilerTest extends TestCase {
 						System.out.println(CompilerOptions.VERSION_23 + ", ");
 						System.out.println(CompilerOptions.VERSION_24 + ", ");
 						System.out.println(CompilerOptions.VERSION_25 + ", ");
-						System.out.println(CompilerOptions.VERSION_26);
+						System.out.println(CompilerOptions.VERSION_26 + ", ");
+						System.out.println(CompilerOptions.VERSION_27);
 					}
 				}
 				if (possibleComplianceLevels == 0) {

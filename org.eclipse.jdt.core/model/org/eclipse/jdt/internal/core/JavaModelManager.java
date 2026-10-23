@@ -347,6 +347,11 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	Map<String, String[]> deprecatedOptions = new HashMap<>();
 	volatile Hashtable<String, String> optionsCache;
 
+	// Only cache publication and invalidation hold this lock. In particular,
+	// preference access and callbacks must remain outside it.
+	private final Object optionsCacheLock = new Object();
+	private volatile long optionsCacheGeneration;
+
 	// Preferences
 	public final IEclipsePreferences[] preferencesLookup = new IEclipsePreferences[2];
 	static final int PREF_INSTANCE = 0;
@@ -1138,8 +1143,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 			int length	= entries.length;
 			if (length > 0) {
-				String sourceLevel = project.getOption(JavaCore.COMPILER_SOURCE, true);
-				String complianceLevel = project.getOption(JavaCore.COMPILER_COMPLIANCE, true);
 				for (int i = 0; i < length; i++) {
 					IClasspathEntry entry = entries[i];
 					if (entry.getEntryKind() == IClasspathEntry.CPE_PROJECT) continue;
@@ -1171,8 +1174,12 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 							if (allPkgFragmentsCache != null && allPkgFragmentsCache.containsKey(pkgName))
 								return root.getPackageFragment(pkgName);
 
-							if (pkgName.length != 0 && JavaConventions.validatePackageName(Util.packageName(pkgPath, sourceLevel, complianceLevel), sourceLevel, complianceLevel).getSeverity() == IStatus.ERROR) {
-								return null;
+							if (pkgName.length != 0) {
+								String sourceLevel = project.getOption(JavaCore.COMPILER_SOURCE, true);
+								String complianceLevel = project.getOption(JavaCore.COMPILER_COMPLIANCE, true);
+								if (JavaConventions.validatePackageName(Util.packageName(pkgPath, sourceLevel, complianceLevel), sourceLevel, complianceLevel).getSeverity() == IStatus.ERROR) {
+									return null;
+								}
 							}
 							return root.getPackageFragment(pkgName);
 						}
@@ -1414,6 +1421,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				this.unresolvedEntryStatus = newUnresolvedEntryStatus;
 				this.javadocCache = new LRUCache<>(JAVADOC_CACHE_INITIAL_SIZE);
 			}
+
+			// e.g. entries only reordered, which no request to index follows
+			sourceEnvironmentChanged();
 
 			return classpathChange;
 		}
@@ -2216,6 +2226,18 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	}
 
 	/**
+	 * Tells the index manager that the sources it resolves to index them may resolve differently from now on, see
+	 * {@link IndexManager#sourceEnvironmentChanged()}. To be called once the change is done: once a classpath is set,
+	 * a buffer has changed, a working copy was reconciled, or the Java model was updated after a resource change.
+	 */
+	public static void sourceEnvironmentChanged() {
+		IndexManager indexManager = MANAGER.indexManager;
+		if (indexManager != null) {
+			indexManager.sourceEnvironmentChanged();
+		}
+	}
+
+	/**
 	 *  Returns the info for the element.
 	 */
 	public synchronized IElementInfo getInfo(IJavaElement element) {
@@ -2423,7 +2445,32 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		return UNKNOWN_OPTION;
 	}
 
+	/**
+	 * Publishes a writer's cache, or invalidates it. Advance the generation even
+	 * when the cache is already null: an older reader may still be building it.
+	 */
+	private void setOptionsCache(Hashtable<String, String> newCache) {
+		synchronized (this.optionsCacheLock) {
+			this.optionsCacheGeneration++;
+			this.optionsCache = newCache;
+		}
+	}
+
+	/**
+	 * A read overlapping an update may return its snapshot, but must not make
+	 * that snapshot the cache used by subsequent, non-overlapping reads.
+	 */
+	private void cacheOptions(Hashtable<String, String> options, long generation) {
+		synchronized (this.optionsCacheLock) {
+			if (this.optionsCacheGeneration == generation) {
+				this.optionsCache = options;
+			}
+		}
+	}
+
 	public Hashtable<String, String> getOptions() {
+		// Capture before reading either the cache or the preferences.
+		long generation = this.optionsCacheGeneration;
 
 		// return cached options if already computed
 		Hashtable<String, String> cachedOptions; // use a local variable to avoid race condition (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=256329 )
@@ -2435,7 +2482,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			if (VERBOSE) {
 				trace("Setting Java options cache"); //$NON-NLS-1$
 			}
-			this.optionsCache = defaults;
+			cacheOptions(defaults, generation);
 			return new Hashtable<>(defaults);
 		}
 		// init
@@ -2473,7 +2520,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			trace("Setting Java options cache"); //$NON-NLS-1$
 		}
 		// store built map in cache
-		this.optionsCache = new Hashtable<>(options);
+		cacheOptions(new Hashtable<>(options), generation);
 		// return built map
 		return options;
 	}
@@ -2936,6 +2983,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	/** for tracing only **/
 	private final ThreadLocal<Instant> lastWarning = new ThreadLocal<>();
 
+	@SuppressWarnings("unused")
 	private void traceZipAccessWarning(IPath path) {
 		Instant now = Instant.now();
 		Deque<Instant> lastAcesses = this.lastAccessByPath.get().compute(path,
@@ -3381,8 +3429,14 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			@Override
 			public void removed(IEclipsePreferences.NodeChangeEvent event) {
 				if (event.getChild() == JavaModelManager.this.preferencesLookup[PREF_INSTANCE]) {
-					JavaModelManager.this.preferencesLookup[PREF_INSTANCE] = InstanceScope.INSTANCE.getNode(JavaCore.PLUGIN_ID);
-					JavaModelManager.this.preferencesLookup[PREF_INSTANCE].addPreferenceChangeListener(new EclipsePreferencesListener());
+					IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(JavaCore.PLUGIN_ID);
+					JavaModelManager.this.preferencesLookup[PREF_INSTANCE] = preferences;
+					preferences.addPreferenceChangeListener(JavaModelManager.this.instancePreferencesListener = new EclipsePreferencesListener());
+					// The old node's listeners are not transferred to its replacement.
+					if (JavaModelManager.this.propertyListener != null) {
+						preferences.addPreferenceChangeListener(JavaModelManager.this.propertyListener);
+					}
+					JavaModelManager.this.setOptionsCache(null);
 				}
 			}
 		};
@@ -4823,6 +4877,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		// Also use a custom ForkJoinWorkerThreadFactory, to prevent issues with a
 		// potential SecurityManager, since the threads created by it get no permissions.
 		// See related problem in eclipse-platform https://github.com/eclipse-platform/eclipse.platform/issues/294
+		@SuppressWarnings("resource")
 		ForkJoinPool forkJoinPool = new ForkJoinPool(parallelism, //
 				pool -> new ForkJoinWorkerThread(pool) {
 					// anonymous subclass to access protected constructor
@@ -5412,7 +5467,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			}
 		}
 		if (cachedValue == null) {
-			// reset all options, optionsCache & fixTaskTags will be updated there
+			// Discard a cache built while the individual preferences were being
+			// cleared, and prevent an in-flight reader from publishing one later.
+			setOptionsCache(null);
 			getOptions();
 		} else {
 			Util.fixTaskTags(cachedValue);
@@ -5420,7 +5477,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				trace("Setting Java options cache"); //$NON-NLS-1$
 			}
 			// update cache
-			this.optionsCache = cachedValue;
+			setOptionsCache(cachedValue);
 		}
 	}
 
@@ -5442,7 +5499,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					if (VERBOSE) {
 						trace("Invalidating Java options cache"); //$NON-NLS-1$
 					}
-					JavaModelManager.this.optionsCache = null;
+					JavaModelManager.this.setOptionsCache(null);
 				}
 			};
 			InstanceScope.INSTANCE.getNode(JavaCore.PLUGIN_ID).addPreferenceChangeListener(this.propertyListener);
@@ -5455,7 +5512,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 						if (VERBOSE) {
 							trace("Invalidating Java options cache"); //$NON-NLS-1$
 						}
-						JavaModelManager.this.optionsCache = null;
+						JavaModelManager.this.setOptionsCache(null);
 					}
 				}
 			};

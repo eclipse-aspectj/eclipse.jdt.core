@@ -19,6 +19,7 @@ import junit.framework.Test;
  * This test class exists for the sole purpose of printing statistics about tests run as comparison of ecj vs javac.
  * It is be integrated in {@link TestAll} as the very last test in the suite.
  */
+@RunJavac
 public class PrintRunJavacStats extends AbstractRegressionTest {
 	public PrintRunJavacStats(String name) {
 		super(name);

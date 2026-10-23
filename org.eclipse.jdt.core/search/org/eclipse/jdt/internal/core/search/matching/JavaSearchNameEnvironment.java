@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2018 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -278,8 +278,9 @@ private ClasspathLocation mapToClassPathLocation(JavaModelManager manager, Packa
 			ClasspathEntry rawClasspathEntry = (ClasspathEntry) root.getRawClasspathEntry();
 			IJavaProject project = (IJavaProject) root.getParent();
 			String compliance = project.getOption(JavaCore.COMPILER_COMPLIANCE, true);
+			String release = JavaCore.ENABLED.equals(project.getOption(JavaCore.COMPILER_RELEASE, true)) ? compliance : null;
 			cp = (root instanceof JrtPackageFragmentRoot) ?
-					ClasspathLocation.forJrtSystem(path.toOSString(), rawClasspathEntry.getAccessRuleSet(), null, compliance) :
+					ClasspathLocation.forJrtSystem(path.toOSString(), rawClasspathEntry.getAccessRuleSet(), null, release) :
 					ClasspathLocation.forLibrary(manager.getZipFile(path), rawClasspathEntry.getAccessRuleSet(), rawClasspathEntry.isModular(), compliance) ;
 		} else {
 			Object target = JavaModel.getTarget(root, true);
@@ -617,6 +618,14 @@ private static IModuleDescription computeModuleFor(PackageFragmentRoot root, IMo
 		 */
 		int entryKind = classpathEntry.getEntryKind();
 		if (entryKind == IClasspathEntry.CPE_SOURCE || entryKind == IClasspathEntry.CPE_CONTAINER) {
+			/*
+			 * We only care about the module of the classpath entry if it is modular or if the project itself is modular.
+			 * If neither is the case, return no module. See: https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5361
+			 */
+			IClasspathEntry resolvedClasspathEntry = root.getResolvedClasspathEntry();
+			if (defaultModule == null && !ClasspathEntry.isModular(resolvedClasspathEntry)) {
+				return null;
+			}
 			return rootModule != null? rootModule : defaultModule;
 		}
 	} catch (JavaModelException e) {

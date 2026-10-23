@@ -24,9 +24,10 @@ import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @PreviewTest
+@RunJavac
 public class PrimitiveInPatternsTestSH extends AbstractRegressionTest9 {
 
-	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 26 -Xlint:-preview");
+	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 27 -Xlint:-preview");
 	private static final String[] VMARGS = new String[] {"--enable-preview"};
 
 	private static final String[] PRIMITIVES = { "boolean", "byte", "char", "short", "int", "long", "float", "double" };
@@ -82,31 +83,18 @@ public class PrimitiveInPatternsTestSH extends AbstractRegressionTest9 {
 		return PrimitiveInPatternsTestSH.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_26);
+		return buildMinimalComplianceTestSuite(testClass(), F_27);
 	}
 	public PrimitiveInPatternsTestSH(String testName) {
 		super(testName);
 	}
 
-	// ========= OPT-IN to run.javac mode: ===========
-	@Override
-	protected void setUp() throws Exception {
-		this.runJavacOptIn = true;
-		super.setUp();
-	}
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
-		this.runJavacOptIn = false; // do it last, so super can still clean up
-	}
-	// =================================================
-
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean preview) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_26);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_26);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_26);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_27);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_27);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_27);
 		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, preview ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
 		return defaultOptions;
@@ -177,7 +165,7 @@ public class PrimitiveInPatternsTestSH extends AbstractRegressionTest9 {
 	void checkPreviewFlag(String[] testFiles) {
 		String className = testFiles[0].replace(".java", ".class");
 		try {
-			verifyClassFile("version 26 : 70.65535", className, ClassFileBytesDisassembler.SYSTEM);
+			verifyClassFile("version 27 : 71.65535", className, ClassFileBytesDisassembler.SYSTEM);
 		} catch (IOException|ClassFormatException e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -245,7 +233,7 @@ public class PrimitiveInPatternsTestSH extends AbstractRegressionTest9 {
 		classX.append(calls);
 		classX.append("}}\n");
 		runConformTest(new String[] { "X.java", classX.toString() }, MAX_VALUES_STRING);
-		verifyClassFile("version 26 : 70.65535", "X.class", ClassFileBytesDisassembler.SYSTEM);
+		verifyClassFile("version 27 : 71.65535", "X.class", ClassFileBytesDisassembler.SYSTEM);
 	}
 	public void testIdentityPattern() {
 		StringBuilder methods = new StringBuilder();
@@ -2835,7 +2823,7 @@ public class PrimitiveInPatternsTestSH extends AbstractRegressionTest9 {
 //		runner.vmArguments = VMARGS; not passing --enable-preview to java
 		runner.expectedErrorString =
 				"""
-				java.lang.UnsupportedClassVersionError: Preview features are not enabled for Test (class file version 70.65535). Try running with '--enable-preview'
+				java.lang.UnsupportedClassVersionError: Preview features are not enabled for Test (class file version 71.65535). Try running with '--enable-preview'
 				""";
 		runner.runConformTest();
 	}

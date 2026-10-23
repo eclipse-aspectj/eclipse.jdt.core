@@ -10505,10 +10505,10 @@ public void testBug231622() throws Exception {
 			"public class X231622 {\n" +
 			"}"
 		}, p.getProject().getLocation().append("lib231622.jar").toOSString());
-		refresh(p);
 		DefaultContainerInitializer initializer = new DefaultContainerInitializer(new String[] {"P", "/P/lib231622.jar"});
 		ContainerInitializer.setInitializer(initializer);
 		initializer.initialize(new Path("org.eclipse.jdt.core.tests.model.TEST_CONTAINER"), p);
+		refresh(p);
 
 		char[][] packagesList = new char[][] {
 				"p231622".toCharArray()
@@ -15251,6 +15251,7 @@ public void testGH2575() throws CoreException, IOException {
 	}
 }
 
+@SuppressWarnings("unused")
 public void testBug547051_nonModular() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
@@ -15274,6 +15275,7 @@ public void testBug547051_nonModular() throws Exception {
 	}
 }
 
+@SuppressWarnings("unused")
 public void testBug547051_nonModular2() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");
@@ -15296,6 +15298,7 @@ public void testBug547051_nonModular2() throws Exception {
 		deleteProject("P");
 	}
 }
+@SuppressWarnings("unused")
 public void testBug547051_nonModular3() throws Exception {
 	try {
 		IJavaProject project = createJavaProject("P");

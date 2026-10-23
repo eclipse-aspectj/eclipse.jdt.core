@@ -27,11 +27,14 @@ import static org.eclipse.jdt.internal.compiler.ClassFile.CONSTANT_BOOTSTRAP__PR
 import java.lang.invoke.ConstantBootstraps;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.CaseStatement.LabelExpression;
@@ -119,11 +122,67 @@ public class SwitchStatement extends Expression {
 	/* package */ boolean caseElementsHaveErrors = false; // a case pattern failed applicability/cast checks
 	/* package */ List<Pattern> caseLabelElements = new ArrayList<>(0);//TODO: can we remove this?
 	public List<TypeBinding> caseLabelElementTypes = new ArrayList<>(0);
+	private List<TNode> tNodeList = new ArrayList<>(0);
+	/**
+	 * The set of case patterns that are missing in order to make a pattern switch exhaustive,
+	 * Empty when the switch is exhaustive or when the missing patterns cannot be
+	 * reconstructed (e.g. a selector that is neither sealed nor a record).
+	 */
+	public List<String> missingCasePatterns = new ArrayList<>(0);
 
+	/*
+	 * The RNode / TNode / PatternNode tree together implement the
+	 * "P rewrites to a set Q and Q covers T" clause of JLS 14.11.1.1 for record selector types.
+	 *
+	 * Recap of the spec machinery this models:
+	 *   - P rewrites to Q: a subset of P "reduces" to a single pattern p, and Q is the remaining
+	 *     elements of P together with p. Coverage is then decided on Q instead of P.
+	 *   - A non-empty set of record patterns RP "reduces" to a single record pattern rp if their
+	 *     types all erase to the same record class R (with k>=1 components) and there is one
+	 *     distinguished component cr that itself "reduces" to a single pattern q, while every other
+	 *     component ci is "equivalent" to a single pattern qi. rp is then R(q1,..,q,..,qk).
+	 *   - A non-empty set EP is "equivalent" to a single pattern ep when the patterns share the same
+	 *     erasure (type patterns) or erase to the same record R and each component set is itself
+	 *     equivalent to a single pattern (record patterns).
+	 *
+	 * How the tree mirrors that definition:
+	 *   - RNode(R)        : the record class R under test; its firstComponent starts the component walk.
+	 *   - TNode(type)     : one record component (a "column"). Its children are the distinct alternatives
+	 *                       seen for that component across all case record patterns. Grouping the
+	 *                       incoming component patterns by erasure into a single child is exactly the
+	 *                       "equivalent to a single pattern" merge (type patterns / record patterns of
+	 *                       the same erased type collapse into one alternative).
+	 *   - PatternNode     : one such alternative for a component. Its 'next' TNode is the following
+	 *                       component of the same record pattern, so a full record pattern is threaded
+	 *                       column-by-column; 'nested' captures a nested record pattern that must have
+	 *                       its own components covered; 'unconditional' marks a total (type) pattern that
+	 *                       covers the whole slot.
+	 */
 	abstract class Node {
+		static List<PatternNode> emptyPatternNodeList = new ArrayList<>(0);
 		TypeBinding type;
 		boolean hasError = false;
-		public abstract void traverse(CoverageCheckerVisitor visitor);
+
+		public abstract StringBuilder printNode(int indent, StringBuilder output);
+		public abstract void traverse(NodeVisitor visitor);
+
+	}
+
+	class NodeVisitor {
+		protected Predicate<Node> nextPredicate = node -> true;
+
+		public void beginVisit(TNode node) { /* do nothing */ }
+		public void beginVisit(RNode node) { /* do nothing */ }
+		public void beginVisit(PatternNode node) { /* do nothing */ }
+
+		public boolean visit(TNode node) { return true; }
+		public boolean visit(RNode node) { return true; }
+		public boolean visit(PatternNode node) { return true; }
+
+		public void endVisit(TNode node) { /* do nothing */ }
+		public void endVisit(RNode node) { /* do nothing */ }
+		public void endVisit(PatternNode node) { /* do nothing */ }
+
 	}
 
 	class RNode extends Node {
@@ -136,28 +195,45 @@ public class SwitchStatement extends Expression {
 			int len = comps != null ? comps.length : 0;
 			if (len > 0) {
 				RecordComponentBinding comp = comps[0];
-				if (comp != null && comp.type != null)
+				if (comp != null && comp.type != null) {
 					this.firstComponent = new TNode(comp.type, rec);
+					SwitchStatement.this.tNodeList.add(this.firstComponent);
+				}
 			}
 		}
 
-		void addPattern(Pattern p) {
+		List<PatternNode> addPattern(Pattern p) {
 			if (p instanceof RecordPattern rp && rp.type.resolvedType != null
 					&& TypeBinding.equalsEquals(this.type.erasure(), rp.type.resolvedType.erasure())
 					&& this.firstComponent != null)
-				this.firstComponent.addPattern(rp, 0);
+				return this.firstComponent.addPattern(rp, 0);
+			return Node.emptyPatternNodeList;
 		}
 
 		@Override
 		public String toString() {
-			return "[RNode] {\n    type:" + this.type + "     firstComponent:" + this.firstComponent + "\n}\n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			return this.printNode(0, new StringBuilder()).toString();
 		}
 
 		@Override
-		public void traverse(CoverageCheckerVisitor visitor) {
+		public void traverse(NodeVisitor visitor) {
+			visitor.beginVisit(this);
+
 			if (this.firstComponent != null) {
-				visitor.visit(this.firstComponent);
+				this.firstComponent.traverse(visitor);
 			}
+
+			visitor.endVisit(this);
+		}
+
+		@Override
+		public StringBuilder printNode(int indent, StringBuilder output) {
+			printIndent(indent, output).append("{ RNode:").append(new String(this.type.shortReadableName())).append("\n"); //$NON-NLS-1$ //$NON-NLS-2$
+			if (this.firstComponent != null) {
+				printIndent(indent+2, output).append("firstComponent:\n"); //$NON-NLS-1$
+				this.firstComponent.printNode(indent+2, output).append("\n"); //$NON-NLS-1$
+			}
+			return printIndent(indent, output).append(" }\n"); //$NON-NLS-1$
 		}
 	}
 
@@ -166,23 +242,28 @@ public class SwitchStatement extends Expression {
 		List<PatternNode> children;
 		/** The record type whose component this column represents; used to resolve the next component type. */
 		TypeBinding enclosingRecord;
+		List<TypeBinding> remainingTypes = null;
+		boolean unnamed = false;
 
-		TNode(TypeBinding type, TypeBinding enclosingRecord) {
+		TNode(TypeBinding type, TypeBinding enclosingRecord){
 			this.type = type;
 			this.enclosingRecord = enclosingRecord;
 			this.children = new ArrayList<>();
 		}
 
-		public void addPattern(RecordPattern rp, int i) {
+		public List<PatternNode> addPattern(RecordPattern rp, int i) {
+			List<PatternNode> relevantPatternNodes = new ArrayList<>();
+
 			if (rp.patterns.length <= i) {
 				this.hasError = true;
-				return;
+				return Node.emptyPatternNodeList;
 			}
 			Pattern componentPattern = rp.patterns[i];
 			TypeBinding childType = componentPattern.resolvedType;
+
 			if (childType == null) {
 				this.hasError = true;
-				return;
+				return Node.emptyPatternNodeList;
 			}
 			PatternNode child = null;
 			for (PatternNode c : this.children) {
@@ -194,42 +275,105 @@ public class SwitchStatement extends Expression {
 				}
 			}
 			if (child == null) {
-				child = new PatternNode(childType, this.enclosingRecord);
-				if (this.type.isSubtypeOf(childType, false))
-					this.children.add(0, child);
-				else
-					this.children.add(child);
+				boolean expandPermittedTypes = childType instanceof ReferenceBinding ref && ref.isSealed() && (ref.isAbstract() || ref.isInterface());
+		 		if (expandPermittedTypes) {
+					TypeBinding[] permittedTypes = childType.permittedTypes();
+					for (TypeBinding permitted : permittedTypes) {
+						child = null;
+						if (permitted != null && permitted.isValidBinding()) {
+							for (PatternNode c : this.children) {
+								// Group by erasure per JLS 14.11.1.1 ("... covers a type U where T and U have the
+								// same erasure"), consistent with RNode.addPattern and caseElementsCoverSealedType.
+								if (TypeBinding.equalsEquals(permitted.erasure(), c.type.erasure())) {
+									child = c;
+									break;
+								}
+							}
+							if (child == null) {
+								child = new PatternNode(permitted, this.enclosingRecord);
+								if (this.type.isSubtypeOf(permitted, false))
+									this.children.add(0, child);
+								else
+									this.children.add(child);
+							}
+							relevantPatternNodes.add(child);
+						}
+					}
+				} else {
+					child = new PatternNode(childType, this.enclosingRecord);
+					if (this.type.isSubtypeOf(childType, false))
+						this.children.add(0, child);
+					else
+						this.children.add(child);
+					relevantPatternNodes.add(child);
+				}
+			} else {
+				relevantPatternNodes.add(child);
 			}
+
 			// Record how this component slot is matched: a nested record pattern must have its own
 			// components covered, whereas a (type) pattern covers the whole slot unconditionally.
-			if (componentPattern instanceof RecordPattern nestedRp) {
+			if (componentPattern instanceof RecordPattern nestedRp && nestedRp.resolvedType.isRecordWithComponents()) {
 				if (child.nested == null)
 					child.nested = new RNode(childType);
-				child.nested.addPattern(nestedRp);
+				List<PatternNode> nestedRelevantPatterns = child.nested.addPattern(nestedRp);
+
+				for (int j = relevantPatternNodes.size() - 1; j >= 0; j--) {
+					if (relevantPatternNodes.get(j) == child) {
+						relevantPatternNodes.remove(j);
+						break;
+					}
+				}
+				relevantPatternNodes.addAll(nestedRelevantPatterns);
 			} else {
 				child.unconditional = true;
 			}
+
+			List<PatternNode> result = new ArrayList<>(0);
 			if ((i+1) < rp.patterns.length) {
-				child.addPattern(rp, i + 1);
+				for (PatternNode newChild : relevantPatternNodes) {
+					List<PatternNode> pNodes = newChild.addPattern(rp, i + 1);
+					result.addAll(pNodes);
+				}
+			} else {
+				return relevantPatternNodes;
 			}
+			return result;
 		}
 
 		@Override
 		public String toString() {
-	        StringBuilder sb = new StringBuilder("[TNode] {\n    type:" + this.type + "    children:"); //$NON-NLS-1$ //$NON-NLS-2$
-	        if (this.children == null) {
-	        	sb.append("null"); //$NON-NLS-1$
-	        } else {
-	        	for (Node child : this.children) {
-	        		sb.append(child);
-	        	}
-	        }
-	        return sb.append("\n}\n").toString(); //$NON-NLS-1$
+			return this.printNode(0, new StringBuilder()).toString();
 		}
 
 		@Override
-		public void traverse(CoverageCheckerVisitor visitor) {
-			visitor.visit(this);
+		public void traverse(NodeVisitor visitor) {
+
+			visitor.beginVisit(this);
+
+			if (visitor.visit(this)) {
+				if (this.children != null) {
+					for (PatternNode child : this.children) {
+						child.traverse(visitor);
+					}
+				}
+			}
+			visitor.endVisit(this);
+		}
+
+		@Override
+		public StringBuilder printNode(int indent, StringBuilder output) {
+			printIndent(indent, output).append("{ TNode:").append(new String(this.type.readableName())).append("\n"); //$NON-NLS-1$ //$NON-NLS-2$
+			printIndent(indent+2, output).append("unnamed:").append(this.unnamed).append("\n"); //$NON-NLS-1$ //$NON-NLS-2$
+			if (this.children != null) {
+				printIndent(indent+2, output).append("children:\n"); //$NON-NLS-1$
+				int i = 0;
+				for (PatternNode child : this.children) {
+					printIndent(indent+2, output).append("child[").append(i++).append("]:\n"); //$NON-NLS-1$ //$NON-NLS-2$
+					child.printNode(indent+2, output).append("\n"); //$NON-NLS-1$
+				}
+			}
+			return printIndent(indent, output).append(" }\n"); //$NON-NLS-1$
 		}
 	}
 
@@ -248,74 +392,75 @@ public class SwitchStatement extends Expression {
 			this.enclosingRecord = enclosingRecord;
 		}
 
-		public void addPattern(RecordPattern rp, int i) {
-			RecordComponentBinding[] comps = this.enclosingRecord != null ? this.enclosingRecord.components() : null;
+		public List<PatternNode> addPattern(RecordPattern rp, int i) {
+			RecordComponentBinding[] comps = rp.resolvedType.components();
 			if (comps == null || comps.length <= i) // safety-net for incorrect code.
-				return;
-			if (this.next == null)
+				return Node.emptyPatternNodeList;
+
+			if (comps[i].type == null) {
+				this.hasError = true;
+				return Node.emptyPatternNodeList;
+			}
+
+			// Thread this record pattern into the next component column (component i+... of the same R),
+			if (this.next == null) {
 				this.next = new TNode(comps[i].type, this.enclosingRecord);
-			this.next.addPattern(rp, i);
+				SwitchStatement.this.tNodeList.add(this.next);
+			}
+			if (rp.patterns[i].isUnnamed()) {
+				if (rp.patterns[i].resolvedType instanceof ReferenceBinding rec && rec.isRecordWithComponents()) {
+					// unnamed pattern in a record component means the whole column is considered unnamed
+					NodeVisitor unnamedSetterVisitor = new NodeVisitor() {
+						@Override
+						public boolean visit(TNode node) {
+							if (node.unnamed)
+								return false; // already visited - no need to go down further.
+							node.unnamed = true;
+							return true;
+						}
+					};
+					this.next.traverse(unnamedSetterVisitor);
+				}
+			}
+			return this.next.addPattern(rp, i);
 		}
 
 		@Override
 		public String toString() {
-	        return "[" + (this.type.isRecord() ? "Record" : "") + "Pattern node] {\n    type:" + this.type + "    next:" + this.next + "\n}\n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+			return this.printNode(0, new StringBuilder()).toString();
 		}
 
 		@Override
-		public void traverse(CoverageCheckerVisitor visitor) {
-			if (this.next != null) {
-				visitor.visit(this.next);
-			}
-		}
-	}
+		public void traverse(NodeVisitor visitor) {
 
-	class CoverageCheckerVisitor {
+			visitor.beginVisit(this);
 
-		public boolean covers = true;
+			if (visitor.visit(this)) {
+				if (this.nested != null) {
+					this.nested.traverse(visitor);
+				}
 
-		public boolean visit(TNode node) {
-			if (node.hasError)
-				return false;
-
-			List<TypeBinding> availableTypes = new ArrayList<>();
-			boolean allChildrenCover = true;
-			if (node.children != null) {
-				for (PatternNode child : node.children) {
-					// Coverage of the remaining components (columns) to the right of this one.
-					// Evaluated in isolation so a fully-covering sibling cannot mask a partially-covering
-					// one; each alternative of this component must be individually covering.
-					this.covers = true;
-					child.traverse(this);
-					boolean remainderCovers = this.covers;
-					// Coverage of this component's own slot: a type pattern is unconditional, whereas a
-					// nested record pattern covers the slot only if its own components are fully covered.
-					boolean slotCovers = slotCovers(child);
-					if (node.type.isSubtypeOf(child.type, false) && slotCovers && remainderCovers)
-						return this.covers = true; // an unconditional (total) child covers everything below
-					allChildrenCover &= slotCovers && remainderCovers;
-					availableTypes.add(child.type);
+				if (this.next != null && visitor.nextPredicate.test(this.next)) {
+					this.next.traverse(visitor);
 				}
 			}
-			if (node.type instanceof ReferenceBinding ref && ref.isSealed())
-				return this.covers = allChildrenCover && caseElementsCoverSealedType(ref, availableTypes, false);
-			return this.covers = false; // no need to visit further.
+
+			visitor.endVisit(this);
 		}
 
-		/** Whether this component slot is fully covered by its own (possibly nested) pattern. */
-		private boolean slotCovers(PatternNode child) {
-			if (child.unconditional)
-				return true;
-			if (child.nested != null)
-				return nestedRecordCovers(child.nested);
-			return false;
-		}
-
-		/** Recursively check that a nested record's components are collectively covered. */
-		private boolean nestedRecordCovers(RNode nested) {
-			if (nested == null || nested.firstComponent == null)
-				return true; // a record pattern over a component-less record covers it
-			return new CoverageCheckerVisitor().visit(nested.firstComponent);
+		@Override
+		public StringBuilder printNode(int indent, StringBuilder output) {
+			printIndent(indent, output).append("{ PatternNode:").append(new String(this.type.shortReadableName())).append("\n"); //$NON-NLS-1$ //$NON-NLS-2$
+			printIndent(indent+2, output).append("unconditional:").append(this.unconditional).append("\n"); //$NON-NLS-1$ //$NON-NLS-2$
+			if (this.nested != null) {
+				printIndent(indent+2, output).append("nested:\n"); //$NON-NLS-1$
+				this.nested.printNode(indent+2, output).append("\n"); //$NON-NLS-1$
+			}
+			if (this.next != null) {
+				printIndent(indent+2, output).append("next:=>\n"); //$NON-NLS-1$
+				this.next.printNode(indent+2, output).append("\n"); //$NON-NLS-1$
+			}
+			return printIndent(indent, output).append(" }\n"); //$NON-NLS-1$
 		}
 	}
 
@@ -422,6 +567,8 @@ public class SwitchStatement extends Expression {
 		}
 
 		boolean isEnhanced = isEnhancedSwitch(upperScope, selectorType);
+		// JLS 14.11.1.1: T is an enum class E and P covers T when P contains all names of E's enum
+		// constants (a default label is then permitted but not required).
 		if (selectorType != null && selectorType.isEnum()) {
 			if (isEnhanced)
 				this.switchBits |= SwitchStatement.Exhaustive; // negated below if found otherwise
@@ -439,7 +586,7 @@ public class SwitchStatement extends Expression {
 					this.switchBits &= ~SwitchStatement.Exhaustive;
 					if (!(this.defaultCase != null && (this.defaultCase.bits & DocumentedCasesOmitted) != 0)) {
 						if (isEnhanced)
-							upperScope.problemReporter().enhancedSwitchMissingDefaultCase(this.expression);
+							upperScope.problemReporter().enhancedSwitchMissingDefaultCase(this.expression, this);
 						else {
 							for (FieldBinding enumConstant : unenumeratedConstants)
 								reportMissingEnumConstantCase(upperScope, enumConstant);
@@ -465,19 +612,20 @@ public class SwitchStatement extends Expression {
 
 		if (JavaFeature.PATTERN_MATCHING_IN_SWITCH.isSupported(compilerOptions) && selectorType.isSealed()
 				&& caseElementsCoverSealedType((ReferenceBinding) selectorType, this.caseLabelElementTypes, true))
-			this.switchBits |= SwitchStatement.Exhaustive;
+			this.switchBits |= SwitchStatement.Exhaustive; // JLS 14.11.1.1: T names an abstract sealed class/interface and every permitted subtype is covered
 		else if (selectorType.isRecordWithComponents() && this.containsRecordPatterns && caseElementsCoverRecordType(upperScope, compilerOptions, (ReferenceBinding) selectorType))
-			this.switchBits |= SwitchStatement.Exhaustive;
+			this.switchBits |= SwitchStatement.Exhaustive; // JLS 14.11.1.1: T names a record R and a record pattern covers every component
 
 		if (!isExhaustive()) {
 			if (isEnhanced)
-				upperScope.problemReporter().enhancedSwitchMissingDefaultCase(this.expression);
+				upperScope.problemReporter().enhancedSwitchMissingDefaultCase(this.expression, this);
 			else
 				upperScope.problemReporter().missingDefaultCase(this, false, selectorType);
 		}
 	}
 
 	// Return the set of enumerations belonging to the selector enum type that are NOT listed in case statements.
+	// JLS 14.11.1.1: P covers enum type E only when this set is empty (all constant names of E appear).
 	private Set<FieldBinding> unenumeratedConstants(TypeBinding enumType, int constantCount) {
 		FieldBinding[] enumFields = enumType.erasure().fields();
 		Set<FieldBinding> unenumerated = new HashSet<>(Arrays.asList(enumFields));
@@ -532,24 +680,311 @@ public class SwitchStatement extends Expression {
 	}
 
 	private boolean caseElementsCoverRecordType(BlockScope skope, CompilerOptions compilerOptions, ReferenceBinding recordType) {
+		// JLS 14.11.1.1: T names a record R and P contains a record pattern naming R whose component
+		// patterns cover each record component. Model the components as an RNode/TNode tree and check coverage.
 		RNode head = new RNode(recordType);
 		for (Pattern pattern : this.caseLabelElements) {
 			head.addPattern(pattern);
 		}
-		CoverageCheckerVisitor ccv = new CoverageCheckerVisitor();
-		head.traverse(ccv);
-		return ccv.covers;
+		boolean covers = checkRecordCoverage(SwitchStatement.this.tNodeList);
+		if (!covers) {
+			findMissingCasePatterns(skope, compilerOptions, head, SwitchStatement.this.tNodeList);
+		}
+		return covers;
 	}
+
+	// Enumerated alternative while reconstructing the missing case patterns.
+	private static final class Alternative {
+		final List<String> parts; // the per-component display strings gathered so far (used while walking columns)
+		final String display; //the fully formatted pattern
+
+		/* the PatternNode reached by a covered alternative; the enclosing record threads its next
+		 * component onto this node, so it carries the continuation
+		 */
+		final PatternNode leaf;
+		final boolean missing;
+
+		private Alternative(List<String> parts, String display, PatternNode leaf, boolean missing) {
+			this.parts = parts;
+			this.display = display;
+			this.leaf = leaf;
+			this.missing = missing;
+		}
+		static Alternative of(List<String> parts, PatternNode leaf, boolean missing) {
+			return new Alternative(parts, null, leaf, missing);
+		}
+		static Alternative of(String display, PatternNode leaf, boolean missing) {
+			return new Alternative(null, display, leaf, missing);
+		}
+		@Override
+		public String toString() {
+			return (this.display != null ? this.display : String.valueOf(this.parts)) + (this.missing ? " [missing]" : ""); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+	}
+
+	private void findMissingCasePatterns(BlockScope skope, CompilerOptions compilerOptions, RNode head,
+			List<TNode> tNodeList2) {
+		MissingPatternCollector collector = new MissingPatternCollector(head);
+		head.traverse(collector); // begins the recursion at the head RNode
+		addMissingCasePatterns(collector.missingPatterns);
+	}
+
+	/**
+	 * Merges (rather than replaces) the given patterns into {@link #missingCasePatterns}: for a sealed
+	 * selector the reconstruction runs once per permitted type (see
+	 * {@link #isRecordTypeFullyCoveredByCasePatterns}) and the iteration order of the permitted types
+	 * is unspecified. A TreeSet also removes duplicates and yields a stable order.
+	 */
+	private void addMissingCasePatterns(Collection<String> patterns) {
+		if (patterns.isEmpty())
+			return;
+		Set<String> all = new TreeSet<>(this.missingCasePatterns);
+		all.addAll(patterns);
+		this.missingCasePatterns = new ArrayList<>(all);
+	}
+
+	/** The simple (unqualified) name of a type, e.g. {@code "Root"} rather than {@code "X.Root"}. */
+	static String simpleTypeName(TypeBinding type) {
+		char[] name = type.sourceName();
+		return name != null ? new String(name) : new String(type.shortReadableName());
+	}
+
+	/** A type pattern binding the unnamed variable, e.g. {@code "R1 _"}. */
+	static String typePatternString(TypeBinding type) {
+		return simpleTypeName(type) + " _"; //$NON-NLS-1$
+	}
+
+	class MissingPatternCollector extends NodeVisitor {
+
+		final List<String> missingPatterns = new ArrayList<>();
+		/** The top level record under test; only patterns rooted here are reported. */
+		private final RNode head;
+
+		MissingPatternCollector(RNode head) {
+			this.head = head;
+		}
+
+		@Override
+		public void beginVisit(RNode node) {
+			if (node != this.head)
+				return;
+			this.missingPatterns.addAll(missingPatternStrings(node, new HashSet<>()));
+		}
+
+		@Override
+		public boolean visit(TNode node) {
+			// The whole reconstruction is done explicitly in #enumerateColumns starting from the head,
+			// so stop the generic descent here (this also prevents reaching nested RNodes).
+			return false;
+		}
+
+		/** All missing record patterns for the record modeled by {@code r}, e.g. {@code "Box(Circle)"}. */
+		private List<String> missingPatternStrings(RNode r, Set<TypeBinding> recordsOnPath) {
+			List<String> strings = new ArrayList<>();
+			for (Alternative alt : enumerateRecord(r, recordsOnPath)) {
+				if (alt.missing)
+					strings.add(alt.display);
+			}
+			return strings;
+		}
+
+		/**
+		 * Enumerates the alternatives of the record pattern {@code R(..)} modeled by {@code r}: one
+		 * {@link Alternative} per combination of its component values. Covered alternatives carry the
+		 * leaf {@link PatternNode} that was reached, because the enclosing record threads its
+		 * <em>next</em> component onto that leaf (see {@link TNode#addPattern}), not onto the outer
+		 * component node.
+		 */
+		private List<Alternative> enumerateRecord(RNode r, Set<TypeBinding> recordsOnPath) {
+			List<Alternative> result = new ArrayList<>();
+			if (!(r.type instanceof ReferenceBinding recordType))
+				return result;
+			if (!recordsOnPath.add(recordType.erasure()))
+				return result; // guard against (mutually) recursive record types.
+			try {
+				String name = simpleName(recordType);
+				for (Alternative alt : enumerateColumns(recordType, r.firstComponent, 0, null, recordsOnPath)) {
+					String display = name + "(" + String.join(", ", alt.parts) + ")"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+					result.add(Alternative.of(display, alt.leaf, alt.missing));
+				}
+			} finally {
+				recordsOnPath.remove(recordType.erasure());
+			}
+			return result;
+		}
+
+		/**
+		 * Enumerates the alternatives for the record components {@code [idx..k]} of {@code rec}.
+		 *
+		 * @param columnNode the coverage column for component {@code idx}, or null when no case
+		 *        pattern constrains it (then everything from here on is missing).
+		 * @param incomingLeaf the {@link PatternNode} chosen for the previous column; it is handed back
+		 *        once the components are exhausted, so the enclosing record can continue from its
+		 *        {@link PatternNode#next}.
+		 */
+		private List<Alternative> enumerateColumns(ReferenceBinding rec, TNode columnNode, int idx,
+				PatternNode incomingLeaf, Set<TypeBinding> recordsOnPath) {
+			List<Alternative> result = new ArrayList<>();
+			RecordComponentBinding[] comps = rec.components();
+			if (comps == null || idx >= comps.length) {
+				// All components consumed: hand the last leaf back to the caller to continue from.
+				result.add(Alternative.of(new ArrayList<>(), incomingLeaf, false));
+				return result;
+			}
+			if (columnNode == null) {
+				// No coverage information for the remaining columns => everything from here is missing.
+				result.add(Alternative.of(totalsFrom(comps, idx), null, true));
+				return result;
+			}
+			for (TypeBinding u : universe(comps[idx].type)) {
+				String uName = typePattern(u);
+				PatternNode child = findCovering(columnNode, u);
+				if (child == null) {
+					// 'u' is not covered at this column at all; remaining columns can be anything.
+					result.add(Alternative.of(prepend(uName, totalsFrom(comps, idx + 1)), null, true));
+				} else if (child.nested != null && !child.unconditional) {
+					// Matched by a nested record pattern: the slot is covered only for those nested
+					// combinations that are themselves covered, and the enclosing record's next column
+					// is threaded onto the nested leaves.
+					for (Alternative inner : enumerateRecord(child.nested, recordsOnPath)) {
+						if (inner.missing) {
+							result.add(Alternative.of(prepend(inner.display, totalsFrom(comps, idx + 1)), null, true));
+							continue;
+						}
+						TNode nextColumn = inner.leaf != null ? inner.leaf.next : null;
+						for (Alternative rest : enumerateColumns(rec, nextColumn, idx + 1, inner.leaf, recordsOnPath))
+							result.add(Alternative.of(prepend(inner.display, rest.parts), rest.leaf, rest.missing));
+					}
+				} else {
+					// A total (type) pattern covers this slot's value; continue with the remaining columns.
+					for (Alternative rest : enumerateColumns(rec, child.next, idx + 1, child, recordsOnPath))
+						result.add(Alternative.of(prepend(uName, rest.parts), rest.leaf, rest.missing));
+				}
+			}
+			return result;
+		}
+
+		private List<String> prepend(String head1, List<String> tail) {
+			List<String> combined = new ArrayList<>(tail.size() + 1);
+			combined.add(head1);
+			combined.addAll(tail);
+			return combined;
+		}
+
+		/** The display strings of a total type pattern for each of the components {@code [from..k]}. */
+		private List<String> totalsFrom(RecordComponentBinding[] comps, int from) {
+			List<String> totals = new ArrayList<>();
+			for (int i = from; i < comps.length; i++)
+				totals.add(typePattern(comps[i].type));
+			return totals;
+		}
+
+		/** The simple (unqualified) name of a type, e.g. {@code "Root"} rather than {@code "X.Root"}. */
+		private String simpleName(TypeBinding type) {
+			return simpleTypeName(type);
+		}
+
+		/** A type pattern binding the unnamed variable, e.g. {@code "R1 _"}. */
+		private String typePattern(TypeBinding type) {
+			return typePatternString(type);
+		}
+
+		/** The concrete types that must be covered for a component of the given type. */
+		private List<TypeBinding> universe(TypeBinding componentType) {
+			List<TypeBinding> result = new ArrayList<>();
+			if (componentType instanceof ReferenceBinding ref && ref.isSealed()) {
+				for (ReferenceBinding avatar : ref.getAllEnumerableAvatars()) {
+					if (avatar.isAbstract() && avatar.isSealed())
+						continue; // covered transitively through its permitted subtypes.
+					result.add(avatar);
+				}
+			} else {
+				result.add(componentType);
+			}
+			// Deterministic order: the sealed avatars originate from an unordered set.
+			result.sort((t1, t2) -> simpleName(t1).compareTo(simpleName(t2)));
+			return result;
+		}
+
+		/** The first child alternative of {@code columnNode} whose type covers {@code u}, or null. */
+		private PatternNode findCovering(TNode columnNode, TypeBinding u) {
+			if (columnNode.children != null) {
+				for (PatternNode child : columnNode.children) {
+					if (findCompatibleType(u).test(child.type))
+						return child;
+				}
+			}
+			return null;
+		}
+	}
+
+
+	public boolean checkRecordCoverage(List<TNode> tNodeList2) {
+		if (tNodeList2.isEmpty())
+			return true;
+		for (TNode tNode : tNodeList2) {
+			if (!checkRecordCoverage(tNode))
+				return false;
+		}
+		return true;
+	}
+	public boolean checkRecordCoverage(TNode node) {
+		if (node.hasError)
+			return false;
+
+		if (node.unnamed) {
+			return true; // unnamed pattern covers the whole slot type
+		}
+
+		List<TypeBinding> availableTypes = new ArrayList<>();
+		if (node.children != null) {
+			for (PatternNode child : node.children) {
+				availableTypes.add(child.type);
+			}
+		}
+		List<TypeBinding> allTypes = new ArrayList<>();
+		if (node.type instanceof ReferenceBinding ref && ref.isSealed()) {
+				allTypes.addAll(ref.getAllEnumerableAvatars());
+		} else {
+			allTypes.add(node.type);
+		}
+		if (node.remainingTypes == null) {
+			node.remainingTypes = new ArrayList<>();
+			for (TypeBinding type : allTypes) {
+				boolean found = availableTypes.stream().filter(findCompatibleType(type)).findAny().isPresent();
+				if (!found) {
+					if (type instanceof ReferenceBinding ref && ref.isSealed()) {
+						for (ReferenceBinding permitted : ref.getAllEnumerableAvatars()) { // check all permitted types for coverage
+							found = availableTypes.stream().filter(findCompatibleType(permitted)).findAny().isPresent();
+							if (!found)
+								break;
+						}
+					}
+					if (!found)
+						node.remainingTypes.add(type);
+				}
+			}
+		}
+		return node.remainingTypes.isEmpty();
+	}
+
+	private Predicate<? super TypeBinding> findCompatibleType(TypeBinding type) {
+		return candidate -> type.erasure().isCompatibleWith(candidate.erasure());
+	}
+
 
 	/**
 	 * @param checkRecordPatterns when true (top-level sealed selector), a permitted record
 	 *        is covered only if case patterns fully cover it — including nested components.
-	 *        When false (nested CoverageCheckerVisitor), {@code listedTypes} are already the
-	 *        component pattern types and the simple name check is enough.
 	 */
 	private boolean caseElementsCoverSealedType(ReferenceBinding sealedType, List<TypeBinding> listedTypes,
 			boolean checkRecordPatterns) {
+		// JLS 14.11.1.1: T names an abstract sealed class/interface C and, for every permitted direct
+		// subclass/subinterface D, either no subtype of T names D, or a type U naming D (subtype of T) is covered.
 		List<ReferenceBinding> allAllowedTypes = sealedType.getAllEnumerableAvatars();
+		// Permitted record types for which the *nested* missing record patterns have already been
+		// reconstructed (e.g. "B(Circle _)"); they must not additionally be reported as plain "B _".
+		Set<ReferenceBinding> detailedRecords = new HashSet<>();
 		Iterator<ReferenceBinding> iterator = allAllowedTypes.iterator();
 		while (iterator.hasNext()) {
 			ReferenceBinding next = iterator.next();
@@ -569,25 +1004,44 @@ public class SwitchStatement extends Expression {
 					continue;
 				}
 			}
-			if (checkRecordPatterns && this.containsRecordPatterns && next.isRecord()) {
-				// Absolute(GlobalPosition) must not count as covering Absolute when Position is sealed
-				if (isRecordTypeFullyCoveredByCasePatterns(next))
+ 			if (checkRecordPatterns && this.containsRecordPatterns && next.isRecord()) {
+				if (isRecordTypeFullyCoveredByCasePatterns(next, detailedRecords))
 					iterator.remove();
 				continue;
 			}
 			for (TypeBinding type : listedTypes) {
-				// permits specifies classes, not parameterizations
 				if (next.erasure().isCompatibleWith(type.erasure())) {
 					iterator.remove();
 					break;
 				}
 			}
 		}
+		if (checkRecordPatterns && !allAllowedTypes.isEmpty())
+			findMissingSealedCasePatterns(allAllowedTypes, detailedRecords);
 		return allAllowedTypes.size() == 0;
 	}
 
+	/**
+	 * Reconstructs the case patterns that are missing for a <em>sealed</em> selector type: one type
+	 * pattern per permitted subtype that no case label covers (e.g. {@code "Circle _"}). Permitted
+	 * subtypes that are records for which the more precise, nested record patterns have already been
+	 * enumerated (see {@link #isRecordTypeFullyCoveredByCasePatterns}) are skipped, so that the
+	 * diagnostic lists {@code "B(Circle _)"} rather than the coarser {@code "B _"}.
+	 */
+	private void findMissingSealedCasePatterns(List<ReferenceBinding> uncoveredTypes,
+			Set<ReferenceBinding> detailedRecords) {
+		List<String> patterns = new ArrayList<>();
+		for (ReferenceBinding uncovered : uncoveredTypes) {
+			if (detailedRecords.contains(uncovered))
+				continue; // already reported in its more precise, nested form.
+			patterns.add(typePatternString(uncovered));
+		}
+		addMissingCasePatterns(patterns);
+	}
+
 	/** Type pattern covers the record, or record patterns collectively cover nested components. */
-	private boolean isRecordTypeFullyCoveredByCasePatterns(ReferenceBinding recordType) {
+	private boolean isRecordTypeFullyCoveredByCasePatterns(ReferenceBinding recordType,
+			Set<ReferenceBinding> detailedRecords) {
 		ReferenceBinding patternRecordType = null;
 		for (Pattern pattern : this.caseLabelElements) {
 			if (pattern instanceof RecordPattern rp) {
@@ -598,13 +1052,21 @@ public class SwitchStatement extends Expression {
 			} else if (pattern.resolvedType != null
 					&& recordType.erasure().isCompatibleWith(pattern.resolvedType.erasure())
 					&& pattern.coversType(pattern.resolvedType, this.scope)) {
-				return true; // case Absolute a
+				return true;
 			}
 		}
 		if (patternRecordType == null)
 			return false;
-		// Reuse record-selector coverage (RNode + CoverageCheckerVisitor)
-		return caseElementsCoverRecordType(this.scope, null, patternRecordType);
+		boolean covered = caseElementsCoverRecordType(this.scope, null, patternRecordType);
+		if (!covered && detailedRecords != null) {
+			/* A record pattern names this record, so the nested reconstruction above is authoritative
+			   for it: either it enumerated the missing component combinations (e.g. "B(Circle _)"), or
+			   it found none - which happens when the record *is* in fact covered and the switch is only
+			   non-exhaustive because of some other permitted type. In both cases the coarse "B _" would
+			   be wrong, hence mark the record as already dealt with. */
+			detailedRecords.add(recordType);
+		}
+		return covered;
 	}
 
 	private void reserveSecretVariablesSlot() { // may be released later if unused.

@@ -641,7 +641,8 @@ public class Util implements SuffixConstants {
 	}
 	/**
 	 * Returns whether the given name is potentially a zip archive file name
-	 * (it has a file extension and it is not ".java" nor ".class")
+	 * (it has a file extension and it is neither ".java", ".class" nor a
+	 * native library extension)
 	 */
 	public final static boolean isPotentialZipArchive(String name) {
 		int lastDot = name.lastIndexOf('.');
@@ -649,6 +650,8 @@ public class Util implements SuffixConstants {
 			return false; // no file extension, it cannot be a zip archive name
 		if (name.lastIndexOf(File.separatorChar) > lastDot)
 			return false; // dot was before the last file separator, it cannot be a zip archive name
+		if (isNativeLibrary(name))
+			return false; // native libraries are no archives
 		int length = name.length();
 		int extensionLength = length - lastDot - 1;
 		if (extensionLength == EXTENSION_java.length()) {
@@ -669,7 +672,7 @@ public class Util implements SuffixConstants {
 			}
 			return false; // it is a ".class" file, it cannot be a zip archive name
 		}
-		return true; // it is neither a ".java" file nor a ".class" file, so this is a potential archive name
+		return true; // this is a potential archive name
 	}
 
 	public static final int ZIP_FILE = 0;
@@ -685,6 +688,8 @@ public class Util implements SuffixConstants {
 			return -1; // no file extension, it cannot be a zip archive name
 		if (name.lastIndexOf(File.separatorChar) > lastDot)
 			return -1; // dot was before the last file separator, it cannot be a zip archive name
+		if (isNativeLibrary(name))
+			return -1; // native libraries are no archives
 		int length = name.length();
 		int extensionLength = length - lastDot - 1;
 
@@ -714,7 +719,49 @@ public class Util implements SuffixConstants {
 			}
 			return JMOD_FILE;
 		}
-		return ZIP_FILE; // it is neither a ".java" file nor a ".class" file, so this is a potential archive name
+		return ZIP_FILE; // this is a potential archive name
+	}
+
+	/**
+	 * Native library file extensions (without the leading dot).
+	 */
+	private static final String[] NATIVE_LIBRARY_EXTENSIONS = { "so", "dll", "dylib" }; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+	/**
+	 * Returns whether the given name is a native library file name
+	 * (.so, .dll, .dylib).
+	 * <p>
+	 * The name may be a simple file name, a file system path, or a jar entry
+	 * path: only the part behind the last dot is considered, so a dot inside a
+	 * directory segment (e.g. {@code "dir.so/file"}) can never match, because
+	 * the remainder would still contain a path separator.
+	 * </p>
+	 * <p>
+	 * The comparison is case insensitive and does not allocate intermediate
+	 * strings.
+	 * </p>
+	 * <p>
+	 * This check prevents native libraries from being misclassified as ZIP/JMOD
+	 * archives or from being added to the bootclasspath.
+	 * See <a href="https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5253">issue 5253</a>.
+	 * </p>
+	 *
+	 * @param name the file name or path to check; must not be {@code null}
+	 * @return {@code true} if the name ends with a native library extension
+	 */
+	public static boolean isNativeLibrary(String name) {
+		int lastDot = name.lastIndexOf('.');
+		if (lastDot == -1) {
+			return false; // no file extension, it cannot be a native library name
+		}
+		int extensionLength = name.length() - lastDot - 1;
+		for (String extension : NATIVE_LIBRARY_EXTENSIONS) {
+			if (extensionLength == extension.length()
+					&& name.regionMatches(true, lastDot + 1, extension, 0, extensionLength)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -1117,7 +1164,11 @@ public class Util implements SuffixConstants {
 		if ((bootclasspathProperty != null) && (bootclasspathProperty.length() != 0)) {
 			StringTokenizer tokenizer = new StringTokenizer(bootclasspathProperty, File.pathSeparator);
 			while (tokenizer.hasMoreTokens()) {
-				filePaths.add(tokenizer.nextToken());
+				String path = tokenizer.nextToken();
+				// Exclude native libraries (.so, .dll, .dylib) from the bootclasspath.
+				if (!isNativeLibrary(path)) {
+					filePaths.add(path);
+				}
 			}
 		} else {
 			// try to get all jars inside the lib folder of the java home
@@ -1138,6 +1189,8 @@ public class Util implements SuffixConstants {
 				}
 				File[][] systemLibrariesJars = Main.getLibrariesFiles(directoriesToCheck);
 				if (systemLibrariesJars != null) {
+					// native libraries (.so, .dll, .dylib) are already filtered out by
+					// Main.getLibrariesFiles() via Util.archiveFormat()
 					for (File[] current : systemLibrariesJars) {
 						if (current != null) {
 							for (File file : current) {

@@ -72,6 +72,7 @@ private static Class[] getAllTestClasses() {
 		RunJavaSearchTests.class,
 
 		IndexManagerTests.class,
+		SourceIndexerResolveTests.class,
 
 		// Regex ReDoS protection in the search index
 		IndexReDoSTest.class,
@@ -139,6 +140,7 @@ private static Class[] getAllTestClasses() {
 
 		// Options tests
 		OptionTests.class,
+		OptionCacheTests.class,
 
 		// Type hierarchy tests
 		TypeHierarchyTests.class,
@@ -155,6 +157,10 @@ private static Class[] getAllTestClasses() {
 		ReconcilerTests21.class,
 		ReconcilerStatementsRecoveryTests.class,
 		ReconcilerMultiReleaseTests.class,
+		ReconcilerModuleMultiReleaseTests.class,
+		SelectionMultiReleaseTests.class,
+		ASTParserMultiReleaseTests.class,
+		HierarchyMultiReleaseTests.class,
 
 		// Copy and move operation tests
 		CopyMoveElementsTests.class,

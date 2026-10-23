@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2021 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -303,12 +303,23 @@ public class SearchableEnvironment
 	/**
 	 * Find the modules that start with the given prefix.
 	 * A valid prefix is a qualified name separated by periods
-	 * (ex. java.util).
-	 * The packages found are passed to:
+	 * (ex. java.xml).
+	 * The modules found are passed to:
 	 *    ISearchRequestor.acceptModule(char[][] moduleName)
 	 */
 	public void findModules(char[] prefix, ISearchRequestor requestor, IJavaProject javaProject) {
-		this.nameLookup.seekModule(prefix, true, new SearchableEnvironmentRequestor(requestor));
+		this.nameLookup.seekModule(prefix, true, new SearchableEnvironmentRequestor(requestor), this.release);
+	}
+
+	/**
+	 * Find the module with the given name.
+	 * A valid qualified name separated by periods
+	 * (ex. java.base).
+	 * The module found is passed to:
+	 *    ISearchRequestor.acceptModule(char[][] moduleName)
+	 */
+	public void findModule(char[] name, ISearchRequestor requestor, IJavaProject javaProject) {
+		this.nameLookup.seekModule(name, false, new SearchableEnvironmentRequestor(requestor), this.release);
 	}
 
 	@Override
@@ -1137,7 +1148,7 @@ public class SearchableEnvironment
 			this.rootToModule = new HashMap<>();
 		}
 		for (IPackageFragmentRoot root : roots) {
-			IModuleDescription moduleDescription = NameLookup.getModuleDescription(this.project, root, this.rootToModule, this.nameLookup.rootToResolvedEntries::get);
+			IModuleDescription moduleDescription = NameLookup.getModuleDescription(this.project, root, this.rootToModule, this.nameLookup.rootToResolvedEntries::get, this.release);
 			if (moduleDescription != null)
 				return moduleDescription;
 		}
@@ -1149,7 +1160,7 @@ public class SearchableEnvironment
 		if (this.knownModuleLocations != null && moduleName != null && moduleName.length > 0) {
 			moduleContext = this.knownModuleLocations.get(String.valueOf(moduleName));
 			if (moduleContext == null) {
-				Answer moduleAnswer = this.nameLookup.findModule(moduleName);
+				Answer moduleAnswer = this.nameLookup.findModule(moduleName, this.release);
 				if (moduleAnswer != null) {
 					IProject currentProject = moduleAnswer.module.getJavaProject().getProject();
 					IJavaElement current = moduleAnswer.module.getParent();
@@ -1223,7 +1234,7 @@ public class SearchableEnvironment
 
 	@Override
 	public org.eclipse.jdt.internal.compiler.env.IModule getModule(char[] name) {
-		NameLookup.Answer answer = this.nameLookup.findModule(name);
+		NameLookup.Answer answer = this.nameLookup.findModule(name, this.release);
 		IModule module = null;
 		if (answer != null) {
 			module = NameLookup.getModuleDescriptionInfo(answer.module);

@@ -23,9 +23,10 @@ import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 @PreviewTest
+@RunJavac
 public class PreviewFlagTest extends AbstractRegressionTest9 {
 
-	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 26");
+	private static final JavacTestOptions JAVAC_OPTIONS = new JavacTestOptions("--enable-preview -source 27");
 	private static final String[] VMARGS = new String[] {"--enable-preview"};
 	static {
 //		TESTS_NUMBERS = new int [] { 1 };
@@ -38,31 +39,18 @@ public class PreviewFlagTest extends AbstractRegressionTest9 {
 		return PreviewFlagTest.class;
 	}
 	public static Test suite() {
-		return buildMinimalComplianceTestSuite(testClass(), F_26);
+		return buildMinimalComplianceTestSuite(testClass(), F_27);
 	}
 	public PreviewFlagTest(String testName) {
 		super(testName);
 	}
 
-	// ========= OPT-IN to run.javac mode: ===========
-	@Override
-	protected void setUp() throws Exception {
-		this.runJavacOptIn = true;
-		super.setUp();
-	}
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
-		this.runJavacOptIn = false; // do it last, so super can still clean up
-	}
-	// =================================================
-
 	// Enables the tests to run individually
 	protected Map<String, String> getCompilerOptions(boolean preview) {
 		Map<String, String> defaultOptions = super.getCompilerOptions();
-		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_26);
-		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_26);
-		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_26);
+		defaultOptions.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_27);
+		defaultOptions.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_27);
+		defaultOptions.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_27);
 		defaultOptions.put(CompilerOptions.OPTION_EnablePreviews, preview ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
 		defaultOptions.put(CompilerOptions.OPTION_ReportPreviewFeatures, CompilerOptions.WARNING);
 		return defaultOptions;
@@ -138,7 +126,7 @@ public class PreviewFlagTest extends AbstractRegressionTest9 {
 			},
 			"world");
 		String expectedOutput =
-				"version 26 : 70."
+				"version 27 : 71."
 				;
 		verifyClassFile(expectedOutput, "X.class", ClassFileBytesDisassembler.SYSTEM);
 	}

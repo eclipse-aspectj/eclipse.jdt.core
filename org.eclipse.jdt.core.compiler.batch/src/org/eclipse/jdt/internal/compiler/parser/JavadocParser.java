@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2024 IBM Corporation and others.
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -604,9 +604,14 @@ public class JavadocParser extends AbstractCommentParser {
 		int eofBkup = this.scanner.eofPosition;
 		this.scanner.resetTo(start, Math.max(this.javadocEnd, this.index));
 		this.tagValue = TAG_LINK_VALUE;
+		this.parsingMarkdownLink = true;
 		if (!valid)
 			valid = parseReference(true);
 		this.tagValue = NO_TAG_VALUE;
+
+		// Reset flag immediately after parsing is complete to prevent state leakage to the rest of the comment
+		this.parsingMarkdownLink = false;
+
 		this.scanner.eofPosition = eofBkup;
 		this.markdownHelper.resetLineStart();
 		return valid;
@@ -866,7 +871,7 @@ public class JavadocParser extends AbstractCommentParser {
 					this.tagValue = TAG_SNIPPET_VALUE;
 					this.tagWaitingForDescription = this.tagValue;
 					if (this.inlineTagStarted) {
-						valid = parseSnippet();
+						valid = this.markdown ? parseSnippetForMarkdown() : parseSnippet();
 					}
 				}else if (length> TAG_SNIPPET_LENGTH && CharOperation.prefixEquals(TAG_SNIPPET, tagName)) {
 					if (this.reportProblems ) {
@@ -1047,7 +1052,7 @@ public class JavadocParser extends AbstractCommentParser {
 	@Override
 	protected void  pushSnippetText(char[] text, int start, int end, boolean addNewLine, Object snippetTag) {
 		// The tag gets its description => clear the flag
-		this.tagWaitingForDescription = TAG_SNIPPET_VALUE;
+		this.tagWaitingForDescription = NO_TAG_VALUE;
 	}
 
 	@Override
@@ -1059,7 +1064,7 @@ public class JavadocParser extends AbstractCommentParser {
 	@Override
 	protected void pushExternalSnippetText(char[] text, int start, int end, boolean addNewLine, Object snippetTag) {
 		// The tag gets its description => clear the flag
-		this.tagWaitingForDescription = TAG_SNIPPET_VALUE;
+		this.tagWaitingForDescription = NO_TAG_VALUE;
 	}
 
 	/*
@@ -1096,7 +1101,10 @@ public class JavadocParser extends AbstractCommentParser {
 	protected void refreshInlineTagPosition(int previousPosition) {
 
 		// Signal tag missing description if necessary
-		if (this.tagWaitingForDescription!= NO_TAG_VALUE) {
+		// For markdown snippet, the body is on subsequent lines processed in separate
+		// commentParse() calls, so skip the description check to avoid false errors.
+		if (this.tagWaitingForDescription != NO_TAG_VALUE
+				&& !(this.markdown && this.tagWaitingForDescription == TAG_SNIPPET_VALUE)) {
 			this.sourceParser.problemReporter().javadocMissingTagDescription(TAG_NAMES[this.tagWaitingForDescription], this.tagSourceStart, this.tagSourceEnd, this.sourceParser.modifiers);
 			this.tagWaitingForDescription = NO_TAG_VALUE;
 		}
@@ -1138,6 +1146,11 @@ public class JavadocParser extends AbstractCommentParser {
 				}
 				break;
 			case NO_TAG_VALUE:
+				break;
+			case TAG_SNIPPET_VALUE:
+				if (!this.inlineTagStarted && !this.markdown) {
+					this.sourceParser.problemReporter().javadocMissingTagDescription(TAG_NAMES[this.tagWaitingForDescription], this.tagSourceStart, this.tagSourceEnd, this.sourceParser.modifiers);
+				}
 				break;
 			default:
 				if (!this.inlineTagStarted) {

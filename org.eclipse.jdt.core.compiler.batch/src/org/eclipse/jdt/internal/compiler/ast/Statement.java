@@ -482,6 +482,10 @@ public boolean isEmptyBlock() {
 	return false;
 }
 
+public boolean isImplicitSuper() {
+	return false;
+}
+
 // for switch statement
 public boolean isTrulyExpression() {
 	return false;
@@ -544,6 +548,13 @@ public boolean containsPatternVariable(boolean includeUnnamedOnes) {
 			 if (typePattern.local != null && (includeUnnamedOnes || (typePattern.local.name.length != 1 || typePattern.local.name[0] != '_')))
 				 this.declaresVariable = true;
 			 return !this.declaresVariable;
+		}
+
+		@Override
+		public boolean visit(RecordPattern recordPattern, BlockScope blockScope) {
+			if (recordPattern.patterns.length > 0)
+				this.declaresVariable = true;
+			return !this.declaresVariable;
 		}
 
 		public boolean containsPatternVariable() {

@@ -7755,7 +7755,7 @@ public void testBug446442_6b() {
 		"		return x;\n" +
 		"	};\n" +
 		"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Contradictory null annotations: function type was inferred as \'ArrayList<@NonNull @Nullable Integer> (ArrayList<@Nullable @NonNull Integer>)\', but only one of \'@NonNull\' and \'@Nullable\' can be effective at any location\n" +
+		"Contradictory null annotations: function type was inferred as \'ArrayList<@Nullable @NonNull Integer> (ArrayList<@Nullable @NonNull Integer>)\', but only one of \'@NonNull\' and \'@Nullable\' can be effective at any location\n" +
 		"----------\n" +
 		"5. ERROR in Test.java (at line 17)\n" +
 		"	x.add(null);\n" +
@@ -12660,7 +12660,7 @@ public void testBug489978() {
 		""
 	);
 }
-public void testBug489245() {
+public void testBug489245_info() {
 	Map compilerOptions = getCompilerOptions();
 	compilerOptions.put(CompilerOptions.OPTION_PessimisticNullAnalysisForFreeTypeVariables, JavaCore.INFO);
 	runWarningTestWithLibs(
@@ -12687,7 +12687,8 @@ public void testBug489245() {
 			"\n" +
 			"	static <T> void h(@NonNull T t) {\n" +
 			"		get(() -> {\n" +
-			"			return null; // correctly reported (but twice with the bug)\n" +
+			"			T tmp = null; // correctly reported (but twice with the bug)\n" +
+			"			return tmp;\n" +
 			"		}, t);\n" +
 			"	}\n" +
 			"}\n" +
@@ -12696,10 +12697,47 @@ public void testBug489245() {
 		compilerOptions,
 		"----------\n" +
 		"1. INFO in test\\TestBogusProblemReportOnlyAsInfo.java (at line 21)\n" +
-		"	return null; // correctly reported (but twice with the bug)\n" +
-		"	       ^^^^\n" +
+		"	T tmp = null; // correctly reported (but twice with the bug)\n" +
+		"	        ^^^^\n" +
 		"Null type mismatch (type annotations): \'null\' is not compatible to the free type variable \'T\'\n" +
 		"----------\n"
+	);
+}
+public void testBug489245_improvedNullInference() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_PessimisticNullAnalysisForFreeTypeVariables, JavaCore.INFO);
+	runConformTestWithLibs(
+		true/*flush*/,
+		new String[] {
+			"test/TestBogusProblemReportOnlyAsInfo.java",
+			"package test;\n" +
+			"\n" +
+			"import java.util.function.Supplier;\n" +
+			"\n" +
+			"import org.eclipse.jdt.annotation.NonNull;\n" +
+			"import org.eclipse.jdt.annotation.NonNullByDefault;\n" +
+			"\n" +
+			"@NonNullByDefault\n" +
+			"public class TestBogusProblemReportOnlyAsInfo {\n" +
+			"	static <U> void get(Supplier<U> supplier, @NonNull U defaultValue) {\n" +
+			"	}\n" +
+			"\n" +
+			"	static void f() {\n" +
+			"		get(() -> {\n" +
+			"			return null; // bogus problem report only as info\n" +
+			"		}, \"\");\n" +
+			"	}\n" +
+			"\n" +
+			"	static <T> void h(@NonNull T t) {\n" +
+			"		get(() -> {\n" +
+			"			return null; // no longer a problem with improved null inference\n" +
+			"		}, t);\n" +
+			"	}\n" +
+			"}\n" +
+			"",
+		},
+		compilerOptions,
+		""
 	);
 }
 public void testBug489674() {
@@ -20252,5 +20290,354 @@ public void testGH5249() {
 		},
 		getCompilerOptions(),
 		"");
+}
+public void testGH5249_inheritedBuilders() {
+	String client = """
+		public class Test {
+			Builders.Child build(Builders.ChildBuilder builder) {
+				return builder.build();
+			}
+			Builders.Child buildReversed(Builders.ReversedChildBuilder builder) {
+				return builder.build();
+			}
+		}
+		""";
+	runConformTestWithLibs(new String[] {
+			"Builders.java",
+			"""
+			public class Builders {
+				public static class Parent {}
+				public static class Child extends Parent {}
+				public interface ParentBuilder {
+					Parent build();
+				}
+				public interface GenericBuilder<T> {
+					T build();
+				}
+				public interface ChildBuilder extends ParentBuilder, GenericBuilder<Child> {}
+				public interface ReversedChildBuilder extends GenericBuilder<Child>, ParentBuilder {}
+			}
+			""",
+			"Test.java",
+			client
+		},
+		getCompilerOptions(),
+		"");
+	runConformTestWithLibs(false, new String[] { "Test.java", client }, getCompilerOptions(), "");
+}
+public void testGH5249_inheritedBuilders_variation1() {
+	String client = """
+		import org.eclipse.jdt.annotation.*;
+		public class Test {
+			Builders.@NonNull Child build(Builders.ChildBuilder builder) {
+				return builder.build();
+			}
+			Builders.Child buildReversed(Builders.ReversedChildBuilder builder) {
+				return builder.build();
+			}
+		}
+		""";
+	runConformTestWithLibs(new String[] {
+			"Builders.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+			public class Builders {
+				public static class Parent {}
+				public static class Child extends Parent {}
+				public interface ParentBuilder {
+					@NonNull Parent build();
+				}
+				public interface GenericBuilder<T> {
+					T build();
+				}
+				public interface ChildBuilder extends ParentBuilder, GenericBuilder<Child> {}
+				public interface ReversedChildBuilder extends GenericBuilder<Child>, ParentBuilder {}
+			}
+			""",
+			"Test.java",
+			client
+		},
+		getCompilerOptions(),
+		"");
+	runConformTestWithLibs(false, new String[] { "Test.java", client }, getCompilerOptions(),
+			// TODO: ideally we would avoid this info.
+			// To that end we might remember that `@NonNull` was inferred from overload resolution, not via generics.
+			"""
+			----------
+			1. INFO in Test.java (at line 4)
+				return builder.build();
+				       ^^^^^^^^^^^^^^^
+			Unsafe interpretation of method return type as '@NonNull' based on the receiver type 'Builders.GenericBuilder<Builders.Child>'. Type 'Builders.GenericBuilder<T>' doesn't seem to be designed with null type annotations in mind
+			----------
+			""");
+}
+public void testGH5249_inheritedBuilders_variation2() {
+	String client = """
+		import org.eclipse.jdt.annotation.*;
+		public class Test {
+			Builders.@NonNull Child build(Builders.ChildBuilder builder) {
+				return builder.build();
+			}
+			Builders.Child buildReversed(Builders.ReversedChildBuilder builder) {
+				return builder.build();
+			}
+		}
+		""";
+	runConformTestWithLibs(new String[] {
+			"Builders.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+			public class Builders {
+				public static class Parent {}
+				public static class Child extends Parent {}
+				public interface ParentBuilder {
+					Parent build();
+				}
+				public interface GenericBuilder<T> {
+					@NonNull T build();
+				}
+				public interface ChildBuilder extends ParentBuilder, GenericBuilder<Child> {}
+				public interface ReversedChildBuilder extends GenericBuilder<Child>, ParentBuilder {}
+			}
+			""",
+			"Test.java",
+			client
+		},
+		getCompilerOptions(),
+		"");
+	runConformTestWithLibs(false, new String[] { "Test.java", client }, getCompilerOptions(), "");
+}
+public void testGH5249_inheritedNullAnnotations() {
+	runConformTestWithLibs(new String[] {
+			"Test.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+
+			public class Test {
+				interface ParentBuilder {
+					Object build();
+				}
+				interface NullableBuilder {
+					@Nullable String build();
+				}
+				interface NonNullBuilder {
+					@NonNull String build();
+				}
+				interface Builder extends ParentBuilder, NullableBuilder, NonNullBuilder {}
+				interface ReversedBuilder extends NonNullBuilder, NullableBuilder, ParentBuilder {}
+
+				@NonNull String build(Builder builder) {
+					return builder.build();
+				}
+				@NonNull String buildReversed(ReversedBuilder builder) {
+					return builder.build();
+				}
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testGH5316() throws Exception {
+	runConformTestWithLibs(new String[] {
+			"MyInnocentClass.java",
+			"""
+			import java.util.Map;
+
+			import org.eclipse.jdt.annotation.NonNullByDefault;
+			import org.eclipse.jdt.annotation.Nullable;
+
+			@SuppressWarnings("unused")
+			public class MyInnocentClass {
+				@NonNullByDefault
+				@Nullable
+				private Map<String, String> aTotallyNormalMap;
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testGH5340() throws Exception {
+	runConformTestWithLibs(new String[] {
+		"X.java",
+		"""
+		import org.eclipse.jdt.annotation.*;
+		import java.util.*;
+		import java.util.stream.*;
+		public class X {
+			void test(String[] array) {
+				List<@NonNull Object> tokens = Arrays.stream(array)
+					.map(string -> {
+							if (string.isEmpty())
+								return null;
+							return new Object();
+						})
+					.filter(Objects::nonNull)
+					.collect(Collectors.toList());
+			}
+		}
+		"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testIssue5391() throws Exception {
+	runConformTestWithLibs(new String[] {
+			"Repro.java",
+			"""
+			import java.util.ArrayList;
+			import java.util.List;
+
+			public class Repro<T> {
+				class Node {}
+
+				void m(Node start) {
+					List<Node> list = new ArrayList<>();
+					list.add(start);
+				}
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testIssue5391a() throws Exception {
+	runConformTestWithLibs(new String[] {
+			"Repro.java",
+			"""
+			import java.util.List;
+			import org.eclipse.jdt.annotation.*;
+
+			interface MyList<X> extends List<X> {
+				@Override
+				boolean add(@Nullable X x);
+			}
+			public class Repro<T> {
+				class Node {}
+
+				void m(Node start, MyList<Node> list) {
+					list.add(start);
+				}
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testIssue5387_orig() throws Exception {
+	runConformTestWithLibs(new String[] {
+			"Repro.java",
+			"""
+			interface JavaxQuery {}
+			interface TypedQuery<X> extends JavaxQuery {}
+			interface HibernateQuery<S>  extends TypedQuery<S>{}
+			interface QueryProducer {
+				<R> HibernateQuery<R> createNamedQuery(String name, Class<R> resultClass);
+			}
+			interface EntityManager {
+			    <T> TypedQuery<T> createNamedQuery(String name, Class<T> resultClass);
+			}
+			interface HibernateEntityManager extends EntityManager, QueryProducer {}
+
+			interface Session extends EntityManager, HibernateEntityManager {
+				<T> HibernateQuery<T> createNamedQuery(String name, Class<T> resultType);
+			}
+			public class Repro {
+			    void test(Session session) {
+			        HibernateQuery<Object[]> query = session.createNamedQuery("x", Object[].class);
+			    }
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testIssue5387_tweaked() throws Exception {
+	// + avoid inference problem regarding different return types
+	// + add problematic null annotation so that weakerTypes() has annotations to merge
+	runNegativeTestWithLibs(new String[] {
+			"Repro.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+			interface JavaxQuery {}
+			interface TypedQuery<X> extends JavaxQuery {}
+			interface HibernateQuery<S>  extends TypedQuery<S>{}
+			interface QueryProducer {
+				<R> HibernateQuery<R> createNamedQuery(String name, Class<R> resultClass);
+			}
+			interface EntityManager {
+			    <T> HibernateQuery<T> createNamedQuery(String name, Class<@Nullable T> resultClass);
+			}
+			interface HibernateEntityManager extends EntityManager, QueryProducer {}
+
+			interface Session extends EntityManager, HibernateEntityManager {
+				<T> HibernateQuery<T> createNamedQuery(String name, Class<T> resultType);
+			}
+			public class Repro {
+			    void test(Session session) {
+			        HibernateQuery<Object[]> query = session.createNamedQuery("x", Object[].class);
+			    }
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"""
+		----------
+		1. ERROR in Repro.java (at line 14)
+			<T> HibernateQuery<T> createNamedQuery(String name, Class<T> resultType);
+			                                                    ^^^^^
+		Illegal redefinition of parameter resultType, inherited method from EntityManager declares this parameter as 'Class<@Nullable T>' (mismatching null constraints)
+		----------
+		2. INFO in Repro.java (at line 18)
+			HibernateQuery<Object[]> query = session.createNamedQuery("x", Object[].class);
+			                                                               ^^^^^^^^^^^^^^
+		Unsafe null type conversion (type annotations): The value of type 'Class<Object @NonNull[]>' is made accessible using the less-annotated type 'Class<Object @NonNull[]>'
+		----------
+		""");
+}
+public void testIssue5387_tweaked2() throws Exception {
+	// + avoid inference problem regarding different return types
+	// + add problematic null annotation so that weakerTypes() has annotations to merge
+	// + one more array dimension
+	runNegativeTestWithLibs(new String[] {
+			"Repro.java",
+			"""
+			import org.eclipse.jdt.annotation.*;
+			interface JavaxQuery {}
+			interface TypedQuery<X> extends JavaxQuery {}
+			interface HibernateQuery<S>  extends TypedQuery<S>{}
+			interface QueryProducer {
+				<R> HibernateQuery<R> createNamedQuery(String name, Class<R> resultClass);
+			}
+			interface EntityManager {
+			    <T> HibernateQuery<T> createNamedQuery(String name, Class<@Nullable T> resultClass);
+			}
+			interface HibernateEntityManager extends EntityManager, QueryProducer {}
+
+			interface Session extends EntityManager, HibernateEntityManager {
+				<T> HibernateQuery<T> createNamedQuery(String name, Class<T> resultType);
+			}
+			public class Repro {
+			    void test(Session session, Class<Object[]@NonNull[]> clazz) {
+			        HibernateQuery<Object[][]> query = session.createNamedQuery("x", clazz);
+			    }
+			}
+			"""
+		},
+		getCompilerOptions(),
+		"""
+		----------
+		1. ERROR in Repro.java (at line 14)
+			<T> HibernateQuery<T> createNamedQuery(String name, Class<T> resultType);
+			                                                    ^^^^^
+		Illegal redefinition of parameter resultType, inherited method from EntityManager declares this parameter as 'Class<@Nullable T>' (mismatching null constraints)
+		----------
+		2. WARNING in Repro.java (at line 18)
+			HibernateQuery<Object[][]> query = session.createNamedQuery("x", clazz);
+			                                                                 ^^^^^
+		Null type safety (type annotations): The expression of type 'Class<Object [] @NonNull[]>' needs unchecked conversion to conform to 'Class<Object @Nullable[] @NonNull[]>'
+		----------
+		""");
 }
 }

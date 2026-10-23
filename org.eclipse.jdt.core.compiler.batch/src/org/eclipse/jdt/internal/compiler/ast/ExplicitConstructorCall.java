@@ -45,7 +45,6 @@ import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
-import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.JavaFeature;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -63,12 +62,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 	public final static int Super = 2;
 	public final static int This = 3;
 
-	public VariableBinding[][] implicitArguments;
-
 	// TODO Remove once DOMParser is activated
 	public int typeArgumentsSourceStart;
-
-	public boolean firstStatement = true; // Allow Statements before super
 
 	public ExplicitConstructorCall(int accessMode) {
 		this.accessMode = accessMode;
@@ -128,20 +123,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		}
 	}
 
-	public boolean hasArgumentNeedingAnalysis() {
-		if (this.arguments != null) {
-			for (Expression arg : this.arguments) {
-				if (arg.constant != Constant.NotAConstant)
-					continue;
-				if (arg instanceof SingleNameReference ref
-						&& ref.binding != null && ref.binding.isParameter())
-					continue;
-				return true;
-			}
-		}
-		return false;
-	}
-
 	/**
 	 * Constructor call code generation
 	 *
@@ -176,7 +157,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					(this.bits & ASTNode.DiscardEnclosingInstance) != 0 ? null : this.qualification,
 					this);
 			}
-			// generate arguments
+
 			generateArguments(this.binding, this.arguments, currentScope, codeStream);
 
 			// handling innerclass instance allocation - outer local arguments
@@ -213,6 +194,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		return this.genericTypeArguments;
 	}
 
+	@Override
 	public boolean isImplicitSuper() {
 		return (this.accessMode == ExplicitConstructorCall.ImplicitSuper);
 	}
@@ -313,8 +295,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 
 	@Override
 	public void resolve(BlockScope scope) {
-		// the return type should be void for a constructor.
-		// the test is made into getConstructor
 
 		MethodScope methodScope = scope.methodScope();
 		try {
@@ -322,10 +302,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			if ((scope.enclosingSourceType().isRecord()
 					&& methodDeclaration != null && methodDeclaration.binding != null)) {
 				if (methodDeclaration.binding.isCanonicalConstructor()) {
-					if (!checkAndFlagExplicitConstructorCallInCanonicalConstructor(methodDeclaration, scope))
+					if (!forbidConstructorChainingInCanonicalConstructor(methodDeclaration, scope))
 						return;
 				} else if (this.accessMode != This) {
-					// trying to invoke super() in a non-canonical record constructor
 					ASTNode location = isImplicitSuper() ? methodScope.referenceMethod() : this;
 					scope.problemReporter().missingThisCallInNonCanonicalConstructor(location);
 					return;
@@ -338,9 +317,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				// is it the first constructor call?
 				ConstructorDeclaration constructorDeclaration = (ConstructorDeclaration) methodDeclaration;
 				ExplicitConstructorCall constructorCall = constructorDeclaration.constructorCall;
-				if (constructorCall == null) {
-					constructorCall = constructorDeclaration.getLateConstructorCall(); // JEP 513
-				}
 				if (constructorCall != null && constructorCall != this) {
 					hasError = true;
 				}
@@ -493,7 +469,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					}
 					return;
 				}
-			} else if (receiverType.erasure().id == TypeIds.T_JavaLangEnum) {
+			} else if (receiverType != null && receiverType.erasure().id == TypeIds.T_JavaLangEnum) {
 				// TODO (philippe) get rid of once well-known binding is available
 				argumentTypes = new TypeBinding[] { scope.getJavaLangString(), TypeBinding.INT };
 			}
@@ -529,7 +505,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					return;
 				if (this.accessMode == ExplicitConstructorCall.ImplicitSuper && methodDeclaration.statements != null) {
 					for (Statement statement : methodDeclaration.statements) {
-						if (statement instanceof ExplicitConstructorCall
+						if (statement != this && statement instanceof ExplicitConstructorCall
 								&& !JavaFeature.FLEXIBLE_CONSTRUCTOR_BODIES.isSupported(scope.compilerOptions()))
 							return; // don't blame the implicit call, we have an explicit call that is illegal
 					}
@@ -539,10 +515,12 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 		} finally {
 			methodScope.isConstructorCall = false;
 			methodScope.leaveEarlyConstructionContext();
+			if (methodScope.referenceContext instanceof ConstructorDeclaration constructor)
+				constructor.computePrologueLocalsSize();
 		}
 	}
 
-	private boolean checkAndFlagExplicitConstructorCallInCanonicalConstructor(AbstractMethodDeclaration methodDecl, BlockScope scope) {
+	private boolean forbidConstructorChainingInCanonicalConstructor(AbstractMethodDeclaration methodDecl, BlockScope scope) {
 
 		if (methodDecl.binding == null || methodDecl.binding.declaringClass == null
 				|| !methodDecl.binding.declaringClass.isRecord())

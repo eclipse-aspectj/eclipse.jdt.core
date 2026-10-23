@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.Test;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
@@ -42,6 +44,7 @@ import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.TypeReferenceMatch;
 import org.eclipse.jdt.core.tests.model.ClasspathTests.TestContainer;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.JavaElement;
 import org.eclipse.jdt.internal.core.LocalVariable;
@@ -4694,6 +4697,7 @@ public void testBug545293() throws Exception {
 	}
 }
 
+@SuppressWarnings("unused")
 public void testBug547051_modular() throws Exception {
 	try {
 		IJavaProject project = createJava9Project("P");
@@ -4715,6 +4719,7 @@ public void testBug547051_modular() throws Exception {
 	}
 }
 
+@SuppressWarnings("unused")
 public void testBug547051_modular2() throws Exception {
 	if (!isJRE9) {
 		return;
@@ -4738,6 +4743,7 @@ public void testBug547051_modular2() throws Exception {
 		deleteProject("P");
 	}
 }
+@SuppressWarnings("unused")
 public void testBug547051_modular3() throws Exception {
 	if(!isJRE9) {
 		return;
@@ -5048,6 +5054,215 @@ public void testNoMatchesInModularJarOnClasspathBugGh935() throws Exception {
 				"libGh935.jar void test.Test2.testCaller() EXACT_MATCH");
 	} finally {
 		deleteProject(projectName);
+	}
+}
+
+/*
+ * Test for call hierarchy of a method with an argument type coming from a container,
+ * where the containers library entry is not modular.
+ * Furthermore a project exports the same library, also with a non-modular entry.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5361
+ */
+public void testModuleJarOnContainerNonModularEntrySearchBugGh5361() throws Exception {
+	doTestModuleJarOnContainerSearchBugGh5361("gh5361ModuleJarOnContainerNonModularSearchTest", null);
+}
+
+/*
+ * Test for call hierarchy of a method with an argument type coming from a container,
+ * where the containers library entry is modular.
+ * Furthermore a project exports the same library, also with a modular entry.
+ * https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5361
+ */
+public void testModuleJarOnContainerModularEntrySearchBugGh5361() throws Exception {
+	doTestModuleJarOnContainerSearchBugGh5361("gh5361ModuleJarOnContainerModularSearchTest", moduleAttribute());
+}
+
+private void doTestModuleJarOnContainerSearchBugGh5361(String name, IClasspathAttribute[] attributes) throws Exception {
+	String p1Name = name + "_Declaration";
+	String p2Name = name + "_Export";
+	String p3Name = name + "_Caller";
+	try {
+		IJavaProject p1 = createJava9Project(p1Name);
+		IJavaProject p2 = createJava9Project(p2Name);
+		IJavaProject p3 = createJava9Project(p3Name);
+
+		addClasspathEntry(p1, JavaCore.newProjectEntry(p2.getPath()));
+
+		IPath p1Jar = p1.getProject().getLocation().append("dummy.jar");
+		Util.createJar(
+			new String[] {
+					"module-info.java",
+					"""
+					module dummymodule {
+						exports dummy;
+					}
+					""",
+					"dummy/Dummy.java",
+					"""
+					package dummy;
+					public class Dummy {
+						public Dummy() {}
+					}
+					""",
+			},
+			p1Jar.toOSString(),
+			CompilerOptions.VERSION_9
+		);
+		IPath p2Jar = p2.getProject().getLocation().append("dummy.jar");
+		IFile jarFile = p1.getProject().getFile("dummy.jar");
+		jarFile.refreshLocal(IResource.DEPTH_ZERO, null);
+		jarFile.copy(p2.getProject().getFile("dummy.jar").getFullPath(), true, null);
+
+		addClasspathEntry(p1, JavaCore.newContainerEntry(new Path("container/p1"), ClasspathEntry.NO_ACCESS_RULES, new IClasspathAttribute[0], false));
+		JavaCore.setClasspathContainer(
+				new Path("container/p1"),
+				new IJavaProject[] { p1 },
+				new IClasspathContainer[] {
+					new TestContainer(
+						new Path("container/p1"),
+						new IClasspathEntry[] {
+								JavaCore.newLibraryEntry(p1Jar, null, null, null, attributes, false),
+						})
+				},
+				null);
+		String p1Package = "/" + p1Name + "/src/p1";
+		createFolder(p1Package);
+		String p1Source =
+				"""
+				package p1;
+				public class Declaration {
+				    public void someMethod(dummy.Dummy dummy) {}
+				};
+				""";
+		createFile(p1Package + "/Declaration.java", p1Source);
+
+		addLibraryEntry(p1, p2Jar, null, null, null, null, attributes, true);
+
+		addClasspathEntry(p3, JavaCore.newContainerEntry(new Path("container/p3"), ClasspathEntry.NO_ACCESS_RULES, new IClasspathAttribute[0], false));
+		JavaCore.setClasspathContainer(
+				new Path("container/p3"),
+				new IJavaProject[] { p3 },
+				new IClasspathContainer[] {
+					new TestContainer(
+						new Path("container/p3"),
+						new IClasspathEntry[] {
+								JavaCore.newLibraryEntry(p1Jar, null, null, null, attributes, false),
+								JavaCore.newProjectEntry(p1.getPath()),
+						})
+				},
+				null);
+		String p3Package = "/" + p3Name + "/src/p3";
+		createFolder(p3Package);
+		String p3Source =
+				"""
+				package p3;
+				public class Caller {
+				    public void call() {
+                        new p1.Declaration().someMethod(new dummy.Dummy());
+				    }
+				};
+				""";
+		createFile(p3Package + "/Caller.java", p3Source);
+
+		buildAndExpectNoProblems(p2, p1, p3);
+
+		IType type = p1.findType("p1.Declaration");
+		IMethod method = type.getMethod("someMethod", new String[] { "Qdummy.Dummy;" });
+		search(method, REFERENCES, EXACT_RULE, SearchEngine.createWorkspaceScope(), this.resultCollector);
+		assertSearchResults("src/p3/Caller.java void p3.Caller.call() [someMethod(new dummy.Dummy())] EXACT_MATCH");
+	} finally {
+		deleteProject(p1Name);
+		deleteProject(p2Name);
+		deleteProject(p3Name);
+	}
+}
+/**
+ * The lambda expressions of a modular project are found, whether their functional interface is declared in the
+ * same package, in another package of the module, or in a module that it requires.
+ *
+ * @see "https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5498"
+ */
+public void testGH5498() throws Exception {
+	try {
+		IJavaProject required = createJava9Project("required", "17");
+		createFolder("/required/src/api");
+		createFile("/required/src/module-info.java",
+				"""
+				module required {
+					exports api;
+				}
+				""");
+		createFile("/required/src/api/Required.java",
+				"""
+				package api;
+				public interface Required {
+					void required(String s);
+				}
+				""");
+		IJavaProject project = createJava9Project("P", "17");
+		addClasspathEntry(project, JavaCore.newProjectEntry(required.getPath(), null, false,
+				new IClasspathAttribute[] { JavaCore.newClasspathAttribute(IClasspathAttribute.MODULE, "true") }, false));
+		createFolder("/P/src/p");
+		createFolder("/P/src/internal");
+		createFile("/P/src/module-info.java",
+				"""
+				module m {
+					requires required;
+					exports p;
+				}
+				""");
+		createFile("/P/src/p/SamePackage.java",
+				"""
+				package p;
+				public interface SamePackage {
+					int samePackage();
+				}
+				""");
+		createFile("/P/src/internal/OtherPackage.java",
+				"""
+				package internal;
+				public interface OtherPackage {
+					void otherPackage(int i);
+				}
+				""");
+		createFile("/P/src/p/X.java",
+				"""
+				package p;
+				import api.Required;
+				import internal.OtherPackage;
+				public class X {
+					SamePackage field = () -> 42;
+					void test() {
+						OtherPackage other = i -> {};
+						Required required = s -> other.otherPackage(s.length());
+					}
+				}
+				""");
+		waitUntilIndexesReady();
+		IJavaSearchScope scope = SearchEngine.createJavaSearchScope(new IJavaElement[] { project, required });
+
+		IMethod method = project.findType("p.SamePackage").getMethod("samePackage", new String[0]);
+		search(method, DECLARATIONS, EXACT_RULE, scope, this.resultCollector);
+		assertSearchResults(
+				"src/p/SamePackage.java int p.SamePackage.samePackage() [samePackage] EXACT_MATCH\n" +
+				"src/p/X.java int p.X.field:<lambda #1>.samePackage() [() ->] EXACT_MATCH");
+
+		this.resultCollector.clear();
+		method = project.findType("internal.OtherPackage").getMethod("otherPackage", new String[] { "I" });
+		search(method, DECLARATIONS, EXACT_RULE, scope, this.resultCollector);
+		assertSearchResults(
+				"src/internal/OtherPackage.java void internal.OtherPackage.otherPackage(int) [otherPackage] EXACT_MATCH\n" +
+				"src/p/X.java void void p.X.test():<lambda #1>.otherPackage(int) [i ->] EXACT_MATCH");
+
+		this.resultCollector.clear();
+		method = required.findType("api.Required").getMethod("required", new String[] { "QString;" });
+		search(method, DECLARATIONS, EXACT_RULE, scope, this.resultCollector);
+		assertSearchResults(
+				"src/p/X.java void void p.X.test():<lambda #1>.required(java.lang.String) [s ->] EXACT_MATCH\n" +
+				"src/api/Required.java void api.Required.required(String) [required] EXACT_MATCH");
+	} finally {
+		deleteProject("P");
+		deleteProject("required");
 	}
 }
 // Add more tests here

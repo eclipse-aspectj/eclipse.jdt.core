@@ -260,10 +260,12 @@ public static Test suite() {
 			ImplicitlyDeclaredClassesTest.class,
 		},
 		{ // 26
+			Unicode17Test.class,
+		},
+		{ // 26
 			PreviewFlagTest.class,
 			PrimitiveInPatternsTest.class,
 			PrimitiveInPatternsTestSH.class,
-			Unicode17Test.class,
 		}
 	};
 	assert sinceTests.length == AbstractCompilerTest.NUM_VERSIONS - 1 : "sinceTests should be aligned with NUM_VERSIONS";
@@ -272,6 +274,7 @@ public static Test suite() {
 	all.addTest(new TestSuite(StandAloneASTParserTest.class));
 	all.addTest(new TestSuite(HashtableOfObjectTest.class));
 	all.addTest(new TestSuite(JrtUtilTest.class));
+	all.addTest(new TestSuite(org.eclipse.jdt.core.tests.compiler.util.UtilTest.class));
 
 	int possibleComplianceLevels = AbstractCompilerTest.getPossibleComplianceLevels();
 

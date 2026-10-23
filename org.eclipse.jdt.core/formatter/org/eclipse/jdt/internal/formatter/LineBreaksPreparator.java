@@ -421,6 +421,8 @@ public class LineBreaksPreparator extends ASTVisitor {
 				openBraceToken.breakAfter();
 			if (this.options.insert_new_line_before_closing_brace_in_array_initializer)
 				closeBraceToken.breakBefore();
+			else if (this.options.insert_new_line_before_closing_brace_in_array_initializer_on_wrap)
+				closeBraceToken.setNextLineOnWrap();
 		}
 		return true;
 	}
@@ -711,9 +713,22 @@ public class LineBreaksPreparator extends ASTVisitor {
 
 	private void handleBracedCode(ASTNode node, ASTNode nodeBeforeOpenBrace, String bracePosition, boolean indentBody,
 			int blankLinesAfterOpeningBrace, int blankLinesBeforeClosingBrace) {
-		int openBraceIndex = nodeBeforeOpenBrace == null
-				? this.tm.firstIndexIn(node, TokenNameLBRACE)
-				: this.tm.firstIndexAfter(nodeBeforeOpenBrace, TokenNameLBRACE);
+		int openBraceIndex;
+
+		//If node is a RecordDeclaration, we need to get the opening brace position in a different way
+		//since differently from a MethodDEclaration, where the Block is passed, with records we don't have this information.
+		//and there could be some edge cases where we have annotations on record parameters, with array initializer
+		//that if not handled correctly will result in the wrong openBraceIndex/Position returned.
+		//Mode details are on the githu8b issue: https://github.com/eclipse-jdt/eclipse.jdt.core/issues/5239
+		if (node instanceof RecordDeclaration) {
+			List<SingleVariableDeclaration> declarations = ((RecordDeclaration)node).recordComponents();
+			ASTNode nodeToUse = declarations.isEmpty() ? nodeBeforeOpenBrace : declarations.get(declarations.size() - 1);
+			openBraceIndex = this.tm.firstIndexAfter(nodeToUse, TokenNameLBRACE);
+		} else {
+			openBraceIndex = nodeBeforeOpenBrace == null
+					? this.tm.firstIndexIn(node, TokenNameLBRACE)
+					: this.tm.firstIndexAfter(nodeBeforeOpenBrace, TokenNameLBRACE);
+		}
 		int closeBraceIndex = this.tm.lastIndexIn(node, TokenNameRBRACE);
 		Token openBraceToken = this.tm.get(openBraceIndex);
 		Token closeBraceToken = this.tm.get(closeBraceIndex);
