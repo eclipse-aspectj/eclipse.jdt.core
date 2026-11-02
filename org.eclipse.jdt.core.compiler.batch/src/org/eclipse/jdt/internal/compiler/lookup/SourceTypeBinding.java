@@ -2643,8 +2643,26 @@ private void setImplicitPermittedType(SourceTypeBinding permittedType) {
 		if (sz == 0) {
 			typesPermitted = new ReferenceBinding[] { permittedType };
 		} else {
-			System.arraycopy(typesPermitted, 0, typesPermitted = new ReferenceBinding[sz + 1], 0, sz);
-			typesPermitted[sz] = permittedType;
+			// AspectJ Extension - replace this with an inserter that takes into account source ordering - see https://github.com/eclipse-aspectj/aspectj/issues/383
+			// should be fed into ECJ
+			// System.arraycopy(typesPermitted, 0, typesPermitted = new ReferenceBinding[sz + 1], 0, sz);
+			// typesPermitted[sz] = permittedType;
+			// Member types are connected in a fixed order (sorted by name), but anonymous types (the bodies of enum constants) are
+        	// bound when the constants are resolved, which another compilation unit referring to the enum can cause to happen
+        	// in a different order. Keep the anonymous ones in source order.
+            int at = sz;
+			if (permittedType.isAnonymousType()) {
+   	        	while (at > 0 && typesPermitted[at - 1] instanceof SourceTypeBinding previous && previous.isAnonymousType()
+				 	&& previous.scope != null
+            	    && previous.scope.referenceContext.sourceStart > permittedType.scope.referenceContext.sourceStart)
+            	    at--;
+			}
+            ReferenceBinding[] result = new ReferenceBinding[sz + 1];
+            System.arraycopy(typesPermitted, 0, result, 0, at);
+            result[at] = permittedType;
+	        System.arraycopy(typesPermitted, at, result, at + 1, sz - at);
+            typesPermitted = result;
+			// Aspectj Extension end
 		}
 		this.setPermittedTypes(typesPermitted);
 	} else if (sz == 0) {

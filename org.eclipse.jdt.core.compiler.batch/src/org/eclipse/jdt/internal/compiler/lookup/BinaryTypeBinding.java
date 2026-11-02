@@ -2751,6 +2751,16 @@ MethodBinding[] unResolvedMethods() { // for the MethodVerifier so it doesn't re
 	if (!isPrototype())
 		return this.prototype.unResolvedMethods();
 
+	// AspectJ Extension - should be fed upstream to ECJ - see https://github.com/eclipse-aspectj/aspectj/issues/383
+	// lazily sort methods, as every other accessor does, so the order seen by the method verifier does not depend on
+	// whether an earlier lookup happened to sort them already
+	if ((this.tagBits & TagBits.AreMethodsSorted) == 0) {
+		int length = this.methods.length;
+		if (length > 1) ReferenceBinding.sortMethods(this.methods, 0, length);
+		this.tagBits |= TagBits.AreMethodsSorted;
+	}
+	// AspectJ Extension end
+
 	return this.methods;
 }
 
