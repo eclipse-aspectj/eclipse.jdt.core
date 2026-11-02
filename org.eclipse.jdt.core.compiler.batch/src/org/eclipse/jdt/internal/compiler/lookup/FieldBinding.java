@@ -419,7 +419,9 @@ public FieldDeclaration sourceField() {
 
 	// AspectJ Extension
 	// guard due to pr154923 - an npe occurs that is probably disguising an underlying problem that will be reported properly
-	if (sourceType.scope==null || sourceType.scope.referenceContext==null || sourceType.scope.referenceContext.methods==null) return null;
+	// There is deliberately no check of 'methods' here (that is for MethodBinding.sourceMethod): an anonymous class may declare
+	// fields and no methods, and the callers do not expect null for such a field - see https://github.com/eclipse-aspectj/aspectj/issues/353
+	if (sourceType.scope==null || sourceType.scope.referenceContext==null) return null;
 	// End AspectJ Extension
 	FieldDeclaration[] fields = sourceType.scope.referenceContext.fields;
 	if (fields != null) {
