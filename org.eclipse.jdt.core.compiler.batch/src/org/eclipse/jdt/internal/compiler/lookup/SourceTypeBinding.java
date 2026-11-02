@@ -2683,7 +2683,8 @@ public ReferenceBinding setSuperClass(ReferenceBinding superClass) {
 			annotatedType.superclass = superClass;
 		}
 	}
-	if (superClass != null && superClass.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope.referenceContext.permittedTypes == null) {
+	// AspectJ Extension - BinaryTypeBinding is a SourceTypeBinding in the AspectJ fork, but has no scope - see https://github.com/eclipse-aspectj/aspectj/issues/383
+	if (superClass != null && superClass.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope != null && sourceSuperType.scope.referenceContext.permittedTypes == null) {
 		sourceSuperType.setImplicitPermittedType(this);
 		if (this.isAnonymousType() && superClass.isEnum())
 			this.modifiers |= ClassFileConstants.AccFinal;
@@ -2706,7 +2707,8 @@ public ReferenceBinding [] setSuperInterfaces(ReferenceBinding [] superInterface
 	}
 	for (int i = 0, length = superInterfaces == null ? 0 : superInterfaces.length; i < length; i++) {
 		ReferenceBinding superInterface = superInterfaces[i];
-		if (superInterface.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope.referenceContext.permittedTypes == null) {
+		// AspectJ Extension - as above, a binary sealed interface has no scope
+		if (superInterface.actualType() instanceof SourceTypeBinding sourceSuperType && sourceSuperType.isSealed() && sourceSuperType.scope != null && sourceSuperType.scope.referenceContext.permittedTypes == null) {
 			sourceSuperType.setImplicitPermittedType(this);
 		}
 	}
