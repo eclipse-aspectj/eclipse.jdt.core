@@ -133,7 +133,7 @@
 
   <groupId>org.aspectj</groupId>
   <artifactId>org.eclipse.jdt.core</artifactId>
-  <version>1.9.27.1</version>
+  <version>1.9.27.2-SNAPSHOT</version>
 
   <name>JDT Core for AspectJ</name>
   <description>
